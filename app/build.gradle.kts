@@ -23,9 +23,13 @@ android {
     }
 
     buildTypes {
-        getByName("release") {
+        release {
             isMinifyEnabled = true
             isShrinkResources = true
+
+            optimization {
+                enable = false
+            }
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -44,14 +48,6 @@ android {
 
         create("prod") {
             dimension = "environment"
-        }
-    }
-
-    buildTypes {
-        release {
-            optimization {
-                enable = false
-            }
         }
     }
 

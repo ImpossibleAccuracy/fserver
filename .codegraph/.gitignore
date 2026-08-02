@@ -8,6 +8,7 @@
 
 # Cache
 cache/
+daemon.pid
 
 # Logs
 *.log
