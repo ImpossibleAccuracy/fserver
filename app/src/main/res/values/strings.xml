@@ -1,3 +1,135 @@
 <resources>
-    <string name="app_name">FS server</string>
+    <!-- Product name is still an open question in the design; it stays untranslated. -->
+    <string name="app_name" translatable="false">FS server</string>
+
+    <!-- Common actions -->
+    <string name="action_next">Next</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_start">Get started</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_scan_qr">Scan QR code</string>
+    <string name="action_enter_address">Enter address manually</string>
+    <string name="action_back">Back</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_search">Search</string>
+    <string name="action_more">More</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_accept">Accept</string>
+    <string name="action_decline">Decline</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_illustration_devices">illustration: two devices</string>
+    <string name="onboarding_title_purpose">Your files on every device</string>
+    <string name="onboarding_body_purpose">The app finds your computer on the same network and transfers files directly, without a cloud. The connection is always encrypted.</string>
+    <string name="onboarding_illustration_permissions">illustration: network permission</string>
+    <string name="onboarding_title_permissions">Access to the local network</string>
+    <string name="onboarding_body_permissions">Android asks for permission to see devices on your Wi-Fi. Without it the app cannot find your computer.</string>
+    <string name="onboarding_illustration_connect">illustration: code on the server screen</string>
+    <string name="onboarding_title_connect">Connect your computer</string>
+    <string name="onboarding_body_connect">Start the server on your PC or NAS and scan the code from its screen — or pick the device from the list the app has found.</string>
+
+    <!-- Device discovery -->
+    <string name="discovery_title">Connection</string>
+    <string name="discovery_network_summary">Wi-Fi «%1$s» · %2$d found</string>
+    <string name="discovery_searching">Still searching…</string>
+    <string name="discovery_not_listed">Device not in the list?</string>
+    <string name="device_status_online">Online</string>
+    <string name="device_status_offline">Offline</string>
+    <string name="device_last_seen">last seen %1$s ago</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Confirm the device</string>
+    <string name="pairing_kicker_server">Server</string>
+    <string name="pairing_fingerprint_label">Server key fingerprint</string>
+    <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
+    <string name="pairing_remember_device">Remember the device and do not ask again</string>
+    <string name="pairing_confirm">Fingerprints match — connect</string>
+
+    <!-- QR scanner -->
+    <string name="qr_title">Scan the code</string>
+    <string name="qr_camera_placeholder">camera stream</string>
+    <string name="qr_hint">The code on the server screen carries the address, the access method and the key fingerprint — no manual confirmation needed.</string>
+
+    <!-- Server profile -->
+    <string name="profile_title">Connection profile</string>
+    <string name="profile_kicker_from_code">From the code</string>
+    <string name="profile_address">address · %1$s</string>
+    <string name="profile_access_password">access · by password</string>
+    <string name="profile_fingerprint_verified">fingerprint ✓ verified automatically</string>
+    <string name="profile_password_label">Access password</string>
+    <string name="profile_expiry_note">The profile is valid for 30 min from the moment the code was shown. Server settings apply as they are.</string>
+    <string name="profile_apply">Apply and connect</string>
+    <string name="profile_edit_manually">Edit manually</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_files">Files</string>
+    <string name="tab_transfers">Transfers</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Files browser -->
+    <string name="files_breadcrumb_items">%1$s · %2$d items</string>
+    <plurals name="files_folder_count">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="files_send_file">Send file</string>
+    <string name="files_view_mode">View mode</string>
+    <string name="files_view_list">List</string>
+    <string name="files_view_grid">Grid</string>
+    <string name="files_view_tree">Tree</string>
+    <string name="files_state_remote">On the server, tap to download</string>
+    <string name="files_state_local">Already on this device</string>
+
+    <!-- Transfers -->
+    <string name="transfers_title">Transfers</string>
+    <string name="transfer_percent">%1$d %%</string>
+    <string name="transfer_progress_meta">%1$s of %2$s · %3$s · ~%4$s</string>
+    <string name="transfer_queued">Queued</string>
+    <string name="transfer_paused">Paused</string>
+    <string name="transfer_paused_meta">%1$s of %2$s · paused</string>
+    <string name="transfer_interrupted">Interrupted</string>
+    <string name="transfer_interrupted_meta">Stopped at %1$d %% · connection lost</string>
+    <string name="transfer_action_pause">Pause</string>
+    <string name="transfer_action_resume">Resume</string>
+    <string name="transfer_hash_verified">✓ hash verified</string>
+
+    <!-- Incoming files -->
+    <plurals name="incoming_title">
+        <item quantity="one">Accept %1$d file?</item>
+        <item quantity="other">Accept %1$d files?</item>
+    </plurals>
+    <string name="incoming_from">From %1$s · %2$s</string>
+    <string name="incoming_save_to">Save to: %1$s</string>
+    <string name="incoming_demo_trigger">Show an incoming transfer request</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_connection">Connection</string>
+    <string name="settings_devices">Devices</string>
+    <string name="settings_wifi_only">Transfer over Wi-Fi only</string>
+    <string name="settings_compress">Compress on the fly</string>
+    <string name="settings_section_security">Security</string>
+    <string name="settings_storage_encryption">Storage encryption</string>
+    <string name="settings_storage_encryption_desc">On. The keys are held by the server — protection against a stolen drive, not against the server.</string>
+    <string name="settings_value_on">On</string>
+    <string name="settings_trusted_fingerprints">Trusted key fingerprints</string>
+    <string name="settings_section_other">Other</string>
+    <string name="settings_download_folder">Download folder</string>
+    <string name="settings_diagnostics">Connection diagnostics</string>
+
+    <!-- Diagnostics -->
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_wifi">Wi-Fi is active</string>
+    <string name="diagnostics_wifi_value">Home_5G · 192.168.1.37</string>
+    <string name="diagnostics_permission">Local network permission</string>
+    <string name="diagnostics_permission_value">granted</string>
+    <string name="diagnostics_mdns">mDNS discovery</string>
+    <string name="diagnostics_mdns_value">no responses — the router may be blocking multicast</string>
+    <string name="diagnostics_tls">TLS handshake</string>
+    <string name="diagnostics_tls_value">14 ms · fingerprint matched</string>
+    <string name="diagnostics_protocol">Protocol version</string>
+    <string name="diagnostics_protocol_value">client v1.2 ↔ server v1.0 — running v1.0</string>
+    <string name="diagnostics_hint">Device not found automatically? Connect by address or by code — discovery is not needed for that.</string>
+    <string name="diagnostics_recheck">Check again</string>
+    <string name="diagnostics_copy_report">Copy report</string>
 </resources>
