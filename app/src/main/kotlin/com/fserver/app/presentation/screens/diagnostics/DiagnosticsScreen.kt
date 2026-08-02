@@ -24,6 +24,7 @@ import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkStatusRow
@@ -56,7 +57,7 @@ private fun DiagnosticsScreen(
 ) {
     val context = LocalContext.current
 
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(

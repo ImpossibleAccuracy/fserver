@@ -12,7 +12,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +28,7 @@ import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPageIndicator
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.screens.onboarding.model.OnboardingIntent
 import com.fserver.app.presentation.screens.onboarding.model.OnboardingState
@@ -89,7 +89,7 @@ private fun OnboardingScreen(
 ) {
     val scope = rememberCoroutineScope()
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+    DkScaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

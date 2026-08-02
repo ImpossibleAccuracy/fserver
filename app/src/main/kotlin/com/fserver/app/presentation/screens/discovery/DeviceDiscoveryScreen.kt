@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,10 +24,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkMonoCaption
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
@@ -37,7 +38,6 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.DeviceUi
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -75,7 +75,7 @@ private fun DeviceDiscoveryScreen(
     navigateToQrScan: () -> Unit,
     navigateToManualAddress: () -> Unit,
 ) {
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(

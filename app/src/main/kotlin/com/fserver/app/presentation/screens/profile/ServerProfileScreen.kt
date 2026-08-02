@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,17 +14,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardTitle
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.screens.profile.model.ServerProfileIntent
 import com.fserver.app.presentation.screens.profile.model.ServerProfileState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -64,7 +64,7 @@ private fun ServerProfileScreen(
     navigateToManualEditor: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(

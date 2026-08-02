@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardMeta
@@ -28,9 +28,9 @@ import com.fserver.app.presentation.designkit.DkCardTitle
 import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -69,7 +69,7 @@ private fun PairingScreen(
     navigateToFiles: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(

@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,9 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardMeta
 import com.fserver.app.presentation.designkit.DkProgressBar
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.DkTagStyle
@@ -34,7 +35,6 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.TransferUi
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.screens.transfers.model.TransfersIntent
 import com.fserver.app.presentation.screens.transfers.model.TransfersState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -59,7 +59,7 @@ private fun TransfersScreen(
     state: TransfersState,
     onIntent: (TransfersIntent) -> Unit,
 ) {
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
@@ -132,7 +132,10 @@ private fun RunningTransferCard(transfer: TransferUi.Running, onPause: () -> Uni
                 transfer.etaLabel,
             ),
             trailing = {
-                TransferAction(text = stringResource(R.string.transfer_action_pause), onClick = onPause)
+                TransferAction(
+                    text = stringResource(R.string.transfer_action_pause),
+                    onClick = onPause
+                )
             },
         )
     }

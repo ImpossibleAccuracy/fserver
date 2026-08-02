@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -41,11 +40,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.data.SampleData
+import com.fserver.app.presentation.composable.DkFab
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkMediaTile
 import com.fserver.app.presentation.designkit.DkMonoCaption
-import com.fserver.app.presentation.designkit.DkPillButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSegmentedControl
 import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
@@ -57,7 +58,6 @@ import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.FilesViewModeUi
 import com.fserver.app.presentation.model.TreeNodeUi
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.screens.files.composable.IncomingFilesSheet
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
@@ -90,7 +90,7 @@ private fun FilesScreen(
     onIntent: (FilesIntent) -> Unit,
     navigateToTransfers: () -> Unit,
 ) {
-    Scaffold(
+    DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
@@ -114,10 +114,10 @@ private fun FilesScreen(
             )
         },
         floatingActionButton = {
-            DkPillButton(
-                text = stringResource(R.string.files_send_file),
-                onClick = { onIntent(FilesIntent.SendFileClicked) },
+            DkFab(
                 icon = Icons.Default.Add,
+                label = stringResource(R.string.files_send_file),
+                onClick = { onIntent(FilesIntent.SendFileClicked) },
             )
         },
     ) { innerPadding ->
