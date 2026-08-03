@@ -6,7 +6,7 @@ Guidance for Claude Code (claude.ai/code) working in this repo.
 
 **Android half** of cross-platform file-exchange system (sync / host / offload between user devices, over LAN and via public server). Server and other clients live elsewhere.
 
-Design docs live in `docs/`, in Russian. Use the **`project-docs` skill** to navigate them — it has the spec section map and the RU→EN glossary. English grep over `docs/` silently finds nothing.
+Design docs live in `../../../docs/`, in Russian. Use the **`project-docs` skill** to navigate them — it has the spec section map and the RU→EN glossary. English grep over `../../../docs/` silently finds nothing.
 
 Project is **early-stage** now.
 
