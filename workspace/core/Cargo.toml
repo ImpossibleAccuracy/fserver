@@ -2,5 +2,23 @@
 name = "network-core"
 version = "0.1.0"
 edition = "2024"
+default-run = "network-core"
+
+[lib]
+name = "network_core"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[[bin]]
+name = "network-core"
+path = "src/main.rs"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
+[features]
+cli = ["uniffi/cli"]
 
 [dependencies]
+uniffi = { version = "0.28", features = ["tokio"] }

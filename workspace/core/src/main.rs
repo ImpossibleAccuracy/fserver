@@ -1,5 +1,5 @@
+use network_core::{MathOperation, calc};
 use std::io;
-mod calc;
 
 fn main() {
     println!("Hi! This is calculator CLI tool.");
@@ -10,12 +10,12 @@ fn main() {
     let operator = operator.trim();
 
     let typed_operator = match operator {
-        "+" => calc::MathOperation::Plus,
-        "-" => calc::MathOperation::Minus,
+        "+" => MathOperation::Plus,
+        "-" => MathOperation::Minus,
         _ => panic!("Invalid operation!"),
     };
 
-    let operation_result = calc::calc(num1, num2, typed_operator);
+    let operation_result = calc(num1, num2, typed_operator);
 
     println!("{} {} {} = {}", num1, operator, num2, operation_result)
 }

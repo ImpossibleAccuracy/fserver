@@ -24,3 +24,7 @@ Project root logic. Pure Rust, no platform code.
 - Engine interfaces stay replaceable — MVP does full-set comparison + a local index at ~1000 files; delta sync must be swappable in later without a rewrite.
 
 Consumed by [`../UniFFI`](../UniFFI/README.md); everything else consumes it through that.
+
+## Generating bindings
+
+See [`docs/bindings.md`](docs/bindings.md) for instructions on generating bindings for supported platforms.

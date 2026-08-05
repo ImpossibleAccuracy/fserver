@@ -1,0 +1,6 @@
+[bindings.kotlin]
+package_name = "com.fserver.library.core"
+
+# Emit the Android-flavoured object cleaner (SystemCleaner on API 34+,
+# JNA fallback below) instead of the desktop JVM one.
+android = true
