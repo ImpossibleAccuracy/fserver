@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 
@@ -20,8 +19,9 @@ import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 fun PickedEntryRow(entry: FilesPickerState.PickedEntryUi) {
     DkListRow(
         title = entry.name,
-        subtitle = entry.path,
+        /*subtitle = entry.path,
         subtitleStyle = DkType.mono,
+        subtitleMaxLines = 3,*/
         leading = { DkThumbnail(icon = entry.kind.icon()) },
         trailing = entry.detailLabel?.let { detail -> { DkCaption(text = detail) } },
     )

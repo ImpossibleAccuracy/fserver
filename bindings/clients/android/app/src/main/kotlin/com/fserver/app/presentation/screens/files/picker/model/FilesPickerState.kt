@@ -4,9 +4,16 @@ import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.model.FileKindUi
 
 data class FilesPickerState(
+    val sources: List<PickerSource> = PickerSource.entries.toList(),
     val entries: List<PickedEntryUi> = emptyList(),
 ) {
     val isEmpty: Boolean get() = entries.isEmpty()
+
+    enum class PickerSource {
+        StorageAccessFramework,
+        MediaStore,
+        FullAccess,
+    }
 
     @Immutable
     data class PickedEntryUi(

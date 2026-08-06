@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -51,6 +52,21 @@ fun DkThumbnail(
     }
 }
 
+@Composable
+fun DkIcon(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    size: Dp = 18.dp,
+    contentDescription: String? = null,
+) {
+    Icon(
+        modifier = modifier.size(size),
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
 /**
  * Generic list row: thumbnail (or any leading slot), title, one line of secondary text,
  * trailing slot. Devices, folders and files all reduce to this shape in the deck.
@@ -61,6 +77,7 @@ fun DkListRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     subtitleStyle: TextStyle? = null,
+    subtitleMaxLines: Int = 1,
     dimmed: Boolean = false,
     onClick: (() -> Unit)? = null,
     leading: @Composable (() -> Unit)? = null,
@@ -91,7 +108,7 @@ fun DkListRow(
                     text = subtitle,
                     style = subtitleStyle ?: MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-                    maxLines = 1,
+                    maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

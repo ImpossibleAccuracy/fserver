@@ -99,6 +99,9 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
+    // IO
+    implementation(libs.androidx.documentfile)
+
     // Tests
     testImplementation(libs.junit)
     testImplementation(platform(libs.koin.bom))
