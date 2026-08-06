@@ -15,7 +15,7 @@ fn main() {
         _ => panic!("Invalid operation!"),
     };
 
-    let operation_result = calc(num1, num2, typed_operator);
+    let operation_result = calc(num1, num2, typed_operator, None);
 
     println!("{} {} {} = {}", num1, operator, num2, operation_result)
 }

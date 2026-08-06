@@ -22,8 +22,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.library.core.MathModifier
 import com.fserver.library.core.MathOperation
 import com.fserver.library.core.calc
+
+private val CustomModifiers = mapOf(
+    "None" to null,
+    "+2" to object : MathModifier {
+        override fun modifyResult(num: Float): Float = num + 2
+    },
+    "x2" to object : MathModifier {
+        override fun modifyResult(num: Float): Float = num * 2
+    },
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         var num1 by remember { mutableStateOf("") }
                         var num2 by remember { mutableStateOf("") }
                         var selectedOperation by remember { mutableStateOf<MathOperation?>(null) }
+                        var selectedMathModifier by remember { mutableStateOf<MathModifier?>(null) }
 
                         var result by remember { mutableStateOf<String?>(null) }
 
@@ -72,13 +84,32 @@ class MainActivity : ComponentActivity() {
                                 FilterChip(
                                     selected = selectedOperation == it,
                                     onClick = {
-                                        if (selectedOperation == it) {
-                                            selectedOperation = null
-                                        } else {
-                                            selectedOperation = it
+                                        selectedOperation = when (selectedOperation) {
+                                            it -> null
+                                            else -> it
                                         }
                                     },
                                     label = { Text(text = it.name) },
+                                )
+                            }
+                        }
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            CustomModifiers.forEach { (name, mathModifier) ->
+                                FilterChip(
+                                    selected = selectedMathModifier == mathModifier,
+                                    onClick = {
+                                        selectedMathModifier =
+                                            when (selectedMathModifier) {
+                                                mathModifier -> null
+                                                else -> mathModifier
+                                            }
+                                    },
+                                    label = { Text(text = name) },
                                 )
                             }
                         }
@@ -96,6 +127,7 @@ class MainActivity : ComponentActivity() {
                                         a = num1Float,
                                         b = num2Float,
                                         operation = operation,
+                                        modifier = selectedMathModifier,
                                     )
 
                                     result = "Result is $resultNumber"
