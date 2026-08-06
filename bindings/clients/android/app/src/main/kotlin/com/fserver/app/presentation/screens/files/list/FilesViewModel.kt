@@ -1,9 +1,9 @@
-package com.fserver.app.presentation.screens.files
+package com.fserver.app.presentation.screens.files.list
 
 import androidx.lifecycle.ViewModel
 import com.fserver.app.data.DemoContentSource
-import com.fserver.app.presentation.screens.files.model.FilesIntent
-import com.fserver.app.presentation.screens.files.model.FilesState
+import com.fserver.app.presentation.screens.files.list.model.FilesIntent
+import com.fserver.app.presentation.screens.files.list.model.FilesState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +39,6 @@ class FilesViewModel(
             // Tapping a remote file will queue a download once :core is wired in; folders
             // will descend. The system picker and search are not built yet either.
             is FilesIntent.FileClicked -> Unit
-            FilesIntent.SendFileClicked -> Unit
             FilesIntent.SearchClicked -> Unit
 
             FilesIntent.IncomingDemoRequested ->

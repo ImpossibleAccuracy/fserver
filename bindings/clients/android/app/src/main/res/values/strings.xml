@@ -80,6 +80,17 @@
     <string name="files_state_remote">On the server, tap to download</string>
     <string name="files_state_local">Already on this device</string>
 
+    <!-- Files picker -->
+    <string name="picker_title">Selected items</string>
+    <string name="picker_add">Add</string>
+    <plurals name="picker_selected_count">
+        <item quantity="one">%1$d item selected</item>
+        <item quantity="other">%1$d items selected</item>
+    </plurals>
+    <string name="picker_remove_entry">Remove from selection</string>
+    <string name="picker_empty_title">Nothing selected yet</string>
+    <string name="picker_empty_hint">Add files or folders to send</string>
+
     <!-- Transfers -->
     <string name="transfers_title">Transfers</string>
     <string name="transfer_percent">%1$d %%</string>

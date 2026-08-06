@@ -12,22 +12,32 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface Destination : NavKey {
+    /**
+     * A destination drawn *on top of* the entry below it (bottom sheet, dialog) rather than
+     * replacing it. The screen underneath stays visible, so app chrome — the bottom bar — keeps
+     * behaving as if that screen were still the current one.
+     */
+    @Serializable
+    sealed interface Overlay : Destination
 
-    /** The connection flow: everything before the user has a server to browse. */
+
     @Serializable
     data object Onboarding : Destination
 
-    // Top-level
     @Serializable
-    data object Files : Destination
+    data object Files {
+        @Serializable
+        data object List : Destination
+
+        @Serializable
+        data object Picker : Overlay
+    }
 
     @Serializable
     data object Transfers : Destination
 
     @Serializable
     data object Settings : Destination
-
-    // Other screens
 
     @Serializable
     data object DeviceDiscovery : Destination

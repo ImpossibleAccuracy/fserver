@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -120,6 +121,23 @@ fun DkPillButton(
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
     ) {
         DkButtonContent(text, icon)
+    }
+}
+
+@Composable
+fun DkIconButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    icon: ImageVector,
+) {
+    IconButton(
+        onClick = onClick
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = modifier.size(24.dp),
+        )
     }
 }
 

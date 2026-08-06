@@ -4,7 +4,8 @@ import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
 import com.fserver.app.presentation.screens.discovery.DeviceDiscoveryViewModel
-import com.fserver.app.presentation.screens.files.FilesViewModel
+import com.fserver.app.presentation.screens.files.list.FilesViewModel
+import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
 import com.fserver.app.presentation.screens.profile.ServerProfileViewModel
@@ -29,6 +30,7 @@ val presentationModule = module {
     viewModelOf(::QrScanViewModel)
     viewModelOf(::ServerProfileViewModel)
     viewModelOf(::FilesViewModel)
+    viewModelOf(::FilesPickerViewModel)
     viewModelOf(::TransfersViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::DiagnosticsViewModel)

@@ -15,7 +15,7 @@ enum class TopLevelDestination(
     val icon: ImageVector,
 ) {
     Files(
-        destination = Destination.Files,
+        destination = Destination.Files.List,
         label = R.string.tab_files,
         icon = Icons.Default.Folder,
     ),

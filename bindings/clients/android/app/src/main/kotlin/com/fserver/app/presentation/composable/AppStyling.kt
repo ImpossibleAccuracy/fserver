@@ -44,7 +44,7 @@ fun AppStyling(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            val isOnTopRoute = navigator.isAtSectionRoot && TopLevelDestination.entries.any {
+            val isOnTopRoute = navigator.isSectionRootVisible && TopLevelDestination.entries.any {
                 it.destination == navigator.activeSection
             }
 

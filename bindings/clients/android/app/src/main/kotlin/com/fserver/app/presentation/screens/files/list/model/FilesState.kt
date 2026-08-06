@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files.model
+package com.fserver.app.presentation.screens.files.list.model
 
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.FilesViewModeUi

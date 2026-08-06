@@ -11,7 +11,7 @@ fun EntryProviderScope<Destination>.serverProfileEntry(
         ServerProfileScreen(
             // Applying the profile ends the connection flow; the scan behind it must not be
             // reachable by back once the user is inside the server.
-            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files)) },
+            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files.List)) },
             // TODO: manual address entry has no screen yet.
             navigateToManualEditor = {},
             navigateUp = { navigator.navigateUp() },

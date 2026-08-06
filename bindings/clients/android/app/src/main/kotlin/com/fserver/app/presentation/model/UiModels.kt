@@ -39,6 +39,20 @@ data class FileUi(
     val durationLabel: String? = null,
 )
 
+/**
+ * One entry the user picked from the device to hand to the server — a file or a whole
+ * directory. [path] is what the picker returned; the name is only the display leaf.
+ */
+@Immutable
+data class PickedEntryUi(
+    val id: String,
+    val name: String,
+    val path: String,
+    val kind: FileKindUi,
+    val isDirectory: Boolean,
+    val detailLabel: String? = null,
+)
+
 @Immutable
 data class TreeNodeUi(
     val id: String,

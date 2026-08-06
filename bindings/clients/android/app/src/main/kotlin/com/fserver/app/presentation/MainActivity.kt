@@ -44,9 +44,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             FServerTheme {
-                // FServerApp()
+                 FServerApp()
 
-                Scaffold { paddingValues ->
+                /*Scaffold { paddingValues ->
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
                             Text(text = it)
                         }
                     }
-                }
+                }*/
             }
         }
     }

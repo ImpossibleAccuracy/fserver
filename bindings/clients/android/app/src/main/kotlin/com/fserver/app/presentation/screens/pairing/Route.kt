@@ -12,7 +12,7 @@ fun EntryProviderScope<Destination>.pairingEntry(
             deviceId = key.deviceId,
             // Connecting ends the onboarding flow: the pairing history behind it must not be
             // reachable by back once the user is inside the server.
-            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files)) },
+            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files.List)) },
             navigateUp = { navigator.navigateUp() },
         )
     }

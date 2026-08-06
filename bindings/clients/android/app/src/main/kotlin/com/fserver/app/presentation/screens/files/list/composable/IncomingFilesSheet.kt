@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files.composable
+package com.fserver.app.presentation.screens.files.list.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

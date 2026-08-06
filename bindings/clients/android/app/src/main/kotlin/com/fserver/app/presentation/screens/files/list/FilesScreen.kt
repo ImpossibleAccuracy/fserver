@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files
+package com.fserver.app.presentation.screens.files.list
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,9 +58,9 @@ import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.FilesViewModeUi
 import com.fserver.app.presentation.model.TreeNodeUi
-import com.fserver.app.presentation.screens.files.composable.IncomingFilesSheet
-import com.fserver.app.presentation.screens.files.model.FilesIntent
-import com.fserver.app.presentation.screens.files.model.FilesState
+import com.fserver.app.presentation.screens.files.list.composable.IncomingFilesSheet
+import com.fserver.app.presentation.screens.files.list.model.FilesIntent
+import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -68,13 +68,15 @@ import org.koin.androidx.compose.koinViewModel
 fun FilesScreen(
     viewModel: FilesViewModel = koinViewModel(),
     navigateToTransfers: () -> Unit,
+    navigateToPicker: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    FilesScreen(
+    FilesScreenContent(
         state = state,
         onIntent = viewModel::onIntent,
         navigateToTransfers = navigateToTransfers,
+        navigateToPicker = navigateToPicker,
     )
 }
 
@@ -85,10 +87,11 @@ fun FilesScreen(
  * is already here. That distinction is also where offload placeholders will land later.
  */
 @Composable
-private fun FilesScreen(
+private fun FilesScreenContent(
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
     navigateToTransfers: () -> Unit,
+    navigateToPicker: () -> Unit,
 ) {
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
@@ -117,7 +120,7 @@ private fun FilesScreen(
             DkFab(
                 icon = Icons.Default.Add,
                 label = stringResource(R.string.files_send_file),
-                onClick = { onIntent(FilesIntent.SendFileClicked) },
+                onClick = navigateToPicker,
             )
         },
     ) { innerPadding ->
@@ -328,7 +331,7 @@ private fun FileKindUi.icon(): ImageVector = when (this) {
 @Composable
 private fun FilesScreenPreview() {
     FServerTheme {
-        FilesScreen(
+        FilesScreenContent(
             state = FilesState(
                 serverName = SampleData.CURRENT_SERVER,
                 breadcrumb = SampleData.BREADCRUMB,
@@ -339,6 +342,7 @@ private fun FilesScreenPreview() {
             ),
             onIntent = {},
             navigateToTransfers = {},
+            navigateToPicker = {},
         )
     }
 }

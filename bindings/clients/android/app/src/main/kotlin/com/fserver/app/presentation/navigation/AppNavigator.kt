@@ -39,12 +39,12 @@ class AppNavigator internal constructor(
     val activeBackStack: List<Destination>
         get() = sectionOrder.flatMap { stackOf(it as Destination) }.map { it as Destination }
 
-    val currentDestination: Destination
-        get() = stackOf(activeSection).last() as Destination
-
-    /** True when the active section shows its root, i.e. back would leave the section. */
-    val isAtSectionRoot: Boolean
-        get() = stackOf(activeSection).size == 1
+    /**
+     * True when the section root is the screen the user sees, ignoring any [Destination.Overlay]
+     * entries stacked on top of it.
+     */
+    val isSectionRootVisible: Boolean
+        get() = stackOf(activeSection).dropLastWhile { it is Destination.Overlay }.size == 1
 
     /**
      * Switches to [screen] if it is a section root, otherwise pushes it onto the active section.

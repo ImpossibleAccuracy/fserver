@@ -5,6 +5,7 @@ import com.fserver.app.presentation.model.DiagnosticCheckUi
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.IncomingRequestUi
 import com.fserver.app.presentation.model.PairingCandidateUi
+import com.fserver.app.presentation.model.PickedEntryUi
 import com.fserver.app.presentation.model.ServerProfileUi
 import com.fserver.app.presentation.model.TransferUi
 import com.fserver.app.presentation.model.TreeNodeUi
@@ -27,6 +28,7 @@ interface DemoContentSource {
     fun gridTiles(): List<FileUi>
     fun tree(): List<TreeNodeUi>
     fun itemCount(): Int
+    fun pickedEntries(): List<PickedEntryUi>
     fun transfers(): List<TransferUi>
     fun incomingRequest(): IncomingRequestUi
     fun downloadFolder(): String
@@ -51,6 +53,7 @@ class SampleContentSource : DemoContentSource {
     override fun gridTiles(): List<FileUi> = SampleData.gridTiles
     override fun tree(): List<TreeNodeUi> = SampleData.tree
     override fun itemCount(): Int = SampleData.GRID_ITEM_COUNT
+    override fun pickedEntries(): List<PickedEntryUi> = SampleData.pickedEntries
     override fun transfers(): List<TransferUi> = SampleData.transfers
     override fun incomingRequest(): IncomingRequestUi = SampleData.incomingRequest
     override fun downloadFolder(): String = SampleData.DOWNLOAD_FOLDER
