@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.files.picker
 
 import androidx.lifecycle.ViewModel
 import com.fserver.app.data.DemoContentSource
+import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerIntent
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +20,7 @@ import kotlinx.coroutines.flow.update
 class FilesPickerViewModel(
     private val content: DemoContentSource,
 ) : ViewModel() {
-
-    private val _state = MutableStateFlow(
-        FilesPickerState(entries = content.pickedEntries())
-    )
+    private val _state = MutableStateFlow(FilesPickerState())
     val state: StateFlow<FilesPickerState> = _state.asStateFlow()
 
     fun onIntent(intent: FilesPickerIntent) {
