@@ -1,6 +1,6 @@
 package com.fserver.app.domain.model
 
-data class FoundDeviceDomain(
+data class FoundDevice(
     val id: String,
     val name: String,
     val source: Source,

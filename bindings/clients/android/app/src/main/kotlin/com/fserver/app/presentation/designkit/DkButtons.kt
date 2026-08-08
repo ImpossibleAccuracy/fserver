@@ -32,9 +32,9 @@ private val DkButtonPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp
 
 @Composable
 fun DkPrimaryButton(
+    modifier: Modifier = Modifier,
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
@@ -55,9 +55,9 @@ fun DkPrimaryButton(
 
 @Composable
 fun DkSecondaryButton(
+    modifier: Modifier = Modifier,
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
@@ -78,9 +78,9 @@ fun DkSecondaryButton(
 
 @Composable
 fun DkGhostButton(
+    modifier: Modifier = Modifier,
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     enabled: Boolean = true,
 ) {
@@ -104,9 +104,9 @@ fun DkGhostButton(
  */
 @Composable
 fun DkPillButton(
+    modifier: Modifier = Modifier,
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
     icon: ImageVector? = null,
 ) {
     OutlinedButton(
@@ -168,10 +168,25 @@ private fun DkButtonsPreview() {
                 modifier = Modifier.padding(DkSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
             ) {
-                DkPrimaryButton("Fingerprints match — connect", {}, Modifier.fillMaxWidth())
-                DkSecondaryButton("Scan QR code", {}, Modifier.fillMaxWidth())
-                DkGhostButton("Cancel", {}, Modifier.fillMaxWidth())
-                DkPillButton("Send file", {})
+                DkPrimaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Fingerprints match — connect",
+                    onClick = {},
+                )
+                DkSecondaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Scan QR code",
+                    onClick = {},
+                )
+                DkGhostButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Cancel",
+                    onClick = {},
+                )
+                DkPillButton(
+                    text = "Send file",
+                    onClick = {}
+                )
             }
         }
     }

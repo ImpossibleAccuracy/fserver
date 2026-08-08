@@ -1,35 +1,23 @@
 package com.fserver.app.domain.repository
 
-import com.fserver.app.domain.model.FoundDeviceDomain
+import com.fserver.app.domain.model.DetectionMethod
+import com.fserver.app.domain.model.DeviceDetectionRequest
+import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.flow.Flow
 
 interface DeviceDetectionRepository {
-    val onlineDevices: Flow<List<FoundDeviceDomain>>
-
-    val isScanning: Flow<Boolean>
+    val onlineDevices: Flow<List<FoundDevice>>
 
     /**
-     * Starts mDNS discovery for devices on the local network.
+     * Methods scanning right now. Per-method rather than a single flag: several run at
+     * once, they finish at wildly different times, and the UI has to say which one the
+     * user is still waiting on.
      */
-    suspend fun startNetworkServiceDiscovery()
+    val runningScanningMethods: Flow<Set<DetectionMethod>>
 
     /**
-     * Starts scanning entire subnet for devices on the local network.
+     * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
+     * Starting a method that is already running is a no-op.
      */
-    suspend fun startSubnetScan()
-
-    /**
-     * Manually adds a device to the list of known devices.
-     *
-     * @param ipAddress The IP address of the device to ping.
-     * @param port The port of the device to ping. If null, the default port will be used.
-     *
-     * @return true if the device was successfully added, false if it was already known or could not be reached.
-     */
-    suspend fun pingDevice(ipAddress: String, port: Int?): Boolean
-
-    /**
-     * Starts Device discovery API.
-     */
-    suspend fun startAndroidDiscovery()
+    suspend fun startDetection(request: DeviceDetectionRequest)
 }

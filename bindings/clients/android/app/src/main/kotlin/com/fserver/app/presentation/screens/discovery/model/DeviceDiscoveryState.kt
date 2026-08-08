@@ -1,18 +1,34 @@
 package com.fserver.app.presentation.screens.discovery.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.domain.model.DetectionMethod
 
+@Immutable
 data class DeviceDiscoveryState(
-    val network: NetworkInfo? = null,
-    val devices: List<Device> = emptyList(),
-    val searching: Boolean = true,
+    val network: NetworkInfoUi? = null,
+    val devices: List<DeviceUi> = emptyList(),
+    val detectionMethods: List<DetectionMethodUi> = emptyList(),
 ) {
-    data class NetworkInfo(
+    val isSearching: Boolean
+        get() = detectionMethods.any { it.isSearching }
+
+    data class NetworkInfoUi(
         val name: String,
+        val type: Type,
+    ) {
+        enum class Type {
+            WiFi,
+            Mobile,
+        }
+    }
+
+    data class DetectionMethodUi(
+        val method: DetectionMethod,
+        val isSearching: Boolean,
     )
 
     @Immutable
-    data class Device(
+    data class DeviceUi(
         val id: String,
         val name: String,
         val address: String,
@@ -22,13 +38,13 @@ data class DeviceDiscoveryState(
 
     companion object {
         val SampleDevices = listOf(
-            Device(
+            DeviceUi(
                 id = "macbook",
                 name = "MacBook-Pro.local",
                 address = "192.168.1.14:8384",
                 online = true,
             ),
-            Device(
+            DeviceUi(
                 id = "nas",
                 name = "HOME-NAS",
                 address = "nas.local:8384",

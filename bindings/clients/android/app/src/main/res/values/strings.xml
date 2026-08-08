@@ -31,9 +31,16 @@
 
     <!-- Device discovery -->
     <string name="discovery_title">Connection</string>
-    <string name="discovery_network_summary">Wi-Fi «%1$s» · %2$d found</string>
+    <string name="discovery_network_summary_wifi">Wi-Fi «%1$s» · %2$d found</string>
+    <string name="discovery_network_summary_mobile">Mobile data «%1$s» · %2$d found</string>
+    <string name="discovery_network_summary_offline">No network · %1$d found</string>
+    <string name="discovery_network_hint_mobile">On mobile data only nearby devices and a manually entered address can be reached.</string>
+    <string name="discovery_network_hint_offline">No network connection. Only nearby devices can be found.</string>
     <string name="discovery_searching">Still searching…</string>
-    <string name="discovery_not_listed">Device not in the list?</string>
+    <string name="discovery_searching_title">Looking for devices</string>
+    <string name="discovery_searching_hint">Keep this device and the server on the same Wi-Fi network</string>
+    <string name="discovery_empty_title">No devices found</string>
+    <string name="discovery_scan_subnet">Scan the network manually</string>
     <string name="device_status_online">Online</string>
     <string name="device_status_offline">Offline</string>
     <string name="device_last_seen">last seen %1$s ago</string>
