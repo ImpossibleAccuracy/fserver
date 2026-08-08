@@ -17,6 +17,7 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerIntent
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
+import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.MediaGrouping
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.PickerSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,14 +40,7 @@ class FilesPickerViewModel(
     private val editable = MutableStateFlow(Editable())
 
     val state: StateFlow<FilesPickerState> = editable
-        .map {
-            FilesPickerState(
-                sources = it.sources,
-                entries = it.documents.map { dir ->
-                    dir.toPresentation()
-                }
-            )
-        }
+        .map { it.toPresentation() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -101,6 +95,30 @@ class FilesPickerViewModel(
                     }
                 }
             }
+
+            FilesPickerIntent.SourceClosed ->
+                editable.update { it.copy(activeSource = null) }
+
+            is FilesPickerIntent.DirectoryExpansionToggled -> toggleDirectory(intent.id)
+
+            is FilesPickerIntent.DirectorySelectionToggled ->
+                editable.update {
+                    it.copy(selectedDirs = it.selectedDirs.toggled(intent.id))
+                }
+
+            is FilesPickerIntent.MediaGroupingSelected ->
+                editable.update {
+                    // The tab set is rebuilt from scratch, so the old pick no longer names a tab.
+                    it.copy(mediaGrouping = intent.grouping, activeMediaTabId = null)
+                }
+
+            is FilesPickerIntent.MediaTabSelected ->
+                editable.update { it.copy(activeMediaTabId = intent.id) }
+
+            is FilesPickerIntent.MediaSelectionToggled ->
+                editable.update {
+                    it.copy(selectedMedia = it.selectedMedia.toggled(intent.id))
+                }
         }
     }
 
@@ -124,6 +142,7 @@ class FilesPickerViewModel(
 
             editable.update { state ->
                 state.copy(
+                    activeSource = PickerSource.StorageAccessFramework,
                     documents = state.documents.mergedWith(entries),
                 )
             }
@@ -132,24 +151,44 @@ class FilesPickerViewModel(
         }
     }
 
+    /**
+     * Opens the full-access tree at the storage volumes. Only the roots are expanded; every
+     * level below is listed on demand, so granting access does not walk the whole device.
+     */
     private suspend fun scanRoots() {
-        val dirs = withContext(Dispatchers.IO) {
-            val roots = storageRoots()
-            val rootContents = roots.flatMap {
-                it.listFiles()?.toList() ?: emptyList()
-            }
-
-            rootContents.mapNotNull {
-                createDocumentEntry(
-                    DocumentFile.fromFile(it)
-                )
-            }
+        val roots = withContext(Dispatchers.IO) {
+            storageRoots().map { it.toDirNode() }
         }
 
         editable.update {
             it.copy(
-                documents = it.documents.mergedWith(dirs)
+                activeSource = PickerSource.FullAccess,
+                treeRoots = roots,
+                expandedDirs = it.expandedDirs + roots.map { root -> root.path },
             )
+        }
+
+        roots.forEach { loadChildren(it.path) }
+    }
+
+    private fun toggleDirectory(path: String) {
+        val current = editable.value
+        val expanding = path !in current.expandedDirs
+
+        editable.update { it.copy(expandedDirs = it.expandedDirs.toggled(path)) }
+
+        if (expanding && path !in current.treeChildren) {
+            viewModelScope.launch { loadChildren(path) }
+        }
+    }
+
+    private suspend fun loadChildren(path: String) {
+        val children = withContext(Dispatchers.IO) {
+            File(path).listDirectories()
+        }
+
+        editable.update {
+            it.copy(treeChildren = it.treeChildren + (path to children))
         }
     }
 
@@ -171,7 +210,8 @@ class FilesPickerViewModel(
 
         editable.update {
             it.copy(
-                documents = it.documents.mergedWith(media)
+                activeSource = PickerSource.MediaStore,
+                media = it.media.mergedWith(media),
             )
         }
     }
@@ -184,6 +224,7 @@ class FilesPickerViewModel(
             MediaStore.Files.FileColumns.DISPLAY_NAME,
             MediaStore.Files.FileColumns.SIZE,
             MediaStore.Files.FileColumns.MIME_TYPE,
+            MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
         )
         val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (?, ?, ?)"
         val selectionArgs = arrayOf(
@@ -203,6 +244,9 @@ class FilesPickerViewModel(
                     val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
                     val mimeIndex =
                         cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
+                    val bucketIndex = cursor.getColumnIndexOrThrow(
+                        MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+                    )
 
                     while (cursor.moveToNext() && size < MEDIA_SCAN_LIMIT) {
                         add(
@@ -214,6 +258,7 @@ class FilesPickerViewModel(
                                 ),
                                 name = cursor.getString(nameIndex) ?: "Unknown",
                                 mimeType = cursor.getString(mimeIndex),
+                                bucket = cursor.getString(bucketIndex),
                                 sizeLabel = Formatter.formatShortFileSize(
                                     context,
                                     cursor.getLong(sizeIndex),
@@ -253,10 +298,13 @@ class FilesPickerViewModel(
 }
 
 /** Appends only what is not selected yet; identity is the path, since ids are minted per pick. */
-private fun List<Editable.Entry>.mergedWith(new: List<Editable.Entry>): List<Editable.Entry> {
+private fun <T : Editable.Entry> List<T>.mergedWith(new: List<T>): List<T> {
     val known = mapTo(mutableSetOf()) { it.path }
     return this + new.filterNot { it.path in known }
 }
+
+private fun <T> Set<T>.toggled(value: T): Set<T> =
+    if (value in this) this - value else this + value
 
 private fun fileKindOf(mimeType: String?): FileKindUi = when {
     mimeType == null -> FileKindUi.Other
@@ -266,11 +314,133 @@ private fun fileKindOf(mimeType: String?): FileKindUi = when {
     else -> FileKindUi.Document
 }
 
+private fun extensionLabelOf(name: String): String? =
+    name.substringAfterLast('.', "").takeIf { it.isNotEmpty() }?.uppercase()
+
+/** One `listFiles` per directory: the count and "has sub-folders" both come out of it. */
+private fun File.listDirectories(): List<Editable.DirNode> =
+    listFiles()
+        ?.filter { it.isDirectory }
+        ?.sortedBy { it.name.lowercase() }
+        ?.map { it.toDirNode() }
+        ?: emptyList()
+
+private fun File.toDirNode(): Editable.DirNode {
+    val children = listFiles()
+    return Editable.DirNode(
+        path = absolutePath,
+        name = name.ifEmpty { absolutePath },
+        itemCount = children?.size ?: 0,
+        hasChildDirs = children?.any { it.isDirectory } == true,
+    )
+}
+
 private data class Editable(
     val sources: List<PickerSource> = emptyList(),
+    val activeSource: PickerSource? = null,
     val isLoading: Boolean = false,
     val documents: List<Entry> = emptyList(),
+    val treeRoots: List<DirNode> = emptyList(),
+    val treeChildren: Map<String, List<DirNode>> = emptyMap(),
+    val expandedDirs: Set<String> = emptySet(),
+    val selectedDirs: Set<String> = emptySet(),
+    val media: List<Entry.Media> = emptyList(),
+    val mediaGrouping: MediaGrouping = MediaGrouping.Type,
+    val selectedMedia: Set<String> = emptySet(),
+    val activeMediaTabId: String? = null,
 ) {
+    fun toPresentation() = FilesPickerState(
+        sources = sources,
+        activeSource = activeSource,
+        isLoading = isLoading,
+        entries = documents.map { it.toPresentation() },
+        tree = flattenTree(),
+        mediaGrouping = mediaGrouping,
+        mediaTabs = mediaTabs(),
+        activeMediaTabId = activeMediaTabId,
+        // Everything a SAF pick produced counts as selected the moment it is parsed; the
+        // other two sources contribute only what the user ticked.
+        selectedCount = documents.size + selectedDirs.size + selectedMedia.size,
+    )
+
+    /** Depth-first walk of the loaded tree, stopping at every collapsed branch. */
+    private fun flattenTree(): List<FilesPickerState.TreeNodeUi> = buildList {
+        fun append(node: DirNode, depth: Int) {
+            val expanded = node.path in expandedDirs
+            add(
+                FilesPickerState.TreeNodeUi(
+                    id = node.path,
+                    name = node.name,
+                    depth = depth,
+                    expandable = node.hasChildDirs,
+                    expanded = expanded,
+                    selected = node.path in selectedDirs,
+                    detailLabel = "${node.itemCount} items",
+                )
+            )
+            if (expanded) {
+                treeChildren[node.path]?.forEach { append(it, depth + 1) }
+            }
+        }
+
+        treeRoots.forEach { append(it, 0) }
+    }
+
+    private fun mediaTabs(): List<FilesPickerState.MediaTabUi> {
+        if (media.isEmpty()) return emptyList()
+
+        return when (mediaGrouping) {
+            MediaGrouping.Type -> media
+                .groupBy { fileKindOf(it.mimeType) }
+                .toList()
+                .sortedBy { (kind, _) -> MediaKindOrder.indexOf(kind) }
+                .map { (kind, items) ->
+                    FilesPickerState.MediaTabUi(
+                        id = "kind-$kind",
+                        kind = kind,
+                        title = kind.name,
+                        items = items.map { it.toMediaItem() },
+                    )
+                }
+
+            MediaGrouping.Directory -> media
+                .groupBy { it.bucket ?: "Other" }
+                .toList()
+                .sortedBy { (bucket, _) -> bucket.lowercase() }
+                .map { (bucket, items) ->
+                    FilesPickerState.MediaTabUi(
+                        id = "bucket-$bucket",
+                        kind = null,
+                        title = bucket,
+                        items = items.map { it.toMediaItem() },
+                    )
+                }
+        }
+    }
+
+    private fun Entry.Media.toMediaItem(): FilesPickerState.MediaItemUi {
+        val kind = fileKindOf(mimeType)
+        return FilesPickerState.MediaItemUi(
+            id = id,
+            name = name,
+            kind = kind,
+            selected = id in selectedMedia,
+            detailLabel = sizeLabel,
+            // Only the non-visual tiles carry a label; a grid tile shows its kind instead.
+            extensionLabel = extensionLabelOf(name).takeIf {
+                kind != FileKindUi.Image && kind != FileKindUi.Video
+            },
+        )
+    }
+
+    /** A directory in the full-access tree, listed once when its parent is expanded. */
+    data class DirNode(
+        val path: String,
+        val name: String,
+        val itemCount: Int,
+        val hasChildDirs: Boolean,
+    )
+
     /**
      * A selected thing, whichever picker produced it. The id is minted once, when the entry is
      * picked, and carried into the UI model — removal matches on it, so it must not be re-rolled
@@ -327,6 +497,7 @@ private data class Editable(
             val uri: Uri,
             val name: String,
             val mimeType: String?,
+            val bucket: String?,
             val sizeLabel: String?,
         ) : Entry {
             override val path: String get() = uri.toString()
@@ -342,3 +513,12 @@ private data class Editable(
         }
     }
 }
+
+/** Tab order for type grouping; anything unlisted sorts last. */
+private val MediaKindOrder = listOf(
+    FileKindUi.Image,
+    FileKindUi.Video,
+    FileKindUi.Audio,
+    FileKindUi.Document,
+    FileKindUi.Other,
+)

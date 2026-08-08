@@ -14,6 +14,7 @@
     <string name="action_clear">Очистить</string>
     <string name="action_accept">Принять</string>
     <string name="action_decline">Отклонить</string>
+    <string name="action_done">Готово</string>
 
     <!-- Onboarding -->
     <string name="onboarding_illustration_devices">иллюстрация: два устройства</string>
@@ -118,6 +119,38 @@
     <string name="settings_section_other">Прочее</string>
     <string name="settings_download_folder">Папка загрузок</string>
     <string name="settings_diagnostics">Диагностика подключения</string>
+
+    <!-- Files picker -->
+    <string name="picker_title">Выбранные объекты</string>
+    <string name="picker_add">Добавить</string>
+    <plurals name="picker_selected_count">
+        <item quantity="one">%1$d объект выбран</item>
+        <item quantity="few">%1$d объекта выбрано</item>
+        <item quantity="many">%1$d объектов выбрано</item>
+        <item quantity="other">%1$d объекта выбрано</item>
+    </plurals>
+    <string name="picker_remove_entry">Убрать из выбора</string>
+    <string name="picker_empty_title">Пока ничего не выбрано</string>
+    <string name="picker_empty_hint">Добавьте файлы или папки для отправки</string>
+    <string name="picker_source_saf_title">Выбрать в «Файлах»</string>
+    <string name="picker_source_saf_subtitle">Системный выбор файлов</string>
+    <string name="picker_source_media_title">Выбрать из медиа</string>
+    <string name="picker_source_media_subtitle">Фото, видео и аудио с устройства</string>
+    <string name="picker_source_full_title">Полный доступ</string>
+    <string name="picker_source_full_subtitle">Все файлы на устройстве</string>
+    <string name="picker_tree_hint">Отметьте папки для отправки</string>
+    <string name="picker_tree_empty">Здесь нет папок</string>
+    <string name="picker_media_group_by">Группировка</string>
+    <string name="picker_media_group_type">Тип</string>
+    <string name="picker_media_group_folder">Папка</string>
+    <string name="picker_media_kind_image">Изображения</string>
+    <string name="picker_media_kind_video">Видео</string>
+    <string name="picker_media_kind_audio">Аудио</string>
+    <string name="picker_media_kind_document">Документы</string>
+    <string name="picker_media_kind_other">Прочее</string>
+    <string name="picker_media_empty">Показывать нечего</string>
+    <string name="picker_entry_selected">Выбрано</string>
+    <string name="picker_entries_title">Выбрано объектов (%1$d)</string>
 
     <!-- Diagnostics -->
     <string name="diagnostics_title">Диагностика</string>

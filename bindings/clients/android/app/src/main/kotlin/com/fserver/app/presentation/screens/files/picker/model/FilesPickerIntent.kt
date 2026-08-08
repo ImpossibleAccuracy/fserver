@@ -8,4 +8,19 @@ sealed interface FilesPickerIntent {
     data object FullAccessGranted : FilesPickerIntent
 
     data object MediaAccessGranted : FilesPickerIntent
+
+    /** Leaves the active source's browser and returns to the source chooser. */
+    data object SourceClosed : FilesPickerIntent
+
+    data class DirectoryExpansionToggled(val id: String) : FilesPickerIntent
+
+    data class DirectorySelectionToggled(val id: String) : FilesPickerIntent
+
+    data class MediaGroupingSelected(
+        val grouping: FilesPickerState.MediaGrouping,
+    ) : FilesPickerIntent
+
+    data class MediaTabSelected(val id: String) : FilesPickerIntent
+
+    data class MediaSelectionToggled(val id: String) : FilesPickerIntent
 }

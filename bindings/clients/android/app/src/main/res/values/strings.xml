@@ -15,6 +15,7 @@
     <string name="action_more">More</string>
     <string name="action_clear">Clear</string>
     <string name="action_accept">Accept</string>
+    <string name="action_done">Done</string>
     <string name="action_decline">Decline</string>
 
     <!-- Onboarding -->
@@ -90,6 +91,25 @@
     <string name="picker_remove_entry">Remove from selection</string>
     <string name="picker_empty_title">Nothing selected yet</string>
     <string name="picker_empty_hint">Add files or folders to send</string>
+    <string name="picker_source_saf_title">Select from Files</string>
+    <string name="picker_source_saf_subtitle">Browse files using the system file picker</string>
+    <string name="picker_source_media_title">Select from Media</string>
+    <string name="picker_source_media_subtitle">Select from your photos, videos, and audio</string>
+    <string name="picker_source_full_title">Select from Full Access</string>
+    <string name="picker_source_full_subtitle">Browse all files on your device</string>
+    <string name="picker_tree_hint">Pick the folders to send</string>
+    <string name="picker_tree_empty">No folders here</string>
+    <string name="picker_media_group_by">Group by</string>
+    <string name="picker_media_group_type">Type</string>
+    <string name="picker_media_group_folder">Folder</string>
+    <string name="picker_media_kind_image">Images</string>
+    <string name="picker_media_kind_video">Videos</string>
+    <string name="picker_media_kind_audio">Audio</string>
+    <string name="picker_media_kind_document">Documents</string>
+    <string name="picker_media_kind_other">Other</string>
+    <string name="picker_media_empty">Nothing to show</string>
+    <string name="picker_entry_selected">Selected</string>
+    <string name="picker_entries_title">Selected entries (%1$d)</string>
 
     <!-- Transfers -->
     <string name="transfers_title">Transfers</string>
