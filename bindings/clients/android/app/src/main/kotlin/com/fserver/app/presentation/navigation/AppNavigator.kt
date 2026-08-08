@@ -144,7 +144,7 @@ fun rememberAppNavigator(
     startDestination: Destination,
     topLevelDestinations: List<Destination> = TopLevelDestination.entries.map { it.destination },
 ): AppNavigator {
-    val sections = remember(startDestination, topLevelDestinations) {
+    val sections = remember(topLevelDestinations) {
         (listOf(startDestination) + topLevelDestinations).distinct()
     }
 

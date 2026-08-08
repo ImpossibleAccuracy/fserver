@@ -2,6 +2,7 @@ package com.fserver.app.di
 
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
+import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
 import com.fserver.app.presentation.screens.discovery.automatic.DeviceDiscoveryViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
@@ -23,6 +24,8 @@ import org.koin.dsl.module
  */
 val presentationModule = module {
     single<DemoContentSource> { SampleContentSource() }
+
+    viewModelOf(::AppViewModel)
 
     viewModelOf(::OnboardingViewModel)
     viewModelOf(::DeviceDiscoveryViewModel)

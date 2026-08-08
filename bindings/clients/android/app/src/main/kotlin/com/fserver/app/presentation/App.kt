@@ -10,14 +10,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.fserver.app.presentation.composable.AppStyling
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.navigation.AppNavigator
+import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
@@ -30,6 +32,7 @@ import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.transfers.transfersEntry
+import org.koin.androidx.compose.koinViewModel
 
 // Material 3 emphasized, like sytem enter/exit anim
 private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
@@ -40,8 +43,12 @@ private fun smallOffset(full: Int) = (full * 0.08f).toInt()
 
 
 @Composable
-fun FServerApp() {
-    val navigator = rememberAppNavigator(Destination.Onboarding)
+fun FServerApp(
+    viewModel: AppViewModel = koinViewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+
+    val navigator = rememberAppNavigator(state.startDestination)
 
     AppStyling(
         navigator = navigator,

@@ -1,36 +1,31 @@
 package com.fserver.app.data.repository
 
-import com.fserver.app.data.datasource.JsonQrCodeParser
+import android.util.Log
+import com.fserver.app.data.detection.detector.DeviceConnector
+import com.fserver.app.data.detection.scan.DeviceScannerFactory
 import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.FoundDevice
-import com.fserver.app.domain.model.exception.MalformedQrException
 import com.fserver.app.domain.repository.DeviceDetectionRepository
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Fake detection engine standing in until `:core` is wired up.
- *
- * The timings and the results are picked to exercise the screens' whole path rather than to
- * be plausible: the automatic pass takes a few seconds and finds nothing — the case a
- * multicast-filtering router produces — so the empty state and the subnet-scan escape hatch
- * both get reached, and only the (slower) sweep returns devices.
- *
- * A typed or scanned address answers only inside [REACHABLE_HOST_PREFIX]. That rule is
- * arbitrary, but it is deterministic, and without it the unreachable branch of the address
- * screens could never be reached by hand.
  */
-class DeviceDetectionRepositoryImpl : DeviceDetectionRepository {
-    private val jsonQrCodeParser by lazy { JsonQrCodeParser() }
-
+internal class DeviceDetectionRepositoryImpl(
+    private val deviceScannerFactory: DeviceScannerFactory,
+) : DeviceDetectionRepository {
     private val devices = MutableStateFlow<List<FoundDevice>>(emptyList())
     override val onlineDevices: Flow<List<FoundDevice>> = devices.asStateFlow()
 
@@ -50,93 +45,45 @@ class DeviceDetectionRepositoryImpl : DeviceDetectionRepository {
         runningRequests.update { it + request }
 
         return try {
-            val found = when (request) {
-                is DeviceDetectionRequest.ByMethod -> {
-                    delay(request.method.fakeDuration)
-                    request.method.fakeResults()
-                }
+            val scanner = deviceScannerFactory.fromRequest(request)
+            val connectors = scanner.startScan()
 
-                is DeviceDetectionRequest.ByManualAddress -> pingDevice(
-                    ipAddress = request.ipAddress,
-                    port = request.port,
-                )
-
-                is DeviceDetectionRequest.QrCode -> connectByQr(
-                    payload = request.payload,
-                )
+            coroutineScope {
+                connectors
+                    .map { async { resolveDevice(it) } }
+                    .toList()
+                    .awaitAll()
+                    .filterNotNull()
             }
-            publish(found)
-            found
         } finally {
             runningRequests.update { it - request }
         }
     }
 
-    private suspend fun pingDevice(ipAddress: String, port: Int?): List<FoundDevice> {
-        delay(1.5.seconds)
+    /**
+     * Asks a single discovered peer to describe itself, publishing it on success.
+     *
+     * @return the described device, or `null` if this peer could not be reached or understood.
+     */
+    private suspend fun resolveDevice(connector: DeviceConnector): FoundDevice? =
+        connector.loadDeviceInfo()
+            .onSuccess { publish(it) }
+            .onFailure { t ->
+                currentCoroutineContext().ensureActive()
 
-        if (!ipAddress.startsWith(REACHABLE_HOST_PREFIX)) return emptyList()
-
-        val resolvedPort = port ?: SAMPLE_DEFAULT_PORT
-        return listOf(
-            FoundDevice(
-                id = "$ipAddress:$resolvedPort",
-                name = ipAddress,
-                kind = FoundDevice.Kind.Unknown,
-                // An address alone says nothing about what guards the far end; the fixture
-                // picks the demanding case so the connect screen's password branch is real.
-                access = FoundDevice.Access.Password,
-                source = FoundDevice.Source.ManualEntry(ipAddress, resolvedPort),
-            )
-        )
-    }
-
-    private suspend fun connectByQr(payload: String): List<FoundDevice> {
-        val parsed = jsonQrCodeParser.parse(payload) ?: throw MalformedQrException()
-
-        return pingDevice(ipAddress = parsed.ip, port = parsed.port)
-    }
+                // TODO: propagate error to UI layer
+                Log.e(
+                    "DeviceDetectionRepositoryImpl",
+                    "Failed to load device info",
+                    t
+                )
+            }
+            .getOrNull()
 
     /**
      * Found devices accumulate: a second method finding the same box must not duplicate it.
      * */
-    private fun publish(found: List<FoundDevice>) {
-        if (found.isEmpty()) return
+    private fun publish(found: FoundDevice) {
         devices.update { current -> (current + found).distinctBy { it.id } }
     }
-}
-
-private val DetectionMethod.fakeDuration: Duration
-    get() = when (this) {
-        DetectionMethod.Automatic.DeviceDiscoveryApi -> 3.seconds
-        DetectionMethod.Automatic.MulticastDns -> 2.seconds
-        DetectionMethod.OnDemand.SubnetScan -> 5.seconds
-        DetectionMethod.OnDemand.ManualAddress -> 10.seconds
-    }
-
-private const val SAMPLE_DEFAULT_PORT = 8384
-
-private const val REACHABLE_HOST_PREFIX = "192.168."
-
-private fun DetectionMethod.fakeResults(): List<FoundDevice> = when (this) {
-    DetectionMethod.Automatic.DeviceDiscoveryApi -> emptyList()
-    DetectionMethod.Automatic.MulticastDns -> emptyList()
-    DetectionMethod.OnDemand.SubnetScan -> listOf(
-        FoundDevice(
-            id = "192.168.1.14:8384",
-            name = "MacBook-Pro.local",
-            kind = FoundDevice.Kind.Laptop,
-            access = FoundDevice.Access.Open,
-            source = FoundDevice.Source.SubnetScan("192.168.1.14", SAMPLE_DEFAULT_PORT),
-        ),
-        FoundDevice(
-            id = "192.168.1.42:8384",
-            name = "HOME-NAS",
-            kind = FoundDevice.Kind.Nas,
-            access = FoundDevice.Access.Password,
-            source = FoundDevice.Source.SubnetScan("192.168.1.42", SAMPLE_DEFAULT_PORT),
-        ),
-    )
-
-    DetectionMethod.OnDemand.ManualAddress -> emptyList()
 }

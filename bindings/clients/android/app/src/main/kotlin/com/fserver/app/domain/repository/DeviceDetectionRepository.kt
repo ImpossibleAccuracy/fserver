@@ -6,6 +6,9 @@ import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.flow.Flow
 
 interface DeviceDetectionRepository {
+    /**
+     * Currently available devices, updated as they are found or lost.
+     */
     val onlineDevices: Flow<List<FoundDevice>>
 
     /**
@@ -23,7 +26,7 @@ interface DeviceDetectionRepository {
     /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
      *
-     * Returns what *this* run found. The address paths — typed or scanned — need the one
+     * Returns what *this* run found. The address paths - typed or scanned - need the one
      * device they asked about, and cannot pick it out of the accumulated list without
      * guessing which entry is theirs. Starting a request that is already running is a no-op
      * and returns nothing.

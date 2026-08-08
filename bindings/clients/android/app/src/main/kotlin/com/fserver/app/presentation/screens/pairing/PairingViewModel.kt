@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.domain.model.FoundDevice
-import com.fserver.app.domain.model.address
 import com.fserver.app.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.model.HandshakeUi
+import com.fserver.app.presentation.model.address
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import kotlinx.coroutines.FlowPreview
