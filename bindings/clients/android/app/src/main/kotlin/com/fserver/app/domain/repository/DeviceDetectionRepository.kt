@@ -16,8 +16,17 @@ interface DeviceDetectionRepository {
     val runningScanningMethods: Flow<Set<DetectionMethod>>
 
     /**
-     * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
-     * Starting a method that is already running is a no-op.
+     * The device with [id], or null once it is no longer among [onlineDevices].
      */
-    suspend fun startDetection(request: DeviceDetectionRequest)
+    fun device(id: String): Flow<FoundDevice?>
+
+    /**
+     * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
+     *
+     * Returns what *this* run found. The address paths — typed or scanned — need the one
+     * device they asked about, and cannot pick it out of the accumulated list without
+     * guessing which entry is theirs. Starting a request that is already running is a no-op
+     * and returns nothing.
+     */
+    suspend fun startDetection(request: DeviceDetectionRequest): List<FoundDevice>
 }

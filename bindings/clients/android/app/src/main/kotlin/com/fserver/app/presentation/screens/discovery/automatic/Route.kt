@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery
+package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.navigation3.runtime.EntryProviderScope
 import com.fserver.app.presentation.model.Destination
@@ -11,8 +11,7 @@ fun EntryProviderScope<Destination>.deviceDiscoveryEntry(
         DeviceDiscoveryScreen(
             navigateToPairing = { deviceId -> navigator.navigate(Destination.Pairing(deviceId)) },
             navigateToQrScan = { navigator.navigate(Destination.QrScan) },
-            // TODO: manual address entry has no screen yet.
-            navigateToManualAddress = {},
+            navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },
         )
     }
 }

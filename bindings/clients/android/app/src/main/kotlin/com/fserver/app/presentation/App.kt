@@ -13,13 +13,13 @@ import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
-import com.fserver.app.presentation.screens.discovery.deviceDiscoveryEntry
+import com.fserver.app.presentation.screens.discovery.automatic.deviceDiscoveryEntry
+import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
+import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.files.picker.filesPickerEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
-import com.fserver.app.presentation.screens.profile.serverProfileEntry
-import com.fserver.app.presentation.screens.qr.qrScanEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.transfers.transfersEntry
 
@@ -49,9 +49,9 @@ private fun NavHostGraph(navigator: AppNavigator) {
         entryProvider = entryProvider {
             onboardingEntry(navigator)
             deviceDiscoveryEntry(navigator)
-            pairingEntry(navigator)
             qrScanEntry(navigator)
-            serverProfileEntry(navigator)
+            manualAddressEntry(navigator)
+            pairingEntry(navigator)
             transfersEntry()
             settingsEntry(navigator)
             diagnosticEntry(navigator)

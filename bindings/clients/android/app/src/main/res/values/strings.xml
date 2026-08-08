@@ -45,9 +45,15 @@
     <string name="device_status_offline">Offline</string>
     <string name="device_last_seen">last seen %1$s ago</string>
 
-    <!-- Pairing -->
+    <!-- Pairing — where every route to a device ends: the list, the scanner, a typed address -->
     <string name="pairing_title">Confirm the device</string>
     <string name="pairing_kicker_server">Server</string>
+    <string name="pairing_connecting">Reaching the device…</string>
+    <string name="pairing_address">address · %1$s</string>
+    <string name="pairing_access_open">access · open to anyone on the network</string>
+    <string name="pairing_access_password">access · by password</string>
+    <string name="pairing_access_key">access · by key</string>
+    <string name="pairing_password_label">Access password</string>
     <string name="pairing_fingerprint_label">Server key fingerprint</string>
     <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
     <string name="pairing_remember_device">Remember the device and do not ask again</string>
@@ -56,18 +62,20 @@
     <!-- QR scanner -->
     <string name="qr_title">Scan the code</string>
     <string name="qr_camera_placeholder">camera stream</string>
-    <string name="qr_hint">The code on the server screen carries the address, the access method and the key fingerprint — no manual confirmation needed.</string>
+    <string name="qr_hint">The code on the server screen carries its address. You still confirm the key fingerprint afterwards.</string>
+    <string name="qr_connecting">Reaching the address from the code…</string>
+    <string name="qr_error_malformed">This is not a connection code. Point the camera at the code on the server screen.</string>
+    <string name="qr_error_unreachable">Nothing answered at the address in the code. Check that the server is running.</string>
 
-    <!-- Server profile -->
-    <string name="profile_title">Connection profile</string>
-    <string name="profile_kicker_from_code">From the code</string>
-    <string name="profile_address">address · %1$s</string>
-    <string name="profile_access_password">access · by password</string>
-    <string name="profile_fingerprint_verified">fingerprint ✓ verified automatically</string>
-    <string name="profile_password_label">Access password</string>
-    <string name="profile_expiry_note">The profile is valid for 30 min from the moment the code was shown. Server settings apply as they are.</string>
-    <string name="profile_apply">Apply and connect</string>
-    <string name="profile_edit_manually">Edit manually</string>
+    <!-- Manual address -->
+    <string name="manual_title">Connect by address</string>
+    <string name="manual_host_label">Host or IP address</string>
+    <string name="manual_port_label">Port (optional)</string>
+    <string name="manual_hint">Leave the port empty to use the usual one. Discovery is not needed for this route.</string>
+    <string name="manual_checking">Reaching the address…</string>
+    <string name="manual_connect">Connect</string>
+    <string name="manual_error_port">The port must be a number between 1 and 65535.</string>
+    <string name="manual_error_unreachable">Nothing answered at that address. Check the address and that the server is running.</string>
 
     <!-- Bottom navigation -->
     <string name="tab_files">Files</string>

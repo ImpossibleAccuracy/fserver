@@ -1,6 +1,8 @@
 package com.fserver.app.presentation.screens.pairing
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,17 +22,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.data.SampleData
+import com.fserver.app.domain.model.FoundDevice
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardMeta
 import com.fserver.app.presentation.designkit.DkCardTitle
 import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.designkit.DkTextField
+import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.designkit.DkType
+import com.fserver.app.presentation.model.icon
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -54,14 +61,6 @@ fun PairingScreen(
     )
 }
 
-/**
- * Trust on first connection.
- *
- * The fingerprint comparison is the only thing standing between the user and a
- * substituted server, so it gets the whole screen: nothing here may look like a formality
- * to tap past. Confirmation is an explicit statement ("fingerprints match"), never a bare
- * "OK".
- */
 @Composable
 private fun PairingScreen(
     state: PairingState,
@@ -85,6 +84,7 @@ private fun PairingScreen(
                 DkPrimaryButton(
                     text = stringResource(R.string.pairing_confirm),
                     onClick = navigateToFiles,
+                    enabled = state.canConnect,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 DkGhostButton(
@@ -95,6 +95,13 @@ private fun PairingScreen(
             }
         },
     ) { innerPadding ->
+        val device = state.device
+
+        if (device == null) {
+            PairingLoading(modifier = Modifier.padding(innerPadding))
+            return@DkScaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -103,11 +110,7 @@ private fun PairingScreen(
                 .padding(horizontal = DkSpacing.screenPadding),
             verticalArrangement = Arrangement.spacedBy(DkSpacing.lg),
         ) {
-            DkCard {
-                DkCardKicker(stringResource(R.string.pairing_kicker_server))
-                DkCardTitle(state.candidate.deviceName)
-                DkCardMeta(state.candidate.technicalLine)
-            }
+            DeviceCard(device = device)
 
             Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
                 Text(
@@ -115,11 +118,20 @@ private fun PairingScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                DkFingerprintBlock(groups = state.candidate.fingerprintGroups)
+                DkFingerprintBlock(groups = device.fingerprintGroups)
                 Text(
                     text = stringResource(R.string.pairing_fingerprint_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (state.requiresPassword) {
+                DkTextField(
+                    label = stringResource(R.string.pairing_password_label),
+                    value = state.password,
+                    onValueChange = { onIntent(PairingIntent.PasswordChanged(it)) },
+                    isPassword = true,
                 )
             }
 
@@ -147,12 +159,109 @@ private fun PairingScreen(
     }
 }
 
+/**
+ * Everything the device asserted about itself, in the open and in one block — including the
+ * access mode, so a server that will ask for nothing says so before the user connects
+ * rather than after.
+ */
+@Composable
+private fun DeviceCard(device: PairingState.DeviceUi) {
+    DkCard {
+        DkCardKicker(stringResource(R.string.pairing_kicker_server))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
+        ) {
+            DkThumbnail(icon = device.kind.icon)
+            Column {
+                DkCardTitle(device.name)
+                DkCardMeta(device.technicalLine)
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
+            CardFact(stringResource(R.string.pairing_address, device.address))
+            CardFact(stringResource(device.access.labelRes))
+        }
+    }
+}
+
+@Composable
+private fun CardFact(text: String) {
+    Text(
+        text = text,
+        style = DkType.mono,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun PairingLoading(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        ) {
+            DkInlineSpinner()
+            Text(
+                text = stringResource(R.string.pairing_connecting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@get:StringRes
+private val FoundDevice.Access.labelRes: Int
+    get() = when (this) {
+        FoundDevice.Access.Open -> R.string.pairing_access_open
+        FoundDevice.Access.Password -> R.string.pairing_access_password
+        FoundDevice.Access.Key -> R.string.pairing_access_key
+    }
+
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun PairingScreenPreview() {
     FServerTheme {
         PairingScreen(
-            state = PairingState(candidate = SampleData.pairingCandidate),
+            state = PairingState(device = PairingState.SampleDevice),
+            onIntent = {},
+            navigateToFiles = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Password required", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PairingScreenPasswordPreview() {
+    FServerTheme {
+        PairingScreen(
+            state = PairingState(
+                device = PairingState.SampleDevice.copy(
+                    name = "HOME-NAS",
+                    kind = FoundDevice.Kind.Nas,
+                    access = FoundDevice.Access.Password,
+                    address = "192.168.1.42:8384",
+                ),
+            ),
+            onIntent = {},
+            navigateToFiles = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Looking up", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PairingScreenLoadingPreview() {
+    FServerTheme {
+        PairingScreen(
+            state = PairingState(),
             onIntent = {},
             navigateToFiles = {},
             navigateUp = {},

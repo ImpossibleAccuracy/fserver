@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery
+package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,8 +39,9 @@ import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryIntent
-import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryState
+import com.fserver.app.presentation.model.icon
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -63,15 +63,6 @@ fun DeviceDiscoveryScreen(
     )
 }
 
-/**
- * Device discovery. Devices that went offline stay in the list, greyed out — the user needs
- * to see that the device exists and is simply unreachable right now, not wonder whether
- * they ever paired it.
- *
- * The empty states are never a dead end: the summary line says what the current transport
- * can and cannot do, and the manual routes sit below the body throughout, so a network
- * that blocks multicast still leads somewhere.
- */
 @Composable
 private fun DeviceDiscoveryScreen(
     state: DeviceDiscoveryState,
@@ -289,7 +280,7 @@ private fun DeviceRow(device: DeviceDiscoveryState.DeviceUi, onClick: () -> Unit
         subtitleStyle = DkType.mono,
         dimmed = !device.online,
         onClick = onClick.takeIf { device.online },
-        leading = { DkThumbnail(icon = Icons.Default.Computer) },
+        leading = { DkThumbnail(icon = device.kind.icon) },
         trailing = {
             if (device.online) {
                 DkTag(stringResource(R.string.device_status_online), style = DkTagStyle.Accent)

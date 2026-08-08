@@ -3,13 +3,13 @@ package com.fserver.app.di
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
-import com.fserver.app.presentation.screens.discovery.DeviceDiscoveryViewModel
+import com.fserver.app.presentation.screens.discovery.automatic.DeviceDiscoveryViewModel
+import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
+import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
 import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
-import com.fserver.app.presentation.screens.profile.ServerProfileViewModel
-import com.fserver.app.presentation.screens.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.settings.SettingsViewModel
 import com.fserver.app.presentation.screens.transfers.TransfersViewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -26,9 +26,9 @@ val presentationModule = module {
 
     viewModelOf(::OnboardingViewModel)
     viewModelOf(::DeviceDiscoveryViewModel)
-    viewModelOf(::PairingViewModel)
     viewModelOf(::QrScanViewModel)
-    viewModelOf(::ServerProfileViewModel)
+    viewModelOf(::ManualAddressViewModel)
+    viewModelOf(::PairingViewModel)
     viewModelOf(::FilesViewModel)
     viewModelOf(::FilesPickerViewModel)
     viewModelOf(::TransfersViewModel)

@@ -1,33 +1,61 @@
 package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.DemoContentSource
+import com.fserver.app.domain.model.FoundDevice
+import com.fserver.app.domain.model.address
+import com.fserver.app.domain.repository.DeviceDetectionRepository
+import com.fserver.app.presentation.model.HandshakeUi
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
-/**
- * Trust on first connection.
- *
- * The fingerprint comparison happens in the user's head, not here. That statement is the
- * whole security decision, so it is never inferred from anything else (a tap elsewhere, a
- * timeout, a remembered preference): only the explicit confirm button leaves this screen
- * connected.
- */
+
 class PairingViewModel(
     deviceId: String,
+    deviceDetectionRepository: DeviceDetectionRepository,
     content: DemoContentSource,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(PairingState(candidate = content.pairingCandidate(deviceId)))
-    val state: StateFlow<PairingState> = _state.asStateFlow()
+    private val password = MutableStateFlow("")
+    private val rememberDevice = MutableStateFlow(true)
+
+    val state: StateFlow<PairingState> = combine(
+        deviceDetectionRepository.device(deviceId),
+        password,
+        rememberDevice,
+    ) { device, password, rememberDevice ->
+        PairingState(
+            device = device?.toUi(content.handshake(deviceId)),
+            password = password,
+            rememberDevice = rememberDevice,
+        )
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = PairingState(),
+        )
 
     fun onIntent(intent: PairingIntent) {
         when (intent) {
-            is PairingIntent.RememberDeviceChanged ->
-                _state.value = _state.value.copy(rememberDevice = intent.remember)
+            is PairingIntent.RememberDeviceChanged -> rememberDevice.update { intent.remember }
+            is PairingIntent.PasswordChanged -> password.update { intent.password }
         }
     }
 }
+
+private fun FoundDevice.toUi(handshake: HandshakeUi) = PairingState.DeviceUi(
+    name = name,
+    kind = kind,
+    access = access,
+    address = address,
+    technicalLine = handshake.technicalLine,
+    fingerprintGroups = handshake.fingerprintGroups,
+)

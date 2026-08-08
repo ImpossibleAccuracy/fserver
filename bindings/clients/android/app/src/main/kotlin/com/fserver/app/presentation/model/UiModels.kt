@@ -102,13 +102,6 @@ data class IncomingRequestUi(
     val destinationLabel: String,
 )
 
-@Immutable
-data class ServerProfileUi(
-    val deviceName: String,
-    val address: String,
-    val fingerprintVerified: Boolean,
-)
-
 /**
  * One connection check. Title and detail are resource ids because the detail line is
  * fixed copy in the MVP; once checks run for real the detail becomes a formatted value.
@@ -121,10 +114,13 @@ data class DiagnosticCheckUi(
     val state: DkCheckState,
 )
 
+/**
+ * What the handshake with a device produced — as opposed to what discovery already knew
+ * about it (name, kind, access). The fingerprint is the one value the user is asked to
+ * compare by eye, so it arrives pre-grouped for reading aloud.
+ */
 @Immutable
-data class PairingCandidateUi(
-    val deviceName: String,
-    val address: String,
+data class HandshakeUi(
     val technicalLine: String,
     val fingerprintGroups: List<String>,
 )

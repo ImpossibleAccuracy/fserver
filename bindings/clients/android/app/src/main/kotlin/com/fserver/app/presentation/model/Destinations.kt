@@ -42,6 +42,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data object DeviceDiscovery : Destination
 
+    /**
+     * Confirm and connect. Every way of finding a device ends here — the list, the scanner,
+     * a typed address — because none of them establishes trust on its own.
+     */
     @Serializable
     data class Pairing(val deviceId: String) : Destination
 
@@ -49,7 +53,7 @@ sealed interface Destination : NavKey {
     data object QrScan : Destination
 
     @Serializable
-    data object ServerProfile : Destination
+    data object ManualAddress : Overlay
 
     @Serializable
     data object Diagnostics : Destination

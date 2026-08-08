@@ -1,7 +1,8 @@
-package com.fserver.app.presentation.screens.discovery.model
+package com.fserver.app.presentation.screens.discovery.automatic.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.domain.model.DetectionMethod
+import com.fserver.app.domain.model.FoundDevice
 
 @Immutable
 data class DeviceDiscoveryState(
@@ -31,6 +32,7 @@ data class DeviceDiscoveryState(
     data class DeviceUi(
         val id: String,
         val name: String,
+        val kind: FoundDevice.Kind,
         val address: String,
         val online: Boolean,
         val lastSeenLabel: String? = null,
@@ -41,12 +43,14 @@ data class DeviceDiscoveryState(
             DeviceUi(
                 id = "macbook",
                 name = "MacBook-Pro.local",
+                kind = FoundDevice.Kind.Laptop,
                 address = "192.168.1.14:8384",
                 online = true,
             ),
             DeviceUi(
                 id = "nas",
                 name = "HOME-NAS",
+                kind = FoundDevice.Kind.Nas,
                 address = "nas.local:8384",
                 online = false,
                 lastSeenLabel = "2 h",

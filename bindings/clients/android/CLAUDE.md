@@ -34,6 +34,19 @@ Spec design constraints to keep in mind while writing `:core`:
 - **`evict` ≠ `delete`.** In offload mode, freeing local space must not propagate as user deletion
   to backup device. Get this wrong → user data destroyed.
 
+## Connection flow invariants
+
+- **Every route to a device ends at `Destination.Pairing`.** Discovery list, QR scan, typed address
+  — none of them establishes trust, so all three land on the same fingerprint confirmation. Adding
+  a fourth detection route means routing it here too, not giving it its own connect screen.
+- **A scanned code buys typing, not trust.** MVP QR payload is `{"ip":…,"port":…}` only, so QR goes
+  through `DeviceDetectionRequest.ByManualAddress` like a typed address. Skipping fingerprint
+  confirmation becomes legitimate *only* once the code actually carries the server key fingerprint
+  (spec §3.2 config profile) — until then, don't.
+- **`FoundDevice.kind` vs `FoundDevice.access` are unrelated.** `kind` is cosmetic (icon).
+  `access` (Open/Password/Key) picks which fields the Pairing screen shows. Both are peer claims
+  made before trust exists → presentation only, never authorization.
+
 ## Commands
 
 Always pass `--no-daemon`.

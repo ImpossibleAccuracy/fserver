@@ -2,9 +2,8 @@ package com.fserver.app.data
 
 import com.fserver.app.presentation.model.DiagnosticCheckUi
 import com.fserver.app.presentation.model.FileUi
+import com.fserver.app.presentation.model.HandshakeUi
 import com.fserver.app.presentation.model.IncomingRequestUi
-import com.fserver.app.presentation.model.PairingCandidateUi
-import com.fserver.app.presentation.model.ServerProfileUi
 import com.fserver.app.presentation.model.TransferUi
 import com.fserver.app.presentation.model.TreeNodeUi
 
@@ -17,8 +16,7 @@ import com.fserver.app.presentation.model.TreeNodeUi
  */
 interface DemoContentSource {
     fun networkName(): String
-    fun pairingCandidate(deviceId: String): PairingCandidateUi
-    fun scannedProfile(): ServerProfileUi
+    fun handshake(deviceId: String): HandshakeUi
     fun serverName(): String
     fun breadcrumb(): String
     fun files(): List<FileUi>
@@ -35,13 +33,11 @@ class SampleContentSource : DemoContentSource {
     override fun networkName(): String = SampleData.NETWORK_NAME
 
     /**
-     * The MVP shows the same candidate whatever was tapped — a real implementation reads
-     * the fingerprint the handshake actually offered for [deviceId].
+     * The MVP returns the same fingerprint whatever was tapped — a real implementation reads
+     * what the handshake with [deviceId] actually offered.
      */
-    override fun pairingCandidate(deviceId: String): PairingCandidateUi =
-        SampleData.pairingCandidate
+    override fun handshake(deviceId: String): HandshakeUi = SampleData.handshake
 
-    override fun scannedProfile(): ServerProfileUi = SampleData.scannedProfile
     override fun serverName(): String = SampleData.CURRENT_SERVER
     override fun breadcrumb(): String = SampleData.BREADCRUMB
     override fun files(): List<FileUi> = SampleData.files

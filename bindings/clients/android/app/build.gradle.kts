@@ -99,6 +99,9 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
+    // Serialization — nav keys, and the payload a scanned connection code carries
+    implementation(libs.kotlinx.serialization.json)
+
     // IO
     implementation(libs.androidx.documentfile)
 

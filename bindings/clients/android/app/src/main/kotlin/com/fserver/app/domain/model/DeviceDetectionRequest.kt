@@ -17,4 +17,10 @@ sealed interface DeviceDetectionRequest {
     ) : DeviceDetectionRequest {
         override val method: DetectionMethod = DetectionMethod.OnDemand.ManualAddress
     }
+
+    data class QrCode(
+        val payload: String
+    ) : DeviceDetectionRequest {
+        override val method: DetectionMethod = DetectionMethod.OnDemand.ManualAddress
+    }
 }

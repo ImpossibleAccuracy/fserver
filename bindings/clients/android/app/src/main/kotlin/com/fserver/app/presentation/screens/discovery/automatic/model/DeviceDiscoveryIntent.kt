@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery.model
+package com.fserver.app.presentation.screens.discovery.automatic.model
 
 sealed interface DeviceDiscoveryIntent {
     /** Restart the automatic detection pass. */

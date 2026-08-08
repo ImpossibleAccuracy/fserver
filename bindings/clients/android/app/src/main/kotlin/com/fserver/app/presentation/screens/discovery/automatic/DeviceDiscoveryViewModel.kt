@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery
+package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,11 +6,12 @@ import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.FoundDevice
 import com.fserver.app.domain.model.NetworkInfo
+import com.fserver.app.domain.model.address
 import com.fserver.app.domain.model.availableDetectionMethods
 import com.fserver.app.domain.repository.DeviceDetectionRepository
 import com.fserver.app.domain.repository.NetworkInfoRepository
-import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryIntent
-import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryState
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,23 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * Device discovery.
- *
- * Which methods may run is not a decision this screen makes: it falls out of the
- * transport's [com.fserver.app.domain.model.NetworkCapability] set via
- * [availableDetectionMethods]. On Wi-Fi that is everything; on mobile data only the
- * radio-based nearby API and a manually entered address survive, because carrier NAT
- * makes a subnet sweep or an mDNS query cost data and return nothing.
- *
- * Only [DetectionMethod.Automatic] methods start on their own. A subnet sweep is slow and
- * loud, so it is offered as an escape hatch after the automatic pass finishes empty —
- * which is also the case where a multicast-filtering router would otherwise leave the user
- * staring at a permanently empty list.
- *
- * Offline devices are kept in the list rather than filtered out — the user needs to see
- * that a device exists and is unreachable right now.
- */
 class DeviceDiscoveryViewModel(
     private val networkInfoRepository: NetworkInfoRepository,
     private val deviceDetectionRepository: DeviceDetectionRepository,
@@ -123,13 +107,7 @@ private fun NetworkInfo.toUi() = DeviceDiscoveryState.NetworkInfoUi(
 private fun FoundDevice.toUi() = DeviceDiscoveryState.DeviceUi(
     id = id,
     name = name,
-    address = when (source) {
-        is FoundDevice.Source.ManualEntry -> "${source.ipAddress}:${source.port}"
-        is FoundDevice.Source.NearbyDevice -> source.deviceId
-        is FoundDevice.Source.NetworkServiceDiscovery ->
-            "${source.serviceName}.${source.serviceType}.${source.domain}"
-
-        is FoundDevice.Source.SubnetScan -> "${source.ipAddress}:${source.port}"
-    },
+    kind = kind,
+    address = address,
     online = true,
 )
