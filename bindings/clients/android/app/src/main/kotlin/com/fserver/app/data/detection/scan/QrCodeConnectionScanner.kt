@@ -1,8 +1,8 @@
 package com.fserver.app.data.detection.scan
 
 import com.fserver.app.data.datasource.JsonQrCodeParser
-import com.fserver.app.data.detection.detector.DeviceConnector
-import com.fserver.app.data.detection.detector.IpDeviceConnector
+import com.fserver.app.data.detection.connector.DeviceConnector
+import com.fserver.app.data.detection.connector.IpDeviceConnector
 import com.fserver.app.domain.model.exception.MalformedQrException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

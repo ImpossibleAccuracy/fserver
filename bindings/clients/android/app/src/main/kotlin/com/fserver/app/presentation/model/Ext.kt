@@ -14,5 +14,5 @@ val FoundDevice.address: String
         is FoundDevice.Source.SubnetScan -> "${source.ipAddress}:${source.port}"
         is FoundDevice.Source.NearbyDevice -> source.deviceId
         is FoundDevice.Source.NetworkServiceDiscovery ->
-            "${source.serviceName}.${source.serviceType}.${source.domain}"
+            "${source.serviceName}.${source.serviceType}.${source.ipAddress}"
     }

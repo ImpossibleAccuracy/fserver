@@ -2,10 +2,9 @@ package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.data.DemoContentSource
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.FoundDevice
 import com.fserver.app.domain.repository.DeviceDetectionRepository
-import com.fserver.app.presentation.model.HandshakeUi
 import com.fserver.app.presentation.model.address
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -24,19 +24,21 @@ import kotlin.time.Duration.Companion.milliseconds
 class PairingViewModel(
     deviceId: String,
     deviceDetectionRepository: DeviceDetectionRepository,
-    content: DemoContentSource,
 ) : ViewModel() {
 
     private val password = MutableStateFlow("")
     private val rememberDevice = MutableStateFlow(true)
+    private val capabilities = MutableStateFlow<DeviceConnectionCapabilities?>(null)
 
     val state: StateFlow<PairingState> = combine(
         deviceDetectionRepository.device(deviceId).debounce(200.milliseconds),
+        capabilities,
         password,
         rememberDevice,
-    ) { device, password, rememberDevice ->
+    ) { device, capabilities, password, rememberDevice ->
         PairingState(
-            device = device?.toUi(content.handshake(deviceId)),
+            device = if (device == null || capabilities == null) null
+            else device.toUi(capabilities),
             password = password,
             rememberDevice = rememberDevice,
         )
@@ -47,6 +49,21 @@ class PairingViewModel(
             initialValue = PairingState(),
         )
 
+    init {
+        viewModelScope.launch {
+            deviceDetectionRepository
+                .checkConnectionCapabilities(deviceId)
+                .fold(
+                    onSuccess = { data ->
+                        capabilities.update { data }
+                    },
+                    onFailure = {
+                        // TODO: show UI error
+                    }
+                )
+        }
+    }
+
     fun onIntent(intent: PairingIntent) {
         when (intent) {
             is PairingIntent.RememberDeviceChanged -> rememberDevice.update { intent.remember }
@@ -55,11 +72,11 @@ class PairingViewModel(
     }
 }
 
-private fun FoundDevice.toUi(handshake: HandshakeUi) = PairingState.DeviceUi(
+private fun FoundDevice.toUi(capabilities: DeviceConnectionCapabilities) = PairingState.DeviceUi(
     name = name,
     kind = kind,
-    access = access,
+    access = capabilities.access,
     address = address,
-    technicalLine = handshake.technicalLine,
-    fingerprintGroups = handshake.fingerprintGroups,
+    technicalLine = "${capabilities.tlsVersion.name} · protocol ${capabilities.protocolVersion.name}",
+    fingerprintGroups = capabilities.fingerprints.map { it.key },
 )

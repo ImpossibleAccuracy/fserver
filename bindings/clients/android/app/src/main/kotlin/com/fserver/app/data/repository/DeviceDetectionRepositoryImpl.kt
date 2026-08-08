@@ -1,9 +1,11 @@
 package com.fserver.app.data.repository
 
 import android.util.Log
-import com.fserver.app.data.detection.detector.DeviceConnector
+import com.fserver.app.data.detection.connector.DeviceConnector
+import com.fserver.app.data.detection.connector.DeviceConnectorFactory
 import com.fserver.app.data.detection.scan.DeviceScannerFactory
 import com.fserver.app.domain.model.DetectionMethod
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.FoundDevice
 import com.fserver.app.domain.repository.DeviceDetectionRepository
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.update
  */
 internal class DeviceDetectionRepositoryImpl(
     private val deviceScannerFactory: DeviceScannerFactory,
+    private val deviceConnectorFactory: DeviceConnectorFactory,
 ) : DeviceDetectionRepository {
     private val devices = MutableStateFlow<List<FoundDevice>>(emptyList())
     override val onlineDevices: Flow<List<FoundDevice>> = devices.asStateFlow()
@@ -38,6 +41,16 @@ internal class DeviceDetectionRepositoryImpl(
     override fun device(id: String): Flow<FoundDevice?> = devices
         .map { list -> list.firstOrNull { it.id == id } }
         .distinctUntilChanged()
+
+    override suspend fun checkConnectionCapabilities(deviceId: String): Result<DeviceConnectionCapabilities> =
+        runCatching {
+            val device = devices.value.firstOrNull { it.id == deviceId }
+                ?: throw IllegalArgumentException("Device $deviceId not found")
+
+            val connector = deviceConnectorFactory.fromDevice(device)
+
+            connector.loadCapabilities().getOrThrow()
+        }
 
     override suspend fun startDetection(request: DeviceDetectionRequest): List<FoundDevice> {
         if (request in runningRequests.value) return emptyList()

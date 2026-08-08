@@ -1,6 +1,7 @@
-package com.fserver.app.data.detection.detector
+package com.fserver.app.data.detection.connector
 
 import com.fserver.app.data.detection.model.DeviceConnectionException
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
@@ -24,10 +25,23 @@ internal class IpDeviceConnector(
             id = "$ipAddress:$resolvedPort",
             name = ipAddress,
             kind = FoundDevice.Kind.Unknown,
-            // An address alone says nothing about what guards the far end; the fixture
-            // picks the demanding case so the connect screen's password branch is real.
-            access = FoundDevice.Access.Password,
             source = FoundDevice.Source.ManualEntry(ipAddress, resolvedPort),
+        )
+    }
+
+    override suspend fun loadCapabilities(): Result<DeviceConnectionCapabilities> = runCatching {
+        delay(3.seconds)
+
+        DeviceConnectionCapabilities(
+            tlsVersion = DeviceConnectionCapabilities.TLSVersion.TLS_1_2,
+            protocolVersion = DeviceConnectionCapabilities.ProtocolVersion.HTTP_2,
+            access = DeviceConnectionCapabilities.Access.Password,
+            fingerprints = listOf(
+                DeviceConnectionCapabilities.Fingerprint("9f2c 4a01"),
+                DeviceConnectionCapabilities.Fingerprint("b7d3 e820"),
+                DeviceConnectionCapabilities.Fingerprint("15aa cc94"),
+                DeviceConnectionCapabilities.Fingerprint("0f6b 7e311"),
+            )
         )
     }
 }

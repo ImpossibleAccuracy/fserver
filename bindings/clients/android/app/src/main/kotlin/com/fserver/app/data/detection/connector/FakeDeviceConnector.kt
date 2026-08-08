@@ -1,6 +1,7 @@
-package com.fserver.app.data.detection.detector
+package com.fserver.app.data.detection.connector
 
 import com.fserver.app.data.detection.model.DeviceConnectionException
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
@@ -17,5 +18,11 @@ internal class FakeDeviceConnector(
         }
 
         return@runCatching result
+    }
+
+    override suspend fun loadCapabilities(): Result<DeviceConnectionCapabilities> {
+        return Result.failure(
+            DeviceConnectionException("Fake device connector does not support loading capabilities")
+        )
     }
 }

@@ -4,11 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
@@ -29,7 +30,6 @@ import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkListRow
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSecondaryButton
@@ -74,8 +74,30 @@ private fun DeviceDiscoveryScreen(
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
+            val summary = when (val network = state.network?.type) {
+                DeviceDiscoveryState.NetworkInfoUi.Type.WiFi ->
+                    stringResource(
+                        R.string.discovery_network_summary_wifi,
+                        network.name,
+                        state.devices.size
+                    )
+
+                DeviceDiscoveryState.NetworkInfoUi.Type.Mobile ->
+                    stringResource(
+                        R.string.discovery_network_summary_mobile,
+                        network.name,
+                        state.devices.size
+                    )
+
+                null -> stringResource(
+                    R.string.discovery_network_summary_offline,
+                    state.devices.size
+                )
+            }
+
             DkTopBar(
                 title = stringResource(R.string.discovery_title),
+                subtitle = summary,
                 actions = {
                     IconButton(onClick = { onIntent(DeviceDiscoveryIntent.RefreshClicked) }) {
                         Icon(
@@ -91,22 +113,20 @@ private fun DeviceDiscoveryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(innerPadding),
         ) {
-            NetworkSummary(
+            NetworkHint(
                 modifier = Modifier.padding(
                     start = DkSpacing.screenPadding,
                     end = DkSpacing.screenPadding,
                     bottom = DkSpacing.sm,
                 ),
                 network = state.network,
-                deviceCount = state.devices.size,
             )
 
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 when {
                     state.devices.isEmpty() -> {
@@ -133,6 +153,8 @@ private fun DeviceDiscoveryScreen(
                     }
                 }
             }
+
+            Spacer(Modifier.weight(1f))
 
             Column(
                 modifier = Modifier
@@ -179,21 +201,10 @@ private fun DeviceDiscoveryScreen(
  * data is a property of the network, not a failure the user should keep retrying.
  */
 @Composable
-private fun NetworkSummary(
+private fun NetworkHint(
     modifier: Modifier = Modifier,
     network: DeviceDiscoveryState.NetworkInfoUi?,
-    deviceCount: Int,
 ) {
-    val summary = when (network?.type) {
-        DeviceDiscoveryState.NetworkInfoUi.Type.WiFi ->
-            stringResource(R.string.discovery_network_summary_wifi, network.name, deviceCount)
-
-        DeviceDiscoveryState.NetworkInfoUi.Type.Mobile ->
-            stringResource(R.string.discovery_network_summary_mobile, network.name, deviceCount)
-
-        null -> stringResource(R.string.discovery_network_summary_offline, deviceCount)
-    }
-
     val hint = when (network?.type) {
         DeviceDiscoveryState.NetworkInfoUi.Type.WiFi -> null
         DeviceDiscoveryState.NetworkInfoUi.Type.Mobile ->
@@ -202,18 +213,13 @@ private fun NetworkSummary(
         null -> stringResource(R.string.discovery_network_hint_offline)
     }
 
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(DkSpacing.xs),
-    ) {
-        DkMonoCaption(text = summary)
-        if (hint != null) {
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    if (hint != null) {
+        Text(
+            modifier = modifier,
+            text = hint,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -223,8 +229,8 @@ private fun DeviceList(
     searching: Boolean,
     onDeviceClick: (deviceId: String) -> Unit,
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(devices, key = { it.id }) { device ->
+    Column(modifier = Modifier.fillMaxSize()) {
+        devices.forEach { device ->
             DeviceRow(
                 device = device,
                 onClick = { onDeviceClick(device.id) },
@@ -233,7 +239,7 @@ private fun DeviceList(
         }
 
         if (searching) {
-            item { SearchingRow() }
+            SearchingRow()
         }
     }
 }

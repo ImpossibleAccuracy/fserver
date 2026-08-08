@@ -74,7 +74,7 @@ private fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = DkSpacing.screenPadding),
         ) {
-            DkSectionLabel(stringResource(R.string.settings_section_connection))
+            DkSectionLabel(text = stringResource(R.string.settings_section_connection))
 
             DkNavigationRow(
                 title = stringResource(R.string.settings_devices),
@@ -97,7 +97,7 @@ private fun SettingsScreen(
             )
             DkFadingDivider()
 
-            DkSectionLabel(stringResource(R.string.settings_section_security))
+            DkSectionLabel(text = stringResource(R.string.settings_section_security))
 
             DkSettingsRow(
                 title = stringResource(R.string.settings_storage_encryption),
@@ -116,7 +116,7 @@ private fun SettingsScreen(
             )
             DkFadingDivider()
 
-            DkSectionLabel(stringResource(R.string.settings_section_other))
+            DkSectionLabel(text = stringResource(R.string.settings_section_other))
 
             DkValueRow(
                 title = stringResource(R.string.settings_download_folder),

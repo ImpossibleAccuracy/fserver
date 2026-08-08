@@ -1,6 +1,9 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -15,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import com.fserver.app.R
 
 val DKTopBarColors: TopAppBarColors
@@ -44,8 +48,9 @@ val DKTransparentTopBarColors: TopAppBarColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DkTopBar(
-    title: String,
     modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     colors: TopAppBarColors = DKTopBarColors,
     actions: @Composable RowScope.() -> Unit = {},
@@ -53,10 +58,26 @@ fun DkTopBar(
     TopAppBar(
         modifier = modifier,
         title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                AnimatedContent(
+                    targetState = subtitle,
+                    contentKey = { it != null },
+                ) { subtitle ->
+                    if (subtitle != null) {
+                        DkMonoCaption(
+                            modifier = Modifier.padding(top = DkSpacing.xs),
+                            text = subtitle
+                        )
+                    }
+                }
+            }
         },
         colors = colors,
         navigationIcon = {

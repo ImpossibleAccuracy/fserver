@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Scaffold
@@ -90,7 +91,12 @@ fun AppStyling(
             createBottomBarState(bottomBarHeight),
             createSnackbarControllerState(snackbarState),
         ) {
-            content(paddingValues)
+            Box(
+                modifier = Modifier
+                    .imePadding()
+            ) {
+                content(paddingValues)
+            }
         }
     }
 }

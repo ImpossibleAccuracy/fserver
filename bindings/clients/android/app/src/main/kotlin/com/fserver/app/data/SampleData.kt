@@ -7,7 +7,6 @@ import com.fserver.app.presentation.model.FileAvailabilityUi
 import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.IncomingFileUi
-import com.fserver.app.presentation.model.HandshakeUi
 import com.fserver.app.presentation.model.IncomingRequestUi
 import com.fserver.app.presentation.model.TransferUi
 import com.fserver.app.presentation.model.TreeNodeUi
@@ -23,11 +22,6 @@ object SampleData {
     const val CURRENT_SERVER = "MacBook-Pro"
     const val BREADCRUMB = "/ Documents / Shoot"
     const val DOWNLOAD_FOLDER = "/Exchange"
-
-    val handshake = HandshakeUi(
-        technicalLine = "TLS 1.3 · protocol v1",
-        fingerprintGroups = listOf("9f2c 4a01", "b7d3 e820", "15aa cc94", "0f6b 7e31"),
-    )
 
     /** What the demo reticle "decodes" until a camera is bound. */
     const val QR_PAYLOAD = """{"ip":"192.168.1.42","port":8384}"""

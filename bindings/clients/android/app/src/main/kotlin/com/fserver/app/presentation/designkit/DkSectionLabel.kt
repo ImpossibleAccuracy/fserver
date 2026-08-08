@@ -9,33 +9,33 @@ import androidx.compose.ui.unit.sp
 
 /** Accent-coloured, letter-spaced section heading — settings groups, deck sub-headers. */
 @Composable
-fun DkSectionLabel(text: String, modifier: Modifier = Modifier) {
+fun DkSectionLabel(modifier: Modifier = Modifier, text: String) {
     Text(
+        modifier = modifier.padding(top = DkSpacing.md, bottom = DkSpacing.xs),
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 1.5.sp),
         color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(top = DkSpacing.md, bottom = DkSpacing.xs),
     )
 }
 
 /** Muted caption used under a title or above a list — the deck's `--color-neutral-600` voice. */
 @Composable
-fun DkCaption(text: String, modifier: Modifier = Modifier) {
+fun DkCaption(modifier: Modifier = Modifier, text: String) {
     Text(
+        modifier = modifier,
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
     )
 }
 
 /** Monospaced technical caption: paths, addresses, breadcrumbs. */
 @Composable
-fun DkMonoCaption(text: String, modifier: Modifier = Modifier) {
+fun DkMonoCaption(modifier: Modifier = Modifier, text: String) {
     Text(
+        modifier = modifier,
         text = text,
         style = DkType.mono,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
     )
 }

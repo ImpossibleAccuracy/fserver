@@ -1,6 +1,6 @@
 package com.fserver.app.data.detection.scan
 
-import com.fserver.app.data.detection.detector.DeviceConnector
+import com.fserver.app.data.detection.connector.DeviceConnector
 import kotlinx.coroutines.flow.Flow
 
 internal interface DeviceScanner {

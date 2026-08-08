@@ -6,7 +6,7 @@ import com.fserver.app.domain.model.exception.DetectionFailedException
 
 internal class DeviceScannerFactory {
     /**
-     * Creates a [DeviceScanner] based on the provided [DeviceDetectionRequest].
+     * Creates a [DeviceScanner] for provided [DeviceDetectionRequest].
      */
     fun fromRequest(request: DeviceDetectionRequest): DeviceScanner = when (request) {
         is DeviceDetectionRequest.ByMethod -> when (request.method) {

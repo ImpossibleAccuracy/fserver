@@ -113,14 +113,3 @@ data class DiagnosticCheckUi(
     @param:StringRes val detailRes: Int,
     val state: DkCheckState,
 )
-
-/**
- * What the handshake with a device produced — as opposed to what discovery already knew
- * about it (name, kind, access). The fingerprint is the one value the user is asked to
- * compare by eye, so it arrives pre-grouped for reading aloud.
- */
-@Immutable
-data class HandshakeUi(
-    val technicalLine: String,
-    val fingerprintGroups: List<String>,
-)

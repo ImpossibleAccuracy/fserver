@@ -1,6 +1,7 @@
 package com.fserver.app.domain.repository
 
 import com.fserver.app.domain.model.DetectionMethod
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,11 @@ interface DeviceDetectionRepository {
      * The device with [id], or null once it is no longer among [onlineDevices].
      */
     fun device(id: String): Flow<FoundDevice?>
+
+    /**
+     * Loads the connection capabilities of the device with [deviceId].
+     */
+    suspend fun checkConnectionCapabilities(deviceId: String): Result<DeviceConnectionCapabilities>
 
     /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].

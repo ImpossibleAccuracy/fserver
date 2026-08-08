@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.FoundDevice
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
@@ -76,24 +79,6 @@ private fun PairingScreen(
                 onBack = navigateUp,
             )
         },
-        bottomBar = {
-            Column(
-                modifier = Modifier.padding(DkSpacing.screenPadding),
-                verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-            ) {
-                DkPrimaryButton(
-                    text = stringResource(R.string.pairing_confirm),
-                    onClick = navigateToFiles,
-                    enabled = state.canConnect,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                DkGhostButton(
-                    text = stringResource(R.string.action_cancel),
-                    onClick = navigateUp,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
     ) { innerPadding ->
         val device = state.device
 
@@ -105,54 +90,81 @@ private fun PairingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
+                .padding(innerPadding)
                 .padding(horizontal = DkSpacing.screenPadding),
-            verticalArrangement = Arrangement.spacedBy(DkSpacing.lg),
         ) {
-            DeviceCard(device = device)
-
-            Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-                Text(
-                    text = stringResource(R.string.pairing_fingerprint_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                DkFingerprintBlock(groups = device.fingerprintGroups)
-                Text(
-                    text = stringResource(R.string.pairing_fingerprint_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (state.requiresPassword) {
-                DkTextField(
-                    label = stringResource(R.string.pairing_password_label),
-                    value = state.password,
-                    onValueChange = { onIntent(PairingIntent.PasswordChanged(it)) },
-                    isPassword = true,
-                )
-            }
-
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(DkSpacing.lg),
             ) {
-                Checkbox(
-                    checked = state.rememberDevice,
-                    onCheckedChange = { onIntent(PairingIntent.RememberDeviceChanged(it)) },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = MaterialTheme.colorScheme.primary,
-                        checkmarkColor = MaterialTheme.colorScheme.onPrimary,
-                        uncheckedColor = MaterialTheme.colorScheme.outline,
-                    ),
+                DeviceCard(device = device)
+
+                Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
+                    Text(
+                        text = stringResource(R.string.pairing_fingerprint_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    DkFingerprintBlock(groups = device.fingerprintGroups)
+                    Text(
+                        text = stringResource(R.string.pairing_fingerprint_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                if (state.requiresPassword) {
+                    DkTextField(
+                        label = stringResource(R.string.pairing_password_label),
+                        value = state.password,
+                        onValueChange = { onIntent(PairingIntent.PasswordChanged(it)) },
+                        isPassword = true,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+                ) {
+                    Checkbox(
+                        checked = state.rememberDevice,
+                        onCheckedChange = { onIntent(PairingIntent.RememberDeviceChanged(it)) },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary,
+                            checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                            uncheckedColor = MaterialTheme.colorScheme.outline,
+                        ),
+                    )
+                    Text(
+                        text = stringResource(R.string.pairing_remember_device),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = DkSpacing.lg)
+            )
+
+            Column(
+                modifier = Modifier.padding(bottom = DkSpacing.screenPadding),
+                verticalArrangement = Arrangement.spacedBy(DkSpacing.sm, Alignment.Bottom),
+            ) {
+                DkPrimaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.pairing_confirm),
+                    onClick = navigateToFiles,
+                    enabled = state.canConnect,
                 )
-                Text(
-                    text = stringResource(R.string.pairing_remember_device),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                DkGhostButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.action_cancel),
+                    onClick = navigateUp,
                 )
             }
         }
@@ -181,7 +193,15 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
             CardFact(stringResource(R.string.pairing_address, device.address))
-            CardFact(stringResource(device.access.labelRes))
+            CardFact(
+                stringResource(
+                    when (device.access) {
+                        DeviceConnectionCapabilities.Access.Open -> R.string.pairing_access_open
+                        DeviceConnectionCapabilities.Access.Password -> R.string.pairing_access_password
+                        DeviceConnectionCapabilities.Access.Key -> R.string.pairing_access_key
+                    }
+                )
+            )
         }
     }
 }
@@ -216,11 +236,11 @@ private fun PairingLoading(modifier: Modifier = Modifier) {
 }
 
 @get:StringRes
-private val FoundDevice.Access.labelRes: Int
+private val DeviceConnectionCapabilities.Access.labelRes: Int
     get() = when (this) {
-        FoundDevice.Access.Open -> R.string.pairing_access_open
-        FoundDevice.Access.Password -> R.string.pairing_access_password
-        FoundDevice.Access.Key -> R.string.pairing_access_key
+        DeviceConnectionCapabilities.Access.Open -> R.string.pairing_access_open
+        DeviceConnectionCapabilities.Access.Password -> R.string.pairing_access_password
+        DeviceConnectionCapabilities.Access.Key -> R.string.pairing_access_key
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
@@ -245,7 +265,7 @@ private fun PairingScreenPasswordPreview() {
                 device = PairingState.SampleDevice.copy(
                     name = "HOME-NAS",
                     kind = FoundDevice.Kind.Nas,
-                    access = FoundDevice.Access.Password,
+                    access = DeviceConnectionCapabilities.Access.Password,
                     address = "192.168.1.42:8384",
                 ),
             ),

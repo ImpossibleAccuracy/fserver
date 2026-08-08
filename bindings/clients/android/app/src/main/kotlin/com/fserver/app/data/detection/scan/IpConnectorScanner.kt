@@ -1,7 +1,7 @@
 package com.fserver.app.data.detection.scan
 
-import com.fserver.app.data.detection.detector.DeviceConnector
-import com.fserver.app.data.detection.detector.IpDeviceConnector
+import com.fserver.app.data.detection.connector.DeviceConnector
+import com.fserver.app.data.detection.connector.IpDeviceConnector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
