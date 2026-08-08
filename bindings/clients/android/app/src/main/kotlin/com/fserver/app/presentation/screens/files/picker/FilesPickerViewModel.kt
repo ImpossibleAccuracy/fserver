@@ -9,7 +9,6 @@ import android.os.Environment
 import android.os.storage.StorageManager
 import android.provider.MediaStore
 import android.text.format.Formatter
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
@@ -30,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.uuid.Uuid
+import timber.log.Timber
 
 /** Newest media first, capped — the selection list renders every row eagerly. */
 private const val MEDIA_SCAN_LIMIT = 500
@@ -147,7 +147,7 @@ class FilesPickerViewModel(
                 )
             }
         } catch (t: Throwable) {
-            Log.e("FilesPickerViewModel", "Error handling URI: $uri", t)
+            Timber.e(t, "Error handling URI: $uri")
         }
     }
 
@@ -204,7 +204,7 @@ class FilesPickerViewModel(
         val media = try {
             queryMedia()
         } catch (t: Throwable) {
-            Log.e("FilesPickerViewModel", "Error querying MediaStore", t)
+            Timber.e(t, "Error querying MediaStore")
             return@withContext
         }
 

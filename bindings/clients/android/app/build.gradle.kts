@@ -105,6 +105,9 @@ dependencies {
     // IO
     implementation(libs.androidx.documentfile)
 
+    // Logging
+    implementation(libs.timber)
+
     // Tests
     testImplementation(libs.junit)
     testImplementation(platform(libs.koin.bom))

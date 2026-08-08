@@ -1,5 +1,6 @@
 package com.fserver.app.data.datasource
 
+import com.fserver.app.domain.Constants
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -20,7 +21,7 @@ internal class JsonQrCodeParser {
         }
 
         if (dto.ip.isBlank()) return null
-        if (dto.port != null && dto.port !in PORT_RANGE) return null
+        if (dto.port != null && dto.port !in Constants.VALID_PORT_RANGE) return null
 
         return dto
     }
@@ -30,8 +31,4 @@ internal class JsonQrCodeParser {
         val ip: String,
         val port: Int? = null,
     )
-
-    private companion object {
-        val PORT_RANGE = 1..65535
-    }
 }

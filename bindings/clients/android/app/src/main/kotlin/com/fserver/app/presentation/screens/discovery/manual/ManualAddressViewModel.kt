@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.discovery.manual
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.domain.Constants
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.exception.DetectionFailedException
 import com.fserver.app.domain.repository.DeviceDetectionRepository
@@ -43,7 +44,7 @@ class ManualAddressViewModel(
         if (!current.canConnect) return
 
         val port = current.port.takeIf { it.isNotBlank() }?.toIntOrNull()
-        if (current.port.isNotBlank() && (port == null || port !in PORT_RANGE)) {
+        if (current.port.isNotBlank() && (port == null || port !in Constants.VALID_PORT_RANGE)) {
             _state.update { it.copy(error = ManualAddressState.Error.InvalidPort) }
             return
         }
@@ -72,9 +73,5 @@ class ManualAddressViewModel(
                 _state.update { it.copy(error = ManualAddressState.Error.Unknown(e.localizedMessage)) }
             }
         }
-    }
-
-    private companion object {
-        val PORT_RANGE = 1..65535
     }
 }

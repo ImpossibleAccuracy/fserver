@@ -1,6 +1,5 @@
 package com.fserver.app.data.repository
 
-import android.util.Log
 import com.fserver.app.data.detection.connector.DeviceConnector
 import com.fserver.app.data.detection.connector.DeviceConnectorFactory
 import com.fserver.app.data.detection.scan.DeviceScannerFactory
@@ -21,6 +20,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 
 /**
  * Fake detection engine standing in until `:core` is wired up.
@@ -85,11 +85,7 @@ internal class DeviceDetectionRepositoryImpl(
                 currentCoroutineContext().ensureActive()
 
                 // TODO: propagate error to UI layer
-                Log.e(
-                    "DeviceDetectionRepositoryImpl",
-                    "Failed to load device info",
-                    t
-                )
+                Timber.e(t, "Failed to load device info")
             }
             .getOrNull()
 

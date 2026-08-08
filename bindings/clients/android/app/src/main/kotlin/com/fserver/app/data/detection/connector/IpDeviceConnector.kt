@@ -1,13 +1,13 @@
 package com.fserver.app.data.detection.connector
 
 import com.fserver.app.data.detection.model.DeviceConnectionException
+import com.fserver.app.domain.Constants
 import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.FoundDevice
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
 private const val REACHABLE_HOST_PREFIX = "192.168."
-private const val SAMPLE_DEFAULT_PORT = 8080
 
 internal class IpDeviceConnector(
     val ipAddress: String,
@@ -16,10 +16,11 @@ internal class IpDeviceConnector(
     override suspend fun loadDeviceInfo(): Result<FoundDevice> = runCatching {
         delay(1.5.seconds)
 
+        // Debug filtration, remove after implementing real connection logic. This is to simulate unreachable hosts.
         if (!ipAddress.startsWith(REACHABLE_HOST_PREFIX))
             throw DeviceConnectionException("Unreachable host: $ipAddress")
 
-        val resolvedPort = port ?: SAMPLE_DEFAULT_PORT
+        val resolvedPort = port ?: Constants.DEFAULT_PORT
 
         FoundDevice(
             id = "$ipAddress:$resolvedPort",
