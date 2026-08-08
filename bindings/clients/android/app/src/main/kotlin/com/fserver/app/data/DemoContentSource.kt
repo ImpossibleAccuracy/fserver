@@ -1,6 +1,5 @@
 package com.fserver.app.data
 
-import com.fserver.app.presentation.model.DeviceUi
 import com.fserver.app.presentation.model.DiagnosticCheckUi
 import com.fserver.app.presentation.model.FileUi
 import com.fserver.app.presentation.model.IncomingRequestUi
@@ -17,7 +16,6 @@ import com.fserver.app.presentation.model.TreeNodeUi
  * and nowhere else. Nothing here decides anything — it hands back fixtures.
  */
 interface DemoContentSource {
-    fun devices(): List<DeviceUi>
     fun networkName(): String
     fun pairingCandidate(deviceId: String): PairingCandidateUi
     fun scannedProfile(): ServerProfileUi
@@ -34,7 +32,6 @@ interface DemoContentSource {
 }
 
 class SampleContentSource : DemoContentSource {
-    override fun devices(): List<DeviceUi> = SampleData.devices
     override fun networkName(): String = SampleData.NETWORK_NAME
 
     /**

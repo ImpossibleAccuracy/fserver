@@ -27,7 +27,7 @@ import com.fserver.app.presentation.screens.transfers.transfersEntry
 @Composable
 fun FServerApp() {
 //    val navigator = rememberAppNavigator(Destination.Onboarding)
-    val navigator = rememberAppNavigator(Destination.Files.List)
+    val navigator = rememberAppNavigator(Destination.DeviceDiscovery)
 
     AppStyling(
         navigator = navigator,

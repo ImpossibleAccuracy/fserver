@@ -37,7 +37,6 @@ import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.model.DeviceUi
 import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -91,9 +90,68 @@ private fun DeviceDiscoveryScreen(
                 },
             )
         },
-        bottomBar = {
+    ) { innerPadding ->
+        if (state.network == null) {
             Column(
-                modifier = Modifier.padding(DkSpacing.screenPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "No network detected",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            return@DkScaffold
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                item {
+                    DkMonoCaption(
+                        modifier = Modifier.padding(
+                            start = DkSpacing.screenPadding,
+                            end = DkSpacing.screenPadding,
+                            bottom = DkSpacing.sm,
+                        ),
+                        text = stringResource(
+                            R.string.discovery_network_summary,
+                            state.network.name,
+                            state.devices.size,
+                        ),
+                    )
+                }
+
+                items(state.devices, key = { it.id }) { device ->
+                    DeviceRow(
+                        device = device,
+                        onClick = { navigateToPairing(device.id) },
+                    )
+                    DkFadingDivider()
+                }
+
+                if (state.searching) {
+                    item { SearchingRow() }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = DkSpacing.screenPadding)
+                    .padding(bottom = DkSpacing.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
             ) {
                 Text(
@@ -114,41 +172,12 @@ private fun DeviceDiscoveryScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        },
-    ) { innerPadding ->
-        LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            item {
-                DkMonoCaption(
-                    text = stringResource(
-                        R.string.discovery_network_summary,
-                        state.networkName,
-                        state.devices.size,
-                    ),
-                    modifier = Modifier.padding(
-                        start = DkSpacing.screenPadding,
-                        end = DkSpacing.screenPadding,
-                        bottom = DkSpacing.sm,
-                    ),
-                )
-            }
-
-            items(state.devices, key = { it.id }) { device ->
-                DeviceRow(
-                    device = device,
-                    onClick = { navigateToPairing(device.id) },
-                )
-                DkFadingDivider()
-            }
-
-            if (state.searching) {
-                item { SearchingRow() }
-            }
         }
     }
 }
 
 @Composable
-private fun DeviceRow(device: DeviceUi, onClick: () -> Unit) {
+private fun DeviceRow(device: DeviceDiscoveryState.Device, onClick: () -> Unit) {
     DkListRow(
         title = device.name,
         subtitle = device.lastSeenLabel
@@ -192,8 +221,10 @@ private fun DeviceDiscoveryScreenPreview() {
     FServerTheme {
         DeviceDiscoveryScreen(
             state = DeviceDiscoveryState(
-                networkName = SampleData.NETWORK_NAME,
-                devices = SampleData.devices,
+                network = DeviceDiscoveryState.NetworkInfo(
+                    name = SampleData.NETWORK_NAME,
+                ),
+                devices = DeviceDiscoveryState.SampleDevices,
             ),
             onIntent = {},
             navigateToPairing = {},

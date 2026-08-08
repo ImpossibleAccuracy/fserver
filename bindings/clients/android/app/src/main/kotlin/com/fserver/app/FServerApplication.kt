@@ -2,6 +2,7 @@ package com.fserver.app
 
 import android.app.Application
 import com.fserver.app.di.presentationModule
+import com.fserver.app.di.repositoryModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -13,7 +14,10 @@ class FServerApplication : Application() {
         startKoin {
             androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.NONE)
             androidContext(this@FServerApplication)
-            modules(presentationModule)
+            modules(
+                repositoryModule,
+                presentationModule,
+            )
         }
     }
 }

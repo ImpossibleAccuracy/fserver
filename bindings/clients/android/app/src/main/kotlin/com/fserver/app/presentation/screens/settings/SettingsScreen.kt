@@ -139,7 +139,7 @@ private fun SettingsScreenPreview() {
     FServerTheme {
         SettingsScreen(
             state = SettingsState(
-                deviceCount = SampleData.devices.size,
+                deviceCount = 5,
                 downloadFolder = SampleData.DOWNLOAD_FOLDER,
             ),
             onIntent = {},

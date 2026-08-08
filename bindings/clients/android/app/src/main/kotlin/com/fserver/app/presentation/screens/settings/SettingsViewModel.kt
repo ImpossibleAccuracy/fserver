@@ -21,7 +21,7 @@ class SettingsViewModel(
 
     private val _state = MutableStateFlow(
         SettingsState(
-            deviceCount = content.devices().size,
+            deviceCount = 5,
             downloadFolder = content.downloadFolder(),
         )
     )

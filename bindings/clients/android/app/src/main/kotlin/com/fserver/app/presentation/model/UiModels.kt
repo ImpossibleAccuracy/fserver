@@ -12,15 +12,6 @@ import com.fserver.app.presentation.designkit.DkCheckState
  * the screens do not move.
  */
 
-@Immutable
-data class DeviceUi(
-    val id: String,
-    val name: String,
-    val address: String,
-    val online: Boolean,
-    val lastSeenLabel: String? = null,
-)
-
 enum class FileKindUi { Folder, Image, Video, Audio, Document, Other }
 
 /** Whether the bytes are here or still on the server. Drives the row's trailing marker. */

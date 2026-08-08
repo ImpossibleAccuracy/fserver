@@ -2,7 +2,6 @@ package com.fserver.app.data
 
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkCheckState
-import com.fserver.app.presentation.model.DeviceUi
 import com.fserver.app.presentation.model.DiagnosticCheckUi
 import com.fserver.app.presentation.model.FileAvailabilityUi
 import com.fserver.app.presentation.model.FileKindUi
@@ -25,22 +24,6 @@ object SampleData {
     const val CURRENT_SERVER = "MacBook-Pro"
     const val BREADCRUMB = "/ Documents / Shoot"
     const val DOWNLOAD_FOLDER = "/Exchange"
-
-    val devices = listOf(
-        DeviceUi(
-            id = "macbook",
-            name = "MacBook-Pro.local",
-            address = "192.168.1.14:8384",
-            online = true,
-        ),
-        DeviceUi(
-            id = "nas",
-            name = "HOME-NAS",
-            address = "nas.local:8384",
-            online = false,
-            lastSeenLabel = "2 h",
-        ),
-    )
 
     val pairingCandidate = PairingCandidateUi(
         deviceName = "MacBook-Pro.local",
