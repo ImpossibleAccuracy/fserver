@@ -73,9 +73,42 @@ private fun QrScanScreen(
                 onBack = navigateUp,
             )
         },
-        bottomBar = {
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = DkSpacing.screenPadding)
+                .padding(bottom = DkSpacing.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                DkPlaceholderBox(
+                    label = stringResource(R.string.qr_camera_placeholder),
+                    modifier = Modifier.fillMaxSize(),
+                    dashedBorder = false,
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(190.dp)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        .clickable(enabled = !state.isConnecting) {
+                            onIntent(QrScanIntent.CodeScanned(SampleData.QR_PAYLOAD))
+                        },
+                )
+            }
+
             Column(
-                modifier = Modifier.padding(DkSpacing.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
             ) {
                 ScanStatus(state = state)
@@ -86,35 +119,6 @@ private fun QrScanScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        },
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = DkSpacing.screenPadding),
-        ) {
-            DkPlaceholderBox(
-                label = stringResource(R.string.qr_camera_placeholder),
-                modifier = Modifier.fillMaxSize(),
-                dashedBorder = false,
-            )
-
-            // Reticle: the frame the user aims with, and — until the camera is wired up —
-            // the tap target that stands in for a recognised code.
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(190.dp)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(10.dp),
-                    )
-                    .clickable(enabled = !state.isConnecting) {
-                        onIntent(QrScanIntent.CodeScanned(SampleData.QR_PAYLOAD))
-                    },
-            )
         }
     }
 }

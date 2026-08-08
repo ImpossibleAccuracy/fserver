@@ -9,7 +9,11 @@ fun EntryProviderScope<Destination>.onboardingEntry(
 ) {
     entry<Destination.Onboarding> {
         OnboardingScreen(
-            navigateToDiscovery = { navigator.navigate(Destination.DeviceDiscovery) },
+            navigateToDiscovery = {
+                navigator.navigateByBackstack(
+                    listOf(Destination.DeviceDiscovery)
+                )
+            },
         )
     }
 }

@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -48,14 +47,18 @@ fun AppStyling(
                 it.destination == navigator.activeSection
             }
 
-            if (!isOnTopRoute) return@Scaffold
+            if (!isOnTopRoute) {
+                bottomBarHeight = 0.dp
+                return@Scaffold
+            }
 
             DkNavigationBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged {
                         with(density) {
-                            bottomBarHeight = it.height.toDp() - navigationBarInsets.calculateBottomPadding()
+                            bottomBarHeight =
+                                it.height.toDp() - navigationBarInsets.calculateBottomPadding()
                         }
                     }
             ) {

@@ -9,14 +9,18 @@ import com.fserver.app.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.model.HandshakeUi
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlin.time.Duration.Companion.milliseconds
 
 
+@OptIn(FlowPreview::class)
 class PairingViewModel(
     deviceId: String,
     deviceDetectionRepository: DeviceDetectionRepository,
@@ -27,7 +31,7 @@ class PairingViewModel(
     private val rememberDevice = MutableStateFlow(true)
 
     val state: StateFlow<PairingState> = combine(
-        deviceDetectionRepository.device(deviceId),
+        deviceDetectionRepository.device(deviceId).debounce(200.milliseconds),
         password,
         rememberDevice,
     ) { device, password, rememberDevice ->

@@ -79,6 +79,9 @@ class AppNavigator internal constructor(
         require(list.isNotEmpty()) { "Back stack cannot be empty" }
 
         val root = list.first()
+            .takeIf { it in stacks.keys }
+            ?: startDestination
+
         val rootStack = requireNotNull(stacks[root]) {
             "$root is not a section root; sections are ${stacks.keys}"
         }
