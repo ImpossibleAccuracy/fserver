@@ -2,7 +2,9 @@ package com.fserver.app.data.repository
 
 import com.fserver.app.data.detection.connector.DeviceConnector
 import com.fserver.app.data.detection.connector.DeviceConnectorFactory
+import com.fserver.app.data.detection.scan.DeviceScanEvent
 import com.fserver.app.data.detection.scan.DeviceScannerFactory
+import com.fserver.app.data.utils.runBackgroundJob
 import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.domain.model.DeviceConnectionCapabilities
 import com.fserver.app.domain.model.DeviceDetectionRequest
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
 import timber.log.Timber
@@ -43,7 +46,7 @@ internal class DeviceDetectionRepositoryImpl(
         .distinctUntilChanged()
 
     override suspend fun checkConnectionCapabilities(deviceId: String): Result<DeviceConnectionCapabilities> =
-        runCatching {
+        runBackgroundJob {
             val device = devices.value.firstOrNull { it.id == deviceId }
                 ?: throw IllegalArgumentException("Device $deviceId not found")
 
@@ -52,31 +55,44 @@ internal class DeviceDetectionRepositoryImpl(
             connector.loadCapabilities().getOrThrow()
         }
 
-    override suspend fun startDetection(request: DeviceDetectionRequest): List<FoundDevice> {
-        if (request in runningRequests.value) return emptyList()
+    override suspend fun startDetection(request: DeviceDetectionRequest): Result<List<FoundDevice>> =
+        runBackgroundJob {
+            if (request in runningRequests.value)
+                return@runBackgroundJob emptyList()
 
-        runningRequests.update { it + request }
+            runningRequests.update { it + request }
 
-        return try {
-            val scanner = deviceScannerFactory.fromRequest(request)
-            val connectors = scanner.startScan()
+            try {
+                val scanner = deviceScannerFactory.fromRequest(request)
+                val connectors = scanner.startScan()
 
-            coroutineScope {
-                connectors
-                    .map { async { resolveDevice(it) } }
-                    .toList()
-                    .awaitAll()
-                    .filterNotNull()
+                coroutineScope {
+                    connectors
+                        .mapNotNull { event ->
+                            when (event) {
+                                is DeviceScanEvent.Found ->
+                                    async { resolveDevice(event.connector) }
+
+                                is DeviceScanEvent.Lost -> {
+                                    revoke(event.deviceId)
+                                    null
+                                }
+                            }
+                        }
+                        .toList()
+                        .awaitAll()
+                        .filterNotNull()
+                }
+            } finally {
+                runningRequests.update { it - request }
             }
-        } finally {
-            runningRequests.update { it - request }
         }
-    }
 
     /**
      * Asks a single discovered peer to describe itself, publishing it on success.
      *
-     * @return the described device, or `null` if this peer could not be reached or understood.
+     * @return the described device, or `null` if this peer could not be reached, could not be
+     * understood, or was revoked while it was being described.
      */
     private suspend fun resolveDevice(connector: DeviceConnector): FoundDevice? =
         connector.loadDeviceInfo()
@@ -90,9 +106,16 @@ internal class DeviceDetectionRepositoryImpl(
             .getOrNull()
 
     /**
-     * Found devices accumulate: a second method finding the same box must not duplicate it.
-     * */
+     * Found devices accumulate: second method finding the same box must not duplicate it.
+     */
     private fun publish(found: FoundDevice) {
         devices.update { current -> (current + found).distinctBy { it.id } }
+    }
+
+    /**
+     * Revoke device from memory storage.
+     */
+    private fun revoke(deviceId: String) {
+        devices.update { current -> current.filterNot { it.id == deviceId } }
     }
 }

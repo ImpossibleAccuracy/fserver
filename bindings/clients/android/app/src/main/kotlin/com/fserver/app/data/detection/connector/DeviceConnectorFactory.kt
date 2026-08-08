@@ -8,16 +8,19 @@ internal class DeviceConnectorFactory {
      */
     fun fromDevice(device: FoundDevice): DeviceConnector = when (val source = device.source) {
         is FoundDevice.Source.NetworkServiceDiscovery -> IpDeviceConnector(
+            id = device.id,
             ipAddress = source.ipAddress,
             port = source.port,
         )
 
         is FoundDevice.Source.SubnetScan -> IpDeviceConnector(
+            id = device.id,
             ipAddress = source.ipAddress,
             port = source.port,
         )
 
         is FoundDevice.Source.ManualEntry -> IpDeviceConnector(
+            id = device.id,
             ipAddress = source.ipAddress,
             port = source.port,
         )

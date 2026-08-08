@@ -1,7 +1,6 @@
 package com.fserver.app.data.detection.scan
 
 import com.fserver.app.data.datasource.JsonQrCodeParser
-import com.fserver.app.data.detection.connector.DeviceConnector
 import com.fserver.app.data.detection.connector.IpDeviceConnector
 import com.fserver.app.domain.model.exception.MalformedQrException
 import kotlinx.coroutines.flow.Flow
@@ -12,14 +11,16 @@ internal class QrCodeConnectionScanner(
 ) : DeviceScanner {
     private val jsonQrCodeParser by lazy { JsonQrCodeParser() }
 
-    override suspend fun startScan(): Flow<DeviceConnector> = flow {
+    override suspend fun startScan(): Flow<DeviceScanEvent> = flow {
         val parsed = jsonQrCodeParser.parse(payload)
             ?: throw MalformedQrException()
 
         emit(
-            IpDeviceConnector(
-                ipAddress = parsed.ip,
-                port = parsed.port,
+            DeviceScanEvent.Found(
+                IpDeviceConnector(
+                    ipAddress = parsed.ip,
+                    port = parsed.port,
+                )
             )
         )
     }

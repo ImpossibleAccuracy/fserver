@@ -69,11 +69,14 @@ internal class MulticastDnsDiscoveryService(
                         registry = registry,
                         onError = { errorCode ->
                             Timber.w("Resolve failed for %s, error=%d", key, errorCode)
-                            trySend(MulticastDnsEvent.Error(errorCode))
+                            trySend(MulticastDnsEvent.PeerError(key, errorCode))
                         },
                         onResolved = { service ->
                             Timber.d("Resolved %s at %s:%d", key, service.host, service.port)
                             trySend(MulticastDnsEvent.Found(service))
+                        },
+                        onForgot = {
+                            trySend(MulticastDnsEvent.Disconnected(key))
                         },
                     )
                 }
@@ -109,10 +112,11 @@ internal class MulticastDnsDiscoveryService(
         registry: ServiceRegistry,
         onError: (Int) -> Unit,
         onResolved: (MulticastDnsPeer) -> Unit,
+        onForgot: () -> Unit,
     ) {
         /** Emits only when resolution produced a usable endpoint we have not published yet. */
         fun publish(resolved: NsdServiceInfo) {
-            val service = resolved.toPeer()
+            val service = resolved.toPeer(key)
 
             if (service == null) {
                 Timber.v("Discarding %s: no usable endpoint", key)
@@ -143,6 +147,7 @@ internal class MulticastDnsDiscoveryService(
                     Timber.d("Service lost while tracking %s", key)
 
                     registry.forget(key)
+                    onForgot()
                 }
 
                 override fun onServiceUpdated(service: NsdServiceInfo) {
@@ -269,11 +274,12 @@ private fun NsdServiceInfo.matchedServiceKey(): String? {
 /**
  * Map [NsdServiceInfo] to [MulticastDnsPeer], or `null` if it has no usable endpoint
  */
-private fun NsdServiceInfo.toPeer(): MulticastDnsPeer? {
+private fun NsdServiceInfo.toPeer(key: String): MulticastDnsPeer? {
     val host = usableHost() ?: return null
     if (port !in Constants.VALID_PORT_RANGE) return null
 
     return MulticastDnsPeer(
+        id = key,
         name = serviceName.orEmpty(),
         host = host,
         port = port,

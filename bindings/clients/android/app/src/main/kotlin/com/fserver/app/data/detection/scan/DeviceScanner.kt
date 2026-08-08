@@ -1,8 +1,11 @@
 package com.fserver.app.data.detection.scan
 
-import com.fserver.app.data.detection.connector.DeviceConnector
 import kotlinx.coroutines.flow.Flow
 
 internal interface DeviceScanner {
-    suspend fun startScan(): Flow<DeviceConnector>
+    /**
+     * Runs the scan, reporting peers as they appear and - for methods that keep watching -
+     * as they go away again.
+     */
+    suspend fun startScan(): Flow<DeviceScanEvent>
 }

@@ -42,9 +42,11 @@ class QrScanViewModel(
             }
 
             try {
-                val foundDevices = deviceDetectionRepository.startDetection(
-                    DeviceDetectionRequest.QrCode(payload)
-                )
+                val foundDevices = deviceDetectionRepository
+                    .startDetection(
+                        DeviceDetectionRequest.QrCode(payload)
+                    )
+                    .getOrThrow() // TODO
 
                 when {
                     foundDevices.isEmpty() -> {

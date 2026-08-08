@@ -53,12 +53,14 @@ class ManualAddressViewModel(
             _state.update { it.copy(isChecking = true, error = null) }
 
             try {
-                val foundDevices = deviceDetectionRepository.startDetection(
-                    DeviceDetectionRequest.ByManualAddress(
-                        ipAddress = current.host.trim(),
-                        port = port,
+                val foundDevices = deviceDetectionRepository
+                    .startDetection(
+                        DeviceDetectionRequest.ByManualAddress(
+                            ipAddress = current.host.trim(),
+                            port = port,
+                        )
                     )
-                )
+                    .getOrThrow() // TODO
 
                 val device = foundDevices.firstOrNull()
                 _state.update {
