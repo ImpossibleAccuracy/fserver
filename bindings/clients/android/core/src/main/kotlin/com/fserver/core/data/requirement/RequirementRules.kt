@@ -62,13 +62,16 @@ internal fun detectionRequirementRules(
 
     DetectionMethod.Automatic.MulticastDns,
     DetectionMethod.OnDemand.SubnetScan -> RequirementRules(
-        // NsdManager and raw sockets need no runtime permission; both need a LAN to be on.
+        // NsdManager and raw sockets are unpermissioned below API 37; both need a LAN to be on.
+        permissions = localNetworkPermissions(sdkInt),
         toggles = listOf(Requirement.SystemToggle.Kind.WIFI),
         networkCapabilities = method.requires,
     )
 
-    // Any route will do - including mobile data, so not even Wi-Fi is asked for.
+    // Any route will do - including mobile data, so not even Wi-Fi is asked for. The local network
+    // permission is still asked for, because the address the user types is usually a LAN one.
     DetectionMethod.OnDemand.ManualAddress -> RequirementRules(
+        permissions = localNetworkPermissions(sdkInt),
         networkCapabilities = method.requires,
     )
 }
@@ -135,10 +138,24 @@ private fun nearbyPermissions(sdkInt: Int): List<String> = buildList {
         // side is covered by the permissions above.
         sdkInt >= LOCATION_GATE_LIFTED_SDK -> add(Manifest.permission.NEARBY_WIFI_DEVICES)
         // Fine location became mandatory for BLE scanning in API 29; coarse was enough before.
+        // Google's manifest sample stops at API 31 and starts NEARBY_WIFI_DEVICES at 32, but that
+        // permission only exists from 33 - so API 32 keeps asking for location,
+        // or its Wi-Fi Direct half has no gate to pass at all.
         sdkInt >= FINE_LOCATION_WIFI_INFO_SDK -> add(Manifest.permission.ACCESS_FINE_LOCATION)
         else -> add(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
+
+    // Nearby's WIFI_LAN medium is local network traffic like any other.
+    addAll(localNetworkPermissions(sdkInt))
 }
+
+@SuppressLint("InlinedApi")
+internal fun localNetworkPermissions(sdkInt: Int): List<String> =
+    if (sdkInt >= LOCAL_NETWORK_PERMISSION_SDK) {
+        listOf(Manifest.permission.ACCESS_LOCAL_NETWORK)
+    } else {
+        emptyList()
+    }
 
 /** API 27 - `WifiInfo` SSID/BSSID reads start requiring a location permission. */
 private const val LOCATION_GATED_WIFI_INFO_SDK = 27
@@ -151,3 +168,6 @@ private const val BLUETOOTH_RUNTIME_PERMISSIONS_SDK = 31
 
 /** API 33 - `NEARBY_WIFI_DEVICES` replaces the location gate outright. */
 private const val LOCATION_GATE_LIFTED_SDK = 33
+
+/** API 37 - Local Network Protection puts every LAN packet behind `ACCESS_LOCAL_NETWORK`. */
+private const val LOCAL_NETWORK_PERMISSION_SDK = 37

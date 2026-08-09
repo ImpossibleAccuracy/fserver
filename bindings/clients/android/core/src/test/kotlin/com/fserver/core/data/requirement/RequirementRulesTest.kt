@@ -187,6 +187,38 @@ class RequirementRulesTest {
         assertEquals(listOf(Requirement.SystemToggle.Kind.WIFI), mdns.toggles)
     }
 
+    @Test
+    fun `lan methods need no permission below api 37`() {
+        for (method in lanMethods) {
+            assertEquals(
+                emptyList<String>(),
+                detectionRequirementRules(method, sdkInt = 36).permissions,
+            )
+        }
+    }
+
+    @Test
+    fun `local network protection puts every lan method behind a permission on api 37`() {
+        for (method in lanMethods) {
+            assertEquals(
+                listOf(Manifest.permission.ACCESS_LOCAL_NETWORK),
+                detectionRequirementRules(method, sdkInt = 37).permissions,
+            )
+        }
+    }
+
+    @Test
+    fun `nearby asks for the local network permission too, for its wifi lan medium`() {
+        assertFalse(Manifest.permission.ACCESS_LOCAL_NETWORK in nearbyPermissionsAt(sdkInt = 36))
+        assertTrue(Manifest.permission.ACCESS_LOCAL_NETWORK in nearbyPermissionsAt(sdkInt = 37))
+    }
+
+    private val lanMethods = listOf(
+        DetectionMethod.Automatic.MulticastDns,
+        DetectionMethod.OnDemand.SubnetScan,
+        DetectionMethod.OnDemand.ManualAddress,
+    )
+
     private fun nearbyPermissionsAt(sdkInt: Int): List<String> =
         detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt).permissions
 }

@@ -5,25 +5,63 @@
     <!--
       Declared here, not in the consuming app: these are what the discovery datasources in this
       module need to run at all, so any UI that ships :core inherits them by manifest merge.
+
+      SDK bounds follow Google's Nearby Connections sample, and deviations from it are called out
+      where they happen:
+      https://developers.google.com/nearby/connections/android/get-started#request_permissions
+
+      Which of these must also be *requested* at runtime lives in RequirementRules.kt.
     -->
 
-    <!--  Network discovery permissions  -->
+    <!-- ==================== Network ==================== -->
+
     <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Reading which transport is up, and whether it carries a LAN. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
-      Nearby Connections (P2P_* strategies) - needs Bluetooth, BLE and Wi-Fi radios.
-      See https://developers.google.com/nearby/connections/android/get-started#request_permissions
+      Local Network Protection: from API 37 every LAN packet is gated, so this covers mDNS, the
+      subnet scan and Nearby's WIFI_LAN medium alike.
     -->
+    <uses-permission
+        android:name="android.permission.ACCESS_LOCAL_NETWORK"
+        android:minSdkVersion="37"
+        tools:targetApi="37" />
+
+    <!-- ==================== Wi-Fi ==================== -->
+
+    <!--
+      Google's sample caps both at API 31. Not capped here: Nearby stops needing them, but reading
+      the current network's details does not - see networkInfoRequirementRules.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
+    <!-- Replaces the location gate for Wi-Fi Direct / Aware. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:minSdkVersion="33"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
+
+    <!-- ==================== Bluetooth ==================== -->
+
+    <!-- The install-time pair, superseded by the runtime trio below. -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- One runtime permission per action Nearby performs. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADVERTISE"
+        android:minSdkVersion="31" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT"
+        android:minSdkVersion="31" />
     <!--
       neverForLocation is load-bearing, not decoration: without it the platform keeps treating the
       BLE scan as location-derived, and the API 33+ rules in RequirementRules.kt - which stop asking
@@ -31,20 +69,18 @@
     -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
+        android:minSdkVersion="31"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="31" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
+    <!-- ==================== Location ==================== -->
+
     <!--
-      No maxSdkVersion on purpose. BLE scanning only needs these up to API 32, but reading the
-      network's name (SSID/BSSID) stays location-gated on every API - see networkInfoRequirementRules.
+      Google's sample caps these at API 28 / 31. Not capped here: BLE scanning stops needing them,
+      but reading the network's name (SSID/BSSID) stays location-gated on every API level - see
+      networkInfoRequirementRules.
     -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- API 33+: replaces the location gate for Wi-Fi Direct / Aware. -->
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="31" />
 
 </manifest>
