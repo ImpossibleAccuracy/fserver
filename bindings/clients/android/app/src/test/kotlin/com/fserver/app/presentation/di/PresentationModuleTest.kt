@@ -1,8 +1,11 @@
 package com.fserver.app.presentation.di
 
+import android.content.Context
 import com.fserver.app.di.presentationModule
+import com.fserver.app.di.repositoryModule
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
+import org.koin.dsl.module
 import org.koin.test.verify.verify
 
 class PresentationModuleTest {
@@ -12,12 +15,20 @@ class PresentationModuleTest {
      * would only surface as a crash on the screen that needs it. This checks the whole
      * graph up front.
      *
-     * `String` is declared as an extra type because `PairingViewModel` takes the tapped
-     * device id from `parametersOf`, not from the graph.
+     * Verified against `repositoryModule` too, because ViewModels are injected with
+     * repositories - checking `presentationModule` on its own cannot resolve a single one of them.
+     *
+     * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
+     * `androidContext()` at start-up, and `String` is the device id `PairingViewModel` takes from
+     * `parametersOf`.
      */
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun `every screen's dependencies can be resolved`() {
-        presentationModule.verify(extraTypes = listOf(String::class))
+        module {
+            includes(presentationModule, repositoryModule)
+        }.verify(
+            extraTypes = listOf(String::class, Context::class),
+        )
     }
 }

@@ -94,6 +94,7 @@ class NearbyConnectionsAdvertisingService(
                 when (val statusCode = result.status.statusCode) {
                     ConnectionsStatusCodes.STATUS_OK -> {
                         Timber.d("Connection successful with endpoint ID: $endpointId")
+                        trySend(NearbyConnectionsEvent.Connected(endpointId))
                     }
 
                     ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> {

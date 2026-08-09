@@ -2,8 +2,6 @@ package com.fserver.app.presentation.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.data.datasource.nearbyconnection.NearbyConnectionsAdvertisingService
-import com.fserver.app.data.datasource.nearbyconnection.NearbyConnectionsEvent
 import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.availableDetectionMethods
@@ -17,12 +15,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class AppViewModel(
     private val networkInfoRepository: NetworkInfoRepository,
     private val deviceDetectionRepository: DeviceDetectionRepository,
-    private val nearbyConnectionsAdvertisingService: NearbyConnectionsAdvertisingService,
 ) : ViewModel() {
     // Should listen to auth and navigation states
     private val isAllowedToSearchDevices = MutableStateFlow(true)
@@ -44,40 +40,7 @@ class AppViewModel(
                 .combine(isAllowedToSearchDevices) { available, allowed ->
                     if (allowed) available else emptySet()
                 }
-                .collect { startAutomaticDetection(it) }
-        }
-
-        viewModelScope.launch {
-            nearbyConnectionsAdvertisingService.start()
-                .collect { event ->
-                    when (event) {
-                        NearbyConnectionsEvent.Idle -> {
-
-                        }
-
-                        is NearbyConnectionsEvent.Error -> {
-                            Timber.e(event.e, "NearbyConnectionsAdvertisingService error")
-                        }
-
-                        is NearbyConnectionsEvent.Found -> {
-                            nearbyConnectionsAdvertisingService.accept(event.peer.endpointId)
-                        }
-
-                        is NearbyConnectionsEvent.Message -> {
-                            Timber.i(
-                                "Received message from ${event.message.endpointId}: ${String(event.message.message)}"
-                            )
-                        }
-
-                        is NearbyConnectionsEvent.Disconnected -> {
-                            Timber.i("Disconnected from ${event.id}")
-                        }
-
-                        is NearbyConnectionsEvent.PeerError -> {
-                            Timber.e("Peer error from ${event.id}: ${event.errorCode}")
-                        }
-                    }
-                }
+                .collect(::startAutomaticDetection)
         }
     }
 
@@ -93,5 +56,9 @@ class AppViewModel(
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        // TODO: stop discovery and advertising
     }
 }
