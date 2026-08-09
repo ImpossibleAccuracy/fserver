@@ -9,6 +9,8 @@
 
     <!--  Network discovery permissions  -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Reading which transport is up, and whether it carries a LAN. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
       Nearby Connections (P2P_* strategies) - needs Bluetooth, BLE and Wi-Fi radios.
@@ -22,10 +24,21 @@
         android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!--
+      neverForLocation is load-bearing, not decoration: without it the platform keeps treating the
+      BLE scan as location-derived, and the API 33+ rules in RequirementRules.kt - which stop asking
+      for a location permission - would leave Nearby's BLE half silently finding nothing.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="31" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- Location: BLE scanning is location-capable, so the platform gates it here up to API 32. -->
+    <!--
+      No maxSdkVersion on purpose. BLE scanning only needs these up to API 32, but reading the
+      network's name (SSID/BSSID) stays location-gated on every API - see networkInfoRequirementRules.
+    -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- API 33+: replaces the location gate for Wi-Fi Direct / Aware. -->

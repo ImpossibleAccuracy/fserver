@@ -9,7 +9,9 @@ import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.DeviceConnectionCapabilities
 import com.fserver.core.domain.model.DeviceDetectionRequest
 import com.fserver.core.domain.model.FoundDevice
+import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.repository.RequirementsChecker
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -31,6 +33,7 @@ import timber.log.Timber
 internal class DeviceDetectionRepositoryImpl(
     private val deviceScannerFactory: DeviceScannerFactory,
     private val deviceConnectorFactory: DeviceConnectorFactory,
+    private val requirementsChecker: RequirementsChecker,
 ) : DeviceDetectionRepository {
     private val devices = MutableStateFlow<List<FoundDevice>>(emptyList())
     override val onlineDevices: Flow<List<FoundDevice>> = devices.asStateFlow()
@@ -60,6 +63,12 @@ internal class DeviceDetectionRepositoryImpl(
     ): Result<List<FoundDevice>> = runBackgroundJob {
         if (request in runningRequests.value) {
             return@runBackgroundJob emptyList()
+        }
+
+        // Check before the scanner is built
+        val requirements = requirementsChecker.forDetection(request.method)
+        if (!requirements.isSatisfied) {
+            throw RequirementsNotMetException(requirements)
         }
 
         runningRequests.update { it + request }

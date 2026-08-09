@@ -40,19 +40,6 @@ Spec design constraints to keep in mind while writing `:core`:
 - **`evict` ≠ `delete`.** In offload mode, freeing local space must not propagate as user deletion
   to backup device. Get this wrong → user data destroyed.
 
-## Connection flow invariants
-
-- **Every route to a device ends at `Destination.Pairing`.** Discovery list, QR scan, typed address
-  — none of them establishes trust, so all three land on the same fingerprint confirmation. Adding
-  a fourth detection route means routing it here too, not giving it its own connect screen.
-- **A scanned code buys typing, not trust.** MVP QR payload is `{"ip":…,"port":…}` only, so QR goes
-  through `DeviceDetectionRequest.ByManualAddress` like a typed address. Skipping fingerprint
-  confirmation becomes legitimate *only* once the code actually carries the server key fingerprint
-  (spec §3.2 config profile) — until then, don't.
-- **`FoundDevice.kind` vs `FoundDevice.access` are unrelated.** `kind` is cosmetic (icon).
-  `access` (Open/Password/Key) picks which fields the Pairing screen shows. Both are peer claims
-  made before trust exists → presentation only, never authorization.
-
 ## Commands
 
 Always pass `--no-daemon`.
@@ -94,3 +81,5 @@ Always pass `--no-daemon`.
 - **Suggest skills/agents for recurring work.** Task repeats or encodes reusable knowledge (module
   scaffolding, protocol-change checklist, spec cross-referencing) → remind user to capture as skill
   or agent instead of re-deriving each session.
+- Don't document obvious things/implementatin details into CLAUDE.md. Always ask user if they want to add something to CLAUDE.md before doing so.
+- Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2 sentences.

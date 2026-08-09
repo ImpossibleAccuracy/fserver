@@ -4,6 +4,7 @@ import android.content.Context
 import com.fserver.core.di.coreModule
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
+import com.fserver.core.domain.repository.RequirementsChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,6 +61,12 @@ class FServerCore private constructor(
 
     /** The network this device is on, as far as detection is concerned. */
     val networkInfo: NetworkInfoRepository by lazy { koin.get() }
+
+    /**
+     * What the OS still demands - permissions, radios, hardware - before an operation can run.
+     * The host owns the fix: only it can launch a permission request or a settings screen.
+     */
+    val requirements: RequirementsChecker by lazy { koin.get() }
 
     /**
      * Tears down the internal graph and stops background work. After this the instance is dead -

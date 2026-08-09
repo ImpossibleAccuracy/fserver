@@ -32,6 +32,11 @@ interface DeviceDetectionRepository {
 
     /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
+     * May be long-running and/or never complete, depending on the request.
+     *
+     * Fails with [com.fserver.core.domain.model.exception.RequirementsNotMetException] when
+     * [RequirementsChecker.forDetection] is not satisfied, rather than letting the platform turn a
+     * missing permission into an opaque scan error.
      *
      * @return what *this* run found. The address paths - typed or scanned - need the one
      * device they asked about, and cannot pick it out of the accumulated list without
