@@ -1,6 +1,6 @@
 package com.fserver.core.data.datasource.nearbyconnection
 
-sealed interface NearbyConnectionsEvent {
+internal sealed interface NearbyConnectionsEvent {
     data object Idle : NearbyConnectionsEvent
     data class Error(val e: Exception) : NearbyConnectionsEvent
 

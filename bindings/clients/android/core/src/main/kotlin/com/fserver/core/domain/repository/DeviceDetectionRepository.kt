@@ -4,6 +4,7 @@ import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.DeviceConnectionCapabilities
 import com.fserver.core.domain.model.DeviceDetectionRequest
 import com.fserver.core.domain.model.FoundDevice
+import com.fserver.core.domain.model.exception.DetectionFailedException
 import kotlinx.coroutines.flow.Flow
 
 interface DeviceDetectionRepository {
@@ -37,5 +38,6 @@ interface DeviceDetectionRepository {
      * guessing which entry is theirs. Starting a request that is already running is a no-op
      * and returns nothing.
      */
+    @Throws(DetectionFailedException::class)
     suspend fun startDetection(request: DeviceDetectionRequest): Result<List<FoundDevice>>
 }

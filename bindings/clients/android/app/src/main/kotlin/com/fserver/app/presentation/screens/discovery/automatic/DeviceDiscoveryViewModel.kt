@@ -2,6 +2,9 @@ package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.model.address
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.DeviceDetectionRequest
 import com.fserver.core.domain.model.FoundDevice
@@ -9,9 +12,6 @@ import com.fserver.core.domain.model.NetworkInfo
 import com.fserver.core.domain.model.availableDetectionMethods
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
-import com.fserver.app.presentation.model.address
-import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
-import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine

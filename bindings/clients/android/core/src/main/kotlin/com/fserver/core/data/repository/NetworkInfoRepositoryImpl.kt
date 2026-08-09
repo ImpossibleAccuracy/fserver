@@ -5,7 +5,7 @@ import com.fserver.core.domain.repository.NetworkInfoRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
-class NetworkInfoRepositoryImpl : NetworkInfoRepository {
+internal class NetworkInfoRepositoryImpl : NetworkInfoRepository {
     override val networkInfo: Flow<NetworkInfo?> = flowOf(
         NetworkInfo.WiFi(
             ssid = "Home_5G",

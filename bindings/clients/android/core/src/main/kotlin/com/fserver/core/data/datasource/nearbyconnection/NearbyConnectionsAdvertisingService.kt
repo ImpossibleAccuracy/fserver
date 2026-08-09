@@ -25,7 +25,7 @@ import timber.log.Timber
  * flow, so calling it on a different instance than the one advertising would silently route
  * payloads nowhere.
  */
-class NearbyConnectionsAdvertisingService(
+internal class NearbyConnectionsAdvertisingService(
     private val context: Context,
 ) {
     private val connectionsClient by lazy { Nearby.getConnectionsClient(context) }

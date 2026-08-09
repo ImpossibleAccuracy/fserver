@@ -5,4 +5,4 @@ package com.fserver.core.data.utils
     message = "Connection API is internal and should not be used outside of the library."
 )
 @Retention(AnnotationRetention.BINARY)
-annotation class InternalConnectionApi
+internal annotation class InternalConnectionApi
