@@ -10,6 +10,7 @@ navigation3 = "1.1.5"
 lifecycleViewmodelNavigation3 = "2.11.0"
 koin = "4.2.2"
 kotlinxSerializationJson = "1.11.0"
+kotlinxCoroutines = "1.11.0"
 jna = "5.17.0"
 annotation = "1.10.0"
 timber = "5.0.1"
@@ -57,6 +58,9 @@ play-services-nearby = { group = "com.google.android.gms", name = "play-services
 
 # Java 8+ API desugaring (required by play-services-nearby)
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
+
+# Coroutines
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 # Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }

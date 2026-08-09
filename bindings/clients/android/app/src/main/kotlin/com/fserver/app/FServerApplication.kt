@@ -2,7 +2,7 @@ package com.fserver.app
 
 import android.app.Application
 import com.fserver.app.di.presentationModule
-import com.fserver.app.di.repositoryModule
+import com.fserver.core.di.coreModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -22,7 +22,7 @@ class FServerApplication : Application() {
             androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.NONE)
             androidContext(this@FServerApplication)
             modules(
-                repositoryModule,
+                coreModule,
                 presentationModule,
             )
         }

@@ -100,11 +100,10 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
 
-    // Nearby Connections — device discovery/transport without a shared network
-    implementation(libs.play.services.nearby)
+    // Discovery/transport lives in :core; the app only has to desugar what it pulls in.
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    // Serialization — nav keys, and the payload a scanned connection code carries
+    // Serialization — nav keys
     implementation(libs.kotlinx.serialization.json)
 
     // IO

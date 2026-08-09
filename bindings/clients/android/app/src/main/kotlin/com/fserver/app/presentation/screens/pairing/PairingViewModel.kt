@@ -2,9 +2,9 @@ package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.model.DeviceConnectionCapabilities
-import com.fserver.app.domain.model.FoundDevice
-import com.fserver.app.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.model.DeviceConnectionCapabilities
+import com.fserver.core.domain.model.FoundDevice
+import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.model.address
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState

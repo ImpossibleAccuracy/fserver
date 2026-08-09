@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.model
 
-import com.fserver.app.domain.model.FoundDevice
+import com.fserver.core.domain.model.FoundDevice
 
 
 /**

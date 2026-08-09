@@ -24,8 +24,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.domain.model.DeviceConnectionCapabilities
-import com.fserver.app.domain.model.FoundDevice
+import com.fserver.core.domain.model.DeviceConnectionCapabilities
+import com.fserver.core.domain.model.FoundDevice
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardMeta

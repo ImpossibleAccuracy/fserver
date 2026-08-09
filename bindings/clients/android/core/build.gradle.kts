@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -23,6 +24,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 }
 
@@ -45,6 +47,24 @@ dependencies {
 
     // @RequiresApi, referenced by uniffi's Android object cleaner
     implementation(libs.androidx.annotation)
+
+    // Coroutines — every repository seam is a suspend fun or a Flow, so this is api, not impl.
+    api(libs.kotlinx.coroutines.android)
+
+    // Dependency injection. `coreModule` is part of the published surface: a consuming UI installs
+    // it into its own Koin graph, so Koin has to be on its compile classpath too.
+    api(platform(libs.koin.bom))
+    api(libs.koin.android)
+
+    // Nearby Connections — device discovery/transport without a shared network
+    implementation(libs.play.services.nearby)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
+    // Serialization — the payload a scanned connection code carries
+    implementation(libs.kotlinx.serialization.json)
+
+    // Logging
+    implementation(libs.timber)
 
     // Tests
     testImplementation(libs.junit)

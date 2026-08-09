@@ -2,7 +2,7 @@ package com.fserver.app.presentation.di
 
 import android.content.Context
 import com.fserver.app.di.presentationModule
-import com.fserver.app.di.repositoryModule
+import com.fserver.core.di.coreModule
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
@@ -15,7 +15,7 @@ class PresentationModuleTest {
      * would only surface as a crash on the screen that needs it. This checks the whole
      * graph up front.
      *
-     * Verified against `repositoryModule` too, because ViewModels are injected with
+     * Verified against `coreModule` too, because ViewModels are injected with
      * repositories - checking `presentationModule` on its own cannot resolve a single one of them.
      *
      * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
@@ -26,7 +26,7 @@ class PresentationModuleTest {
     @Test
     fun `every screen's dependencies can be resolved`() {
         module {
-            includes(presentationModule, repositoryModule)
+            includes(presentationModule, coreModule)
         }.verify(
             extraTypes = listOf(String::class, Context::class),
         )

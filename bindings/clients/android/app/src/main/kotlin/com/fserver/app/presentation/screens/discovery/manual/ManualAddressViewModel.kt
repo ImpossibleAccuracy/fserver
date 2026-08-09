@@ -2,10 +2,10 @@ package com.fserver.app.presentation.screens.discovery.manual
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.Constants
-import com.fserver.app.domain.model.DeviceDetectionRequest
-import com.fserver.app.domain.model.exception.DetectionFailedException
-import com.fserver.app.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.Constants
+import com.fserver.core.domain.model.DeviceDetectionRequest
+import com.fserver.core.domain.model.exception.DetectionFailedException
+import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
 import kotlinx.coroutines.flow.MutableStateFlow

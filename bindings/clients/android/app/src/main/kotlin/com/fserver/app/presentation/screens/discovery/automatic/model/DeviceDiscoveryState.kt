@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.discovery.automatic.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.domain.model.DetectionMethod
-import com.fserver.app.domain.model.FoundDevice
+import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.FoundDevice
 
 @Immutable
 data class DeviceDiscoveryState(

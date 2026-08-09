@@ -2,10 +2,10 @@ package com.fserver.app.presentation.screens.discovery.qr
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.model.DeviceDetectionRequest
-import com.fserver.app.domain.model.exception.DetectionFailedException
-import com.fserver.app.domain.model.exception.MalformedQrException
-import com.fserver.app.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.model.DeviceDetectionRequest
+import com.fserver.core.domain.model.exception.DetectionFailedException
+import com.fserver.core.domain.model.exception.MalformedQrException
+import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
 import kotlinx.coroutines.flow.MutableStateFlow

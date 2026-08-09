@@ -8,7 +8,7 @@ import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TabletMac
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.fserver.app.domain.model.FoundDevice
+import com.fserver.core.domain.model.FoundDevice
 
 /**
  * Icon for a device kind. Shared by the discovery list and the connect screen so the same

@@ -2,11 +2,11 @@ package com.fserver.app.presentation.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.model.DetectionMethod
-import com.fserver.app.domain.model.DeviceDetectionRequest
-import com.fserver.app.domain.model.availableDetectionMethods
-import com.fserver.app.domain.repository.DeviceDetectionRepository
-import com.fserver.app.domain.repository.NetworkInfoRepository
+import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.DeviceDetectionRequest
+import com.fserver.core.domain.model.availableDetectionMethods
+import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.navigation.model.NavigationState
 import kotlinx.coroutines.flow.MutableStateFlow
