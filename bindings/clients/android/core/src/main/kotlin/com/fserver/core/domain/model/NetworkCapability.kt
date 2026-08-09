@@ -10,6 +10,6 @@ enum class NetworkCapability {
     /** Multicast and broadcast traffic reaches other peers on the link. */
     MULTICAST,
 
-    /** Any IP route at all — enough to reach a host the user names explicitly. */
+    /** Any IP route at all - enough to reach a host the user names explicitly. */
     IP_ROUTING,
 }

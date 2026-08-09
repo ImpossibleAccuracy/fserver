@@ -7,22 +7,18 @@ import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsMessen
 import com.fserver.core.data.detection.connector.DeviceConnectorFactory
 import com.fserver.core.data.detection.scan.DeviceScannerFactory
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
+/** Work that must outlive the screen. Bound in [com.fserver.core.di.coreModule] from the host config. */
 internal typealias BackgroundScope = CoroutineScope
 
 /**
- * Datasource wiring. Pulled in by [com.fserver.core.di.coreModule], never installed on its own —
+ * Datasource wiring. Pulled in by [com.fserver.core.di.coreModule], never installed on its own -
  * nothing here is part of the module's public surface.
  */
 internal val dataSourceModule = module {
-    // Work that must outlive the screen
-    single<BackgroundScope> { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
-
     factoryOf(::DeviceScannerFactory)
     factoryOf(::DeviceConnectorFactory)
     factoryOf(::MulticastDnsDiscoveryService)

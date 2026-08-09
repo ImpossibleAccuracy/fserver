@@ -51,10 +51,11 @@ dependencies {
     // Coroutines — every repository seam is a suspend fun or a Flow, so this is api, not impl.
     api(libs.kotlinx.coroutines.android)
 
-    // Dependency injection. `coreModule` is part of the published surface: a consuming UI installs
-    // it into its own Koin graph, so Koin has to be on its compile classpath too.
-    api(platform(libs.koin.bom))
-    api(libs.koin.android)
+    // Dependency injection — internal wiring only. `FServerCore` runs a standalone Koin container
+    // instead of joining the host's, so Koin stays off the consumer's compile classpath and a
+    // consuming UI is free to use Hilt, hand-wiring, or its own Koin graph.
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
 
     // Nearby Connections — device discovery/transport without a shared network
     implementation(libs.play.services.nearby)

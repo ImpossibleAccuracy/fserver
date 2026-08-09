@@ -29,8 +29,8 @@ sealed interface DetectionMethod {
         }
 
         /**
-         * mDNS. Silently finds nothing wherever multicast is filtered — guest networks, AP
-         * isolation — which is exactly why [OnDemand.SubnetScan] has to stay reachable as a fallback.
+         * mDNS. Silently finds nothing wherever multicast is filtered - guest networks, AP
+         * isolation - which is exactly why [OnDemand.SubnetScan] has to stay reachable as a fallback.
          */
         data object MulticastDns : Automatic {
             override val requires: Set<NetworkCapability> =
@@ -38,7 +38,7 @@ sealed interface DetectionMethod {
         }
     }
 
-    /** Slow or intrusive — never started without the user explicitly asking for it. */
+    /** Slow or intrusive - never started without the user explicitly asking for it. */
     sealed interface OnDemand : DetectionMethod {
 
         /** Brute-force sweep of the local subnet. Slow and loud on the network. */

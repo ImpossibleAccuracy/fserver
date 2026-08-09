@@ -1,21 +1,26 @@
 package com.fserver.core.di
 
+import android.content.Context
+import com.fserver.core.data.di.BackgroundScope
 import com.fserver.core.data.di.dataSourceModule
-import com.fserver.core.data.repository.DeviceDetectionRepositoryImpl
-import com.fserver.core.data.repository.NearbyConnectionsRepository
-import com.fserver.core.data.repository.NetworkInfoRepositoryImpl
-import com.fserver.core.domain.repository.DeviceDetectionRepository
-import com.fserver.core.domain.repository.NetworkInfoRepository
-import org.koin.core.module.dsl.singleOf
-import org.koin.dsl.bind
+import com.fserver.core.data.di.repositoryModule
+import kotlinx.coroutines.CoroutineScope
+import org.koin.core.module.Module
 import org.koin.dsl.module
 
-val coreModule = module {
-    includes(dataSourceModule)
+/**
+ * Wiring for the private container [com.fserver.core.FServerCore] owns.
+ * Internal on purpose: consumers get the facade, never the graph - see that class for why.
+ *
+ * [context] and [backgroundScope] come from the host through `FServerConfig`;
+ * everything else `:core` builds itself.
+ */
+internal fun coreModule(
+    context: Context,
+    backgroundScope: CoroutineScope,
+): Module = module {
+    single { context }
+    single<BackgroundScope> { backgroundScope }
 
-    singleOf(::DeviceDetectionRepositoryImpl) bind DeviceDetectionRepository::class
-    singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
-
-    // Data-only repositories
-    singleOf(::NearbyConnectionsRepository)
+    includes(dataSourceModule, repositoryModule)
 }

@@ -1,8 +1,8 @@
 package com.fserver.app
 
 import android.app.Application
+import com.fserver.app.di.coreModule
 import com.fserver.app.di.presentationModule
-import com.fserver.core.di.coreModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin

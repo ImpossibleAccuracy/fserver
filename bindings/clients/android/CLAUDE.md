@@ -24,6 +24,12 @@ Project is **early-stage** now.
 - **`:app`** — official Android client. UI + Android platform glue. Business logic belong in
   `:core`; urge to put sync/protocol logic in `:app` = signal `:core` interface missing something.
 
+**`:core` public surface = `FServerCore` + `FServerConfig` only.** Everything else `internal`. Core
+wires itself with Koin in a *private* `koinApplication` container — never the global `startKoin`
+context, and `coreModule` is not published. New capability = new property on `FServerCore`, not a
+new exported class or Koin definition. Host re-publishes what it needs (`app/di/CoreModule.kt`),
+so a UI on Hilt or hand-wiring works unchanged.
+
 Spec design constraints to keep in mind while writing `:core`:
 
 - **Server never trusts client.** Client-side checks = UX affordance only; authorization is server

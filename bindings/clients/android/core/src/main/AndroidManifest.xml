@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
-      Nearby Connections (P2P_* strategies) — needs Bluetooth, BLE and Wi-Fi radios.
+      Nearby Connections (P2P_* strategies) - needs Bluetooth, BLE and Wi-Fi radios.
       See https://developers.google.com/nearby/connections/android/get-started#request_permissions
     -->
     <uses-permission

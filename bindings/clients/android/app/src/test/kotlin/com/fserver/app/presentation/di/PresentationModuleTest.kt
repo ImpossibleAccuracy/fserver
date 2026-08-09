@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.di
 
 import android.content.Context
+import com.fserver.app.di.coreModule
 import com.fserver.app.di.presentationModule
-import com.fserver.core.di.coreModule
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
@@ -17,6 +17,8 @@ class PresentationModuleTest {
      *
      * Verified against `coreModule` too, because ViewModels are injected with
      * repositories - checking `presentationModule` on its own cannot resolve a single one of them.
+     * That is the app's own bridge module: `:core` wires itself in a private container, so its
+     * internals are not part of this graph and nothing here can check them.
      *
      * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
      * `androidContext()` at start-up, and `String` is the device id `PairingViewModel` takes from
