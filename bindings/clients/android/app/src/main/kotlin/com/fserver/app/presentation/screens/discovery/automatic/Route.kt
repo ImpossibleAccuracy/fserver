@@ -10,8 +10,7 @@ fun EntryProviderScope<Destination>.deviceDiscoveryEntry(
     entry<Destination.DeviceDiscovery> {
         DeviceDiscoveryScreen(
             navigateToPairing = { deviceId -> navigator.navigate(Destination.Pairing(deviceId)) },
-            navigateToQrScan = { navigator.navigate(Destination.QrScan) },
-            navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },
+            navigateUp = { navigator.navigateUp() },
         )
     }
 }

@@ -25,30 +25,50 @@ import com.fserver.app.presentation.theme.FServerTheme
  * Nocturne card: a surface block with an optional accent kicker above a heading.
  * [outlined] swaps the fill for an accent hairline — the deck uses that variant to mark
  * a row that needs attention (an interrupted transfer) without turning it into an error.
+ * Passing [onClick] makes the whole card a target, which is how the connection screen
+ * offers its three ways of reaching a server.
  */
 @Composable
 fun DkCard(
     modifier: Modifier = Modifier,
     outlined: Boolean = false,
+    onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = if (outlined) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        border = if (outlined) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.primaryContainer)
-        } else {
-            null
-        },
-    ) {
+    val shape = MaterialTheme.shapes.medium
+    val colors = CardDefaults.cardColors(
+        containerColor = if (outlined) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    )
+    val border = if (outlined) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.primaryContainer)
+    } else {
+        null
+    }
+    val body: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.padding(DkSpacing.md),
             verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
             content = content,
+        )
+    }
+
+    if (onClick != null) {
+        Card(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            border = border,
+            content = body,
+        )
+    } else {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            border = border,
+            content = body,
         )
     }
 }

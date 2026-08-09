@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.model
 
+import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.FoundDevice
 
 
@@ -15,4 +16,16 @@ val FoundDevice.address: String
         is FoundDevice.Source.NearbyDevice -> source.deviceId
         is FoundDevice.Source.NetworkServiceDiscovery ->
             "${source.serviceName}.${source.serviceType}.${source.ipAddress}"
+    }
+
+/**
+ * Which method turned this device up. The source a device carries is the method's own output,
+ * so the search screen can attribute every result without the engine counting for it.
+ */
+val FoundDevice.foundBy: DetectionMethod
+    get() = when (source) {
+        is FoundDevice.Source.NetworkServiceDiscovery -> DetectionMethod.Automatic.MulticastDns
+        is FoundDevice.Source.NearbyDevice -> DetectionMethod.Automatic.NearbyConnections
+        is FoundDevice.Source.SubnetScan -> DetectionMethod.OnDemand.SubnetScan
+        is FoundDevice.Source.ManualEntry -> DetectionMethod.OnDemand.ManualAddress
     }

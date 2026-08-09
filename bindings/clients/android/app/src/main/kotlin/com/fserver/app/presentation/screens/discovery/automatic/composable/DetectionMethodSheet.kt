@@ -1,0 +1,198 @@
+package com.fserver.app.presentation.screens.discovery.automatic.composable
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.fserver.app.R
+import com.fserver.app.presentation.designkit.DkCaption
+import com.fserver.app.presentation.designkit.DkFadingDivider
+import com.fserver.app.presentation.designkit.DkInfoBox
+import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkSecondaryButton
+import com.fserver.app.presentation.designkit.DkSectionLabel
+import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.designkit.DkSurfacePreview
+import com.fserver.app.presentation.model.RequirementRowUi
+import com.fserver.app.presentation.model.descriptionRes
+import com.fserver.app.presentation.model.titleRes
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
+import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
+import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.domain.model.DetectionMethod
+
+/**
+ * Screen 03 — one method and what it is still waiting on.
+ *
+ * Only unmet requirements appear: `RequirementReport` reports nothing else, and a list of things
+ * already granted would be reassurance rather than information.
+ */
+@Composable
+fun DetectionMethodSheet(
+    setup: DeviceDiscoveryState.MethodSetupUi,
+    onIntent: (DeviceDiscoveryIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = DkSpacing.screenPadding)
+            .padding(bottom = DkSpacing.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+    ) {
+        Text(
+            text = stringResource(setup.method.titleRes),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        DkCaption(text = stringResource(setup.method.descriptionRes))
+
+        if (setup.solvable.isNotEmpty()) {
+            DkSectionLabel(
+                text = stringResource(R.string.method_requirements_label),
+                trailing = {
+                    DkCaption(
+                        text = pluralStringResource(
+                            R.plurals.method_requirements_left,
+                            setup.solvable.size,
+                            setup.solvable.size,
+                        )
+                    )
+                },
+            )
+
+            setup.solvable.forEachIndexed { index, row ->
+                RequirementRow(
+                    row = row,
+                    onGrant = { onIntent(DeviceDiscoveryIntent.GrantRequested) },
+                )
+                if (index != setup.solvable.lastIndex) {
+                    DkFadingDivider()
+                }
+            }
+        }
+
+        if (setup.blockers.isNotEmpty()) {
+            DkSectionLabel(text = stringResource(R.string.method_blockers_label))
+
+            setup.blockers.forEach { row ->
+                RequirementRow(row = row, onGrant = null)
+            }
+        }
+
+        if (setup.solvable.isNotEmpty()) {
+            DkInfoBox(text = stringResource(R.string.method_setup_note))
+
+            DkPrimaryButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.method_grant_rest),
+                onClick = { onIntent(DeviceDiscoveryIntent.GrantRequested) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RequirementRow(
+    row: RequirementRowUi,
+    onGrant: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = DkSpacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            modifier = Modifier.size(16.dp),
+            imageVector = if (row.resolvable) {
+                Icons.Default.RadioButtonUnchecked
+            } else {
+                Icons.Default.ErrorOutline
+            },
+            contentDescription = null,
+            tint = if (row.resolvable) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(row.titleRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            DkCaption(text = stringResource(row.detailRes))
+        }
+        if (row.resolvable && onGrant != null) {
+            DkSecondaryButton(
+                text = stringResource(R.string.method_grant),
+                onClick = onGrant,
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360)
+@Composable
+private fun DetectionMethodSheetPreview() {
+    FServerTheme {
+        DkSurfacePreview {
+            DetectionMethodSheet(
+                setup = DeviceDiscoveryState.MethodSetupUi(
+                    method = DetectionMethod.Automatic.NearbyConnections,
+                    solvable = listOf(
+                        RequirementRowUi(
+                            R.string.requirement_permission_bluetooth_title,
+                            R.string.requirement_permission_bluetooth_description,
+                            resolvable = true,
+                        ),
+                    ),
+                    blockers = emptyList(),
+                ),
+                onIntent = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "Blocked", showBackground = true, widthDp = 360)
+@Composable
+private fun DetectionMethodSheetBlockedPreview() {
+    FServerTheme {
+        DkSurfacePreview {
+            DetectionMethodSheet(
+                setup = DeviceDiscoveryState.MethodSetupUi(
+                    method = DetectionMethod.Automatic.MulticastDns,
+                    solvable = emptyList(),
+                    blockers = listOf(
+                        RequirementRowUi(
+                            R.string.requirement_network_title,
+                            R.string.requirement_network_multicast_description,
+                            resolvable = false,
+                        ),
+                    ),
+                ),
+                onIntent = {},
+            )
+        }
+    }
+}

@@ -39,6 +39,14 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Settings : Destination
 
+    /**
+     * The fork: every way of reaching a server starts here. Nothing is scanned or requested
+     * until the user picks one of them.
+     */
+    @Serializable
+    data object Connect : Destination
+
+    /** Search on the local network — picking methods, granting what they need, and scanning. */
     @Serializable
     data object DeviceDiscovery : Destination
 

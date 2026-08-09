@@ -1,0 +1,34 @@
+package com.fserver.app.presentation.screens.discovery.hub
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.model.toCardUi
+import com.fserver.app.presentation.screens.discovery.hub.model.ConnectHubState
+import com.fserver.core.domain.repository.NetworkInfoRepository
+import com.fserver.core.domain.repository.RequirementsChecker
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+
+/**
+ * The connection fork holds one fact — what the phone is connected to — and starts nothing.
+ * Every search on this screen is a link to somewhere the user has to go and press a button.
+ */
+class ConnectHubViewModel(
+    networkInfoRepository: NetworkInfoRepository,
+    private val requirementsChecker: RequirementsChecker,
+) : ViewModel() {
+
+    val state: StateFlow<ConnectHubState> = networkInfoRepository.networkInfo
+        .map { network ->
+            ConnectHubState(
+                network = network.toCardUi(named = requirementsChecker.forNetworkInfo().isSatisfied)
+            )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ConnectHubState(),
+        )
+}

@@ -10,7 +10,6 @@
     <string name="action_scan_qr">Scan QR code</string>
     <string name="action_enter_address">Enter address manually</string>
     <string name="action_back">Back</string>
-    <string name="action_refresh">Refresh</string>
     <string name="action_search">Search</string>
     <string name="action_more">More</string>
     <string name="action_clear">Clear</string>
@@ -29,21 +28,106 @@
     <string name="onboarding_title_connect">Connect your computer</string>
     <string name="onboarding_body_connect">Start the server on your PC or NAS and scan the code from its screen — or pick the device from the list the app has found.</string>
 
-    <!-- Device discovery -->
-    <string name="discovery_title">Connection</string>
-    <string name="discovery_network_summary_wifi">Wi-Fi «%1$s» · %2$d found</string>
-    <string name="discovery_network_summary_mobile">Mobile data «%1$s» · %2$d found</string>
-    <string name="discovery_network_summary_offline">No network · %1$d found</string>
+    <!-- Connection — the fork every route to a server starts from -->
+    <string name="connect_title">Connection</string>
+    <string name="connect_intro">Your phone connects straight to your computer. Choose how to find it.</string>
+    <string name="connect_find_title">Find on the network</string>
+    <string name="connect_find_description">Automatic search by several methods. Some will ask for permissions.</string>
+    <string name="connect_scan_description">The code on your computer screen carries the address and the fingerprint at once. No permissions needed.</string>
+    <string name="connect_manual_description">If you know the server\'s IP address and port.</string>
+    <string name="connect_footer">Nothing has been started or requested yet.</string>
+
+    <!-- The network card, shared by the connection and search screens -->
+    <string name="network_wifi_connected">Wi-Fi connected</string>
+    <string name="network_wifi_named">Wi-Fi «%1$s»</string>
+    <string name="network_mobile">Mobile data «%1$s»</string>
+    <string name="network_offline">No network</string>
+    <string name="network_tag_hidden">name hidden</string>
+    <string name="network_tag_private">Private network</string>
+    <string name="network_redacted_hint">Android only reports network details with location access.</string>
     <string name="discovery_network_hint_mobile">On mobile data only nearby devices and a manually entered address can be reached.</string>
     <string name="discovery_network_hint_offline">No network connection. Only nearby devices can be found.</string>
-    <string name="discovery_searching">Still searching…</string>
-    <string name="discovery_searching_title">Looking for devices</string>
-    <string name="discovery_searching_hint">Keep this device and the server on the same Wi-Fi network</string>
-    <string name="discovery_empty_title">No devices found</string>
-    <string name="discovery_scan_subnet">Scan the network manually</string>
-    <string name="device_status_online">Online</string>
-    <string name="device_status_offline">Offline</string>
-    <string name="device_last_seen">last seen %1$s ago</string>
+
+    <!-- Search on the network — picking methods, then scanning with them -->
+    <string name="discovery_title_idle">Find on the network</string>
+    <string name="discovery_title_searching">Searching</string>
+    <string name="discovery_title_results">Search results</string>
+    <string name="discovery_methods_label">Search methods</string>
+    <string name="discovery_methods_running">running %1$d / %2$d</string>
+    <string name="discovery_method_ready">Ready</string>
+    <string name="discovery_method_ready_subtitle">Nothing else needed</string>
+    <string name="discovery_method_blocked">Not available on this phone or network</string>
+    <string name="discovery_method_add">Add</string>
+    <string name="discovery_method_retry">Retry</string>
+    <string name="discovery_found_label">Found</string>
+    <string name="discovery_start_search_empty">Start search</string>
+    <string name="discovery_start_hint">Pick at least one method that has its permissions</string>
+    <string name="discovery_first_devices_hint">Devices usually show up within 2–3 seconds</string>
+    <string name="discovery_continues_hint">The search continues, the list keeps filling</string>
+    <string name="discovery_finished_hint">Every method has finished. Retry one, or add another.</string>
+    <string name="action_stop">Stop</string>
+    <plurals name="discovery_methods_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="method_requirements_left">
+        <item quantity="one">%d left</item>
+        <item quantity="other">%d left</item>
+    </plurals>
+    <plurals name="discovery_method_needs_permissions">
+        <item quantity="one">Needs %d permission</item>
+        <item quantity="other">Needs %d permissions</item>
+    </plurals>
+    <plurals name="discovery_start_search">
+        <item quantity="one">Start search · %d method</item>
+        <item quantity="other">Start search · %d methods</item>
+    </plurals>
+
+    <!-- Detection methods, named for what they buy the user rather than for their transport -->
+    <string name="method_mdns_title">By name on the network</string>
+    <string name="method_mdns_description">Asks the network for servers announcing themselves. The fastest way, but some routers filter it out.</string>
+    <string name="method_nearby_title">Nearby devices</string>
+    <string name="method_nearby_description">Finds your computer even when you are on different networks or the router blocks multicast. Slower than the rest.</string>
+    <string name="method_subnet_title">Subnet scan</string>
+    <string name="method_subnet_description">Tries every address on your local network in turn. Thorough, slow, and loud on the network.</string>
+    <string name="method_manual_title">Enter address manually</string>
+    <string name="method_manual_description">If you know the server\'s IP address and port.</string>
+
+    <!-- The per-method permission sheet -->
+    <string name="method_requirements_label">Required permissions</string>
+    <string name="method_blockers_label">Not available here</string>
+    <string name="method_grant">Grant</string>
+    <string name="method_grant_rest">Grant the rest</string>
+    <string name="method_setup_note">Once everything is granted the method ticks itself. You still start the search.</string>
+
+    <!-- What can stand between a method and a working search -->
+    <string name="requirement_permission_location_title">Location</string>
+    <string name="requirement_permission_location_description">Android treats network names and nearby scans as location data. Your coordinates are never read.</string>
+    <string name="requirement_permission_bluetooth_title">Nearby devices</string>
+    <string name="requirement_permission_bluetooth_description">Bluetooth discovery of the devices next to you.</string>
+    <string name="requirement_permission_nearby_wifi_title">Nearby Wi-Fi devices</string>
+    <string name="requirement_permission_nearby_wifi_description">Direct Wi-Fi links to the devices next to you.</string>
+    <string name="requirement_permission_local_network_title">Local network</string>
+    <string name="requirement_permission_local_network_description">Reaching the other devices on your Wi-Fi.</string>
+    <string name="requirement_permission_other_title">One more permission</string>
+    <string name="requirement_permission_other_description">Android wants one more grant before this method can run.</string>
+    <string name="requirement_toggle_bluetooth_title">Bluetooth is off</string>
+    <string name="requirement_toggle_bluetooth_description">Switch it on in system settings.</string>
+    <string name="requirement_toggle_wifi_title">Wi-Fi is off</string>
+    <string name="requirement_toggle_wifi_description">Switch it on in system settings.</string>
+    <string name="requirement_toggle_location_title">Location services are off</string>
+    <string name="requirement_toggle_location_description">Switch them on in system settings.</string>
+    <string name="requirement_play_services_title">Google Play services</string>
+    <string name="requirement_play_services_description">Nearby search ships inside Play services and needs them installed and up to date.</string>
+    <string name="requirement_hardware_title">Hardware missing</string>
+    <string name="requirement_hardware_bluetooth_description">This phone has no Bluetooth radio, so this method can never run on it.</string>
+    <string name="requirement_hardware_wifi_description">This phone has no Wi-Fi radio, so this method can never run on it.</string>
+    <string name="requirement_network_title">Not available on this network</string>
+    <string name="requirement_network_subnet_description">This network puts every device behind a shared address, so its neighbours cannot be listed.</string>
+    <string name="requirement_network_multicast_description">This network does not carry multicast, which this method announces itself over.</string>
+    <string name="requirement_network_routing_description">This network carries no IP route to the server.</string>
+    <string name="requirement_no_connectivity_title">No network</string>
+    <string name="requirement_no_connectivity_description">Join a Wi-Fi network to search it.</string>
 
     <!-- Pairing — where every route to a device ends: the list, the scanner, a typed address -->
     <string name="pairing_title">Confirm the device</string>

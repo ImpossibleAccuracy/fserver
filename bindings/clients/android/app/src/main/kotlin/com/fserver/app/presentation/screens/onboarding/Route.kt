@@ -11,7 +11,7 @@ fun EntryProviderScope<Destination>.onboardingEntry(
         OnboardingScreen(
             navigateToDiscovery = {
                 navigator.navigateByBackstack(
-                    listOf(Destination.DeviceDiscovery)
+                    listOf(Destination.Connect)
                 )
             },
         )

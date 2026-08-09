@@ -1,32 +1,64 @@
 package com.fserver.app.presentation.screens.discovery.automatic.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.model.NetworkCardUi
+import com.fserver.app.presentation.model.RequirementRowUi
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.FoundDevice
 
 @Immutable
 data class DeviceDiscoveryState(
-    val network: NetworkInfoUi? = null,
+    val network: NetworkCardUi? = null,
+    val methods: List<MethodUi> = emptyList(),
     val devices: List<DeviceUi> = emptyList(),
-    val detectionMethods: List<DetectionMethodUi> = emptyList(),
+    /**
+     * The user has started a search on this screen.
+     *
+     * Sticky: methods finishing does not put the screen back to picking them, and neither does
+     * Stop. What was found stays on screen, because that is the answer the user asked for.
+     */
+    val isSearching: Boolean = false,
+    /** Non-null while the permissions sheet for one method is open. */
+    val methodSetup: MethodSetupUi? = null,
 ) {
-    val isSearching: Boolean
-        get() = detectionMethods.any { it.isSearching }
+    val selectedCount: Int get() = methods.count { it.selected }
+    val runningCount: Int get() = methods.count { it.isScanning }
 
-    data class NetworkInfoUi(
-        val name: String,
-        val type: Type,
+    /**
+     * One search method as the list draws it.
+     *
+     * `@Immutable` is load-bearing: [method] is a sealed interface from `:core`, which Compose
+     * cannot infer stability for, and without the annotation every found device would recompose
+     * the whole method list.
+     */
+    @Immutable
+    data class MethodUi(
+        val method: DetectionMethod,
+        val selected: Boolean,
+        val isScanning: Boolean,
+        /**
+         * Started at least once in this search. A method that has finished is still part of
+         * the search — it is offered a retry, not greyed out as if it had never taken part.
+         */
+        val hasRun: Boolean,
+        val foundCount: Int,
+        /** Unmet requirements; `null` until the first check comes back. */
+        val unmetCount: Int?,
+        /** Something no button can fix — absent hardware, a network that cannot carry this. */
+        val isBlocked: Boolean,
     ) {
-        enum class Type {
-            WiFi,
-            Mobile,
-        }
+        val isReady: Boolean get() = unmetCount == 0
     }
 
-    data class DetectionMethodUi(
+    /** Screen 03: what one method is still waiting on. */
+    @Immutable
+    data class MethodSetupUi(
         val method: DetectionMethod,
-        val isSearching: Boolean,
-    )
+        val solvable: List<RequirementRowUi>,
+        val blockers: List<RequirementRowUi>,
+    ) {
+        val unmetCount: Int get() = solvable.size + blockers.size
+    }
 
     @Immutable
     data class DeviceUi(
@@ -34,8 +66,6 @@ data class DeviceDiscoveryState(
         val name: String,
         val kind: FoundDevice.Kind,
         val address: String,
-        val online: Boolean,
-        val lastSeenLabel: String? = null,
     )
 
     companion object {
@@ -45,15 +75,12 @@ data class DeviceDiscoveryState(
                 name = "MacBook-Pro.local",
                 kind = FoundDevice.Kind.Laptop,
                 address = "192.168.1.14:8384",
-                online = true,
             ),
             DeviceUi(
                 id = "nas",
                 name = "HOME-NAS",
                 kind = FoundDevice.Kind.Nas,
                 address = "nas.local:8384",
-                online = false,
-                lastSeenLabel = "2 h",
             ),
         )
     }

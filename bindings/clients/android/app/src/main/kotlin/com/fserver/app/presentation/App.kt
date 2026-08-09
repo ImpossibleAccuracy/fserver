@@ -24,6 +24,7 @@ import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
 import com.fserver.app.presentation.screens.discovery.automatic.deviceDiscoveryEntry
+import com.fserver.app.presentation.screens.discovery.hub.connectHubEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
@@ -104,6 +105,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
         },
         entryProvider = entryProvider {
             onboardingEntry(navigator)
+            connectHubEntry(navigator)
             deviceDiscoveryEntry(navigator)
             qrScanEntry(navigator)
             manualAddressEntry(navigator)

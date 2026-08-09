@@ -9,7 +9,7 @@ fun EntryProviderScope<Destination>.settingsEntry(
 ) {
     entry<Destination.Settings> {
         SettingsScreen(
-            navigateToDevices = { navigator.navigate(Destination.DeviceDiscovery) },
+            navigateToDevices = { navigator.navigate(Destination.Connect) },
             // TODO: the trusted-fingerprint list has no screen yet.
             navigateToTrustedFingerprints = {},
             navigateToDiagnostics = { navigator.navigate(Destination.Diagnostics) },

@@ -3,9 +3,11 @@ package com.fserver.core.domain.model
 /**
  * A way to find a peer device.
  *
- * The split into [Automatic] and [OnDemand] is what the discovery screen dispatches on:
- * automatic methods run unasked, on-demand ones are surfaced to the user only once the
- * automatic pass comes up empty.
+ * [Automatic] and [OnDemand] describe cost, not scheduling: automatic methods are quiet and cheap
+ * enough to run together, on-demand ones are slow, loud, or need the user to supply something.
+ * Neither starts on its own - every scan is begun by an explicit
+ * [com.fserver.core.domain.repository.DeviceDetectionRepository.startDetection] call, because a
+ * method that starts itself turns a permission the user was never asked for into "found nothing".
  *
  * @property [requires] is the entire availability rule: a method is offered only when the current
  * transport advertises every capability it names.

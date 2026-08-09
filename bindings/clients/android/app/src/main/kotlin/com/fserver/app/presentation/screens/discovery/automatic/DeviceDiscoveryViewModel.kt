@@ -3,98 +3,227 @@ package com.fserver.app.presentation.screens.discovery.automatic
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.address
+import com.fserver.app.presentation.model.foundBy
+import com.fserver.app.presentation.model.searchableDetectionMethods
+import com.fserver.app.presentation.model.toCardUi
+import com.fserver.app.presentation.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.DeviceDetectionRequest
 import com.fserver.core.domain.model.FoundDevice
-import com.fserver.core.domain.model.NetworkInfo
-import com.fserver.core.domain.model.availableDetectionMethods
+import com.fserver.core.domain.model.requirement.RequirementReport
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
+import com.fserver.core.domain.repository.RequirementsChecker
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Search is the user's to start.
+ *
+ * The screen offers every method, says what each still needs, and scans only what was ticked
+ * when the button was pressed. Nothing here runs on its own — a method that quietly starts
+ * itself turns a missing permission into "found nothing", which is the failure this whole flow
+ * exists to avoid.
+ */
 class DeviceDiscoveryViewModel(
-    private val networkInfoRepository: NetworkInfoRepository,
+    networkInfoRepository: NetworkInfoRepository,
     private val deviceDetectionRepository: DeviceDetectionRepository,
+    private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
-    val state: StateFlow<DeviceDiscoveryState> = combine(
+
+    private val selected = MutableStateFlow<Set<DetectionMethod>>(emptySet())
+    private val openSetup = MutableStateFlow<DetectionMethod?>(null)
+    private val reports = MutableStateFlow<Map<DetectionMethod, RequirementReport>>(emptyMap())
+    private val networkNamed = MutableStateFlow(false)
+
+    /**
+     * Whether the user has started a search here.
+     *
+     * Kept separately from "something is scanning right now", which is what it used to be
+     * derived from: methods finish at wildly different times, so deriving it meant the results
+     * vanished and the screen dropped back to picking methods the moment the last scanner ended.
+     */
+    private val searchStarted = MutableStateFlow(false)
+
+    /** Methods started at least once in this search — the ones offered a retry when they end. */
+    private val startedMethods = MutableStateFlow<Set<DetectionMethod>>(emptySet())
+
+    /** One job per running method, so a single method can be stopped or restarted on its own. */
+    private val scanJobs = mutableMapOf<DetectionMethod, Job>()
+
+    private val networkCard = combine(
         networkInfoRepository.networkInfo,
+        networkNamed,
+    ) { network, named -> network.toCardUi(named) }
+
+    private val participation = combine(selected, startedMethods, ::Pair)
+
+    private val methodsUi = combine(
         deviceDetectionRepository.onlineDevices,
         deviceDetectionRepository.runningScanningMethods,
-    ) { networkInfo, onlineDevices, scanningMethods ->
+        participation,
+        reports,
+    ) { devices, running, (selectedMethods, started), reportByMethod ->
+        val foundByMethod = devices.groupingBy { it.foundBy }.eachCount()
+
+        searchableDetectionMethods.map { method ->
+            val report = reportByMethod[method]
+            DeviceDiscoveryState.MethodUi(
+                method = method,
+                selected = method in selectedMethods,
+                isScanning = method in running,
+                hasRun = method in started,
+                foundCount = foundByMethod[method] ?: 0,
+                unmetCount = report?.let { it.solvable.size + it.blockers.size },
+                isBlocked = report?.blockers?.isNotEmpty() == true,
+            )
+        }
+    }
+
+    private val setupUi = combine(openSetup, reports) { method, reportByMethod ->
+        val report = method?.let(reportByMethod::get) ?: return@combine null
+
+        DeviceDiscoveryState.MethodSetupUi(
+            method = method,
+            solvable = report.solvable.toRows(),
+            blockers = report.blockers.toRows(),
+        )
+    }
+
+    val state: StateFlow<DeviceDiscoveryState> = combine(
+        networkCard,
+        deviceDetectionRepository.onlineDevices,
+        methodsUi,
+        setupUi,
+        searchStarted,
+    ) { network, devices, methods, setup, searching ->
         DeviceDiscoveryState(
-            network = networkInfo?.toUi(),
-            devices = onlineDevices.map { it.toUi() },
-            // Not `networkInfo?.let { … }`: with no network at all the nearby-devices API
-            // still works, and the extension already says so.
-            detectionMethods = networkInfo.availableDetectionMethods().map { method ->
-                DeviceDiscoveryState.DetectionMethodUi(
-                    method = method,
-                    isSearching = method in scanningMethods,
-                )
-            },
+            network = network,
+            devices = devices.map { it.toUi() },
+            methods = methods,
+            isSearching = searching,
+            methodSetup = setup,
         )
     }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = DeviceDiscoveryState()
+            initialValue = DeviceDiscoveryState(),
         )
+
+    init {
+        viewModelScope.launch {
+            networkInfoRepository.networkInfo.collect { checkRequirements() }
+        }
+    }
+
+    /**
+     * A [RequirementReport] is a snapshot, and the user can change any of it from outside the
+     * app, so it is re-read whenever the screen comes back to the foreground.
+     */
+    fun onResumed() {
+        checkRequirements()
+    }
 
     fun onIntent(intent: DeviceDiscoveryIntent) {
         when (intent) {
-            DeviceDiscoveryIntent.RefreshClicked -> viewModelScope.launch {
-                startAutomaticDetection(currentlyAvailableMethods())
+            is DeviceDiscoveryIntent.MethodToggled -> toggle(intent.method)
+
+            is DeviceDiscoveryIntent.MethodClicked -> openSetup.value = intent.method
+
+            is DeviceDiscoveryIntent.MethodStartRequested -> {
+                selected.update { it + intent.method }
+                startSearch(setOf(intent.method))
             }
 
-            DeviceDiscoveryIntent.ScanSubnetClicked -> viewModelScope.launch {
-                if (DetectionMethod.OnDemand.SubnetScan !in currentlyAvailableMethods()) return@launch
-
-                deviceDetectionRepository.startDetection(
-                    DeviceDetectionRequest.ByMethod(
-                        DetectionMethod.OnDemand.SubnetScan
-                    )
-                )
+            DeviceDiscoveryIntent.MethodSetupDismissed -> {
+                openSetup.value = null
+                checkRequirements()
             }
+
+            DeviceDiscoveryIntent.GrantRequested -> {
+                // TODO: launch the runtime permission request / open the settings screen for
+                //  `state.methodSetup`, then call `checkRequirements()`. Only the host can do
+                //  this - `:core` reports what is missing but cannot ask for it.
+            }
+
+            DeviceDiscoveryIntent.StartSearchClicked -> {
+                searchStarted.value = true
+                startSearch(selected.value)
+            }
+
+            DeviceDiscoveryIntent.StopSearchClicked -> stopSearch()
         }
     }
 
-    private suspend fun currentlyAvailableMethods(): Set<DetectionMethod> =
-        networkInfoRepository.networkInfo.first().availableDetectionMethods()
+    private fun toggle(method: DetectionMethod) {
+        val nowSelected = method !in selected.value
+        selected.update { if (nowSelected) it + method else it - method }
+
+        // Ticking a method while a search is already running joins it to that search, rather
+        // than making the user stop and start over.
+        when {
+            !nowSelected -> scanJobs.remove(method)?.cancel()
+            scanJobs.isNotEmpty() -> startSearch(setOf(method))
+        }
+    }
+
+    private fun checkRequirements() {
+        viewModelScope.launch {
+            val next = searchableDetectionMethods.associateWith { requirementsChecker.forDetection(it) }
+            val wasReady = reports.value.filterValues { it.isSatisfied }.keys
+            val isReady = next.filterValues { it.isSatisfied }.keys
+
+            reports.value = next
+            networkNamed.value = requirementsChecker.forNetworkInfo().isSatisfied
+
+            // A method that has just become usable ticks itself - there is no separate "enable".
+            // Unticking it survives later re-checks, because only the transition adds it back.
+            selected.update { current -> (current + (isReady - wasReady)) intersect isReady }
+        }
+    }
+
+    private fun startSearch(methods: Set<DetectionMethod>) {
+        methods.forEach { method ->
+            if (scanJobs[method]?.isActive == true) return@forEach
+
+            startedMethods.update { it + method }
+            scanJobs[method] = viewModelScope.launch {
+                try {
+                    // TODO: surface the failed Result instead of dropping it
+                    deviceDetectionRepository.startDetection(DeviceDetectionRequest.ByMethod(method))
+                } finally {
+                    scanJobs.remove(method)
+                }
+            }
+        }
+    }
 
     /**
-     * One coroutine per method: they run for very different lengths of time, and a slow one
-     * must not hold back the results of a fast one.
+     * Stops the scanners and nothing else — the search screen, and everything already found on
+     * it, stays exactly where it is. Each stopped method can be started again on its own.
+     *
+     * `DeviceDetectionRepository` has no stop of its own: `startDetection` is a suspend function
+     * that runs until the scan ends, so cancelling its coroutine *is* the stop. The repository
+     * clears the method from `runningScanningMethods` in a `finally`, so the UI follows.
      */
-    private fun startAutomaticDetection(available: Set<DetectionMethod>) {
-        available.filterIsInstance<DetectionMethod.Automatic>().forEach { method ->
-            viewModelScope.launch {
-                deviceDetectionRepository.startDetection(
-                    DeviceDetectionRequest.ByMethod(method)
-                )
-            }
-        }
+    private fun stopSearch() {
+        scanJobs.values.toList().forEach(Job::cancel)
+        scanJobs.clear()
     }
 }
-
-private fun NetworkInfo.toUi() = DeviceDiscoveryState.NetworkInfoUi(
-    name = name,
-    type = when (this) {
-        is NetworkInfo.Mobile -> DeviceDiscoveryState.NetworkInfoUi.Type.Mobile
-        is NetworkInfo.WiFi -> DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-    }
-)
 
 private fun FoundDevice.toUi() = DeviceDiscoveryState.DeviceUi(
     id = id,
     name = name,
     kind = kind,
     address = address,
-    online = true,
 )

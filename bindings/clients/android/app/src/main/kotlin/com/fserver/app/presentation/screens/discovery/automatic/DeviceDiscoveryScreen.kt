@@ -1,463 +1,501 @@
 package com.fserver.app.presentation.screens.discovery.automatic
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.data.SampleData
-import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
+import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkListRow
+import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSecondaryButton
+import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
+import com.fserver.app.presentation.designkit.dkDashedBorder
+import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.icon
+import com.fserver.app.presentation.model.titleRes
+import com.fserver.app.presentation.screens.discovery.automatic.composable.DetectionMethodSheet
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
+import com.fserver.app.presentation.screens.discovery.composable.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.domain.model.DetectionMethod
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun DeviceDiscoveryScreen(
     viewModel: DeviceDiscoveryViewModel = koinViewModel(),
     navigateToPairing: (deviceId: String) -> Unit,
-    navigateToQrScan: () -> Unit,
-    navigateToManualAddress: () -> Unit,
+    navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Permissions can be granted or revoked from outside the app, so the reports are re-read
+    // every time this screen comes back rather than cached from when it was opened.
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResumed()
+        onPauseOrDispose {}
+    }
 
     DeviceDiscoveryScreen(
         state = state,
         onIntent = viewModel::onIntent,
         navigateToPairing = navigateToPairing,
-        navigateToQrScan = navigateToQrScan,
-        navigateToManualAddress = navigateToManualAddress,
+        navigateUp = navigateUp,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeviceDiscoveryScreen(
     state: DeviceDiscoveryState,
     onIntent: (DeviceDiscoveryIntent) -> Unit,
     navigateToPairing: (deviceId: String) -> Unit,
-    navigateToQrScan: () -> Unit,
-    navigateToManualAddress: () -> Unit,
+    navigateUp: () -> Unit,
 ) {
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            val summary = when (val network = state.network?.type) {
-                DeviceDiscoveryState.NetworkInfoUi.Type.WiFi ->
-                    stringResource(
-                        R.string.discovery_network_summary_wifi,
-                        network.name,
-                        state.devices.size
-                    )
-
-                DeviceDiscoveryState.NetworkInfoUi.Type.Mobile ->
-                    stringResource(
-                        R.string.discovery_network_summary_mobile,
-                        network.name,
-                        state.devices.size
-                    )
-
-                null -> stringResource(
-                    R.string.discovery_network_summary_offline,
-                    state.devices.size
-                )
-            }
-
             DkTopBar(
-                title = stringResource(R.string.discovery_title),
-                subtitle = summary,
+                title = stringResource(
+                    when {
+                        state.runningCount > 0 -> R.string.discovery_title_searching
+                        state.isSearching -> R.string.discovery_title_results
+                        else -> R.string.discovery_title_idle
+                    }
+                ),
+                onBack = navigateUp,
                 actions = {
-                    IconButton(onClick = { onIntent(DeviceDiscoveryIntent.RefreshClicked) }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.action_refresh),
-                            tint = MaterialTheme.colorScheme.primary,
+                    // Nothing running, nothing to stop — the per-method retry takes over there.
+                    if (state.runningCount > 0) {
+                        DkGhostButton(
+                            text = stringResource(R.string.action_stop),
+                            onClick = { onIntent(DeviceDiscoveryIntent.StopSearchClicked) },
                         )
                     }
                 },
             )
         },
+        bottomBar = { DiscoveryBottomBar(state = state, onIntent = onIntent) },
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(innerPadding),
         ) {
-            NetworkHint(
-                modifier = Modifier.padding(
-                    start = DkSpacing.screenPadding,
-                    end = DkSpacing.screenPadding,
-                    bottom = DkSpacing.sm,
-                ),
-                network = state.network,
-            )
+            item(key = "network") {
+                NetworkCard(
+                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                    network = state.network,
+                )
+            }
 
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                when {
-                    state.devices.isEmpty() -> {
-                        if (state.isSearching) {
-                            DiscoveryEmptyState(
-                                title = stringResource(R.string.discovery_searching_title),
-                                hint = stringResource(R.string.discovery_searching_hint),
-                                showSpinner = true,
-                            )
-                        } else {
-                            DiscoveryEmptyState(
-                                title = stringResource(R.string.discovery_empty_title),
-                                hint = stringResource(R.string.discovery_searching_hint),
-                            )
-                        }
-                    }
-
-                    else -> {
-                        DeviceList(
-                            devices = state.devices,
-                            searching = state.isSearching,
-                            onDeviceClick = navigateToPairing,
+            item(key = "methods-label") {
+                DkSectionLabel(
+                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                    text = stringResource(R.string.discovery_methods_label),
+                    trailing = {
+                        DkCaption(
+                            text = if (state.isSearching) {
+                                stringResource(
+                                    R.string.discovery_methods_running,
+                                    state.runningCount,
+                                    state.methods.size,
+                                )
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.discovery_methods_selected,
+                                    state.selectedCount,
+                                    state.selectedCount,
+                                )
+                            }
                         )
-                    }
+                    },
+                )
+            }
+
+            itemsIndexed(state.methods) { index, method ->
+                MethodRow(method = method, searching = state.isSearching, onIntent = onIntent)
+                if (index != state.methods.lastIndex) {
+                    DkFadingDivider()
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            if (state.isSearching) {
+                item(key = "found-label") {
+                    DkSectionLabel(
+                        modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                        text = stringResource(R.string.discovery_found_label),
+                        trailing = { DkCaption(text = state.devices.size.toString()) },
+                    )
+                }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = DkSpacing.screenPadding)
-                    .padding(bottom = DkSpacing.screenPadding),
-                verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-            ) {
-                state.detectionMethods.forEach { methodUi ->
-                    when (methodUi.method) {
-                        is DetectionMethod.Automatic -> return@forEach
-
-                        DetectionMethod.OnDemand.ManualAddress -> {
-                            DkSecondaryButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = stringResource(R.string.action_scan_qr),
-                                onClick = navigateToQrScan,
-                            )
-
-                            DkSecondaryButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                text = stringResource(R.string.action_enter_address),
-                                onClick = navigateToManualAddress,
-                            )
-                        }
-
-                        DetectionMethod.OnDemand.SubnetScan -> {
-                            DkPrimaryButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !methodUi.isSearching,
-                                text = stringResource(R.string.discovery_scan_subnet),
-                                onClick = { onIntent(DeviceDiscoveryIntent.ScanSubnetClicked) },
-                            )
-                        }
+                if (state.devices.isEmpty()) {
+                    item(key = "found-placeholder") { ResultPlaceholders() }
+                } else {
+                    items(state.devices, key = { it.id }) { device ->
+                        DeviceRow(device = device, onClick = { navigateToPairing(device.id) })
+                        DkFadingDivider()
                     }
                 }
             }
         }
+    }
+
+    if (state.methodSetup != null) {
+        ModalBottomSheet(
+            onDismissRequest = { onIntent(DeviceDiscoveryIntent.MethodSetupDismissed) },
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            DetectionMethodSheet(setup = state.methodSetup, onIntent = onIntent)
+        }
+    }
+}
+
+@Composable
+private fun DiscoveryBottomBar(
+    state: DeviceDiscoveryState,
+    onIntent: (DeviceDiscoveryIntent) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(DkSpacing.screenPadding)
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (state.isSearching) {
+            CenteredCaption(
+                text = when {
+                    state.runningCount == 0 -> stringResource(R.string.discovery_finished_hint)
+                    state.devices.isEmpty() -> stringResource(R.string.discovery_first_devices_hint)
+                    else -> stringResource(R.string.discovery_continues_hint)
+                }
+            )
+            return@Column
+        }
+
+        if (state.selectedCount == 0) {
+            CenteredCaption(text = stringResource(R.string.discovery_start_hint))
+        }
+
+        DkPrimaryButton(
+            modifier = Modifier.fillMaxWidth(),
+            text = if (state.selectedCount == 0) {
+                stringResource(R.string.discovery_start_search_empty)
+            } else {
+                pluralStringResource(
+                    R.plurals.discovery_start_search,
+                    state.selectedCount,
+                    state.selectedCount,
+                )
+            },
+            enabled = state.selectedCount > 0,
+            onClick = { onIntent(DeviceDiscoveryIntent.StartSearchClicked) },
+        )
     }
 }
 
 /**
- * Names the transport and, when it limits discovery, says so — an empty list on mobile
- * data is a property of the network, not a failure the user should keep retrying.
+ * A method row is the same shape in both phases; what changes is whether the leading slot is a
+ * choice (a checkbox) or a report (a spinner and a count).
  */
 @Composable
-private fun NetworkHint(
-    modifier: Modifier = Modifier,
-    network: DeviceDiscoveryState.NetworkInfoUi?,
-) {
-    val hint = when (network?.type) {
-        DeviceDiscoveryState.NetworkInfoUi.Type.WiFi -> null
-        DeviceDiscoveryState.NetworkInfoUi.Type.Mobile ->
-            stringResource(R.string.discovery_network_hint_mobile)
-
-        null -> stringResource(R.string.discovery_network_hint_offline)
-    }
-
-    if (hint != null) {
-        Text(
-            modifier = modifier,
-            text = hint,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun DeviceList(
-    devices: List<DeviceDiscoveryState.DeviceUi>,
+private fun MethodRow(
+    method: DeviceDiscoveryState.MethodUi,
     searching: Boolean,
-    onDeviceClick: (deviceId: String) -> Unit,
+    onIntent: (DeviceDiscoveryIntent) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        devices.forEach { device ->
-            DeviceRow(
-                device = device,
-                onClick = { onDeviceClick(device.id) },
-            )
-            DkFadingDivider()
-        }
+    val openSetup = { onIntent(DeviceDiscoveryIntent.MethodClicked(method.method)) }
+    val toggle = { onIntent(DeviceDiscoveryIntent.MethodToggled(method.method)) }
+    val start = { onIntent(DeviceDiscoveryIntent.MethodStartRequested(method.method)) }
 
-        if (searching) {
-            SearchingRow()
-        }
+    if (searching) {
+        DkListRow(
+            title = stringResource(method.method.titleRes),
+            // A method that has run is part of this search whether or not it is still going;
+            // only one that never joined is drawn as absent.
+            dimmed = !method.isScanning && !method.hasRun,
+            onClick = when {
+                method.isScanning -> null
+                method.isReady -> start
+                else -> openSetup
+            },
+            leading = {
+                if (method.isScanning) {
+                    DkInlineSpinner()
+                } else {
+                    IdleDot()
+                }
+            },
+            trailing = {
+                if (method.isScanning) {
+                    DkMonoCaption(text = method.foundCount.toString())
+                } else {
+                    Text(
+                        text = stringResource(
+                            if (method.hasRun) {
+                                R.string.discovery_method_retry
+                            } else {
+                                R.string.discovery_method_add
+                            }
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+        )
+    } else {
+        DkListRow(
+            title = stringResource(method.method.titleRes),
+            subtitle = when {
+                method.isBlocked -> stringResource(R.string.discovery_method_blocked)
+                method.isReady -> stringResource(R.string.discovery_method_ready_subtitle)
+                method.unmetCount != null -> pluralStringResource(
+                    R.plurals.discovery_method_needs_permissions,
+                    method.unmetCount,
+                    method.unmetCount,
+                )
+
+                else -> null
+            },
+            dimmed = method.isBlocked,
+            onClick = if (method.isReady) toggle else openSetup,
+            leading = {
+                Checkbox(
+                    modifier = Modifier.size(20.dp),
+                    checked = method.selected,
+                    enabled = method.isReady,
+                    onCheckedChange = { toggle() },
+                )
+            },
+            trailing = {
+                if (method.isReady) {
+                    DkTag(stringResource(R.string.discovery_method_ready), style = DkTagStyle.Accent)
+                } else {
+                    DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
+                }
+            },
+        )
     }
 }
 
 @Composable
-private fun DiscoveryEmptyState(
-    title: String,
-    hint: String,
-    modifier: Modifier = Modifier,
-    showSpinner: Boolean = false,
+private fun DeviceRow(
+    device: DeviceDiscoveryState.DeviceUi,
+    onClick: () -> Unit,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = DkSpacing.xl),
-        verticalArrangement = Arrangement.spacedBy(DkSpacing.sm, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        if (showSpinner) {
-            DkInlineSpinner()
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-@Composable
-private fun DeviceRow(device: DeviceDiscoveryState.DeviceUi, onClick: () -> Unit) {
     DkListRow(
         title = device.name,
-        subtitle = device.lastSeenLabel
-            ?.let { stringResource(R.string.device_last_seen, it) }
-            ?: device.address,
+        subtitle = device.address,
         subtitleStyle = DkType.mono,
-        dimmed = !device.online,
-        onClick = onClick.takeIf { device.online },
+        onClick = onClick,
         leading = { DkThumbnail(icon = device.kind.icon) },
-        trailing = {
-            if (device.online) {
-                DkTag(stringResource(R.string.device_status_online), style = DkTagStyle.Accent)
-            } else {
-                DkTag(stringResource(R.string.device_status_offline), style = DkTagStyle.Neutral)
-            }
-        },
+        trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
     )
 }
 
+/** The slot a method that is not running would occupy, drawn so the list keeps its shape. */
 @Composable
-private fun SearchingRow() {
-    Row(
+private fun IdleDot() {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
+            .size(11.dp)
+            .dkDashedBorder(
+                color = MaterialTheme.colorScheme.outline,
+                cornerRadius = 6.dp,
+                dash = 2.dp,
+            )
+    )
+}
+
+/** Where results will land, so an empty search reads as "not yet" rather than "nothing". */
+@Composable
+private fun ResultPlaceholders() {
+    Column(
+        modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
-        DkInlineSpinner()
-        Text(
-            text = stringResource(R.string.discovery_searching),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        repeat(2) { index ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .alpha(if (index == 0) 1f else 0.5f)
+                    .dkDashedBorder(MaterialTheme.colorScheme.outlineVariant)
+            )
+        }
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun DeviceDiscoveryScreenPreview() {
+private fun CenteredCaption(text: String) {
+    Text(
+        modifier = Modifier.fillMaxWidth(),
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+}
+
+private fun method(
+    method: DetectionMethod,
+    selected: Boolean = false,
+    isScanning: Boolean = false,
+    hasRun: Boolean = false,
+    foundCount: Int = 0,
+    unmetCount: Int? = 0,
+    isBlocked: Boolean = false,
+) = DeviceDiscoveryState.MethodUi(
+    method = method,
+    selected = selected,
+    isScanning = isScanning,
+    hasRun = hasRun,
+    foundCount = foundCount,
+    unmetCount = unmetCount,
+    isBlocked = isBlocked,
+)
+
+private val NothingSelected = listOf(
+    method(DetectionMethod.Automatic.MulticastDns),
+    method(DetectionMethod.OnDemand.SubnetScan, unmetCount = 1),
+    method(DetectionMethod.Automatic.NearbyConnections, unmetCount = 2),
+)
+
+private val TwoReady = listOf(
+    method(DetectionMethod.Automatic.MulticastDns, selected = true),
+    method(DetectionMethod.OnDemand.SubnetScan, unmetCount = 1),
+    method(DetectionMethod.Automatic.NearbyConnections, selected = true),
+)
+
+@Preview(name = "Nothing selected", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun DeviceDiscoveryIdlePreview() {
     FServerTheme {
         DeviceDiscoveryScreen(
             state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = SampleData.NETWORK_NAME,
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-                ),
-                devices = DeviceDiscoveryState.SampleDevices,
+                network = NetworkCardUi.Wifi(name = null),
+                methods = NothingSelected,
             ),
             onIntent = {},
             navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
+            navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Searching", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Two ready", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun DeviceDiscoveryReadyPreview() {
+    FServerTheme {
+        DeviceDiscoveryScreen(
+            state = DeviceDiscoveryState(
+                network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME),
+                methods = TwoReady,
+            ),
+            onIntent = {},
+            navigateToPairing = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Searching — empty", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun DeviceDiscoverySearchingPreview() {
     FServerTheme {
         DeviceDiscoveryScreen(
             state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = SampleData.NETWORK_NAME,
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-                ),
-                detectionMethods = listOf(
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.Automatic.MulticastDns,
-                        isSearching = true,
-                    )
-                )
+                network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME),
+                methods = TwoReady.map { it.copy(isScanning = it.selected, hasRun = it.selected) },
+                isSearching = true,
             ),
             onIntent = {},
             navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
+            navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Nothing found", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Searching — results", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun DeviceDiscoveryNothingFoundPreview() {
+private fun DeviceDiscoveryResultsPreview() {
     FServerTheme {
         DeviceDiscoveryScreen(
             state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = SampleData.NETWORK_NAME,
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-                ),
-                detectionMethods = listOf(
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.Automatic.MulticastDns,
-                        isSearching = true,
-                    )
-                )
+                network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME),
+                methods = TwoReady.map {
+                    it.copy(isScanning = it.selected, hasRun = it.selected, foundCount = 1)
+                },
+                devices = DeviceDiscoveryState.SampleDevices,
+                isSearching = true,
             ),
             onIntent = {},
             navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
+            navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Subnet scanning", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Searching — finished", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun DeviceDiscoverySubnetScanningPreview() {
+private fun DeviceDiscoveryFinishedPreview() {
     FServerTheme {
         DeviceDiscoveryScreen(
             state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = SampleData.NETWORK_NAME,
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-                ),
-                detectionMethods = listOf(
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.OnDemand.SubnetScan,
-                        isSearching = true,
-                    ),
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.OnDemand.ManualAddress,
-                        isSearching = false,
-                    ),
-                )
+                network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME),
+                methods = TwoReady.map { it.copy(hasRun = it.selected, foundCount = 1) },
+                devices = DeviceDiscoveryState.SampleDevices,
+                isSearching = true,
             ),
             onIntent = {},
             navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
-        )
-    }
-}
-
-@Preview(name = "Nothing found — exhausted", showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun DeviceDiscoveryExhaustedPreview() {
-    FServerTheme {
-        DeviceDiscoveryScreen(
-            state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = SampleData.NETWORK_NAME,
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.WiFi
-                ),
-                detectionMethods = listOf(
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.OnDemand.SubnetScan,
-                        isSearching = false,
-                    ),
-                    DeviceDiscoveryState.DetectionMethodUi(
-                        method = DetectionMethod.OnDemand.ManualAddress,
-                        isSearching = false,
-                    ),
-                )
-            ),
-            onIntent = {},
-            navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
-        )
-    }
-}
-
-@Preview(name = "Mobile network", showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun DeviceDiscoveryMobilePreview() {
-    FServerTheme {
-        DeviceDiscoveryScreen(
-            state = DeviceDiscoveryState(
-                network = DeviceDiscoveryState.NetworkInfoUi(
-                    name = "LTE",
-                    type = DeviceDiscoveryState.NetworkInfoUi.Type.Mobile,
-                ),
-            ),
-            onIntent = {},
-            navigateToPairing = {},
-            navigateToQrScan = {},
-            navigateToManualAddress = {},
+            navigateUp = {},
         )
     }
 }

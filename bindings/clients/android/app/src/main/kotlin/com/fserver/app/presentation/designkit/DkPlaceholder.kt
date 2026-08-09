@@ -9,11 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.unit.dp
 
 /**
  * Hatched slot for art that does not exist yet — onboarding illustrations, the camera
@@ -36,22 +32,7 @@ fun DkPlaceholderBox(
             .clip(shape)
             .dkHatch(hatchColor)
             .then(
-                if (dashedBorder) {
-                    Modifier.drawBehind {
-                        drawRoundRect(
-                            color = borderColor,
-                            style = Stroke(
-                                width = 1.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(
-                                    floatArrayOf(6.dp.toPx(), 6.dp.toPx())
-                                ),
-                            ),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
-                        )
-                    }
-                } else {
-                    Modifier
-                }
+                if (dashedBorder) Modifier.dkDashedBorder(borderColor) else Modifier
             ),
         contentAlignment = Alignment.Center,
     ) {

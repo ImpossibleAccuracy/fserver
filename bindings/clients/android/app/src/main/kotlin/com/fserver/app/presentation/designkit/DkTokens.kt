@@ -5,9 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
@@ -72,6 +75,25 @@ fun dkFadingBrush(color: Color, inset: Float = 0.075f): Brush = Brush.horizontal
     1f - inset to color,
     1f to Color.Transparent,
 )
+
+/**
+ * Nocturne's dashed hairline — the outline it gives anything provisional: a placeholder slot,
+ * a result row not filled in yet, a network card whose details the OS is still withholding.
+ */
+fun Modifier.dkDashedBorder(
+    color: Color,
+    cornerRadius: Dp = 8.dp,
+    dash: Dp = 6.dp,
+): Modifier = drawBehind {
+    drawRoundRect(
+        color = color,
+        style = Stroke(
+            width = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash.toPx(), dash.toPx())),
+        ),
+        cornerRadius = CornerRadius(cornerRadius.toPx()),
+    )
+}
 
 /**
  * The 45° hatch Nocturne fills placeholder surfaces with (illustration slots, the camera
