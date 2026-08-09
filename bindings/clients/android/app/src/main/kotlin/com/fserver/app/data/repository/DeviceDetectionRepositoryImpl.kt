@@ -55,38 +55,39 @@ internal class DeviceDetectionRepositoryImpl(
             connector.loadCapabilities().getOrThrow()
         }
 
-    override suspend fun startDetection(request: DeviceDetectionRequest): Result<List<FoundDevice>> =
-        runBackgroundJob {
-            if (request in runningRequests.value)
-                return@runBackgroundJob emptyList()
+    override suspend fun startDetection(
+        request: DeviceDetectionRequest
+    ): Result<List<FoundDevice>> = runBackgroundJob {
+        if (request in runningRequests.value) {
+            return@runBackgroundJob emptyList()
+        }
 
-            runningRequests.update { it + request }
+        runningRequests.update { it + request }
 
-            try {
-                val scanner = deviceScannerFactory.fromRequest(request)
-                val connectors = scanner.startScan()
+        try {
+            val scanner = deviceScannerFactory.fromRequest(request)
 
-                coroutineScope {
-                    connectors
-                        .mapNotNull { event ->
-                            when (event) {
-                                is DeviceScanEvent.Found ->
-                                    async { resolveDevice(event.connector) }
+            coroutineScope {
+                scanner.startScan()
+                    .mapNotNull { event ->
+                        when (event) {
+                            is DeviceScanEvent.Found ->
+                                async { resolveDevice(event.connector) }
 
-                                is DeviceScanEvent.Lost -> {
-                                    revoke(event.deviceId)
-                                    null
-                                }
+                            is DeviceScanEvent.Lost -> {
+                                revoke(event.deviceId)
+                                null
                             }
                         }
-                        .toList()
-                        .awaitAll()
-                        .filterNotNull()
-                }
-            } finally {
-                runningRequests.update { it - request }
+                    }
+                    .toList()
+                    .awaitAll()
+                    .filterNotNull()
             }
+        } finally {
+            runningRequests.update { it - request }
         }
+    }
 
     /**
      * Asks a single discovered peer to describe itself, publishing it on success.

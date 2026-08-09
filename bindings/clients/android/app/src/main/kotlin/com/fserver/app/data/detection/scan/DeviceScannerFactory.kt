@@ -1,20 +1,23 @@
 package com.fserver.app.data.detection.scan
 
-import com.fserver.app.data.detection.scan.multicast.MulticastDnsDiscoveryService
-import com.fserver.app.data.detection.scan.multicast.MulticastDnsScanner
+import com.fserver.app.data.datasource.multicastdns.MulticastDnsDiscoveryService
+import com.fserver.app.data.datasource.nearbyconnection.NearbyConnectionsDiscoveryService
 import com.fserver.app.domain.model.DetectionMethod
 import com.fserver.app.domain.model.DeviceDetectionRequest
 import com.fserver.app.domain.model.exception.DetectionFailedException
 
 internal class DeviceScannerFactory(
     private val multicastDnsDiscoveryService: MulticastDnsDiscoveryService,
+    private val nearbyConnectionsDiscoveryService: NearbyConnectionsDiscoveryService,
 ) {
     /**
      * Creates a [DeviceScanner] for provided [DeviceDetectionRequest].
      */
     fun fromRequest(request: DeviceDetectionRequest): DeviceScanner = when (request) {
         is DeviceDetectionRequest.ByMethod -> when (request.method) {
-            DetectionMethod.Automatic.DeviceDiscoveryApi -> DeviceDiscoveryApiScanner()
+            DetectionMethod.Automatic.NearbyConnections -> NearbyConnectionsScanner(
+                connectionsService = nearbyConnectionsDiscoveryService,
+            )
 
             DetectionMethod.Automatic.MulticastDns -> MulticastDnsScanner(
                 discoveryService = multicastDnsDiscoveryService,

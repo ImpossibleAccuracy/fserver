@@ -8,7 +8,7 @@ internal class IpConnectorScanner(
     val ipAddress: String,
     val port: Int?,
 ) : DeviceScanner {
-    override suspend fun startScan(): Flow<DeviceScanEvent> = flowOf(
+    override fun startScan(): Flow<DeviceScanEvent> = flowOf(
         DeviceScanEvent.Found(
             IpDeviceConnector(
                 ipAddress = ipAddress,

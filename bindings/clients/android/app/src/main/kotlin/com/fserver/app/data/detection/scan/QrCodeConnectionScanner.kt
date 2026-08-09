@@ -11,7 +11,7 @@ internal class QrCodeConnectionScanner(
 ) : DeviceScanner {
     private val jsonQrCodeParser by lazy { JsonQrCodeParser() }
 
-    override suspend fun startScan(): Flow<DeviceScanEvent> = flow {
+    override fun startScan(): Flow<DeviceScanEvent> = flow {
         val parsed = jsonQrCodeParser.parse(payload)
             ?: throw MalformedQrException()
 

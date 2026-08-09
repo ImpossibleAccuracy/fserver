@@ -5,6 +5,29 @@
     <!--  Network discovery permissions  -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Nearby Connections (P2P_* strategies) — needs Bluetooth, BLE and Wi-Fi radios.
+      See https://developers.google.com/nearby/connections/android/get-started#request_permissions
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Location: BLE scanning is location-capable, so the platform gates it here up to API 32. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- API 33+: replaces the location gate for Wi-Fi Direct / Aware. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="31" />
 
     <!--  File system integration permissions  -->
     <uses-permission

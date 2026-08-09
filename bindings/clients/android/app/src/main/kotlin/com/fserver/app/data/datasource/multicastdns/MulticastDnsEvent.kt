@@ -1,4 +1,4 @@
-package com.fserver.app.data.detection.scan.multicast
+package com.fserver.app.data.datasource.multicastdns
 
 internal sealed interface MulticastDnsEvent {
     data object Idle : MulticastDnsEvent

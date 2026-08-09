@@ -24,7 +24,7 @@ sealed interface DetectionMethod {
          * Platform nearby-devices API. Runs over its own radios (BLE / Wi-Fi Direct), so it
          * needs nothing from the IP network and stays available with no connectivity at all.
          */
-        data object DeviceDiscoveryApi : Automatic {
+        data object NearbyConnections : Automatic {
             override val requires: Set<NetworkCapability> = emptySet()
         }
 
@@ -55,7 +55,7 @@ sealed interface DetectionMethod {
     companion object {
         /** Every method, in the order the UI should consider them. */
         val entries: List<DetectionMethod> = listOf(
-            Automatic.DeviceDiscoveryApi,
+            Automatic.NearbyConnections,
             Automatic.MulticastDns,
             OnDemand.SubnetScan,
             OnDemand.ManualAddress,

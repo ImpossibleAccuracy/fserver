@@ -1,4 +1,4 @@
-package com.fserver.app.data.detection.scan.multicast
+package com.fserver.app.data.datasource.multicastdns
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -51,10 +51,12 @@ internal class MulticastDnsDiscoveryService(
             scanStopped = {
                 Timber.d("Discovery stopped for %s", SERVICE_TYPE)
                 trySend(MulticastDnsEvent.Closed)
+                close()
             },
             scanError = { error ->
                 Timber.w("Discovery failed for %s, error=%d", SERVICE_TYPE, error)
                 trySend(MulticastDnsEvent.Error(error))
+                close()
             },
             serviceFound = { serviceInfo ->
                 val key = serviceInfo.matchedServiceKey()
@@ -235,7 +237,6 @@ internal class MulticastDnsDiscoveryService(
         override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
             nsdManager.stopServiceDiscovery(this)
             scanError(errorCode)
-            scanStopped()
         }
 
         override fun onDiscoveryStarted(regType: String) {

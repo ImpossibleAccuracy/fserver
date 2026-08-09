@@ -55,6 +55,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -98,6 +99,10 @@ dependencies {
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
+
+    // Nearby Connections — device discovery/transport without a shared network
+    implementation(libs.play.services.nearby)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // Serialization — nav keys, and the payload a scanned connection code carries
     implementation(libs.kotlinx.serialization.json)

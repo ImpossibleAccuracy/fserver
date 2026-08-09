@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 internal class FullSubnetScanner : DeviceScanner {
-    override suspend fun startScan(): Flow<DeviceScanEvent> = flow {
+    override fun startScan(): Flow<DeviceScanEvent> = flow {
         emit(
             DeviceScanEvent.Found(
                 FakeDeviceConnector(
