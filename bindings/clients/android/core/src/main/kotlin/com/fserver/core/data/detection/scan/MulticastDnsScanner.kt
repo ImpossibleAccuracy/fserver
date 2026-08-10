@@ -2,7 +2,7 @@ package com.fserver.core.data.detection.scan
 
 import com.fserver.core.data.datasource.multicastdns.MulticastDnsDiscoveryService
 import com.fserver.core.data.datasource.multicastdns.MulticastDnsEvent
-import com.fserver.core.data.detection.connector.IpDeviceConnector
+import com.fserver.core.data.detection.link.IpDeviceLink
 import com.fserver.core.data.detection.model.DeviceScanningException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
@@ -22,7 +22,7 @@ internal class MulticastDnsScanner(
                 MulticastDnsEvent.Closed -> null
 
                 is MulticastDnsEvent.Found -> DeviceScanEvent.Found(
-                    IpDeviceConnector(
+                    IpDeviceLink(
                         ipAddress = event.peer.host,
                         port = event.peer.port,
                         id = event.peer.id,

@@ -1,7 +1,7 @@
 package com.fserver.core.data.repository
 
-import com.fserver.core.data.detection.connector.DeviceConnector
-import com.fserver.core.data.detection.connector.DeviceConnectorFactory
+import com.fserver.core.data.detection.link.DeviceLink
+import com.fserver.core.data.detection.link.DeviceLinkFactory
 import com.fserver.core.data.detection.scan.DeviceScanEvent
 import com.fserver.core.data.detection.scan.DeviceScannerFactory
 import com.fserver.core.data.utils.runBackgroundJob
@@ -32,7 +32,7 @@ import timber.log.Timber
  */
 internal class DeviceDetectionRepositoryImpl(
     private val deviceScannerFactory: DeviceScannerFactory,
-    private val deviceConnectorFactory: DeviceConnectorFactory,
+    private val deviceLinkFactory: DeviceLinkFactory,
     private val requirementsChecker: RequirementsChecker,
 ) : DeviceDetectionRepository {
     private val devices = MutableStateFlow<List<FoundDevice>>(emptyList())
@@ -53,7 +53,7 @@ internal class DeviceDetectionRepositoryImpl(
             val device = devices.value.firstOrNull { it.id == deviceId }
                 ?: throw IllegalArgumentException("Device $deviceId not found")
 
-            val connector = deviceConnectorFactory.fromDevice(device)
+            val connector = deviceLinkFactory.fromDevice(device)
 
             connector.loadCapabilities().getOrThrow()
         }
@@ -81,7 +81,7 @@ internal class DeviceDetectionRepositoryImpl(
                     .mapNotNull { event ->
                         when (event) {
                             is DeviceScanEvent.Found ->
-                                async { resolveDevice(event.connector) }
+                                async { resolveDevice(event.link) }
 
                             is DeviceScanEvent.Lost -> {
                                 revoke(event.deviceId)
@@ -104,7 +104,7 @@ internal class DeviceDetectionRepositoryImpl(
      * @return the described device, or `null` if this peer could not be reached, could not be
      * understood, or was revoked while it was being described.
      */
-    private suspend fun resolveDevice(connector: DeviceConnector): FoundDevice? =
+    private suspend fun resolveDevice(connector: DeviceLink): FoundDevice? =
         connector.loadDeviceInfo()
             .onSuccess { publish(it) }
             .onFailure { t ->

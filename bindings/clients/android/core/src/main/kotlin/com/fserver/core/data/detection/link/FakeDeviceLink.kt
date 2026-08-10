@@ -1,4 +1,4 @@
-package com.fserver.core.data.detection.connector
+package com.fserver.core.data.detection.link
 
 import com.fserver.core.data.detection.model.DeviceConnectionException
 import com.fserver.core.domain.model.DeviceConnectionCapabilities
@@ -6,10 +6,10 @@ import com.fserver.core.domain.model.FoundDevice
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
-internal class FakeDeviceConnector(
+internal class FakeDeviceLink(
     val loadDelay: Duration,
     val result: FoundDevice?,
-) : DeviceConnector {
+) : DeviceLink {
     override suspend fun loadDeviceInfo(): Result<FoundDevice> = runCatching {
         delay(loadDelay)
 

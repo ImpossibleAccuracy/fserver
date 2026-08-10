@@ -1,7 +1,7 @@
 package com.fserver.core.data.detection.scan
 
 import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsEvent
-import com.fserver.core.data.detection.connector.NearbyDeviceConnector
+import com.fserver.core.data.detection.link.NearbyDeviceLink
 import com.fserver.core.data.detection.model.DeviceScanningException
 import com.fserver.core.data.repository.NearbyConnectionsRepository
 import com.fserver.core.data.utils.InternalConnectionApi
@@ -25,7 +25,7 @@ internal class NearbyConnectionsScanner(
                     )
 
                     is NearbyConnectionsEvent.Found -> DeviceScanEvent.Found(
-                        NearbyDeviceConnector(peer = event.peer)
+                        NearbyDeviceLink(peer = event.peer)
                     )
 
                     is NearbyConnectionsEvent.Connected -> null

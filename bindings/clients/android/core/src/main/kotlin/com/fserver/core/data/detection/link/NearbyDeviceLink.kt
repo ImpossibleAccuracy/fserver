@@ -1,12 +1,12 @@
-package com.fserver.core.data.detection.connector
+package com.fserver.core.data.detection.link
 
 import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsPeer
 import com.fserver.core.domain.model.DeviceConnectionCapabilities
 import com.fserver.core.domain.model.FoundDevice
 
-internal class NearbyDeviceConnector(
+internal class NearbyDeviceLink(
     val peer: NearbyConnectionsPeer,
-) : DeviceConnector {
+) : DeviceLink {
     override suspend fun loadDeviceInfo(): Result<FoundDevice> = runCatching {
         FoundDevice(
             id = peer.endpointId,

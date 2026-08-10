@@ -1,6 +1,7 @@
 package com.fserver.core.data.di
 
 import com.fserver.core.data.repository.DeviceDetectionRepositoryImpl
+import com.fserver.core.data.repository.MulticastDnsRepository
 import com.fserver.core.data.repository.NearbyConnectionsRepository
 import com.fserver.core.data.repository.NetworkInfoRepositoryImpl
 import com.fserver.core.data.requirement.RequirementsCheckerImpl
@@ -18,4 +19,5 @@ val repositoryModule = module {
 
     // Data-only repositories
     singleOf(::NearbyConnectionsRepository)
+    singleOf(::MulticastDnsRepository)
 }

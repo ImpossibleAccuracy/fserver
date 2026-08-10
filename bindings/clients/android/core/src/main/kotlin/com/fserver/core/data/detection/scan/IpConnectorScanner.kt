@@ -1,6 +1,6 @@
 package com.fserver.core.data.detection.scan
 
-import com.fserver.core.data.detection.connector.IpDeviceConnector
+import com.fserver.core.data.detection.link.IpDeviceLink
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -10,7 +10,7 @@ internal class IpConnectorScanner(
 ) : DeviceScanner {
     override fun startScan(): Flow<DeviceScanEvent> = flowOf(
         DeviceScanEvent.Found(
-            IpDeviceConnector(
+            IpDeviceLink(
                 ipAddress = ipAddress,
                 port = port,
             )

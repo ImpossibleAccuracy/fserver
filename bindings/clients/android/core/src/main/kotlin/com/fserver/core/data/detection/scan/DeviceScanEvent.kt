@@ -1,6 +1,6 @@
 package com.fserver.core.data.detection.scan
 
-import com.fserver.core.data.detection.connector.DeviceConnector
+import com.fserver.core.data.detection.link.DeviceLink
 
 /**
  * What a running scan .
@@ -10,9 +10,9 @@ import com.fserver.core.data.detection.connector.DeviceConnector
  */
 internal sealed interface DeviceScanEvent {
     /**
-     * A peer showed up. It is not described yet - [connector] has to be asked who it is.
+     * A peer showed up. It is not described yet - [link] has to be asked who it is.
      */
-    data class Found(val connector: DeviceConnector) : DeviceScanEvent
+    data class Found(val link: DeviceLink) : DeviceScanEvent
 
     /**
      * A peer went away and must be taken off the list.

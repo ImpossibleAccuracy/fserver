@@ -14,16 +14,6 @@ import timber.log.Timber
 import java.net.Inet4Address
 import java.util.concurrent.ConcurrentHashMap
 
-private const val SERVICE_TYPE = "_fserver._tcp."
-
-/**
- * [SERVICE_TYPE] in the shape comparisons are made in: dots trimmed, case folded.
- *
- * NSD hands the type back in several forms - `_fserver._tcp`, `_fserver._tcp.local.`,
- * `_sub._fserver._tcp.` - so filtration is a substring test against this token rather than equality.
- */
-private val SERVICE_TYPE_TOKEN = SERVICE_TYPE.trim('.').lowercase()
-
 private typealias AwaitCloseTask = () -> Unit
 
 internal class MulticastDnsDiscoveryService(

@@ -1,7 +1,7 @@
 package com.fserver.core.data.detection.scan
 
 import com.fserver.core.data.datasource.JsonQrCodeParser
-import com.fserver.core.data.detection.connector.IpDeviceConnector
+import com.fserver.core.data.detection.link.IpDeviceLink
 import com.fserver.core.domain.model.exception.MalformedQrException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -17,7 +17,7 @@ internal class QrCodeConnectionScanner(
 
         emit(
             DeviceScanEvent.Found(
-                IpDeviceConnector(
+                IpDeviceLink(
                     ipAddress = parsed.ip,
                     port = parsed.port,
                 )

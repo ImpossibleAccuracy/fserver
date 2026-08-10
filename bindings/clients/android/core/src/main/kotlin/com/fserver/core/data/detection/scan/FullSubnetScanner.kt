@@ -1,6 +1,6 @@
 package com.fserver.core.data.detection.scan
 
-import com.fserver.core.data.detection.connector.FakeDeviceConnector
+import com.fserver.core.data.detection.link.FakeDeviceLink
 import com.fserver.core.domain.model.FoundDevice
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +12,7 @@ internal class FullSubnetScanner : DeviceScanner {
     override fun startScan(): Flow<DeviceScanEvent> = flow {
         emit(
             DeviceScanEvent.Found(
-                FakeDeviceConnector(
+                FakeDeviceLink(
                     loadDelay = 1.seconds,
                     result = FoundDevice(
                         id = "192.168.1.14:8384",
@@ -28,7 +28,7 @@ internal class FullSubnetScanner : DeviceScanner {
 
         emit(
             DeviceScanEvent.Found(
-                FakeDeviceConnector(
+                FakeDeviceLink(
                     loadDelay = 700.milliseconds,
                     result = FoundDevice(
                         id = "192.168.1.42:8384",

@@ -1,10 +1,11 @@
 package com.fserver.core.data.di
 
+import com.fserver.core.data.datasource.multicastdns.MulticastDnsAdvertisingService
 import com.fserver.core.data.datasource.multicastdns.MulticastDnsDiscoveryService
 import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsAdvertisingService
 import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsDiscoveryService
 import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsMessenger
-import com.fserver.core.data.detection.connector.DeviceConnectorFactory
+import com.fserver.core.data.detection.link.DeviceLinkFactory
 import com.fserver.core.data.detection.scan.DeviceScannerFactory
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.dsl.factoryOf
@@ -20,8 +21,9 @@ internal typealias BackgroundScope = CoroutineScope
  */
 internal val dataSourceModule = module {
     factoryOf(::DeviceScannerFactory)
-    factoryOf(::DeviceConnectorFactory)
+    factoryOf(::DeviceLinkFactory)
     factoryOf(::MulticastDnsDiscoveryService)
+    factoryOf(::MulticastDnsAdvertisingService)
     factoryOf(::NearbyConnectionsDiscoveryService)
     factoryOf(::NearbyConnectionsMessenger)
 

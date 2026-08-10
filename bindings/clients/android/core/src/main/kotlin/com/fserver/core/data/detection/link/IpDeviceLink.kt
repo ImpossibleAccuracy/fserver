@@ -1,4 +1,4 @@
-package com.fserver.core.data.detection.connector
+package com.fserver.core.data.detection.link
 
 import com.fserver.core.data.detection.model.DeviceConnectionException
 import com.fserver.core.domain.Constants
@@ -10,17 +10,17 @@ import kotlin.time.Duration.Companion.seconds
 private const val REACHABLE_HOST_PREFIX = "192.168."
 
 /**
- * A [DeviceConnector] that connects to a device using its IP address and port.\
+ * A [DeviceLink] that connects to a device using its IP address and port.\
  *
  * @property ipAddress The IP address of the device to connect to.
  * @property port The port of the device to connect to.
  * @property id Custom ID for device.
  */
-internal class IpDeviceConnector(
+internal class IpDeviceLink(
     val ipAddress: String,
     val port: Int?,
     val id: String? = null,
-) : DeviceConnector {
+) : DeviceLink {
     override suspend fun loadDeviceInfo(): Result<FoundDevice> = runCatching {
         delay(1.5.seconds)
 

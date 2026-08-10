@@ -30,6 +30,7 @@ internal const val NEARBY_SERVICE_ID = "com.fserver.app"
  * Name this device presents to peers. User-set device name when the platform has one, hardware
  * model otherwise.
  */
+@Deprecated("migrate to shared prefs")
 internal fun defaultEndpointName(context: Context): String =
     Settings.Global
         // Settings.Global.DEVICE_NAME is API 25; minSdk is 24.
