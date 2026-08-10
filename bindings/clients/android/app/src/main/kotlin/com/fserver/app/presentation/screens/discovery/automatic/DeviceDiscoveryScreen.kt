@@ -1,13 +1,11 @@
 package com.fserver.app.presentation.screens.discovery.automatic
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +53,8 @@ import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.icon
 import com.fserver.app.presentation.model.titleRes
+import com.fserver.app.presentation.permission.RequirementResolver
+import com.fserver.app.presentation.permission.rememberRequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.composable.DetectionMethodSheet
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
@@ -70,6 +70,7 @@ fun DeviceDiscoveryScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val resolver = rememberRequirementResolver(onResolved = viewModel::onResumed)
 
     // Permissions can be granted or revoked from outside the app, so the reports are re-read
     // every time this screen comes back rather than cached from when it was opened.
@@ -80,7 +81,19 @@ fun DeviceDiscoveryScreen(
 
     DeviceDiscoveryScreen(
         state = state,
+        resolver = resolver,
         onIntent = viewModel::onIntent,
+        // The grant intents stop here: `:core` reports what is missing, but only the host has the
+        // `Activity` the system needs to be asked through.
+        /*onIntent = { intent ->
+            when (intent) {
+                is DeviceDiscoveryIntent.GrantRequested -> resolver.resolve(intent.action)
+                DeviceDiscoveryIntent.GrantAllRequested ->
+                    state.methodSetup?.firstAction?.let(resolver::resolve)
+
+                else -> viewModel.onIntent(intent)
+            }
+        },*/
         navigateToPairing = navigateToPairing,
         navigateUp = navigateUp,
     )
@@ -90,6 +103,7 @@ fun DeviceDiscoveryScreen(
 @Composable
 private fun DeviceDiscoveryScreen(
     state: DeviceDiscoveryState,
+    resolver: RequirementResolver,
     onIntent: (DeviceDiscoveryIntent) -> Unit,
     navigateToPairing: (deviceId: String) -> Unit,
     navigateUp: () -> Unit,
@@ -189,7 +203,10 @@ private fun DeviceDiscoveryScreen(
             containerColor = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            DetectionMethodSheet(setup = state.methodSetup, onIntent = onIntent)
+            DetectionMethodSheet(
+                setup = state.methodSetup,
+                resolver = resolver,
+            )
         }
     }
 }
@@ -315,7 +332,10 @@ private fun MethodRow(
             },
             trailing = {
                 if (method.isReady) {
-                    DkTag(stringResource(R.string.discovery_method_ready), style = DkTagStyle.Accent)
+                    DkTag(
+                        stringResource(R.string.discovery_method_ready),
+                        style = DkTagStyle.Accent
+                    )
                 } else {
                     DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
                 }
@@ -422,6 +442,7 @@ private fun DeviceDiscoveryIdlePreview() {
                 network = NetworkCardUi.Wifi(name = null),
                 methods = NothingSelected,
             ),
+            resolver = rememberRequirementResolver { },
             onIntent = {},
             navigateToPairing = {},
             navigateUp = {},
@@ -438,6 +459,7 @@ private fun DeviceDiscoveryReadyPreview() {
                 network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME),
                 methods = TwoReady,
             ),
+            resolver = rememberRequirementResolver { },
             onIntent = {},
             navigateToPairing = {},
             navigateUp = {},
@@ -455,6 +477,7 @@ private fun DeviceDiscoverySearchingPreview() {
                 methods = TwoReady.map { it.copy(isScanning = it.selected, hasRun = it.selected) },
                 isSearching = true,
             ),
+            resolver = rememberRequirementResolver { },
             onIntent = {},
             navigateToPairing = {},
             navigateUp = {},
@@ -475,6 +498,7 @@ private fun DeviceDiscoveryResultsPreview() {
                 devices = DeviceDiscoveryState.SampleDevices,
                 isSearching = true,
             ),
+            resolver = rememberRequirementResolver { },
             onIntent = {},
             navigateToPairing = {},
             navigateUp = {},
@@ -493,6 +517,7 @@ private fun DeviceDiscoveryFinishedPreview() {
                 devices = DeviceDiscoveryState.SampleDevices,
                 isSearching = true,
             ),
+            resolver = rememberRequirementResolver { },
             onIntent = {},
             navigateToPairing = {},
             navigateUp = {},

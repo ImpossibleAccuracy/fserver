@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.discovery.automatic.composable
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +32,8 @@ import com.fserver.app.presentation.designkit.DkSurfacePreview
 import com.fserver.app.presentation.model.RequirementRowUi
 import com.fserver.app.presentation.model.descriptionRes
 import com.fserver.app.presentation.model.titleRes
-import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
+import com.fserver.app.presentation.permission.RequirementAction
+import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.domain.model.DetectionMethod
@@ -44,9 +46,9 @@ import com.fserver.core.domain.model.DetectionMethod
  */
 @Composable
 fun DetectionMethodSheet(
-    setup: DeviceDiscoveryState.MethodSetupUi,
-    onIntent: (DeviceDiscoveryIntent) -> Unit,
     modifier: Modifier = Modifier,
+    setup: DeviceDiscoveryState.MethodSetupUi,
+    resolver: RequirementResolver?,
 ) {
     Column(
         modifier = modifier
@@ -79,7 +81,9 @@ fun DetectionMethodSheet(
             setup.solvable.forEachIndexed { index, row ->
                 RequirementRow(
                     row = row,
-                    onGrant = { onIntent(DeviceDiscoveryIntent.GrantRequested) },
+                    onGrant = { action ->
+                        resolver?.resolve(action)
+                    },
                 )
                 if (index != setup.solvable.lastIndex) {
                     DkFadingDivider()
@@ -101,7 +105,12 @@ fun DetectionMethodSheet(
             DkPrimaryButton(
                 modifier = Modifier.fillMaxWidth(),
                 text = stringResource(R.string.method_grant_rest),
-                onClick = { onIntent(DeviceDiscoveryIntent.GrantRequested) },
+                enabled = setup.firstAction != null,
+                onClick = {
+                    setup.firstAction?.let {
+                        resolver?.resolve(it)
+                    }
+                },
             )
         }
     }
@@ -110,9 +119,10 @@ fun DetectionMethodSheet(
 @Composable
 private fun RequirementRow(
     row: RequirementRowUi,
-    onGrant: (() -> Unit)?,
+    onGrant: ((RequirementAction) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val action = row.action
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -142,15 +152,16 @@ private fun RequirementRow(
             )
             DkCaption(text = stringResource(row.detailRes))
         }
-        if (row.resolvable && onGrant != null) {
+        if (action != null && onGrant != null) {
             DkSecondaryButton(
                 text = stringResource(R.string.method_grant),
-                onClick = onGrant,
+                onClick = { onGrant(action) },
             )
         }
     }
 }
 
+@SuppressLint("InlinedApi")
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun DetectionMethodSheetPreview() {
@@ -161,14 +172,16 @@ private fun DetectionMethodSheetPreview() {
                     method = DetectionMethod.Automatic.NearbyConnections,
                     solvable = listOf(
                         RequirementRowUi(
-                            R.string.requirement_permission_bluetooth_title,
-                            R.string.requirement_permission_bluetooth_description,
-                            resolvable = true,
+                            R.string.requirement_permission_nearby_devices_title,
+                            R.string.requirement_permission_nearby_devices_description,
+                            RequirementAction.RequestPermissions(
+                                listOf(android.Manifest.permission.BLUETOOTH_SCAN)
+                            ),
                         ),
                     ),
                     blockers = emptyList(),
                 ),
-                onIntent = {},
+                resolver = null,
             )
         }
     }
@@ -187,11 +200,10 @@ private fun DetectionMethodSheetBlockedPreview() {
                         RequirementRowUi(
                             R.string.requirement_network_title,
                             R.string.requirement_network_multicast_description,
-                            resolvable = false,
                         ),
                     ),
                 ),
-                onIntent = {},
+                resolver = null,
             )
         }
     }

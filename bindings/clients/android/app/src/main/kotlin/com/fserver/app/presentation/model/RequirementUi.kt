@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
+import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.domain.model.NetworkCapability
 import com.fserver.core.domain.model.requirement.Requirement
 
@@ -13,9 +14,11 @@ import com.fserver.core.domain.model.requirement.Requirement
 data class RequirementRowUi(
     @param:StringRes val titleRes: Int,
     @param:StringRes val detailRes: Int,
+    val action: RequirementAction? = null,
+) {
     /** The app can start the fix; otherwise the row is an explanation with no button. */
-    val resolvable: Boolean,
-)
+    val resolvable: Boolean get() = action != null
+}
 
 /**
  * Expands one [Requirement] into the rows the user sees.
@@ -31,37 +34,37 @@ fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
     is Requirement.SystemToggle -> listOf(
         when (kind) {
             Requirement.SystemToggle.Kind.BLUETOOTH -> RequirementRowUi(
-                R.string.requirement_toggle_bluetooth_title,
-                R.string.requirement_toggle_bluetooth_description,
-                resolvable = true,
+                titleRes = R.string.requirement_toggle_bluetooth_title,
+                detailRes = R.string.requirement_toggle_bluetooth_description,
+                action = RequirementAction.OpenSettings(settingsAction),
             )
 
             Requirement.SystemToggle.Kind.WIFI -> RequirementRowUi(
-                R.string.requirement_toggle_wifi_title,
-                R.string.requirement_toggle_wifi_description,
-                resolvable = true,
+                titleRes = R.string.requirement_toggle_wifi_title,
+                detailRes = R.string.requirement_toggle_wifi_description,
+                action = RequirementAction.OpenSettings(settingsAction),
             )
 
             Requirement.SystemToggle.Kind.LOCATION_SERVICES -> RequirementRowUi(
-                R.string.requirement_toggle_location_title,
-                R.string.requirement_toggle_location_description,
-                resolvable = true,
+                titleRes = R.string.requirement_toggle_location_title,
+                detailRes = R.string.requirement_toggle_location_description,
+                action = RequirementAction.OpenSettings(settingsAction),
             )
         }
     )
 
     is Requirement.PlayServices -> listOf(
         RequirementRowUi(
-            R.string.requirement_play_services_title,
-            R.string.requirement_play_services_description,
-            resolvable = isUserResolvable,
+            titleRes = R.string.requirement_play_services_title,
+            detailRes = R.string.requirement_play_services_description,
+            action = RequirementAction.ResolvePlayServices.takeIf { isUserResolvable },
         )
     )
 
     is Requirement.MissingHardware -> listOf(
         RequirementRowUi(
-            R.string.requirement_hardware_title,
-            when (feature) {
+            titleRes = R.string.requirement_hardware_title,
+            detailRes = when (feature) {
                 Requirement.MissingHardware.Feature.BLUETOOTH,
                 Requirement.MissingHardware.Feature.BLUETOOTH_LE,
                     -> R.string.requirement_hardware_bluetooth_description
@@ -70,27 +73,24 @@ fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
                 Requirement.MissingHardware.Feature.WIFI_DIRECT,
                     -> R.string.requirement_hardware_wifi_description
             },
-            resolvable = false,
         )
     )
 
     is Requirement.MissingNetworkCapability -> listOf(
         RequirementRowUi(
-            R.string.requirement_network_title,
-            when (capability) {
+            titleRes = R.string.requirement_network_title,
+            detailRes = when (capability) {
                 NetworkCapability.LOCAL_SUBNET -> R.string.requirement_network_subnet_description
                 NetworkCapability.MULTICAST -> R.string.requirement_network_multicast_description
                 NetworkCapability.IP_ROUTING -> R.string.requirement_network_routing_description
             },
-            resolvable = false,
         )
     )
 
     Requirement.NoConnectivity -> listOf(
         RequirementRowUi(
-            R.string.requirement_no_connectivity_title,
-            R.string.requirement_no_connectivity_description,
-            resolvable = false,
+            titleRes = R.string.requirement_no_connectivity_title,
+            detailRes = R.string.requirement_no_connectivity_description,
         )
     )
 }
@@ -102,48 +102,46 @@ fun List<Requirement>.toRows(): List<RequirementRowUi> = flatMap { it.toRows() }
 private fun List<String>.toPermissionRows(): List<RequirementRowUi> = buildList {
     val remaining = this@toPermissionRows.toMutableSet()
 
-    fun claim(vararg permissions: String, row: RequirementRowUi) {
-        if (permissions.any(remaining::remove)) {
-            // remove() on the rest so one group never leaves a straggler behind
-            permissions.forEach(remaining::remove)
-            add(row)
+    // A row asks for the permissions of its own group only, so granting one group at a time is
+    // possible; the sheet's other button walks the groups in order.
+    fun claim(
+        vararg permissions: String,
+        @StringRes titleRes: Int,
+        @StringRes detailRes: Int,
+    ) {
+        val claimed = permissions.filter(remaining::remove)
+        if (claimed.isNotEmpty()) {
+            add(
+                RequirementRowUi(
+                    titleRes,
+                    detailRes,
+                    RequirementAction.RequestPermissions(claimed),
+                )
+            )
         }
     }
 
     claim(
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.ACCESS_FINE_LOCATION,
-        row = RequirementRowUi(
-            R.string.requirement_permission_location_title,
-            R.string.requirement_permission_location_description,
-            resolvable = true,
-        ),
+        titleRes = R.string.requirement_permission_location_title,
+        detailRes = R.string.requirement_permission_location_description,
     )
+    // One row, not two: the Bluetooth trio and NEARBY_WIFI_DEVICES are all in the platform's
+    // NEARBY_DEVICES group, and the system grants a group whole. Split into a Bluetooth row and a
+    // Wi-Fi row, the user sees the same dialog twice and the second row clears itself.
     claim(
         Manifest.permission.BLUETOOTH_SCAN,
         Manifest.permission.BLUETOOTH_ADVERTISE,
         Manifest.permission.BLUETOOTH_CONNECT,
-        row = RequirementRowUi(
-            R.string.requirement_permission_bluetooth_title,
-            R.string.requirement_permission_bluetooth_description,
-            resolvable = true,
-        ),
-    )
-    claim(
         Manifest.permission.NEARBY_WIFI_DEVICES,
-        row = RequirementRowUi(
-            R.string.requirement_permission_nearby_wifi_title,
-            R.string.requirement_permission_nearby_wifi_description,
-            resolvable = true,
-        ),
+        titleRes = R.string.requirement_permission_nearby_devices_title,
+        detailRes = R.string.requirement_permission_nearby_devices_description,
     )
     claim(
         Manifest.permission.ACCESS_LOCAL_NETWORK,
-        row = RequirementRowUi(
-            R.string.requirement_permission_local_network_title,
-            R.string.requirement_permission_local_network_description,
-            resolvable = true,
-        ),
+        titleRes = R.string.requirement_permission_local_network_title,
+        detailRes = R.string.requirement_permission_local_network_description,
     )
 
     // A permission this mapping does not know about is still standing between the user and a
@@ -153,7 +151,7 @@ private fun List<String>.toPermissionRows(): List<RequirementRowUi> = buildList 
             RequirementRowUi(
                 R.string.requirement_permission_other_title,
                 R.string.requirement_permission_other_description,
-                resolvable = true,
+                RequirementAction.RequestPermissions(remaining.toList()),
             )
         )
     }

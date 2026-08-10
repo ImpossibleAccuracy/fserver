@@ -15,6 +15,7 @@ jna = "5.17.0"
 annotation = "1.10.0"
 timber = "5.0.1"
 playServicesNearby = "19.4.0"
+playServicesBase = "18.10.0"
 desugarJdkLibs = "2.1.5"
 
 junit = "4.13.2"
@@ -56,6 +57,9 @@ androidx-annotation = { group = "androidx.annotation", name = "annotation", vers
 
 # Offline discovery / transport (Bluetooth + BLE + Wi-Fi Direct, no LAN required)
 play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "playServicesNearby" }
+
+# Play services availability + its own repair flow, which only the host can show
+play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 
 # Java 8+ API desugaring (required by play-services-nearby)
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }

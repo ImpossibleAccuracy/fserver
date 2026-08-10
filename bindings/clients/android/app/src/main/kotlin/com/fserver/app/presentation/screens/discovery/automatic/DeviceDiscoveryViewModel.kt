@@ -149,12 +149,6 @@ class DeviceDiscoveryViewModel(
                 checkRequirements()
             }
 
-            DeviceDiscoveryIntent.GrantRequested -> {
-                // TODO: launch the runtime permission request / open the settings screen for
-                //  `state.methodSetup`, then call `checkRequirements()`. Only the host can do
-                //  this - `:core` reports what is missing but cannot ask for it.
-            }
-
             DeviceDiscoveryIntent.StartSearchClicked -> {
                 searchStarted.value = true
                 startSearch(selected.value)
@@ -178,12 +172,17 @@ class DeviceDiscoveryViewModel(
 
     private fun checkRequirements() {
         viewModelScope.launch {
-            val next = searchableDetectionMethods.associateWith { requirementsChecker.forDetection(it) }
+            val next =
+                searchableDetectionMethods.associateWith { requirementsChecker.forDetection(it) }
             val wasReady = reports.value.filterValues { it.isSatisfied }.keys
             val isReady = next.filterValues { it.isSatisfied }.keys
 
             reports.value = next
             networkNamed.value = requirementsChecker.forNetworkInfo().isSatisfied
+
+            // Granting the last thing a method was waiting on closes its sheet: there is nothing
+            // left on it to read or press.
+            openSetup.update { open -> open?.takeUnless { next[it]?.isSatisfied == true } }
 
             // A method that has just become usable ticks itself - there is no separate "enable".
             // Unticking it survives later re-checks, because only the transition adds it back.

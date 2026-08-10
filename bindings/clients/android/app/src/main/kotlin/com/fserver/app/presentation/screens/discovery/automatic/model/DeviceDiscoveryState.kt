@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.discovery.automatic.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.RequirementRowUi
+import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.FoundDevice
 
@@ -58,6 +59,9 @@ data class DeviceDiscoveryState(
         val blockers: List<RequirementRowUi>,
     ) {
         val unmetCount: Int get() = solvable.size + blockers.size
+
+        /** What "grant the rest" runs first. Null once nothing solvable is left. */
+        val firstAction: RequirementAction? get() = solvable.firstNotNullOfOrNull { it.action }
     }
 
     @Immutable

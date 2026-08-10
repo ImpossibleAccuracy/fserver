@@ -103,6 +103,9 @@ dependencies {
     // Discovery/transport lives in :core; the app only has to desugar what it pulls in.
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
+    // :core reports a broken Play services install; repairing it is a dialog, so it lands here.
+    implementation(libs.play.services.base)
+
     // Serialization — nav keys
     implementation(libs.kotlinx.serialization.json)
 
