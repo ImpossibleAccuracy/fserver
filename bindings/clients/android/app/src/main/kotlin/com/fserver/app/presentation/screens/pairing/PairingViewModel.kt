@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -59,6 +60,7 @@ class PairingViewModel(
                     },
                     onFailure = {
                         // TODO: show UI error
+                        Timber.e(it, "Failed to load device capabilities")
                     }
                 )
         }

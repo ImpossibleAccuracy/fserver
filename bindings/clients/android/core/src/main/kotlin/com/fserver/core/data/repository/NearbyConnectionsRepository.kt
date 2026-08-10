@@ -69,17 +69,24 @@ internal class NearbyConnectionsRepository internal constructor(
         extraBufferCapacity = EVENT_BUFFER,
     )
 
-    private val _discoveryEvents = MutableSharedFlow<NearbyConnectionsEvent>(
+    private val _events = MutableSharedFlow<NearbyConnectionsEvent>(
         replay = EVENT_BUFFER,
         extraBufferCapacity = EVENT_BUFFER,
     )
 
     /**
-     * Raw discovery-side events.
+     * Raw events.
      * Never use this directly, except from [NearbyConnectionsScanner].
      */
     @InternalConnectionApi
-    internal val discoveryEvents = _discoveryEvents.asSharedFlow()
+    internal val events = _events.asSharedFlow()
+
+    // TODO: add unified launcher for advertising and discovery for all datasources
+    @InternalConnectionApi
+    fun startBoth() {
+        startAdvertising()
+        startDiscovery()
+    }
 
     @Synchronized
     fun startDiscovery() {
@@ -88,7 +95,6 @@ internal class NearbyConnectionsRepository internal constructor(
         discoveryJob = scope.launch {
             discoveryService.start().collect { event ->
                 track(event)
-                _discoveryEvents.emit(event)
             }
         }
     }
@@ -136,6 +142,8 @@ internal class NearbyConnectionsRepository internal constructor(
 
     fun disconnect(endpointId: String) = messenger.disconnect(endpointId)
 
+    fun findDevice(deviceId: String) = peers.value[deviceId]?.peer
+
     /**
      * Only messages from [endpointId].
      */
@@ -173,6 +181,8 @@ internal class NearbyConnectionsRepository internal constructor(
                 peers.update { it - event.id }
             }
         }
+
+        _events.emit(event)
     }
 
     /**

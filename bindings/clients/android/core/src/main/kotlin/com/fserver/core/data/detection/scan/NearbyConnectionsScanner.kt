@@ -12,27 +12,31 @@ internal class NearbyConnectionsScanner(
     private val repository: NearbyConnectionsRepository,
 ) : DeviceScanner {
     @OptIn(InternalConnectionApi::class)
-    override fun startScan(): Flow<DeviceScanEvent> = repository.discoveryEvents
-        .mapNotNull { event ->
-            when (event) {
-                NearbyConnectionsEvent.Idle -> null
-                is NearbyConnectionsEvent.Error -> throw DeviceScanningException(
-                    message = "Nearby Connections error: ${event.e.message}",
-                    cause = event.e,
-                )
+    override fun startScan(): Flow<DeviceScanEvent> {
+        repository.startBoth()
 
-                is NearbyConnectionsEvent.Found -> DeviceScanEvent.Found(
-                    NearbyDeviceConnector(peer = event.peer)
-                )
+        return repository.events
+            .mapNotNull { event ->
+                when (event) {
+                    NearbyConnectionsEvent.Idle -> null
+                    is NearbyConnectionsEvent.Error -> throw DeviceScanningException(
+                        message = "Nearby Connections error: ${event.e.message}",
+                        cause = event.e,
+                    )
 
-                is NearbyConnectionsEvent.Connected -> null
+                    is NearbyConnectionsEvent.Found -> DeviceScanEvent.Found(
+                        NearbyDeviceConnector(peer = event.peer)
+                    )
 
-                is NearbyConnectionsEvent.Message -> null
+                    is NearbyConnectionsEvent.Connected -> null
 
-                is NearbyConnectionsEvent.Disconnected -> DeviceScanEvent.Lost(event.id)
+                    is NearbyConnectionsEvent.Message -> null
 
-                // Peer is gone, drop it
-                is NearbyConnectionsEvent.PeerError -> DeviceScanEvent.Lost(event.id)
+                    is NearbyConnectionsEvent.Disconnected -> DeviceScanEvent.Lost(event.id)
+
+                    // Peer is gone, drop it
+                    is NearbyConnectionsEvent.PeerError -> DeviceScanEvent.Lost(event.id)
+                }
             }
-        }
+    }
 }
