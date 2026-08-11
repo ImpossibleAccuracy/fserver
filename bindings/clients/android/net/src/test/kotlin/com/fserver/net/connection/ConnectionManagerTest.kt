@@ -7,6 +7,7 @@ import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.security.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.support.DEAD
 import com.fserver.net.support.DeadEndpoint
@@ -176,7 +177,7 @@ class ConnectionManagerTest {
     ).also(nodes::add)
 
     /** A peer as discovery would report it, with one route per transport listed. */
-    private fun discovered(name: String, transports: List<Transport.Id> = emptyList()) = DiscoveredPeer(
+    private fun discovered(name: String, transports: List<SpiId> = emptyList()) = DiscoveredPeer(
         deviceId = "peer-$name",
         displayName = name,
         kind = null,

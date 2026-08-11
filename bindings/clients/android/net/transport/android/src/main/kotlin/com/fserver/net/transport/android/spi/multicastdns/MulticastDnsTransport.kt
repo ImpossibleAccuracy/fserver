@@ -2,6 +2,7 @@ package com.fserver.net.transport.android.spi.multicastdns
 
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.spi.DiscoveredEndpoint
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
@@ -39,11 +40,11 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
  * See `CONNECTION_FLOW.md` in this package for how advertising, discovery, dialling and accepting
  * fit together.
  */
-class MulticastDnsTransport(
+internal class MulticastDnsTransport(
     private val multicastDnsPortBinder: MulticastDnsPortBinder,
     private val connectionPolicy: ConnectionPolicy,
 ) : Transport {
-    override val id: Transport.Id = ID
+    override val id: SpiId = MulticastDnsSPI.ID
     override val capabilities: TransportCapabilities = TransportCapabilities()
 
     private val transportListener = TransportListener()
@@ -154,7 +155,7 @@ class MulticastDnsTransport(
             isDialable = false,
         )
 
-        override val transport: Transport.Id = ID
+        override val transport: SpiId = MulticastDnsSPI.ID
         override val peer: DiscoveredEndpoint = DiscoveredEndpoint(
             endpoint = endpoint,
             advertisedName = socket.inetAddress.hostAddress.orEmpty(),
@@ -239,10 +240,6 @@ class MulticastDnsTransport(
         override fun close() {
             socket.closeQuietly()
         }
-    }
-
-    companion object {
-        val ID = Transport.Id("multicast-dns")
     }
 }
 

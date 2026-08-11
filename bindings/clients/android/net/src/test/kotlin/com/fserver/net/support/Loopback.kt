@@ -1,6 +1,7 @@
 package com.fserver.net.support
 
 import com.fserver.net.spi.DiscoveredEndpoint
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
@@ -9,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.concurrent.ConcurrentHashMap
 
-val LOOPBACK: Transport.Id = Transport.Id("loopback")
+val LOOPBACK: SpiId = SpiId("loopback")
 
 data class LoopbackEndpoint(val name: String) : TransportEndpoint {
-    override val transport: Transport.Id = LOOPBACK
+    override val transport: SpiId = LOOPBACK
     override val address: String = name
 }
 
@@ -45,7 +46,7 @@ class LoopbackNetwork {
     fun transport(self: String): Transport = LoopbackTransport(self)
 
     private inner class LoopbackTransport(private val self: String) : Transport {
-        override val id: Transport.Id = LOOPBACK
+        override val id: SpiId = LOOPBACK
 
         override val capabilities = TransportCapabilities(maxFrameSize = 64 * 1024)
 
@@ -109,7 +110,7 @@ class LoopbackNetwork {
         private val channel: Transport.Channel,
         override val peer: DiscoveredEndpoint,
     ) : Transport.InboundConnection {
-        override val transport: Transport.Id = LOOPBACK
+        override val transport: SpiId = LOOPBACK
 
         override suspend fun accept(): Result<Transport.Channel> = Result.success(channel)
 

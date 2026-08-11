@@ -1,5 +1,6 @@
 package com.fserver.net.connection
 
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.support.DEAD
@@ -37,14 +38,14 @@ class TransportSelectorTest {
 
     @Test
     fun `a route nobody expressed a preference about goes last, not away`() {
-        val ghost = PeerRef("bob", Transport.Id("ghost"), LoopbackEndpoint("bob"))
+        val ghost = PeerRef("bob", SpiId("ghost"), LoopbackEndpoint("bob"))
 
         val ordered = selector.order(
             listOf(ghost, deadRoute),
             ConnectionPolicy(transportOrder = listOf(DEAD)),
         )
 
-        assertEquals(listOf(DEAD, Transport.Id("ghost")), ordered.map { it.transport })
+        assertEquals(listOf(DEAD, SpiId("ghost")), ordered.map { it.transport })
     }
 
     @Test

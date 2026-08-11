@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 /** Opens outgoing channels, and - when it can - accepts incoming ones. */
 interface Transport {
-    val id: Id
+    val id: SpiId
     val capabilities: TransportCapabilities
 
     /** null when the transport is outbound-only. */
@@ -16,10 +16,6 @@ interface Transport {
     suspend fun open(endpoint: TransportEndpoint): Result<Channel>
 
     suspend fun shutdown()
-
-    /** Identifies a transport implementation. Values are chosen by the implementing module. */
-    @JvmInline
-    value class Id(val value: String)
 
     /**
      * A duplex frame pipe. The transport must deliver whole frames, in order - a stream transport
@@ -43,7 +39,7 @@ interface Transport {
      * says so - see [InboundConnection.accept].
      */
     interface InboundConnection {
-        val transport: Id
+        val transport: SpiId
         val peer: DiscoveredEndpoint
 
         suspend fun accept(): Result<Channel>
@@ -73,7 +69,7 @@ data class TransportCapabilities(
  * `:net` never inspects anything but [transport] and [address].
  */
 interface TransportEndpoint {
-    val transport: Transport.Id
+    val transport: SpiId
 
     /** Stable textual form, used for logging and de-duplication only. */
     val address: String

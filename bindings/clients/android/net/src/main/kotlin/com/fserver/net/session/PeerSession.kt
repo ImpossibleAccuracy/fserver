@@ -2,6 +2,7 @@ package com.fserver.net.session
 
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.PeerIdentity
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,7 @@ interface PeerSession<M : Any> {
     val peer: PeerIdentity
 
     /** Which transport currently carries this session; may change across a reconnect. */
-    val transport: Transport.Id
+    val transport: SpiId
 
     val state: StateFlow<State>
 

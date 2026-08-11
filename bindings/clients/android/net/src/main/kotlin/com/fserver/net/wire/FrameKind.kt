@@ -6,7 +6,7 @@ import com.fserver.net.NetworkException
  * Frame types. [isControl] frames jump the send queue: a multi-hour transfer must not sit in
  * front of a keep-alive or a close.
  */
-enum class FrameKind(val code: Int) {
+internal enum class FrameKind(val code: Int) {
     HELLO(1),
     HELLO_ACK(2),
     READY(3),

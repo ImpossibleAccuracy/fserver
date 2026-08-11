@@ -6,6 +6,7 @@ import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.IdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.SpiId
 import com.fserver.net.utils.netRunCatching
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
@@ -36,10 +37,10 @@ internal class PeerDiscoveryImpl(
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Lazily, emptyList())
 
-    private val running = MutableStateFlow<Set<DiscoveryProvider.Id>>(emptySet())
-    override val activeScans: StateFlow<Set<DiscoveryProvider.Id>> = running.asStateFlow()
+    private val running = MutableStateFlow<Set<SpiId>>(emptySet())
+    override val activeScans: StateFlow<Set<SpiId>> = running.asStateFlow()
 
-    private val scanJobs = mutableMapOf<DiscoveryProvider.Id, Job>()
+    private val scanJobs = mutableMapOf<SpiId, Job>()
     private var advertisingJobs: List<Job> = emptyList()
 
     override suspend fun scan(
@@ -76,7 +77,7 @@ internal class PeerDiscoveryImpl(
         found.values.toList()
     }
 
-    override fun stopScan(id: DiscoveryProvider.Id) {
+    override fun stopScan(id: SpiId) {
         scanJobs.remove(id)?.cancel()
         running.update(id, add = false)
     }
@@ -126,8 +127,8 @@ internal class PeerDiscoveryImpl(
         )
     }
 
-    private fun MutableStateFlow<Set<DiscoveryProvider.Id>>.update(
-        id: DiscoveryProvider.Id,
+    private fun MutableStateFlow<Set<SpiId>>.update(
+        id: SpiId,
         add: Boolean
     ) {
         value = if (add) value + id else value - id

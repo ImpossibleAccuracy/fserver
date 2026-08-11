@@ -2,7 +2,7 @@ package com.fserver.net.transport.android.spi.multicastdns
 
 import android.content.Context
 import com.fserver.net.spi.Advertiser
-import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.datasource.multicastdns.MulticastDnsAdvertisingService
 import com.fserver.net.transport.android.datasource.multicastdns.MulticastDnsPortBinder
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,7 +18,7 @@ import java.io.IOException
  * listener runs. Both must be given the same [MulticastDnsPortBinder] instance.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class MulticastDnsAdvertiser(
+internal class MulticastDnsAdvertiser(
     private val context: Context,
     private val multicastDnsPortBinder: MulticastDnsPortBinder,
 ) : Advertiser {
@@ -26,7 +26,7 @@ class MulticastDnsAdvertiser(
         context = context,
     )
 
-    override val id: DiscoveryProvider.Id = MulticastDnsDiscoveryProvider.ID
+    override val id: SpiId = MulticastDnsSPI.ID
 
     override fun advertise(
         payload: Advertiser.Payload

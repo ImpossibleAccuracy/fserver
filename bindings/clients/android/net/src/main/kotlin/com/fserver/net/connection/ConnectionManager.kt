@@ -6,7 +6,7 @@ import com.fserver.net.security.PeerIdentity
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.DiscoveredEndpoint
-import com.fserver.net.spi.Transport
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.TransportEndpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 /** One way to reach one device. A device found twice has two of these and still one session. */
 data class PeerRef(
     val deviceId: String,
-    val transport: Transport.Id,
+    val transport: SpiId,
     val endpoint: TransportEndpoint,
 )
 
@@ -60,7 +60,7 @@ interface ConnectionManager<M : Any> {
     )
 
     interface IncomingRequest {
-        val transport: Transport.Id
+        val transport: SpiId
         val peer: DiscoveredEndpoint
 
         /** Digits or code the user must compare, when the transport provides one. */

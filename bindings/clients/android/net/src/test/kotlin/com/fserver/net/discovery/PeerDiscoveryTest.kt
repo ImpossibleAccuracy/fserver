@@ -5,6 +5,7 @@ import com.fserver.net.security.EphemeralIdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.SpiId
 import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.wire.ProtocolVersions
@@ -205,7 +206,7 @@ class PeerDiscoveryTest {
     private data object ByAddress : DiscoveryProvider.ScanParams
 
     private class FakeProvider(
-        override val id: DiscoveryProvider.Id,
+        override val id: SpiId,
         private val accepts: (DiscoveryProvider.ScanParams) -> Boolean,
         private val events: Flow<DiscoveryProvider.Event> = emptyFlow(),
     ) : DiscoveryProvider {
@@ -221,7 +222,7 @@ class PeerDiscoveryTest {
     }
 
     private class FakeAdvertiser(
-        override val id: DiscoveryProvider.Id,
+        override val id: SpiId,
         private val keepRunning: Boolean = true,
     ) : Advertiser {
         val payloads = CopyOnWriteArrayList<Advertiser.Payload>()
@@ -249,6 +250,6 @@ class PeerDiscoveryTest {
         val DICTIONARY = TestDictionary().descriptor
         val TIMEOUT = 5.seconds
 
-        fun Id(value: String) = DiscoveryProvider.Id(value)
+        fun Id(value: String) = SpiId(value)
     }
 }

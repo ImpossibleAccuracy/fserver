@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Public because both sides live in different packages, but it is one shared object: the transport
  * and the advertiser must be given the *same* instance, or advertising silently never starts.
  */
-class MulticastDnsPortBinder {
+internal class MulticastDnsPortBinder {
     private val state = MutableStateFlow<Int?>(null)
     val value: Flow<Int?> = state.asStateFlow()
 

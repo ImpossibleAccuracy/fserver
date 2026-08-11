@@ -1,5 +1,6 @@
 package com.fserver.net.support
 
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
@@ -8,16 +9,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.io.IOException
 
-val DEAD: Transport.Id = Transport.Id("dead")
+val DEAD: SpiId = SpiId("dead")
 
 data class DeadEndpoint(val name: String) : TransportEndpoint {
-    override val transport: Transport.Id = DEAD
+    override val transport: SpiId = DEAD
     override val address: String = name
 }
 
 /** A route that always fails to open, for testing what the manager does with the next one. */
 class DeadTransport : Transport {
-    override val id: Transport.Id = DEAD
+    override val id: SpiId = DEAD
     override val capabilities = TransportCapabilities()
 
     override fun supports(endpoint: TransportEndpoint) = endpoint is DeadEndpoint

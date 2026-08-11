@@ -14,6 +14,7 @@ import com.fserver.net.session.PeerSession
 import com.fserver.net.session.PeerSessionImpl
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.DiscoveredEndpoint
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.utils.netRunCatching
 import kotlinx.coroutines.CoroutineScope
@@ -218,7 +219,7 @@ internal class ConnectionManagerImpl<M : Any>(
         private val owner: Transport,
         private val connection: Transport.InboundConnection,
     ) : ConnectionManager.IncomingRequest {
-        override val transport: Transport.Id = connection.transport
+        override val transport: SpiId = connection.transport
         override val peer: DiscoveredEndpoint = connection.peer
         override val confirmationCode: String? = connection.peer.confirmationCode
 

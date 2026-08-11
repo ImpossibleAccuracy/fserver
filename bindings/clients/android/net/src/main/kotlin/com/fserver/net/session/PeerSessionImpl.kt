@@ -8,6 +8,7 @@ import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.security.PeerIdentity
 import com.fserver.net.session.PeerSession.Inbound
 import com.fserver.net.session.PeerSession.State
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.wire.Envelope
 import com.fserver.net.wire.FrameKind
@@ -50,7 +51,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 internal class PeerSessionImpl<M : Any>(
     override val peer: PeerIdentity,
-    override val transport: Transport.Id,
+    override val transport: SpiId,
     private val codec: MessageCodec<M>,
     private val policy: ConnectionPolicy,
     private val logger: NetLogger,

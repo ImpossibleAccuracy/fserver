@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
  * Finds peers. A separate role from [Transport]: mDNS finds, TCP carries.
  */
 interface DiscoveryProvider {
-    val id: Id
+    val id: SpiId
 
     fun accepts(params: ScanParams): Boolean
 
@@ -15,10 +15,6 @@ interface DiscoveryProvider {
      * one-shot providers (a typed address) complete.
      */
     fun scan(params: ScanParams): Flow<Event>
-
-    /** Identifies a discovery provider, and the [Advertiser] that pairs with it. */
-    @JvmInline
-    value class Id(val value: String)
 
     /**
      * What a scan was asked to do. Providers declare what they can serve through [accepts].

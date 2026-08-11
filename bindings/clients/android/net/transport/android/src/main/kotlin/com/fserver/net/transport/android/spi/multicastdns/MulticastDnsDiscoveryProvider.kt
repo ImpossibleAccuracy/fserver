@@ -3,17 +3,18 @@ package com.fserver.net.transport.android.spi.multicastdns
 import android.content.Context
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.datasource.multicastdns.MulticastDnsDiscoveryService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 import java.io.IOException
 
-class MulticastDnsDiscoveryProvider(
+internal class MulticastDnsDiscoveryProvider(
     private val context: Context,
 ) : DiscoveryProvider {
     private val discoveryService = MulticastDnsDiscoveryService(context)
 
-    override val id: DiscoveryProvider.Id = ID
+    override val id: SpiId = MulticastDnsSPI.ID
 
     override fun accepts(params: DiscoveryProvider.ScanParams): Boolean =
         params is MulticastDnsScanParams
@@ -58,10 +59,5 @@ class MulticastDnsDiscoveryProvider(
                     )
             }
         }
-    }
-
-    companion object {
-        /** Matches [MulticastDnsTransport.ID]: one method, one transport that carries it. */
-        val ID = DiscoveryProvider.Id("multicast-dns")
     }
 }

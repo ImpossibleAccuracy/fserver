@@ -22,6 +22,9 @@ android {
 }
 
 kotlin {
+    jvmToolchain(17)
+    explicitApi()
+
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
     }
@@ -32,6 +35,7 @@ dependencies {
     api(projects.net.transport.ip)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.play.services.nearby)
     implementation(libs.timber)
 
     testImplementation(libs.junit)

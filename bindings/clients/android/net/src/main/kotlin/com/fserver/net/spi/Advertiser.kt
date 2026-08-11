@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 /** Makes this device findable by whatever a [DiscoveryProvider] on the other side is scanning. */
 interface Advertiser {
-    val id: DiscoveryProvider.Id
+    val id: SpiId
 
     fun advertise(payload: Payload): Flow<Event>
 

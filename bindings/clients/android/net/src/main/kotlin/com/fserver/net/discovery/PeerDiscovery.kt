@@ -1,6 +1,7 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.SpiId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -14,8 +15,8 @@ interface PeerDiscovery {
     /** Everything currently known, merged across providers. */
     val peers: StateFlow<List<DiscoveredPeer>>
 
-    /** Active scans, by [DiscoveryProvider.Id]. */
-    val activeScans: StateFlow<Set<DiscoveryProvider.Id>>
+    /** Active scans, by [SpiId]. */
+    val activeScans: StateFlow<Set<SpiId>>
 
     /**
      * Runs the provider that [DiscoveryProvider.ScanParams] matches until it finishes, publishing
@@ -27,7 +28,7 @@ interface PeerDiscovery {
      */
     suspend fun scan(params: DiscoveryProvider.ScanParams): Result<List<DiscoveredPeer>>
 
-    fun stopScan(id: DiscoveryProvider.Id)
+    fun stopScan(id: SpiId)
 
     suspend fun startAdvertising(): Result<Unit>
 

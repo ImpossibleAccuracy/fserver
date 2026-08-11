@@ -1,5 +1,6 @@
 package com.fserver.net.connection
 
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -11,7 +12,7 @@ import kotlin.time.Duration.Companion.seconds
  * periods is treated as dead.
  */
 data class ConnectionPolicy(
-    val transportOrder: List<Transport.Id>? = null,
+    val transportOrder: List<SpiId>? = null,
     val connectTimeout: Duration = 15.seconds,
     val handshakeTimeout: Duration = 10.seconds,
     val requestTimeout: Duration = 30.seconds,
