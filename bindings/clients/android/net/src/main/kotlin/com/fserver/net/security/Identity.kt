@@ -1,8 +1,6 @@
 package com.fserver.net.security
 
 import java.security.MessageDigest
-import java.security.SecureRandom
-import java.util.UUID
 
 /**
  * Short, human-comparable form of a public key. What the pairing screen shows and what a QR code
@@ -52,27 +50,4 @@ data class PeerIdentity(
 
     override fun hashCode(): Int =
         (deviceId.hashCode() * 31 + displayName.hashCode()) * 31 + publicKey.contentHashCode()
-}
-
-interface IdentityStore {
-    val local: LocalIdentity
-}
-
-/**
- * Identity that lives for one process. Enough to get the handshake running; a real host persists
- * its key pair instead, so a peer that trusted this device once still recognises it.
- */
-class EphemeralIdentityStore(
-    deviceId: String = UUID.randomUUID().toString(),
-    displayName: String = "unnamed device",
-) : IdentityStore {
-    override val local: LocalIdentity = LocalIdentity(
-        deviceId = deviceId,
-        displayName = displayName,
-        publicKey = ByteArray(PUBLIC_KEY_SIZE).also(SecureRandom()::nextBytes),
-    )
-
-    private companion object {
-        const val PUBLIC_KEY_SIZE = 32
-    }
 }

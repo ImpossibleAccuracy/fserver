@@ -1,17 +1,12 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.NetLogger
-import com.fserver.net.TransportException
-import com.fserver.net.connection.netRunCatching
-import com.fserver.net.dictionary.DictionaryDescriptor
+import com.fserver.net.NetworkException
+import com.fserver.net.utils.netRunCatching
+import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.IdentityStore
-import com.fserver.net.spi.Advertisement
 import com.fserver.net.spi.Advertiser
-import com.fserver.net.spi.AdvertisingEvent
-import com.fserver.net.spi.DiscoveryId
 import com.fserver.net.spi.DiscoveryProvider
-import com.fserver.net.spi.PeerEvent
-import com.fserver.net.spi.ScanParams
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -29,7 +24,7 @@ internal class PeerDiscoveryImpl(
     private val providers: List<DiscoveryProvider>,
     private val advertisers: List<Advertiser>,
     private val identityStore: IdentityStore,
-    private val dictionary: DictionaryDescriptor,
+    private val dictionary: MessageDictionary.Descriptor,
     private val advertisedAttributes: Map<String, String>,
     private val logger: NetLogger,
     private val scope: CoroutineScope,
@@ -41,15 +36,15 @@ internal class PeerDiscoveryImpl(
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Lazily, emptyList())
 
-    private val running = MutableStateFlow<Set<DiscoveryId>>(emptySet())
-    override val activeScans: StateFlow<Set<DiscoveryId>> = running.asStateFlow()
+    private val running = MutableStateFlow<Set<DiscoveryProvider.Id>>(emptySet())
+    override val activeScans: StateFlow<Set<DiscoveryProvider.Id>> = running.asStateFlow()
 
-    private val scanJobs = mutableMapOf<DiscoveryId, Job>()
+    private val scanJobs = mutableMapOf<DiscoveryProvider.Id, Job>()
     private var advertisingJobs: List<Job> = emptyList()
 
-    override suspend fun scan(params: ScanParams): Result<List<DiscoveredPeer>> = netRunCatching {
+    override suspend fun scan(params: DiscoveryProvider.ScanParams): Result<List<DiscoveredPeer>> = netRunCatching {
         val provider = providers.firstOrNull { it.accepts(params) }
-            ?: throw TransportException("no discovery provider handles $params")
+            ?: throw NetworkException.Transport("no discovery provider handles $params")
 
         if (provider.id in running.value) return@netRunCatching emptyList()
 
@@ -59,14 +54,14 @@ internal class PeerDiscoveryImpl(
         try {
             provider.scan(params).collect { event ->
                 when (event) {
-                    is PeerEvent.Appeared -> {
+                    is DiscoveryProvider.Event.Appeared -> {
                         val peer = registry.record(event.peer)
                         found[peer.deviceId] = peer
                     }
 
-                    is PeerEvent.Disappeared -> registry.forgetRoute(event.endpointAddress)
+                    is DiscoveryProvider.Event.Disappeared -> registry.forgetRoute(event.endpointAddress)
 
-                    is PeerEvent.Failed -> logger.warn(
+                    is DiscoveryProvider.Event.Failed -> logger.warn(
                         "discovery ${provider.id.value} failed",
                         event.cause
                     )
@@ -79,7 +74,7 @@ internal class PeerDiscoveryImpl(
         found.values.toList()
     }
 
-    override fun stopScan(id: DiscoveryId) {
+    override fun stopScan(id: DiscoveryProvider.Id) {
         scanJobs.remove(id)?.cancel()
         running.update(id, add = false)
     }
@@ -91,7 +86,7 @@ internal class PeerDiscoveryImpl(
         advertisingJobs = advertisers.map { advertiser ->
             scope.launch {
                 advertiser.advertise(payload).collect { event ->
-                    if (event is AdvertisingEvent.Failed) {
+                    if (event is Advertiser.Event.Failed) {
                         logger.warn("advertiser ${advertiser.id.value} failed", event.cause)
                     }
                 }
@@ -109,9 +104,9 @@ internal class PeerDiscoveryImpl(
         .distinctUntilChanged()
 
     /** What this device puts on the wire about itself. Descriptive only - never a claim of access. */
-    private fun advertisement(): Advertisement {
+    private fun advertisement(): Advertiser.Payload {
         val local = identityStore.local
-        return Advertisement(
+        return Advertiser.Payload(
             deviceId = local.deviceId,
             displayName = local.displayName,
             attributes = buildMap {
@@ -127,7 +122,7 @@ internal class PeerDiscoveryImpl(
         )
     }
 
-    private fun MutableStateFlow<Set<DiscoveryId>>.update(id: DiscoveryId, add: Boolean) {
+    private fun MutableStateFlow<Set<DiscoveryProvider.Id>>.update(id: DiscoveryProvider.Id, add: Boolean) {
         value = if (add) value + id else value - id
     }
 }

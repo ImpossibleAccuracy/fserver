@@ -1,6 +1,6 @@
 package com.fserver.net.connection
 
-import com.fserver.net.spi.TransportId
+import com.fserver.net.spi.Transport
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -11,7 +11,7 @@ import kotlin.time.Duration.Companion.seconds
  * periods is treated as dead.
  */
 data class ConnectionPolicy(
-    val transportOrder: List<TransportId>? = null,
+    val transportOrder: List<Transport.Id>? = null,
     val connectTimeout: Duration = 15.seconds,
     val handshakeTimeout: Duration = 10.seconds,
     val requestTimeout: Duration = 30.seconds,
@@ -23,8 +23,9 @@ data class ConnectionPolicy(
 )
 
 /**
- * What happens after a link drops. Note what is *not* here: re-sending messages. `:net` guarantees
- * at-most-once within a session, and a blind repeat of an `evict` is how user data disappears.
+ * What happens after a link drops. Note what is *not* here: re-sending messages. `:net`
+ * guarantees at-most-once within a session, and a blind repeat of an `evict` is how user data
+ * disappears.
  */
 sealed interface ReconnectPolicy {
     data object None : ReconnectPolicy

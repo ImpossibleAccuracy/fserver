@@ -1,16 +1,15 @@
 package com.fserver.net.session
 
 import com.fserver.net.NetLogger
-import com.fserver.net.RequestTimeoutException
-import com.fserver.net.SessionClosedException
-import com.fserver.net.SessionLinkLostException
+import com.fserver.net.NetworkException
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.security.PeerIdentity
-import com.fserver.net.spi.TransportId
+import com.fserver.net.session.PeerSession.Inbound
+import com.fserver.net.session.PeerSession.State
+import com.fserver.net.spi.Transport
 import com.fserver.net.wire.Envelope
-import com.fserver.net.wire.EnvelopeCodec
 import com.fserver.net.wire.FrameKind
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CancellationException
@@ -23,7 +22,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -32,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
@@ -51,7 +50,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 internal class PeerSessionImpl<M : Any>(
     override val peer: PeerIdentity,
-    override val transport: TransportId,
+    override val transport: Transport.Id,
     private val codec: MessageCodec<M>,
     private val policy: ConnectionPolicy,
     private val logger: NetLogger,
@@ -62,18 +61,19 @@ internal class PeerSessionImpl<M : Any>(
 ) : PeerSession<M> {
 
     private val scope = CoroutineScope(
-        parentScope.coroutineContext + SupervisorJob(parentScope.coroutineContext[Job]) +
-                CoroutineName("fserver-session-${peer.deviceId}")
+        parentScope.coroutineContext +
+                SupervisorJob(parentScope.coroutineContext[Job]) +
+                CoroutineName("net-session-${peer.deviceId}")
     )
 
-    private val _state = MutableStateFlow<SessionState>(SessionState.Connecting)
-    override val state: StateFlow<SessionState> = _state.asStateFlow()
+    private val _state = MutableStateFlow<State>(State.Connecting)
+    override val state: StateFlow<State> = _state.asStateFlow()
 
     private val incomingMessages = Channel<Inbound<M>>(capacity = policy.incomingQueueCapacity)
     override val incoming: Flow<Inbound<M>> = incomingMessages.receiveAsFlow()
 
     // Control frames get their own queue and are always drained first: a keep-alive or a close
-    // must not wait behind a file transfer. The split is by FrameKind - no payload is read.
+    // must not wait behind a file transfer. The split is by Envelope.Kind - no payload is read.
     private val controlQueue = Channel<OutgoingFrame>(Channel.BUFFERED)
     private val appQueue = Channel<OutgoingFrame>(policy.sendQueueCapacity)
 
@@ -94,35 +94,41 @@ internal class PeerSessionImpl<M : Any>(
     private fun install(newLink: SessionLink) {
         link.value = newLink
         lastInboundAt.set(System.nanoTime())
-        _state.value = SessionState.Ready(newLink.negotiated)
+        _state.value = State.Ready(newLink.negotiated)
         scope.launch { readLoop(newLink) }
     }
 
     override suspend fun close(reason: CloseReason) {
         if (!terminated.compareAndSet(false, true)) return
-        _state.value = SessionState.Closing(reason)
+        _state.value = State.Closing(reason)
 
         link.value?.let { current ->
             withTimeoutOrNull(CLOSE_FLUSH) {
                 runCatching {
                     current.secure.send(
-                        EnvelopeCodec.encode(control(FrameKind.CLOSE, describe(reason).encodeToByteArray()))
+                        Envelope.Codec.encode(
+                            control(
+                                FrameKind.CLOSE,
+                                describe(reason).encodeToByteArray()
+                            )
+                        )
                     )
                 }
             }
         }
 
-        finish(SessionState.Closed(reason))
+        finish(State.Closed(reason))
     }
 
     /** Ends the session without asking the peer - the link is already gone. */
-    private fun terminate(finalState: SessionState) {
+    private fun terminate(finalState: State) {
         if (!terminated.compareAndSet(false, true)) return
         finish(finalState)
     }
 
-    private fun finish(finalState: SessionState) {
-        failPending(SessionClosedException())
+    /** Post-termination cleanup. */
+    private fun finish(finalState: State) {
+        failPending(NetworkException.SessionClosed())
         link.value?.let { runCatching { it.secure.close() } }
         link.value = null
         _state.value = finalState
@@ -136,7 +142,13 @@ internal class PeerSessionImpl<M : Any>(
     // ------------------------------------------------------------------ public API
 
     override suspend fun send(message: M): Result<Unit> = guarded {
-        enqueue(appQueue, app(FrameKind.MESSAGE, codec.encode(message))).getOrThrow()
+        enqueue(
+            queue = appQueue,
+            envelope = app(
+                kind = FrameKind.MESSAGE,
+                payload = codec.encode(message),
+            )
+        )
     }
 
     override suspend fun request(message: M, timeout: Duration?): Result<M> = guarded {
@@ -145,16 +157,19 @@ internal class PeerSessionImpl<M : Any>(
         pending[id] = answer
 
         try {
-            enqueue(appQueue, Envelope(
-                version = ProtocolVersions.CURRENT,
-                kind = FrameKind.REQUEST,
-                messageId = id,
-                payload = codec.encode(message),
-            )).getOrThrow()
+            enqueue(
+                queue = appQueue,
+                envelope = Envelope(
+                    version = ProtocolVersions.CURRENT,
+                    kind = FrameKind.REQUEST,
+                    messageId = id,
+                    payload = codec.encode(message),
+                )
+            )
 
             val effectiveTimeout = timeout ?: policy.requestTimeout
             val result = withTimeoutOrNull(effectiveTimeout) { answer.await() }
-                ?: throw RequestTimeoutException(effectiveTimeout)
+                ?: throw NetworkException.RequestTimeout(effectiveTimeout)
 
             result.getOrThrow()
         } finally {
@@ -177,7 +192,9 @@ internal class PeerSessionImpl<M : Any>(
 
             // A frame taken while the link is down waits for the next one rather than being lost.
             val current = link.filterNotNull().first()
-            val result = runCatching { current.secure.send(EnvelopeCodec.encode(frame.envelope)).getOrThrow() }
+            val result = runCatching {
+                current.secure.send(Envelope.Codec.encode(frame.envelope)).getOrThrow()
+            }
 
             frame.ack?.complete(result)
             if (result.isFailure) {
@@ -186,14 +203,14 @@ internal class PeerSessionImpl<M : Any>(
         }
     }
 
-    private suspend fun enqueue(queue: Channel<OutgoingFrame>, envelope: Envelope): Result<Unit> {
+    private suspend fun enqueue(queue: Channel<OutgoingFrame>, envelope: Envelope) {
         val ack = CompletableDeferred<Result<Unit>>()
         try {
             queue.send(OutgoingFrame(envelope, ack))
         } catch (_: ClosedSendChannelException) {
-            throw SessionClosedException()
+            throw NetworkException.SessionClosed()
         }
-        return ack.await()
+        return ack.await().getOrThrow()
     }
 
     private fun enqueueControl(envelope: Envelope) {
@@ -206,7 +223,7 @@ internal class PeerSessionImpl<M : Any>(
         val failure = try {
             current.secure.inbound.collect { frame ->
                 lastInboundAt.set(System.nanoTime())
-                dispatch(EnvelopeCodec.decode(frame))
+                dispatch(Envelope.Codec.decode(frame))
             }
             null
         } catch (e: CancellationException) {
@@ -221,12 +238,17 @@ internal class PeerSessionImpl<M : Any>(
 
     private suspend fun dispatch(envelope: Envelope) {
         when (envelope.kind) {
-            FrameKind.PING -> enqueueControl(control(FrameKind.PONG, correlationId = envelope.messageId))
+            FrameKind.PING -> enqueueControl(
+                control(
+                    FrameKind.PONG,
+                    correlationId = envelope.messageId
+                )
+            )
 
             FrameKind.PONG -> Unit
 
             FrameKind.CLOSE -> terminate(
-                SessionState.Closed(CloseReason.Remote(envelope.payload.decodeToString()))
+                State.Closed(CloseReason.Remote(envelope.payload.decodeToString()))
             )
 
             FrameKind.MESSAGE, FrameKind.REQUEST -> deliver(envelope)
@@ -234,7 +256,7 @@ internal class PeerSessionImpl<M : Any>(
             FrameKind.RESPONSE -> completeRequest(envelope)
 
             FrameKind.ERROR -> pending.remove(envelope.correlationId)?.complete(
-                Result.failure(com.fserver.net.ProtocolException(envelope.payload.decodeToString()))
+                Result.failure(NetworkException.Protocol(envelope.payload.decodeToString()))
             )
 
             FrameKind.HELLO, FrameKind.HELLO_ACK, FrameKind.READY ->
@@ -269,7 +291,7 @@ internal class PeerSessionImpl<M : Any>(
                             correlationId = envelope.messageId,
                             payload = codec.encode(answer),
                         )
-                    ).getOrThrow()
+                    )
                 }
             }
         } else {
@@ -292,28 +314,30 @@ internal class PeerSessionImpl<M : Any>(
     private suspend fun onLinkLost(cause: Throwable?) {
         link.value?.let { runCatching { it.secure.close() } }
         link.value = null
-        failPending(SessionLinkLostException(cause))
+        failPending(NetworkException.SessionLinkLost(cause))
 
-        val rebuild = relink
         val backoff = policy.reconnect
-        if (rebuild == null || backoff !is ReconnectPolicy.ExponentialBackoff) {
-            terminate(SessionState.Closed(CloseReason.LinkLost(cause)))
+        if (relink == null || backoff !is ReconnectPolicy.ExponentialBackoff) {
+            terminate(State.Closed(CloseReason.LinkLost(cause)))
             return
         }
 
-        _state.value = SessionState.Connecting
-        var delayMs = backoff.initialDelay.inWholeMilliseconds
+        _state.value = State.Connecting
+        var delayMs = backoff.initialDelay
 
         repeat(backoff.maxAttempts) { attempt ->
             delay(delayMs)
-            val rebuilt = runCatching { rebuild() }
-            rebuilt.getOrNull()?.let { install(it); return }
+            val rebuilt = runCatching { relink() }
+            rebuilt.getOrNull()?.let {
+                install(it)
+                return
+            }
 
             logger.warn("reconnect attempt ${attempt + 1} failed", rebuilt.exceptionOrNull())
-            delayMs = minOf(delayMs * 2, backoff.maxDelay.inWholeMilliseconds)
+            delayMs = minOf(delayMs * 2, backoff.maxDelay)
         }
 
-        terminate(SessionState.Failed(SessionLinkLostException(cause)))
+        terminate(State.Failed(NetworkException.SessionLinkLost(cause)))
     }
 
     private fun failPending(cause: Throwable) {
@@ -365,7 +389,7 @@ internal class PeerSessionImpl<M : Any>(
 
     /** Result-wrapping that still lets structured cancellation through. */
     private inline fun <T> guarded(block: () -> T): Result<T> = try {
-        if (terminated.get()) throw SessionClosedException()
+        if (terminated.get()) throw NetworkException.SessionClosed()
         Result.success(block())
     } catch (e: CancellationException) {
         throw e

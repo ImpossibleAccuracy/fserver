@@ -8,10 +8,10 @@ package com.fserver.net.security
  * which is fine for a test rig and wrong for a shipping client.
  */
 fun interface PeerAuthenticator {
-    suspend fun verify(candidate: PeerIdentity, confirmationCode: String?): AuthDecision
-}
+    suspend fun verify(candidate: PeerIdentity, confirmationCode: String?): Decision
 
-sealed interface AuthDecision {
-    data object Trust : AuthDecision
-    data class Reject(val reason: String) : AuthDecision
+    sealed interface Decision {
+        data object Trust : Decision
+        data class Reject(val reason: String) : Decision
+    }
 }

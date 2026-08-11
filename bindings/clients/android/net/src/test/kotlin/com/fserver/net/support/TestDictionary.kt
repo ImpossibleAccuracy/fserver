@@ -1,7 +1,5 @@
 package com.fserver.net.support
 
-import com.fserver.net.dictionary.DictionaryDecision
-import com.fserver.net.dictionary.DictionaryDescriptor
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
 
@@ -36,13 +34,18 @@ class TestDictionary(
     version: Int = 1,
     supported: IntRange = 1..1,
 ) : MessageDictionary<TestMessage> {
-    override val descriptor = DictionaryDescriptor(id = id, version = version, supported = supported)
+    override val descriptor =
+        MessageDictionary.Descriptor(id = id, version = version, supported = supported)
 
     override val codec = TestCodec()
 
-    override fun negotiate(remote: DictionaryDescriptor): DictionaryDecision = when {
-        remote.id != descriptor.id -> DictionaryDecision.Reject("foreign dictionary ${remote.id}")
-        remote.version !in descriptor.supported -> DictionaryDecision.Reject("version ${remote.version} unsupported")
-        else -> DictionaryDecision.Accept(minOf(descriptor.version, remote.version))
+    override fun negotiate(remote: MessageDictionary.Descriptor): MessageDictionary.Decision = when {
+        remote.id != descriptor.id ->
+            MessageDictionary.Decision.Reject("foreign dictionary ${remote.id}")
+
+        remote.version !in descriptor.supported ->
+            MessageDictionary.Decision.Reject("version ${remote.version} unsupported")
+
+        else -> MessageDictionary.Decision.Accept(minOf(descriptor.version, remote.version))
     }
 }

@@ -1,14 +1,9 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.AuthenticationRejectedException
-import com.fserver.net.DictionaryMismatchException
-import com.fserver.net.HandshakeException
 import com.fserver.net.NetLogger
-import com.fserver.net.dictionary.DictionaryDecision
+import com.fserver.net.NetworkException
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.AuthDecision
 import com.fserver.net.security.CryptoProvider
-import com.fserver.net.security.HandshakeRole
 import com.fserver.net.security.IdentityStore
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.PeerAuthenticator
@@ -17,7 +12,6 @@ import com.fserver.net.security.SecureChannel
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.Envelope
-import com.fserver.net.wire.EnvelopeCodec
 import com.fserver.net.wire.FrameKind
 import com.fserver.net.wire.ProtocolVersions
 import kotlin.time.Duration
@@ -26,7 +20,7 @@ import kotlin.time.Duration
  * Runs the handshake over a freshly opened channel and hands back a sealed link.
  *
  * Unconditional, including on transports that encrypt themselves: Nearby protects the link but
- * proves nothing about *which* device is on it. [TransportCapabilities.isLinkEncrypted] only
+ * proves nothing about *which* device is on it. [com.fserver.net.spi.TransportCapabilities.isLinkEncrypted] only
  * affects which cipher suite is worth running, never whether this runs.
  *
  * Three frames: HELLO, HELLO_ACK, READY. The key-agreement public keys ride inside the first two -
@@ -44,13 +38,13 @@ internal class HandshakeNegotiator<M : Any>(
 ) {
     suspend fun negotiate(
         pump: FramePump,
-        role: HandshakeRole,
+        role: CryptoProvider.Role,
         capabilities: TransportCapabilities,
         confirmationCode: String?,
         timeout: Duration,
     ): SessionLink = when (role) {
-        HandshakeRole.Initiator -> initiate(pump, capabilities, confirmationCode, timeout)
-        HandshakeRole.Responder -> respond(pump, capabilities, confirmationCode, timeout)
+        CryptoProvider.Role.Initiator -> initiate(pump, capabilities, confirmationCode, timeout)
+        CryptoProvider.Role.Responder -> respond(pump, capabilities, confirmationCode, timeout)
     }
 
     private suspend fun initiate(
@@ -61,7 +55,15 @@ internal class HandshakeNegotiator<M : Any>(
     ): SessionLink {
         val keyExchange = crypto.newKeyExchange()
 
-        write(pump, FrameKind.HELLO, hello(keyExchange.publicKey, capabilities, protocolVersions).encode())
+        write(
+            pump = pump,
+            kind = FrameKind.HELLO,
+            payload = hello(
+                keyExchangeKey = keyExchange.publicKey,
+                capabilities = capabilities,
+                versions = protocolVersions
+            ).encode()
+        )
 
         val ack = expect(pump, FrameKind.HELLO_ACK, timeout)
         val remote = HandshakeHello.decode(ack.payload)
@@ -69,20 +71,25 @@ internal class HandshakeNegotiator<M : Any>(
         val version = remote.maxVersion
         if (version !in protocolVersions) {
             val reason = "protocol version $version is outside $protocolVersions"
-            sendClose(pump, reason)
-            throw HandshakeException(reason)
+            sendClose(pump = pump, reason = reason)
+            throw NetworkException.Handshake(reason)
         }
 
         val peer = remote.toPeerIdentity()
-        val dictionaryVersion = accept(pump, peer, remote, confirmationCode)
+        val dictionaryVersion = accept(
+            pump = pump,
+            peer = peer,
+            remote = remote,
+            confirmationCode = confirmationCode,
+        )
 
-        write(pump, FrameKind.READY)
+        write(pump = pump, kind = FrameKind.READY)
 
         return link(
             pump = pump,
             keyExchange = keyExchange,
             remote = remote,
-            role = HandshakeRole.Initiator,
+            role = CryptoProvider.Role.Initiator,
             capabilities = capabilities,
             protocolVersion = version,
             dictionaryVersion = dictionaryVersion,
@@ -101,16 +108,26 @@ internal class HandshakeNegotiator<M : Any>(
 
         val version = minOf(remote.maxVersion, protocolVersions.last)
         if (version < maxOf(remote.minVersion, protocolVersions.first)) {
-            val reason = "no common protocol version: peer ${remote.minVersion}..${remote.maxVersion}, local $protocolVersions"
+            val reason =
+                "no common protocol version: peer ${remote.minVersion}..${remote.maxVersion}, local $protocolVersions"
             sendClose(pump, reason)
-            throw HandshakeException(reason)
+            throw NetworkException.Handshake(reason)
         }
 
         val peer = remote.toPeerIdentity()
-        val dictionaryVersion = accept(pump, peer, remote, confirmationCode)
+        val dictionaryVersion = accept(
+            pump = pump,
+            peer = peer,
+            remote = remote,
+            confirmationCode = confirmationCode,
+        )
 
         val keyExchange = crypto.newKeyExchange()
-        write(pump, FrameKind.HELLO_ACK, hello(keyExchange.publicKey, capabilities, version..version).encode())
+        write(
+            pump,
+            FrameKind.HELLO_ACK,
+            hello(keyExchange.publicKey, capabilities, version..version).encode()
+        )
 
         expect(pump, FrameKind.READY, timeout)
 
@@ -118,7 +135,7 @@ internal class HandshakeNegotiator<M : Any>(
             pump = pump,
             keyExchange = keyExchange,
             remote = remote,
-            role = HandshakeRole.Responder,
+            role = CryptoProvider.Role.Responder,
             capabilities = capabilities,
             protocolVersion = version,
             dictionaryVersion = dictionaryVersion,
@@ -133,29 +150,31 @@ internal class HandshakeNegotiator<M : Any>(
         remote: HandshakeHello,
         confirmationCode: String?,
     ): Int {
-        val verdict = authenticator?.verify(peer, confirmationCode) ?: AuthDecision.Trust
-        if (verdict is AuthDecision.Reject) {
+        val verdict =
+            authenticator?.verify(peer, confirmationCode) ?: PeerAuthenticator.Decision.Trust
+        if (verdict is PeerAuthenticator.Decision.Reject) {
             sendClose(pump, "peer rejected: ${verdict.reason}")
-            throw AuthenticationRejectedException(verdict.reason)
+            throw NetworkException.AuthenticationRejected(verdict.reason)
         }
         if (authenticator == null) {
             logger.warn("no PeerAuthenticator configured - trusting ${peer.deviceId} unconditionally")
         }
 
         return when (val decision = dictionary.negotiate(remote.dictionary)) {
-            is DictionaryDecision.Accept -> decision.effectiveVersion
-            is DictionaryDecision.Reject -> {
+            is MessageDictionary.Decision.Accept -> decision.effectiveVersion
+            is MessageDictionary.Decision.Reject -> {
                 sendClose(pump, "dictionary rejected: ${decision.reason}")
-                throw DictionaryMismatchException(remote.dictionary, decision.reason)
+                throw NetworkException.DictionaryMismatch(remote.dictionary, decision.reason)
             }
         }
     }
 
+    /** Open secured channel to peer. */
     private fun link(
         pump: FramePump,
-        keyExchange: com.fserver.net.security.KeyExchange,
+        keyExchange: CryptoProvider.KeyExchange,
         remote: HandshakeHello,
-        role: HandshakeRole,
+        role: CryptoProvider.Role,
         capabilities: TransportCapabilities,
         protocolVersion: Int,
         dictionaryVersion: Int,
@@ -181,6 +200,7 @@ internal class HandshakeNegotiator<M : Any>(
         )
     }
 
+    /** Build a hello frame for the peer to decode. */
     private fun hello(
         keyExchangeKey: ByteArray,
         capabilities: TransportCapabilities,
@@ -200,20 +220,26 @@ internal class HandshakeNegotiator<M : Any>(
         )
     }
 
+    /** Wait for a frame of [kind] from [pump], or throw if the peer closed or sent the wrong kind. */
     private suspend fun expect(pump: FramePump, kind: FrameKind, timeout: Duration): Envelope {
-        val envelope = EnvelopeCodec.decode(pump.next(timeout))
+        val envelope = Envelope.Codec.decode(pump.next(timeout))
         if (envelope.kind == FrameKind.CLOSE) {
-            throw HandshakeException("peer closed the handshake: ${envelope.payload.decodeToString()}")
+            throw NetworkException.Handshake("peer closed the handshake: ${envelope.payload.decodeToString()}")
         }
         if (envelope.kind != kind) {
-            throw HandshakeException("expected $kind, got ${envelope.kind}")
+            throw NetworkException.Handshake("expected $kind, got ${envelope.kind}")
         }
         return envelope
     }
 
-    private suspend fun write(pump: FramePump, kind: FrameKind, payload: ByteArray = Envelope.EMPTY) {
+    /** Send [payload] to [pump] */
+    private suspend fun write(
+        pump: FramePump,
+        kind: FrameKind,
+        payload: ByteArray = Envelope.EMPTY,
+    ) {
         pump.send(
-            EnvelopeCodec.encode(
+            Envelope.Codec.encode(
                 Envelope(
                     version = ProtocolVersions.CURRENT,
                     kind = kind,
@@ -228,10 +254,10 @@ internal class HandshakeNegotiator<M : Any>(
     private suspend fun sendClose(pump: FramePump, reason: String) {
         runCatching { write(pump, FrameKind.CLOSE, reason.encodeToByteArray()) }
     }
-
-    private fun HandshakeHello.toPeerIdentity() = PeerIdentity(
-        deviceId = deviceId,
-        displayName = displayName,
-        publicKey = publicKey,
-    )
 }
+
+private fun HandshakeHello.toPeerIdentity() = PeerIdentity(
+    deviceId = deviceId,
+    displayName = displayName,
+    publicKey = publicKey,
+)

@@ -35,7 +35,7 @@ internal class PeerRegistry {
             displayName = attributes[PeerAttributes.DISPLAY_NAME] ?: endpoint.advertisedName,
             kind = attributes[PeerAttributes.KIND]?.let(::parseKind),
             routes = listOf(route),
-            advertised = AdvertisedInfo(
+            advertised = DiscoveredPeer.Advertised(
                 protocolVersions = versionRange(attributes),
                 fingerprint = attributes[PeerAttributes.FINGERPRINT]?.let(::Fingerprint),
                 accessMode = attributes[PeerAttributes.ACCESS]?.let(::parseAccess),
@@ -80,9 +80,9 @@ internal class PeerRegistry {
         return min..max
     }
 
-    private fun parseKind(raw: String): DeviceKind? =
-        DeviceKind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+    private fun parseKind(raw: String): DiscoveredPeer.Kind? =
+        DiscoveredPeer.Kind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 
-    private fun parseAccess(raw: String): AccessMode? =
-        AccessMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+    private fun parseAccess(raw: String): DiscoveredPeer.AccessMode? =
+        DiscoveredPeer.AccessMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 }

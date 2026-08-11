@@ -1,6 +1,6 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.dictionary.DictionaryDescriptor
+import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.ByteWriter
 
@@ -18,7 +18,7 @@ internal class HandshakeHello(
     val displayName: String,
     val publicKey: ByteArray,
     val keyExchangeKey: ByteArray,
-    val dictionary: DictionaryDescriptor,
+    val dictionary: MessageDictionary.Descriptor,
     val maxFrameSize: Int,
     val cipherSuite: String,
 ) {
@@ -47,7 +47,7 @@ internal class HandshakeHello(
                 displayName = reader.string(),
                 publicKey = reader.bytes(),
                 keyExchangeKey = reader.bytes(),
-                dictionary = DictionaryDescriptor(
+                dictionary = MessageDictionary.Descriptor(
                     id = reader.string(),
                     version = reader.i32(),
                     supported = reader.i32()..reader.i32(),

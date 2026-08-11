@@ -2,7 +2,7 @@ package com.fserver.net.session
 
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.PeerIdentity
-import com.fserver.net.spi.TransportId
+import com.fserver.net.spi.Transport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration
@@ -12,20 +12,19 @@ import kotlin.time.Duration
  *
  * The whole surface is closed over `M`: send a dictionary message, get a dictionary message,
  * answer with a dictionary message. There is deliberately no method that takes or returns a
- * `ByteArray` - bytes exist only inside
- * [com.fserver.net.dictionary.MessageCodec].
+ * `ByteArray` - bytes exist only inside [com.fserver.net.dictionary.MessageCodec].
  *
- * The instance survives a dropped link: on failure the session goes back to
- * [SessionState.Connecting] and re-establishes itself, so a held reference stays valid. What it
- * does *not* do is re-send messages whose fate is unknown - see [SessionState].
+ * The instance survives a dropped link: on failure the session goes back to [State.Connecting] and
+ * re-establishes itself, so a held reference stays valid. What it does *not* do is re-send
+ * messages whose fate is unknown - see [State].
  */
 interface PeerSession<M : Any> {
     val peer: PeerIdentity
 
     /** Which transport currently carries this session; may change across a reconnect. */
-    val transport: TransportId
+    val transport: Transport.Id
 
-    val state: StateFlow<SessionState>
+    val state: StateFlow<State>
 
     /**
      * Messages from the peer. Single-consumer: `:core` runs one handler over its own dictionary,
@@ -40,43 +39,30 @@ interface PeerSession<M : Any> {
     suspend fun request(message: M, timeout: Duration? = null): Result<M>
 
     suspend fun close(reason: CloseReason = CloseReason.Normal)
-}
 
-/**
- * @property reply non-null when the peer is waiting for an answer. The answer is a message of the
- * same dictionary - `:net` only fills in the correlation id.
- */
-data class Inbound<M : Any>(
-    val message: M,
-    val from: PeerIdentity,
-    val reply: (suspend (M) -> Result<Unit>)?,
-)
+    /**
+     * @property reply non-null when the peer is waiting for an answer. The answer is a message of
+     * the same dictionary - `:net` only fills in the correlation id.
+     */
+    data class Inbound<T : Any>(
+        val message: T,
+        val from: PeerIdentity,
+        val reply: (suspend (T) -> Result<Unit>)?,
+    )
 
-sealed interface SessionState {
-    /** Opening, or re-opening after a lost link. */
-    data object Connecting : SessionState
+    sealed interface State {
+        /** Opening, or re-opening after a lost link. */
+        data object Connecting : State
 
-    data object Handshaking : SessionState
+        data object Handshaking : State
 
-    data class Ready(val negotiated: NegotiatedParameters) : SessionState
+        data class Ready(val negotiated: NegotiatedParameters) : State
 
-    data class Closing(val reason: CloseReason) : SessionState
+        data class Closing(val reason: CloseReason) : State
 
-    data class Closed(val reason: CloseReason) : SessionState
+        data class Closed(val reason: CloseReason) : State
 
-    /** Terminal: the session could not be established or re-established. */
-    data class Failed(val cause: Throwable) : SessionState
-}
-
-sealed interface CloseReason {
-    data object Normal : CloseReason
-    data object Idle : CloseReason
-    data object RejectedByUser : CloseReason
-
-    /** The peer closed, with whatever it said about why. */
-    data class Remote(val detail: String) : CloseReason
-
-    data class LinkLost(val cause: Throwable?) : CloseReason
-    data class Protocol(val detail: String) : CloseReason
-    data class Local(val detail: String) : CloseReason
+        /** Terminal: the session could not be established or re-established. */
+        data class Failed(val cause: Throwable) : State
+    }
 }

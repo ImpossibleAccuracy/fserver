@@ -1,27 +1,21 @@
 package com.fserver.net.connection
 
 import com.fserver.net.NetLogger
-import com.fserver.net.NoRouteException
-import com.fserver.net.TransportException
+import com.fserver.net.NetworkException
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.handshake.FramePump
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.security.CryptoProvider
-import com.fserver.net.security.HandshakeRole
 import com.fserver.net.security.IdentityStore
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.session.PeerSessionImpl
 import com.fserver.net.session.SessionLink
-import com.fserver.net.session.SessionState
 import com.fserver.net.spi.DiscoveredEndpoint
-import com.fserver.net.spi.InboundConnection
 import com.fserver.net.spi.Transport
-import com.fserver.net.spi.TransportCapabilities
-import com.fserver.net.spi.TransportId
-import kotlinx.coroutines.CancellationException
+import com.fserver.net.utils.netRunCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,39 +60,51 @@ internal class ConnectionManagerImpl<M : Any>(
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    override val incoming: Flow<IncomingConnectionRequest> =
-        transports.mapNotNull { transport ->
+    override val incoming: Flow<ConnectionManager.IncomingRequest> = transports
+        .mapNotNull { transport ->
             transport.listener?.listen()?.map { connection ->
-                IncomingRequest(transport, connection) as IncomingConnectionRequest
+                IncomingRequest(transport, connection)
             }
-        }.merge()
+        }
+        .merge()
 
     override suspend fun connect(peer: PeerRef, policy: ConnectionPolicy?): Result<PeerSession<M>> =
         netRunCatching {
             session(peer.deviceId)?.let { return@netRunCatching it }
 
-            val effective = policy ?: defaultPolicy
-            val link = openLink(peer, effective)
-            register(peer, link, effective) { openLink(peer, effective) }
+            val policy = policy ?: defaultPolicy
+            val link = openLink(peer, policy)
+            register(
+                route = peer,
+                link = link,
+                policy = policy,
+                relink = { openLink(peer, policy) },
+            )
         }
 
-    override suspend fun connect(peer: DiscoveredPeer, policy: ConnectionPolicy?): Result<PeerSession<M>> =
+    override suspend fun connect(
+        peer: DiscoveredPeer,
+        policy: ConnectionPolicy?
+    ): Result<PeerSession<M>> =
         netRunCatching {
             session(peer.deviceId)?.let { return@netRunCatching it }
 
-            val effective = policy ?: defaultPolicy
-            val routes = selector.order(peer.routes, effective)
-            if (routes.isEmpty()) throw NoRouteException("device ${peer.deviceId} has no known route")
+            val policy = policy ?: defaultPolicy
+            val routes = selector.order(peer.routes, policy)
+            if (routes.isEmpty()) throw NetworkException.NoRoute("device ${peer.deviceId} has no known route")
 
             var lastFailure: Throwable? = null
             for (route in routes) {
-                val attempt = connect(route, effective)
+                val attempt = connect(route, policy)
                 attempt.getOrNull()?.let { return@netRunCatching it }
                 lastFailure = attempt.exceptionOrNull()
-                logger.warn("route ${route.transport.value} failed for ${peer.deviceId}", lastFailure)
+                logger.warn(
+                    "route ${route.transport.value} failed for ${peer.deviceId}",
+                    lastFailure
+                )
             }
 
-            throw lastFailure ?: NoRouteException("device ${peer.deviceId} unreachable")
+            throw lastFailure ?: NetworkException.NoRoute("device ${peer.deviceId} unreachable")
         }
 
     override fun session(deviceId: String): PeerSession<M>? = registry.value[deviceId]
@@ -107,11 +113,14 @@ internal class ConnectionManagerImpl<M : Any>(
         registry.value[deviceId]?.close(reason)
     }
 
-    override suspend fun probe(peer: PeerRef, policy: ConnectionPolicy?): Result<PeerProfile> =
+    override suspend fun probe(
+        peer: PeerRef,
+        policy: ConnectionPolicy?
+    ): Result<ConnectionManager.Profile> =
         netRunCatching {
             val link = openLink(peer, policy ?: defaultPolicy)
             try {
-                PeerProfile(
+                ConnectionManager.Profile(
                     identity = link.negotiated.peer,
                     negotiated = link.negotiated,
                     route = peer,
@@ -128,29 +137,32 @@ internal class ConnectionManagerImpl<M : Any>(
 
     // ------------------------------------------------------------------ internals
 
+    /** Connect to [peer] and negotiate a session link. */
     private suspend fun openLink(peer: PeerRef, policy: ConnectionPolicy): SessionLink {
         val transport = selector.forEndpoint(peer.endpoint)
-            ?: throw NoRouteException("no transport carries ${peer.endpoint.address}")
+            ?: throw NetworkException.NoRoute("no transport carries ${peer.endpoint.address}")
 
         val channel = withTimeoutOrNull(policy.connectTimeout) { transport.open(peer.endpoint) }
-            ?.getOrElse { throw TransportException("could not open ${peer.endpoint.address}", it) }
-            ?: throw TransportException("timed out opening ${peer.endpoint.address}")
+            ?.getOrElse {
+                throw NetworkException.Transport(
+                    "could not open ${peer.endpoint.address}",
+                    it
+                )
+            }
+            ?: throw NetworkException.Transport("timed out opening ${peer.endpoint.address}")
 
-        val pump = FramePump(scope, channel)
-        return try {
+        return FramePump(scope, channel).use { pump ->
             negotiator.negotiate(
                 pump = pump,
-                role = HandshakeRole.Initiator,
+                role = CryptoProvider.Role.Initiator,
                 capabilities = transport.capabilities,
                 confirmationCode = null,
                 timeout = policy.handshakeTimeout,
             )
-        } catch (e: Throwable) {
-            pump.close()
-            throw e
         }
     }
 
+    /** Register a new session, or return an existing one if it raced in first. */
     private suspend fun register(
         route: PeerRef,
         link: SessionLink,
@@ -160,7 +172,8 @@ internal class ConnectionManagerImpl<M : Any>(
         val deviceId = link.negotiated.peer.deviceId
 
         registry.value[deviceId]?.let { existing ->
-            val finished = existing.state.value.let { it is SessionState.Closed || it is SessionState.Failed }
+            val finished =
+                existing.state.value.let { it is PeerSession.State.Closed || it is PeerSession.State.Failed }
             if (!finished) {
                 // Raced with another caller; keep the first session and drop the spare link.
                 link.secure.close()
@@ -172,7 +185,7 @@ internal class ConnectionManagerImpl<M : Any>(
 
         if (registry.value.size >= policy.maxSessions) {
             link.secure.close()
-            throw TransportException("session limit ${policy.maxSessions} reached")
+            throw NetworkException.Transport("session limit ${policy.maxSessions} reached")
         }
 
         val session = PeerSessionImpl(
@@ -193,21 +206,26 @@ internal class ConnectionManagerImpl<M : Any>(
 
     private inner class IncomingRequest(
         private val owner: Transport,
-        private val connection: InboundConnection,
-    ) : IncomingConnectionRequest {
-        override val transport: TransportId = connection.transport
+        private val connection: Transport.InboundConnection,
+    ) : ConnectionManager.IncomingRequest {
+        override val transport: Transport.Id = connection.transport
         override val peer: DiscoveredEndpoint = connection.peer
         override val confirmationCode: String? = connection.peer.confirmationCode
 
         override suspend fun accept(): Result<Unit> = netRunCatching {
             val channel = connection.accept()
-                .getOrElse { throw TransportException("could not accept ${peer.advertisedName}", it) }
+                .getOrElse {
+                    throw NetworkException.Transport(
+                        "could not accept ${peer.advertisedName}",
+                        it
+                    )
+                }
 
             val pump = FramePump(scope, channel)
             val link = try {
                 negotiator.negotiate(
                     pump = pump,
-                    role = HandshakeRole.Responder,
+                    role = CryptoProvider.Role.Responder,
                     capabilities = owner.capabilities,
                     confirmationCode = confirmationCode,
                     timeout = defaultPolicy.handshakeTimeout,
@@ -217,27 +235,21 @@ internal class ConnectionManagerImpl<M : Any>(
                 throw e
             }
 
-            // No relink: this side never dialled, so it has nothing to dial back.
             val session = register(
                 route = PeerRef(link.negotiated.peer.deviceId, transport, peer.endpoint),
                 link = link,
                 policy = defaultPolicy,
-                relink = null,
+                relink = null, // No relink: this side never dialed, so it has nothing to dial back.
             )
             logger.debug("accepted a session with ${session.peer.deviceId}")
         }
 
         override suspend fun reject(reason: CloseReason) {
-            runCatching { connection.reject() }
+            try {
+                connection.reject()
+            } catch (e: Exception) {
+                throw NetworkException.Transport("could not reject ${peer.advertisedName}", e)
+            }
         }
     }
-}
-
-/** [runCatching] that still lets structured cancellation through. */
-internal inline fun <T> netRunCatching(block: () -> T): Result<T> = try {
-    Result.success(block())
-} catch (e: CancellationException) {
-    throw e
-} catch (e: Throwable) {
-    Result.failure(e)
 }

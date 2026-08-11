@@ -1,7 +1,7 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.HandshakeException
-import com.fserver.net.spi.TransportChannel
+import com.fserver.net.NetworkException
+import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -14,13 +14,13 @@ import kotlin.time.Duration
 /**
  * Collects a transport channel exactly once and buffers what it produces.
  *
- * Without this the handshake and the session would each collect [TransportChannel.inbound], and a
+ * Without this the handshake and the session would each collect [Transport.Channel.inbound], and a
  * hot transport flow would quietly drop whatever arrived between the two collections.
  */
 internal class FramePump(
     scope: CoroutineScope,
-    private val channel: TransportChannel,
-) {
+    private val channel: Transport.Channel,
+) : AutoCloseable {
     private val frames = Channel<ByteArray>(Channel.UNLIMITED)
 
     private val job = scope.launch {
@@ -38,14 +38,14 @@ internal class FramePump(
     /** One frame, for the handshake. Everything after it goes to [remaining]. */
     suspend fun next(timeout: Duration): ByteArray =
         withTimeoutOrNull(timeout) { frames.receive() }
-            ?: throw HandshakeException("peer went quiet for $timeout")
+            ?: throw NetworkException.Handshake("peer went quiet for $timeout")
 
     /** The rest of the stream, handed to the session. Completes when the link goes down. */
     fun remaining(): Flow<ByteArray> = frames.receiveAsFlow()
 
     suspend fun send(frame: ByteArray): Result<Unit> = channel.send(frame)
 
-    fun close() {
+    override fun close() {
         job.cancel()
         runCatching { channel.close() }
     }

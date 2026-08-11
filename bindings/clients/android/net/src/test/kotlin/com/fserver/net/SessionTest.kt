@@ -1,15 +1,14 @@
 package com.fserver.net
 
 import com.fserver.net.connection.ConnectionPolicy
-import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
+import com.fserver.net.connection.PeerRef
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.AuthDecision
 import com.fserver.net.security.EphemeralIdentityStore
 import com.fserver.net.security.PeerAuthenticator
-import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
-import com.fserver.net.session.SessionState
+import com.fserver.net.session.CloseReason
+import com.fserver.net.session.PeerSession.State
 import com.fserver.net.support.LOOPBACK
 import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.LoopbackNetwork
@@ -61,7 +60,7 @@ class SessionTest {
         val answer = withTimeout(TIMEOUT) { session.request(TestMessage.Ask("ping")).getOrThrow() }
 
         assertEquals(TestMessage.Answer("PING"), answer)
-        assertTrue(session.state.value is SessionState.Ready)
+        assertTrue(session.state.value is State.Ready)
     }
 
     @Test
@@ -116,14 +115,14 @@ class SessionTest {
         val outcome = withTimeout(TIMEOUT) { connect(alice, "bob") }
 
         assertTrue(outcome.isFailure)
-        assertTrue(outcome.exceptionOrNull() is HandshakeException)
+        assertTrue(outcome.exceptionOrNull() is NetworkException.Handshake)
         assertTrue(alice.connections.sessions.value.isEmpty())
     }
 
     @Test
     fun `an authenticator that refuses stops the handshake`() = runBlocking {
         val alice = node("alice")
-        val bob = node("bob", authenticator = { _, _ -> AuthDecision.Reject("unknown device") })
+        val bob = node("bob", authenticator = { _, _ -> PeerAuthenticator.Decision.Reject("unknown device") })
 
         acceptEverything(bob)
 
@@ -145,7 +144,7 @@ class SessionTest {
         session.close(CloseReason.Normal)
 
         withTimeout(TIMEOUT) {
-            bobSide.state.first { it is SessionState.Closed || it is SessionState.Failed }
+            bobSide.state.first { it is State.Closed || it is State.Failed }
         }
         assertTrue(alice.connections.sessions.value.isEmpty())
     }
@@ -162,8 +161,8 @@ class SessionTest {
         network.cutLinks()
 
         // Same instance, back in Ready: a held reference stays valid across a reconnect.
-        withTimeout(TIMEOUT) { session.state.first { it is SessionState.Connecting } }
-        withTimeout(TIMEOUT) { session.state.first { it is SessionState.Ready } }
+        withTimeout(TIMEOUT) { session.state.first { it is State.Connecting } }
+        withTimeout(TIMEOUT) { session.state.first { it is State.Ready } }
         assertTrue(alice.connections.sessions.value.contains(session))
     }
 

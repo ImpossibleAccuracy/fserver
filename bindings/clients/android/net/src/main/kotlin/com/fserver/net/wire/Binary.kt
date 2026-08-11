@@ -1,6 +1,6 @@
 package com.fserver.net.wire
 
-import com.fserver.net.ProtocolException
+import com.fserver.net.NetworkException
 import java.nio.BufferUnderflowException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -37,7 +37,7 @@ internal class ByteWriter(initialCapacity: Int = 64) {
     }
 }
 
-/** Matching reader. Every malformed input surfaces as [ProtocolException], never as a raw buffer error. */
+/** Matching reader. Every malformed input surfaces as [NetworkException.Protocol], never as a raw buffer error. */
 internal class ByteReader(source: ByteArray) {
     private val buffer = ByteBuffer.wrap(source)
 
@@ -54,7 +54,7 @@ internal class ByteReader(source: ByteArray) {
     fun bytes(): ByteArray = guard {
         val length = buffer.int
         if (length < 0 || length > buffer.remaining()) {
-            throw ProtocolException("declared length $length does not fit in ${buffer.remaining()} bytes")
+            throw NetworkException.Protocol("declared length $length does not fit in ${buffer.remaining()} bytes")
         }
         ByteArray(length).also(buffer::get)
     }
@@ -66,6 +66,6 @@ internal class ByteReader(source: ByteArray) {
     private inline fun <T> guard(block: () -> T): T = try {
         block()
     } catch (e: BufferUnderflowException) {
-        throw ProtocolException("frame truncated", e)
+        throw NetworkException.Protocol("frame truncated", e)
     }
 }
