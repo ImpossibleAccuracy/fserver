@@ -1,0 +1,214 @@
+package com.fserver.net
+
+import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.ReconnectPolicy
+import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.security.AuthDecision
+import com.fserver.net.security.EphemeralIdentityStore
+import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.session.CloseReason
+import com.fserver.net.session.PeerSession
+import com.fserver.net.session.SessionState
+import com.fserver.net.support.LOOPBACK
+import com.fserver.net.support.LoopbackEndpoint
+import com.fserver.net.support.LoopbackNetwork
+import com.fserver.net.support.TestDictionary
+import com.fserver.net.support.TestMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+
+class SessionTest {
+
+    private val network = LoopbackNetwork()
+    private val scope = CoroutineScope(SupervisorJob())
+    private val nodes = mutableListOf<NetworkNode<TestMessage>>()
+
+    @After
+    fun tearDown() {
+        nodes.forEach { it.close() }
+        scope.cancel()
+    }
+
+    @Test
+    fun `request gets an answer built from the same dictionary`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        // Bob answers questions; nothing here ever sees a byte array.
+        scope.launch {
+            val session = firstSession(bob)
+            session.incoming.collect { inbound ->
+                val ask = inbound.message as TestMessage.Ask
+                inbound.reply?.invoke(TestMessage.Answer(ask.text.uppercase()))
+            }
+        }
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val answer = withTimeout(TIMEOUT) { session.request(TestMessage.Ask("ping")).getOrThrow() }
+
+        assertEquals(TestMessage.Answer("PING"), answer)
+        assertTrue(session.state.value is SessionState.Ready)
+    }
+
+    @Test
+    fun `fire and forget message arrives`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        session.send(TestMessage.Notice("hello")).getOrThrow()
+
+        val received = withTimeout(TIMEOUT) { firstSession(bob).incoming.first() }
+
+        assertEquals(TestMessage.Notice("hello"), received.message)
+        assertEquals(null, received.reply)
+    }
+
+    @Test
+    fun `both ends see one session, and identities match`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
+
+        assertEquals(bob.identity.deviceId, session.peer.deviceId)
+        assertEquals(alice.identity.deviceId, bobSide.peer.deviceId)
+        assertEquals(1, alice.connections.sessions.value.size)
+        assertEquals(1, bob.connections.sessions.value.size)
+    }
+
+    @Test
+    fun `connecting twice reuses the session`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val first = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = bob.identity.deviceId).getOrThrow() }
+        val second = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = bob.identity.deviceId).getOrThrow() }
+
+        assertTrue(first === second)
+        assertEquals(1, alice.connections.sessions.value.size)
+    }
+
+    @Test
+    fun `a foreign dictionary never gets a session`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob", dictionary = TestDictionary(id = "other.dictionary"))
+        acceptEverything(bob)
+
+        val outcome = withTimeout(TIMEOUT) { connect(alice, "bob") }
+
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is HandshakeException)
+        assertTrue(alice.connections.sessions.value.isEmpty())
+    }
+
+    @Test
+    fun `an authenticator that refuses stops the handshake`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob", authenticator = { _, _ -> AuthDecision.Reject("unknown device") })
+
+        acceptEverything(bob)
+
+        val outcome = withTimeout(TIMEOUT) { connect(alice, "bob") }
+
+        assertTrue(outcome.isFailure)
+        assertTrue(bob.connections.sessions.value.isEmpty())
+    }
+
+    @Test
+    fun `closing one end tears down the other`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
+
+        session.close(CloseReason.Normal)
+
+        withTimeout(TIMEOUT) {
+            bobSide.state.first { it is SessionState.Closed || it is SessionState.Failed }
+        }
+        assertTrue(alice.connections.sessions.value.isEmpty())
+    }
+
+    @Test
+    fun `a cut link is rebuilt and the session object survives it`() = runBlocking {
+        val alice = node("alice", policy = reconnecting)
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = "peer-bob").getOrThrow() }
+        withTimeout(TIMEOUT) { firstSession(bob) }
+
+        network.cutLinks()
+
+        // Same instance, back in Ready: a held reference stays valid across a reconnect.
+        withTimeout(TIMEOUT) { session.state.first { it is SessionState.Connecting } }
+        withTimeout(TIMEOUT) { session.state.first { it is SessionState.Ready } }
+        assertTrue(alice.connections.sessions.value.contains(session))
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private fun node(
+        name: String,
+        dictionary: MessageDictionary<TestMessage> = TestDictionary(),
+        authenticator: PeerAuthenticator? = null,
+        // Deterministic by default: no timers, no retries.
+        policy: ConnectionPolicy = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None),
+    ): NetworkNode<TestMessage> = NetworkNode.create(
+        NetworkConfig(
+            dictionary = dictionary,
+            identityStore = EphemeralIdentityStore(displayName = name),
+            transports = listOf(network.transport(name)),
+            authenticator = authenticator,
+            policy = policy,
+            scope = scope,
+        )
+    ).also(nodes::add)
+
+    private val reconnecting = ConnectionPolicy(
+        keepAlive = null,
+        reconnect = ReconnectPolicy.ExponentialBackoff(
+            initialDelay = 50.milliseconds,
+            maxDelay = 200.milliseconds,
+            maxAttempts = 5,
+        ),
+    )
+
+    private suspend fun connect(
+        from: NetworkNode<TestMessage>,
+        to: String,
+        deviceId: String = "peer-$to",
+    ) = from.connections.connect(PeerRef(deviceId, LOOPBACK, LoopbackEndpoint(to)))
+
+    private fun acceptEverything(node: NetworkNode<TestMessage>): Job = scope.launch {
+        node.connections.incoming.collect { it.accept() }
+    }
+
+    private suspend fun firstSession(node: NetworkNode<TestMessage>): PeerSession<TestMessage> =
+        node.connections.sessions.first { it.isNotEmpty() }.first()
+
+    private companion object {
+        val TIMEOUT = 10.seconds
+    }
+}

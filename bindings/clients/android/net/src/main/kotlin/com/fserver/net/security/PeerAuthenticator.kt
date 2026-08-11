@@ -1,0 +1,17 @@
+package com.fserver.net.security
+
+/**
+ * The trust gate. Only the host can run it - it is the one holding a screen on which a user can
+ * compare a fingerprint or a pair of digits.
+ *
+ * Optional: leaving it out of the config means every peer that completes a handshake is trusted,
+ * which is fine for a test rig and wrong for a shipping client.
+ */
+fun interface PeerAuthenticator {
+    suspend fun verify(candidate: PeerIdentity, confirmationCode: String?): AuthDecision
+}
+
+sealed interface AuthDecision {
+    data object Trust : AuthDecision
+    data class Reject(val reason: String) : AuthDecision
+}
