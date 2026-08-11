@@ -38,11 +38,15 @@ interface DiscoveryProvider {
 /**
  * What discovery knows about a peer before anything is connected: where it is, plus whatever it
  * advertised about itself. Values in [attributes] are hints for the UI, never authorization.
+ *
+ * @param endpoint Where to connect to the peer.
+ * @param advertisedName The name the peer advertised for itself (visible name).
+ * @param attributes Arbitrary key/value pairs the peer advertised for itself.
+ * @param confirmationCode Out-of-band code the user has to compare, when the transport has one.
  */
 data class DiscoveredEndpoint(
     val endpoint: TransportEndpoint,
     val advertisedName: String,
     val attributes: Map<String, String> = emptyMap(),
-    /** Out-of-band code the user has to compare, when the transport has one. */
     val confirmationCode: String? = null,
 )

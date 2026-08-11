@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
@@ -67,6 +68,11 @@ internal class ConnectionManagerImpl<M : Any>(
             }
         }
         .merge()
+        .shareIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            replay = 0,
+        )
 
     override suspend fun connect(peer: PeerRef, policy: ConnectionPolicy?): Result<PeerSession<M>> =
         netRunCatching {
@@ -151,7 +157,8 @@ internal class ConnectionManagerImpl<M : Any>(
             }
             ?: throw NetworkException.Transport("timed out opening ${peer.endpoint.address}")
 
-        return FramePump(scope, channel).use { pump ->
+        val pump = FramePump(scope, channel)
+        return try {
             negotiator.negotiate(
                 pump = pump,
                 role = CryptoProvider.Role.Initiator,
@@ -159,6 +166,9 @@ internal class ConnectionManagerImpl<M : Any>(
                 confirmationCode = null,
                 timeout = policy.handshakeTimeout,
             )
+        } catch (e: Throwable) {
+            pump.close()
+            throw e
         }
     }
 

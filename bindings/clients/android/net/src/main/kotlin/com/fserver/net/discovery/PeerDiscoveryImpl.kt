@@ -2,11 +2,11 @@ package com.fserver.net.discovery
 
 import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
-import com.fserver.net.utils.netRunCatching
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.IdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.utils.netRunCatching
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -42,7 +42,9 @@ internal class PeerDiscoveryImpl(
     private val scanJobs = mutableMapOf<DiscoveryProvider.Id, Job>()
     private var advertisingJobs: List<Job> = emptyList()
 
-    override suspend fun scan(params: DiscoveryProvider.ScanParams): Result<List<DiscoveredPeer>> = netRunCatching {
+    override suspend fun scan(
+        params: DiscoveryProvider.ScanParams
+    ): Result<List<DiscoveredPeer>> = netRunCatching {
         val provider = providers.firstOrNull { it.accepts(params) }
             ?: throw NetworkException.Transport("no discovery provider handles $params")
 
@@ -80,6 +82,9 @@ internal class PeerDiscoveryImpl(
     }
 
     override suspend fun startAdvertising(): Result<Unit> = netRunCatching {
+        // An advertiser that gave up leaves a finished job behind;
+        // keeping it would make every later call a no-op and device would stay invisible.
+        advertisingJobs = advertisingJobs.filter(Job::isActive)
         if (advertisingJobs.isNotEmpty()) return@netRunCatching
 
         val payload = advertisement()
@@ -107,8 +112,7 @@ internal class PeerDiscoveryImpl(
     private fun advertisement(): Advertiser.Payload {
         val local = identityStore.local
         return Advertiser.Payload(
-            deviceId = local.deviceId,
-            displayName = local.displayName,
+            identity = local,
             attributes = buildMap {
                 put(PeerAttributes.DEVICE_ID, local.deviceId)
                 put(PeerAttributes.DISPLAY_NAME, local.displayName)
@@ -122,7 +126,10 @@ internal class PeerDiscoveryImpl(
         )
     }
 
-    private fun MutableStateFlow<Set<DiscoveryProvider.Id>>.update(id: DiscoveryProvider.Id, add: Boolean) {
+    private fun MutableStateFlow<Set<DiscoveryProvider.Id>>.update(
+        id: DiscoveryProvider.Id,
+        add: Boolean
+    ) {
         value = if (add) value + id else value - id
     }
 }

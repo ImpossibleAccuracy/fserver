@@ -7,15 +7,15 @@ interface Transport {
     val id: Id
     val capabilities: TransportCapabilities
 
-    fun supports(endpoint: TransportEndpoint): Boolean
-
-    suspend fun open(endpoint: TransportEndpoint): Result<Channel>
-
     /** null when the transport is outbound-only. */
     val listener: Listener?
         get() = null
 
-    suspend fun shutdown() = Unit
+    fun supports(endpoint: TransportEndpoint): Boolean
+
+    suspend fun open(endpoint: TransportEndpoint): Result<Channel>
+
+    suspend fun shutdown()
 
     /** Identifies a transport implementation. Values are chosen by the implementing module. */
     @JvmInline

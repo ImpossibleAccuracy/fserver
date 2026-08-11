@@ -29,5 +29,8 @@ dependencyResolutionManagement {
 rootProject.name = "FServer"
 
 include(":core")
-include(":net")
+include(
+    ":net",
+    ":net:transport:android", ":net:transport:ip",
+)
 include(":app")

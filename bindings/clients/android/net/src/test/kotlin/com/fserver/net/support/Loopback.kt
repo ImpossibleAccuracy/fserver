@@ -1,8 +1,8 @@
 package com.fserver.net.support
 
-import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.Transport
+import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -39,34 +39,39 @@ class LoopbackNetwork {
 
         override fun supports(endpoint: TransportEndpoint) = endpoint is LoopbackEndpoint
 
-        override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> = runCatching {
-            val target = endpoint as LoopbackEndpoint
-            val inbox = inboxes.getOrPut(target.name) { Channel(Channel.UNLIMITED) }
+        override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> =
+            runCatching {
+                val target = endpoint as LoopbackEndpoint
+                val inbox = inboxes.getOrPut(target.name) { Channel(Channel.UNLIMITED) }
 
-            val toResponder = Channel<ByteArray>(Channel.UNLIMITED)
-            val toInitiator = Channel<ByteArray>(Channel.UNLIMITED)
-            wires += toResponder
-            wires += toInitiator
+                val toResponder = Channel<ByteArray>(Channel.UNLIMITED)
+                val toInitiator = Channel<ByteArray>(Channel.UNLIMITED)
+                wires += toResponder
+                wires += toInitiator
 
-            val responderSide = LoopbackChannel(LoopbackEndpoint(self), toResponder, toInitiator)
-            val initiatorSide = LoopbackChannel(target, toInitiator, toResponder)
+                val responderSide =
+                    LoopbackChannel(LoopbackEndpoint(self), toResponder, toInitiator)
+                val initiatorSide = LoopbackChannel(target, toInitiator, toResponder)
 
-            inbox.send(
-                LoopbackInbound(
-                    channel = responderSide,
-                    peer = DiscoveredEndpoint(
-                        endpoint = LoopbackEndpoint(self),
-                        advertisedName = self,
-                    ),
+                inbox.send(
+                    LoopbackInbound(
+                        channel = responderSide,
+                        peer = DiscoveredEndpoint(
+                            endpoint = LoopbackEndpoint(self),
+                            advertisedName = self,
+                        ),
+                    )
                 )
-            )
 
-            initiatorSide
-        }
+                initiatorSide
+            }
 
         override val listener: Transport.Listener = object : Transport.Listener {
             override fun listen(): Flow<Transport.InboundConnection> =
                 inboxes.getOrPut(self) { Channel(Channel.UNLIMITED) }.receiveAsFlow()
+        }
+
+        override suspend fun shutdown() {
         }
     }
 
@@ -77,7 +82,8 @@ class LoopbackNetwork {
     ) : Transport.Channel {
         override val inbound: Flow<ByteArray> = incoming.receiveAsFlow()
 
-        override suspend fun send(frame: ByteArray): Result<Unit> = runCatching { outgoing.send(frame) }
+        override suspend fun send(frame: ByteArray): Result<Unit> =
+            runCatching { outgoing.send(frame) }
 
         override fun close() {
             incoming.close()

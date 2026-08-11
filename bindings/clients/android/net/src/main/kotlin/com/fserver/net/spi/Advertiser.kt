@@ -1,5 +1,6 @@
 package com.fserver.net.spi
 
+import com.fserver.net.security.LocalIdentity
 import kotlinx.coroutines.flow.Flow
 
 /** Makes this device findable by whatever a [DiscoveryProvider] on the other side is scanning. */
@@ -10,8 +11,7 @@ interface Advertiser {
 
     /** What this device tells the network about itself. Built by `:net` from the local identity. */
     data class Payload(
-        val deviceId: String,
-        val displayName: String,
+        val identity: LocalIdentity,
         val attributes: Map<String, String> = emptyMap(),
     )
 

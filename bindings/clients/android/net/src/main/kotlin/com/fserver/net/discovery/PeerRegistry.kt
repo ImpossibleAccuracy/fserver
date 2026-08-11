@@ -46,11 +46,16 @@ internal class PeerRegistry {
         )
 
         known.update { current ->
-            val merged = current[deviceId]?.let { existing ->
-                peer.copy(
-                    routes = (existing.routes.filterNot { it.endpoint.address == route.endpoint.address } + route),
-                )
-            } ?: peer
+            val merged = current[deviceId]
+                ?.let { existing ->
+                    peer.copy(
+                        routes = existing.routes
+                            .filterNot { it.endpoint.address == route.endpoint.address }
+                            .plus(route),
+                    )
+                }
+                ?: peer
+
             current + (deviceId to merged)
         }
 
@@ -60,9 +65,15 @@ internal class PeerRegistry {
     /** A peer went away on one address; the device only disappears when its last route does. */
     fun forgetRoute(endpointAddress: String) {
         known.update { current ->
-            current.mapValues { (_, peer) ->
-                peer.copy(routes = peer.routes.filterNot { it.endpoint.address == endpointAddress })
-            }.filterValues { it.routes.isNotEmpty() }
+            current
+                .mapValues { (_, peer) ->
+                    peer.copy(
+                        routes = peer.routes.filterNot {
+                            it.endpoint.address == endpointAddress
+                        }
+                    )
+                }
+                .filterValues { it.routes.isNotEmpty() }
         }
     }
 
