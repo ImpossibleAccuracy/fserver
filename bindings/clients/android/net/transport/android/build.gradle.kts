@@ -32,7 +32,7 @@ kotlin {
 
 dependencies {
     api(projects.net)
-    api(projects.net.transport.ip)
+    //api(projects.net.transport.ip)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.play.services.nearby)
