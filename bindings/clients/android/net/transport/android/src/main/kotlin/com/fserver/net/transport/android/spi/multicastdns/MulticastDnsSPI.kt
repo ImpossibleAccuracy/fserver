@@ -1,37 +1,34 @@
 package com.fserver.net.transport.android.spi.multicastdns
 
 import android.content.Context
-import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.config.SpiContainer
+import com.fserver.net.config.SpiFactory
 import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.datasource.multicastdns.MulticastDnsPortBinder
 
 public data object MulticastDnsSPI {
-    val ID: SpiId = SpiId("multicast-dns")
+    public val ID: SpiId = SpiId("multicast-dns")
 
-    public fun create(
-        context: Context,
-        policy: ConnectionPolicy,
-    ): SpiContainer {
-        val portBinder = MulticastDnsPortBinder()
-        val advertiser = MulticastDnsAdvertiser(
-            context = context,
-            multicastDnsPortBinder = portBinder,
-        )
-        val discoveryProvider = MulticastDnsDiscoveryProvider(
-            context = context
-        )
+    public fun create(context: Context): SpiFactory {
+        val applicationContext = context.applicationContext
 
-        val transport = MulticastDnsTransport(
-            multicastDnsPortBinder = portBinder,
-            connectionPolicy = policy,
-        )
+        return SpiFactory { environment ->
+            val portBinder = MulticastDnsPortBinder()
 
-        return SpiContainer(
-            transport = transport,
-            discoveryProvider = discoveryProvider,
-            advertiser = advertiser,
-            advertisedAttributes = emptyMap(),
-        )
+            SpiContainer(
+                transport = MulticastDnsTransport(
+                    multicastDnsPortBinder = portBinder,
+                    connectionPolicy = environment.policy,
+                ),
+                discoveryProvider = MulticastDnsDiscoveryProvider(
+                    context = applicationContext,
+                ),
+                advertiser = MulticastDnsAdvertiser(
+                    context = applicationContext,
+                    multicastDnsPortBinder = portBinder,
+                ),
+                advertisedAttributes = emptyMap(),
+            )
+        }
     }
 }
