@@ -11,6 +11,7 @@ import com.fserver.net.utils.netRunCatching
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 internal class PeerDiscoveryImpl(
     private val providers: List<DiscoveryProvider>,
@@ -40,7 +42,7 @@ internal class PeerDiscoveryImpl(
     private val running = MutableStateFlow<Set<SpiId>>(emptySet())
     override val activeScans: StateFlow<Set<SpiId>> = running.asStateFlow()
 
-    private val scanJobs = mutableMapOf<SpiId, Job>()
+    private val scanJobs = ConcurrentHashMap<SpiId, Job>()
     private var advertisingJobs: List<Job> = emptyList()
 
     override suspend fun scan(
@@ -55,22 +57,32 @@ internal class PeerDiscoveryImpl(
         val found = LinkedHashMap<String, DiscoveredPeer>()
 
         try {
-            provider.scan(params).collect { event ->
-                when (event) {
-                    is DiscoveryProvider.Event.Appeared -> {
-                        val peer = registry.record(event.peer)
-                        found[peer.deviceId] = peer
+            // Run scan in background so that we can cancel it if needed.
+            coroutineScope {
+                val job = launch {
+                    provider.scan(params).collect { event ->
+                        when (event) {
+                            is DiscoveryProvider.Event.Appeared -> {
+                                val peer = registry.record(event.peer)
+                                found[peer.deviceId] = peer
+                            }
+
+                            is DiscoveryProvider.Event.Disappeared ->
+                                registry.forgetRoute(event.endpointAddress)
+
+                            is DiscoveryProvider.Event.Failed -> logger.warn(
+                                "discovery ${provider.id.value} failed",
+                                event.cause
+                            )
+                        }
                     }
-
-                    is DiscoveryProvider.Event.Disappeared -> registry.forgetRoute(event.endpointAddress)
-
-                    is DiscoveryProvider.Event.Failed -> logger.warn(
-                        "discovery ${provider.id.value} failed",
-                        event.cause
-                    )
                 }
+
+                scanJobs[provider.id] = job
+                job.join()
             }
         } finally {
+            scanJobs.remove(provider.id)
             running.update(provider.id, add = false)
         }
 
@@ -109,17 +121,25 @@ internal class PeerDiscoveryImpl(
         .map { it[deviceId] }
         .distinctUntilChanged()
 
-    /** What this device puts on the wire about itself. Descriptive only - never a claim of access. */
+    /**
+     * What this device puts on the wire about itself. Descriptive only - never a claim of access.
+     *
+     * Essential is what identifies the device and says whether it can be talked to at all; the
+     * rest is decoration a peer can also learn from the handshake, so a transport short of room
+     * may leave it off.
+     */
     private fun advertisement(): Advertiser.Payload {
         val local = identityStore.local
         return Advertiser.Payload(
             identity = local,
-            attributes = buildMap {
+            essential = buildMap {
                 put(PeerAttributes.DEVICE_ID, local.deviceId)
                 put(PeerAttributes.DISPLAY_NAME, local.displayName)
                 put(PeerAttributes.FINGERPRINT, local.fingerprint.value)
                 put(PeerAttributes.PROTOCOL_MIN, ProtocolVersions.SUPPORTED.first.toString())
                 put(PeerAttributes.PROTOCOL_MAX, ProtocolVersions.SUPPORTED.last.toString())
+            },
+            optional = buildMap {
                 put(PeerAttributes.DICTIONARY_ID, dictionary.id)
                 put(PeerAttributes.DICTIONARY_VERSION, dictionary.version.toString())
                 putAll(advertisedAttributes)

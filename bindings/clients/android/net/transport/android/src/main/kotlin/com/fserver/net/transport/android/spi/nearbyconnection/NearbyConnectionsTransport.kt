@@ -6,115 +6,120 @@ import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.datasource.nearbyconnection.NCDeviceEvent
+import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsLink
 import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsPeer
 import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsRepository
-import kotlinx.coroutines.CancellationException
+import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyEndpointInfo
+import com.google.android.gms.nearby.connection.ConnectionsClient
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.mapNotNull
+import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Carries frames over Nearby Connections.
+ *
+ * Nearby has no separate dial step: [open] runs the whole request-then-accept exchange and only
+ * returns once the link is up, so a channel handed back here is one that can be written to.
+ */
 internal class NearbyConnectionsTransport(
     private val repository: NearbyConnectionsRepository,
 ) : Transport {
     override val id: SpiId = NearbyConnectionsSPI.ID
+
     override val capabilities: TransportCapabilities = TransportCapabilities(
         isLinkEncrypted = true,
         requiresPeerConfirmation = true,
+        // Nearby refuses a bytes payload over its own limit
+        maxFrameSize = ConnectionsClient.MAX_BYTES_DATA_SIZE,
     )
 
-    private val transportListener = TransportListener()
-    override val listener: Transport.Listener = transportListener
+    override val listener: Transport.Listener = TransportListener()
 
     override fun supports(endpoint: TransportEndpoint): Boolean =
         endpoint is NearbyConnectionsTransportEndpoint
 
-    override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> =
-        runCatching {
-            require(endpoint is NearbyConnectionsTransportEndpoint) {
-                "not a nearby connections endpoint: ${endpoint.address}"
-            }
-            openConnection(endpoint)
-        }.onFailure {
-            if (it is CancellationException) throw it
+    override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> {
+        if (endpoint !is NearbyConnectionsTransportEndpoint) {
+            return Result.failure(
+                IllegalArgumentException("not a nearby connections endpoint: ${endpoint.address}")
+            )
         }
 
-
-    private suspend fun openConnection(endpoint: NearbyConnectionsTransportEndpoint): Transport.Channel {
-        return NearbyConnectionsChannel(
-            peer = endpoint.peer,
-            repository = repository,
-        )
+        return repository
+            .connect(endpoint.endpointId)
+            .map { link -> NearbyConnectionsChannel(link, repository) }
     }
 
     override suspend fun shutdown() {
-        // no-op, transport just listens for repo's flows
+        repository.shutdown()
     }
 
     private inner class TransportListener : Transport.Listener {
+        /**
+         * Only connections the peer asked for. The ones this device dialled are resolved inside
+         * [open]; reporting them here too would have `:net` answer its own outgoing connection and
+         * open a second session on the same link.
+         */
         override fun listen(): Flow<Transport.InboundConnection> = repository.events
-            .filterIsInstance<NCDeviceEvent.Found>()
-            .map { event ->
-                NearbyInboundConnection(
-                    innerPeer = event.peer,
-                    repository = repository,
-                )
+            .mapNotNull { event ->
+                (event as? NCDeviceEvent.ConnectionInitiated)?.takeIf { it.incoming }
             }
+            .map { event -> NearbyInboundConnection(event.peer, repository) }
     }
 
     private class NearbyInboundConnection(
         private val innerPeer: NearbyConnectionsPeer,
         private val repository: NearbyConnectionsRepository,
     ) : Transport.InboundConnection {
-        override val transport: SpiId = NearbyConnectionsSPI.ID
-        override val peer: DiscoveredEndpoint = DiscoveredEndpoint(
-            endpoint = NearbyConnectionsTransportEndpoint(innerPeer),
-            advertisedName = innerPeer.endpointName,
-            attributes = mapOf(), // TODO: attributes dropped, fix
-            confirmationCode = innerPeer.authenticationDigits,
-        )
+        private val settled = AtomicBoolean(false)
 
-        override suspend fun accept(): Result<Transport.Channel> = runCatching {
-            repository.accept(innerPeer.endpointId)
-            NearbyConnectionsChannel(
-                peer = innerPeer,
-                repository = repository
+        override val transport: SpiId = NearbyConnectionsSPI.ID
+
+        override val peer: DiscoveredEndpoint = run {
+            val advertised = NearbyEndpointInfo.decode(innerPeer.endpointInfo)
+
+            DiscoveredEndpoint(
+                endpoint = NearbyConnectionsTransportEndpoint(innerPeer.endpointId),
+                advertisedName = advertised.displayName,
+                attributes = advertised.attributes,
+                confirmationCode = innerPeer.authenticationDigits,
             )
         }
 
+        override suspend fun accept(): Result<Transport.Channel> {
+            if (!settled.compareAndSet(false, true)) {
+                return Result.failure(IllegalStateException("Connection already settled"))
+            }
+
+            return repository
+                .accept(innerPeer)
+                .map { link -> NearbyConnectionsChannel(link, repository) }
+        }
+
         override suspend fun reject() {
-            repository.reject(innerPeer.endpointId)
+            if (!settled.compareAndSet(false, true)) return
+
+            repository.reject(innerPeer.endpointId).getOrThrow()
         }
     }
 
     private class NearbyConnectionsChannel(
-        private val peer: NearbyConnectionsPeer,
+        private val link: NearbyConnectionsLink,
         private val repository: NearbyConnectionsRepository,
     ) : Transport.Channel {
-        override val endpoint: TransportEndpoint = NearbyConnectionsTransportEndpoint(peer)
-        override val inbound: Flow<ByteArray> = repository.events
-            .takeWhile { event ->
-                val isDisconnected = event is NCDeviceEvent.Disconnected &&
-                        event.endpointId == peer.endpointId
+        override val endpoint: TransportEndpoint =
+            NearbyConnectionsTransportEndpoint(link.peer.endpointId)
 
-                val isError = event is NCDeviceEvent.PeerError &&
-                        event.id == peer.endpointId
+        override val confirmationCode: String = link.peer.authenticationDigits
 
-                !(isDisconnected || isError)
-            }
-            .filterIsInstance<NCDeviceEvent.Message>()
-            .filter { it.message.endpointId == peer.endpointId }
-            .distinctUntilChangedBy { it.message.messageId }
-            .map { it.message.message }
+        override val inbound: Flow<ByteArray> = link.inbound
 
-        override suspend fun send(frame: ByteArray): Result<Unit> {
-            return repository.send(peer.endpointId, frame)
-        }
+        override suspend fun send(frame: ByteArray): Result<Unit> =
+            repository.send(link.peer.endpointId, frame)
 
         override fun close() {
-            repository.disconnect(peer.endpointId)
+            repository.disconnect(link.peer.endpointId)
         }
     }
 }

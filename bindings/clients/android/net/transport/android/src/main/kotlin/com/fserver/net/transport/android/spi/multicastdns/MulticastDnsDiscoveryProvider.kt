@@ -30,10 +30,12 @@ internal class MulticastDnsDiscoveryProvider(
                 MulticastDnsDiscoveryService.Event.Scanning,
                 MulticastDnsDiscoveryService.Event.Closed -> null
 
-                // Scan-level failure: NSD has stopped browsing, so the flow fails rather than
-                // reporting an event and then quietly completing as if the scan had finished.
-                is MulticastDnsDiscoveryService.Event.Error -> throw IOException(
-                    "Multicast DNS discovery failed with error code: ${discoveryEvent.errorCode}"
+                // Scan-level failure. NSD has stopped browsing, but the flow stays open until the
+                // caller stops it, so a later retry does not need a new scan.
+                is MulticastDnsDiscoveryService.Event.Error -> DiscoveryProvider.Event.Failed(
+                    IOException(
+                        "Multicast DNS discovery failed with error code: ${discoveryEvent.errorCode}"
+                    )
                 )
 
                 is MulticastDnsDiscoveryService.Event.Found -> DiscoveryProvider.Event.Appeared(

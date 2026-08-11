@@ -41,6 +41,7 @@ internal class MulticastDnsAdvertiser(
             } else {
                 advertiserService.start(
                     identity = payload.identity,
+                    // TXT records have room for the lot, so nothing is left behind here.
                     attributes = payload.attributes,
                     port = port,
                 )

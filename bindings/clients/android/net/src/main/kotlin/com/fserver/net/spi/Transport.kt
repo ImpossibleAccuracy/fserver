@@ -24,6 +24,14 @@ interface Transport {
     interface Channel : AutoCloseable {
         val endpoint: TransportEndpoint
 
+        /**
+         * Out-of-band code the transport produced while opening, for the dialling side - the same
+         * role [DiscoveredEndpoint.confirmationCode] plays for the accepting one. Null when the
+         * transport has none.
+         */
+        val confirmationCode: String?
+            get() = null
+
         /** Completes when the link goes down; that is how `:net` learns the session lost its link. */
         val inbound: Flow<ByteArray>
 

@@ -2,11 +2,14 @@ package com.fserver.net.transport.android.spi.nearbyconnection
 
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.TransportEndpoint
-import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsPeer
 
-internal class NearbyConnectionsTransportEndpoint(
-    val peer: NearbyConnectionsPeer,
+/**
+ * Nearby's endpoint id is the whole address. It is handed out per advertising session, so it
+ * identifies a route and never a device - the device id rides in the advertisement instead.
+ */
+internal data class NearbyConnectionsTransportEndpoint(
+    val endpointId: String,
 ) : TransportEndpoint {
     override val transport: SpiId = NearbyConnectionsSPI.ID
-    override val address: String = peer.endpointId
+    override val address: String = endpointId
 }

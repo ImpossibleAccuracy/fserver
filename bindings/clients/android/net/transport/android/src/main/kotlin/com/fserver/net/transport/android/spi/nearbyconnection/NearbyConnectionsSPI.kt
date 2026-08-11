@@ -7,7 +7,7 @@ import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsRepository
 
 public data object NearbyConnectionsSPI {
-    val ID: SpiId = SpiId("nearby-connections")
+    public val ID: SpiId = SpiId("nearby-connections")
 
     public fun create(
         context: Context,
@@ -15,23 +15,20 @@ public data object NearbyConnectionsSPI {
         identityStore: IdentityStore,
     ): SpiContainer {
         val repository = NearbyConnectionsRepository(
-            context = context,
+            context = context.applicationContext,
             config = config,
+            identityStore = identityStore,
         )
 
-        val advertiser = NearbyConnectionsAdvertiser(repository)
-        val discoveryProvider = NearbyConnectionsDiscoveryProvider(identityStore, repository)
-
-        val transport = NearbyConnectionsTransport(repository)
-
         return SpiContainer(
-            transport = transport,
-            discoveryProvider = discoveryProvider,
-            advertiser = advertiser,
+            transport = NearbyConnectionsTransport(repository),
+            discoveryProvider = NearbyConnectionsDiscoveryProvider(repository),
+            advertiser = NearbyConnectionsAdvertiser(repository),
             advertisedAttributes = emptyMap(),
         )
     }
 
+    /** @param serviceId Both sides must use the same value, or they never see each other. */
     public data class Config(
         val serviceId: String,
     )

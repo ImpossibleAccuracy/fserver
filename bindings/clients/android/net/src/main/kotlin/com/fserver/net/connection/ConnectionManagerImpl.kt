@@ -164,7 +164,7 @@ internal class ConnectionManagerImpl<M : Any>(
                 pump = pump,
                 role = CryptoProvider.Role.Initiator,
                 capabilities = transport.capabilities,
-                confirmationCode = null,
+                confirmationCode = channel.confirmationCode,
                 timeout = policy.handshakeTimeout,
             )
         } catch (e: Throwable) {

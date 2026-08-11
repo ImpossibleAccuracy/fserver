@@ -11,6 +11,7 @@ import com.fserver.net.support.TestDictionary
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -89,6 +90,28 @@ class PeerDiscoveryTest {
         assertTrue(second.isEmpty())
         assertEquals(1, provider.scans.get())
         running.cancel()
+    }
+
+    @Test
+    fun `stopScan ends a continuous scan and returns what it found`() = runBlocking {
+        val provider = FakeProvider(
+            id = Id("mdns"),
+            accepts = { true },
+            events = flow {
+                emit(appeared("192.168.0.2", "bob-device"))
+                awaitCancellation()
+            },
+        )
+        val discovery = discovery(providers = listOf(provider))
+
+        val scan = scope.async { discovery.scan(ByAddress) }
+        withTimeout(TIMEOUT) { discovery.peers.first { it.isNotEmpty() } }
+
+        discovery.stopScan(Id("mdns"))
+
+        val found = withTimeout(TIMEOUT) { scan.await() }.getOrThrow()
+        assertEquals(listOf("bob-device"), found.map { it.deviceId })
+        assertTrue(discovery.activeScans.value.isEmpty())
     }
 
     @Test

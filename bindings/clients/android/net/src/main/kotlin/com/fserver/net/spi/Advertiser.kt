@@ -9,11 +9,21 @@ interface Advertiser {
 
     fun advertise(payload: Payload): Flow<Event>
 
-    /** What this device tells the network about itself. Built by `:net` from the local identity. */
+    /**
+     * What this device tells the network about itself. Built by `:net` from the local identity.
+     *
+     * @param identity *This* device's identity.
+     * @param essential Advertised whatever the budget: what a peer needs to tell one device from another.
+     * @param optional Advertised when the transport has room, dropped without notice when it does not.
+     */
     data class Payload(
         val identity: LocalIdentity,
-        val attributes: Map<String, String> = emptyMap(),
-    )
+        val essential: Map<String, String> = emptyMap(),
+        val optional: Map<String, String> = emptyMap(),
+    ) {
+        /** The whole advertisement, for transport with no practical limit. */
+        val attributes: Map<String, String> get() = essential + optional
+    }
 
     sealed interface Event {
         data object Started : Event

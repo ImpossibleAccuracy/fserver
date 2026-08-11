@@ -7,19 +7,30 @@ import com.google.android.gms.nearby.connection.Payload
 import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
+import com.google.android.gms.tasks.Task
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Radio topology both sides must agree on: an advertiser using one strategy is invisible to a
  * discoverer using another.
  */
-internal val NEARBY_STRATEGY = Strategy.P2P_CLUSTER
+internal val NEARBY_STRATEGY: Strategy = Strategy.P2P_CLUSTER
 
 /**
- * Receives payloads over an accepted connection.
+ * Awaits a Nearby call. Only says the call was accepted - what it set in motion is reported
+ * through the lifecycle callback.
  */
+internal suspend fun Task<*>.awaitCompletion(): Unit = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { continuation.resume(Unit) }
+    addOnFailureListener(continuation::resumeWithException)
+    addOnCanceledListener { continuation.cancel() }
+}
+
+/** Receives payloads over an accepted connection. */
 internal class DataReceiverCallback(
     private val payloadReceived: (String, Payload) -> Unit,
-    private val payloadTransferUpdate: (String, PayloadTransferUpdate) -> Unit,
 ) : PayloadCallback() {
     override fun onPayloadReceived(endpointId: String, payload: Payload) {
         if (payload.type == Payload.Type.BYTES) {
@@ -28,14 +39,12 @@ internal class DataReceiverCallback(
     }
 
     override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
-        // Track progress of incoming/outgoing file or byte transfers
-        payloadTransferUpdate(endpointId, update)
+        // Bytes payloads arrive whole through onPayloadReceived; nothing to track until this
+        // transport starts using stream or file payloads.
     }
 }
 
-/**
- * Listens for single connection lifecycle.
- */
+/** Lifecycle of connections this process dialed and of the ones it was offered. */
 internal class LifecycleCallback(
     private val connectionInitiated: (String, ConnectionInfo) -> Unit,
     private val connectionResult: (String, ConnectionResolution) -> Unit,
