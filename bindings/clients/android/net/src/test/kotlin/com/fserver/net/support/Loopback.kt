@@ -23,11 +23,23 @@ data class LoopbackEndpoint(val name: String) : TransportEndpoint {
 class LoopbackNetwork {
     private val inboxes = ConcurrentHashMap<String, Channel<Transport.InboundConnection>>()
     private val wires = java.util.concurrent.CopyOnWriteArrayList<Channel<ByteArray>>()
+    private val sent = java.util.concurrent.CopyOnWriteArrayList<ByteArray>()
+
+    @Volatile
+    private var delivering = true
+
+    /** Every frame handed to the wire, for tests that check what actually goes out. */
+    val wireFrames: List<ByteArray> get() = sent.toList()
 
     /** Kills every open link, as a radio going out of range would. */
     fun cutLinks() {
         wires.forEach { it.close() }
         wires.clear()
+    }
+
+    /** Keeps the links open but stops delivering - what a peer gone silent looks like. */
+    fun muteLinks() {
+        delivering = false
     }
 
     fun transport(self: String): Transport = LoopbackTransport(self)
@@ -75,15 +87,17 @@ class LoopbackNetwork {
         }
     }
 
-    private class LoopbackChannel(
+    private inner class LoopbackChannel(
         override val endpoint: TransportEndpoint,
         private val incoming: Channel<ByteArray>,
         private val outgoing: Channel<ByteArray>,
     ) : Transport.Channel {
         override val inbound: Flow<ByteArray> = incoming.receiveAsFlow()
 
-        override suspend fun send(frame: ByteArray): Result<Unit> =
-            runCatching { outgoing.send(frame) }
+        override suspend fun send(frame: ByteArray): Result<Unit> = runCatching {
+            sent += frame
+            if (delivering) outgoing.send(frame)
+        }
 
         override fun close() {
             incoming.close()

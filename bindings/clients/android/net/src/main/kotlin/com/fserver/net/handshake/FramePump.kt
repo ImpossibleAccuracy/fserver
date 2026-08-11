@@ -28,7 +28,9 @@ internal class FramePump(
             channel.inbound.collect(frames::send)
             frames.close()
         } catch (e: CancellationException) {
-            frames.close(e)
+            // Without a cause: a pump that was canceled is a link that ended, and the session's
+            // read loop must see a completed stream rather than its own cancellation.
+            frames.close()
             throw e
         } catch (e: Throwable) {
             frames.close(e)
