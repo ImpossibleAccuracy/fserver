@@ -1,6 +1,6 @@
 package com.fserver.net.session
 
-import com.fserver.net.NetworkConfig
+import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkException
 import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy

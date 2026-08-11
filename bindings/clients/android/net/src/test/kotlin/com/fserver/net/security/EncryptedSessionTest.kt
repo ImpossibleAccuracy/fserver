@@ -1,6 +1,6 @@
 package com.fserver.net.security
 
-import com.fserver.net.NetworkConfig
+import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef

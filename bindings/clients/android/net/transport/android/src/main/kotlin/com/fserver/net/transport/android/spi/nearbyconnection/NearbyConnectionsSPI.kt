@@ -1,8 +1,8 @@
 package com.fserver.net.transport.android.spi.nearbyconnection
 
 import android.content.Context
+import com.fserver.net.config.SpiContainer
 import com.fserver.net.security.IdentityStore
-import com.fserver.net.spi.SpiContainer
 import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.datasource.nearbyconnection.NearbyConnectionsRepository
 

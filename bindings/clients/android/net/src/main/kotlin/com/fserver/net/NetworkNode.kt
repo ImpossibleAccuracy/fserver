@@ -1,5 +1,6 @@
 package com.fserver.net
 
+import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionManager
 import com.fserver.net.connection.ConnectionManagerImpl
 import com.fserver.net.discovery.PeerDiscovery

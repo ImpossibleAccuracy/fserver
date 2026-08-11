@@ -1,5 +1,6 @@
 package com.fserver.net
 
+import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.PeerRef

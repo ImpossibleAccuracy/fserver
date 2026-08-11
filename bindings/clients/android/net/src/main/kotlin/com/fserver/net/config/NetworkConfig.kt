@@ -1,5 +1,6 @@
-package com.fserver.net
+package com.fserver.net.config
 
+import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.CryptoProvider
@@ -12,7 +13,7 @@ import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * Everything a [NetworkNode] needs. Read once, at construction.
+ * Everything a [com.fserver.net.NetworkNode] needs. Read once, at construction.
  *
  * @property dictionary the whole reason this module is generic: one user, one dictionary.
  * @property authenticator optional. Leaving it null trusts every peer that completes a
@@ -21,7 +22,7 @@ import kotlinx.coroutines.CoroutineScope
  * @property advertisedAttributes extra key/values to put in the advertisement, merged over the
  * ones `:net` fills in.
  * @property scope work that must outlive a caller; null means the node owns one and cancels it
- * on [NetworkNode.close].
+ * on [com.fserver.net.NetworkNode.close].
  *
  * Note what is *not* here: anything about OS permissions. Whether a radio is on or a permission
  * granted is the host's business, checked before it calls in.

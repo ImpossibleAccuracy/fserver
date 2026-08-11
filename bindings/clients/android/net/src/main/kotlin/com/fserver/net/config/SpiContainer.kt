@@ -1,4 +1,8 @@
-package com.fserver.net.spi
+package com.fserver.net.config
+
+import com.fserver.net.spi.Advertiser
+import com.fserver.net.spi.DiscoveryProvider
+import com.fserver.net.spi.Transport
 
 data class SpiContainer(
     val transport: Transport,
