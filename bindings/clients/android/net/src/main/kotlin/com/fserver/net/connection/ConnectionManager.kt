@@ -75,6 +75,12 @@ interface ConnectionManager<M : Any> {
     /** Handshakes, reads what came back, and hangs up. */
     suspend fun probe(peer: PeerRef, policy: ConnectionPolicy? = null): Result<Profile>
 
+    /** Tries the peer's routes in policy order and returns the first handshake that comes up. */
+    suspend fun probe(
+        peer: DiscoveredPeer,
+        policy: ConnectionPolicy? = null
+    ): Result<Profile>
+
     /** What a handshake reveals without exchanging a single dictionary message. */
     data class Profile(
         val identity: PeerIdentity,

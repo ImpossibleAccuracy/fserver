@@ -21,8 +21,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.shareIn
@@ -64,7 +64,8 @@ internal class ConnectionManagerImpl<M : Any>(
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     // Outlives the session it came from: pairing looks at a device it has deliberately hung up on.
-    private val profileRegistry = MutableStateFlow<Map<String, ConnectionManager.Profile>>(emptyMap())
+    private val profileRegistry =
+        MutableStateFlow<Map<String, ConnectionManager.Profile>>(emptyMap())
 
     override val profiles: StateFlow<Map<String, ConnectionManager.Profile>> =
         profileRegistry.asStateFlow()
@@ -129,6 +130,8 @@ internal class ConnectionManagerImpl<M : Any>(
 
     override suspend fun disconnect(deviceId: String, reason: CloseReason) {
         registry.value[deviceId]?.close(reason)
+        // Clear cached handshake after disconnect
+        profileRegistry.update { it - deviceId }
     }
 
     override suspend fun probe(
@@ -143,6 +146,30 @@ internal class ConnectionManagerImpl<M : Any>(
                 link.secure.close()
             }
         }
+
+    override suspend fun probe(
+        peer: DiscoveredPeer,
+        policy: ConnectionPolicy?
+    ): Result<ConnectionManager.Profile> = netRunCatching {
+        val deviceId = peer.descriptor.deviceId
+
+        val policy = policy ?: defaultPolicy
+        val routes = selector.order(peer.routes, policy)
+        if (routes.isEmpty()) throw NetworkException.NoRoute("device $deviceId has no known route")
+
+        var lastFailure: Throwable? = null
+        for (route in routes) {
+            val attempt = probe(route, policy)
+            attempt.getOrNull()?.let { return@netRunCatching it }
+            lastFailure = attempt.exceptionOrNull()
+            logger.warn(
+                "route ${route.transport.value} failed for $deviceId",
+                lastFailure
+            )
+        }
+
+        throw lastFailure ?: NetworkException.NoRoute("device $deviceId unreachable")
+    }
 
     /**
      * Files the handshake result under the id the peer just claimed. [PeerRef.build] dials with a
@@ -161,6 +188,7 @@ internal class ConnectionManagerImpl<M : Any>(
 
     suspend fun shutdown() {
         registry.value.values.forEach { it.close(CloseReason.Local("node closed")) }
+        profileRegistry.update { emptyMap() }
         transports.forEach { runCatching { it.shutdown() } }
     }
 
@@ -203,7 +231,7 @@ internal class ConnectionManagerImpl<M : Any>(
         relink: (suspend () -> SessionLink)?,
     ): PeerSession<M> = registryLock.withLock {
         val deviceId = link.negotiated.peer.deviceId
-        // Only what this side dialled: an inbound socket's remote address is not a route back.
+        // Only what this side dialed: an inbound socket's remote address is not a route back.
         if (relink != null) rememberProfile(route, link)
 
         registry.value[deviceId]?.let { existing ->
@@ -215,7 +243,7 @@ internal class ConnectionManagerImpl<M : Any>(
                 return@withLock existing
             }
             // A session that already died has not necessarily been unregistered yet.
-            registry.update { it - deviceId }
+            clearDeviceFromRegistry(deviceId)
         }
 
         if (registry.value.size >= policy.maxSessions) {
@@ -231,12 +259,17 @@ internal class ConnectionManagerImpl<M : Any>(
             logger = logger,
             parentScope = scope,
             relink = relink,
-            onTerminated = { finished -> registry.update { it - finished.negotiated.peer.deviceId } },
+            onTerminated = { finished -> clearDeviceFromRegistry(finished.negotiated.peer.deviceId) },
         )
 
         registry.update { it + (deviceId to session) }
         session.start(link)
         session
+    }
+
+    private fun clearDeviceFromRegistry(deviceId: String) {
+        registry.update { it - deviceId }
+        profileRegistry.update { it - deviceId }
     }
 
     private inner class IncomingRequest(
