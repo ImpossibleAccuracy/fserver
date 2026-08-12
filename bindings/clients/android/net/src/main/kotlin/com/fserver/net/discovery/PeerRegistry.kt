@@ -1,6 +1,7 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.Fingerprint
 import com.fserver.net.spi.DiscoveredEndpoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,17 +32,19 @@ internal class PeerRegistry {
         )
 
         val peer = DiscoveredPeer(
-            deviceId = deviceId,
-            displayName = attributes[PeerAttributes.DISPLAY_NAME] ?: endpoint.advertisedName,
-            kind = attributes[PeerAttributes.KIND]?.let(::parseKind),
-            routes = listOf(route),
-            advertised = DiscoveredPeer.Advertised(
-                protocolVersions = versionRange(attributes),
-                fingerprint = attributes[PeerAttributes.FINGERPRINT]?.let(::Fingerprint),
+            descriptor = PeerDescriptor(
+                deviceId = deviceId,
+                displayName = attributes[PeerAttributes.DISPLAY_NAME] ?: endpoint.advertisedName,
+                kind = attributes[PeerAttributes.KIND]?.let(::parseKind),
                 accessMode = attributes[PeerAttributes.ACCESS]?.let(::parseAccess),
-                dictionaryId = attributes[PeerAttributes.DICTIONARY_ID],
-                dictionaryVersion = attributes[PeerAttributes.DICTIONARY_VERSION]?.toIntOrNull(),
+                advertised = PeerDescriptor.Advertised(
+                    protocolVersions = versionRange(attributes),
+                    fingerprint = attributes[PeerAttributes.FINGERPRINT]?.let(::Fingerprint),
+                    dictionaryId = attributes[PeerAttributes.DICTIONARY_ID],
+                    dictionaryVersion = attributes[PeerAttributes.DICTIONARY_VERSION]?.toIntOrNull(),
+                ),
             ),
+            routes = listOf(route),
             lastSeen = Instant.now(),
         )
 
@@ -91,9 +94,9 @@ internal class PeerRegistry {
         return min..max
     }
 
-    private fun parseKind(raw: String): DiscoveredPeer.Kind? =
-        DiscoveredPeer.Kind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+    private fun parseKind(raw: String): PeerDescriptor.Kind? =
+        PeerDescriptor.Kind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 
-    private fun parseAccess(raw: String): DiscoveredPeer.AccessMode? =
-        DiscoveredPeer.AccessMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+    private fun parseAccess(raw: String): PeerDescriptor.AccessMode? =
+        PeerDescriptor.AccessMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 }

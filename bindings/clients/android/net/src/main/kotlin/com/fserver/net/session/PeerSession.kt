@@ -1,9 +1,9 @@
 package com.fserver.net.session
 
+import com.fserver.net.connection.PeerRef
+import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.PeerIdentity
-import com.fserver.net.spi.SpiId
-import com.fserver.net.spi.Transport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration
@@ -20,10 +20,9 @@ import kotlin.time.Duration
  * messages whose fate is unknown - see [State].
  */
 interface PeerSession<M : Any> {
-    val peer: PeerIdentity
+    val route: PeerRef
 
-    /** Which transport currently carries this session; may change across a reconnect. */
-    val transport: SpiId
+    val descriptor: PeerDescriptor
 
     val state: StateFlow<State>
 

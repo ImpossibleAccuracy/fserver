@@ -72,9 +72,9 @@ class PeerDiscoveryTest {
 
         val found = discovery.scan(ByAddress).getOrThrow()
 
-        assertEquals(listOf("bob-device"), found.map { it.deviceId })
+        assertEquals(listOf("bob-device"), found.map { it.descriptor.deviceId })
         val published = withTimeout(TIMEOUT) { discovery.peers.first { it.isNotEmpty() } }
-        assertEquals(listOf("bob-device"), published.map { it.deviceId })
+        assertEquals(listOf("bob-device"), published.map { it.descriptor.deviceId })
     }
 
     @Test
@@ -110,7 +110,7 @@ class PeerDiscoveryTest {
         discovery.stopScan(Id("mdns"))
 
         val found = withTimeout(TIMEOUT) { scan.await() }.getOrThrow()
-        assertEquals(listOf("bob-device"), found.map { it.deviceId })
+        assertEquals(listOf("bob-device"), found.map { it.descriptor.deviceId })
         assertTrue(discovery.activeScans.value.isEmpty())
     }
 

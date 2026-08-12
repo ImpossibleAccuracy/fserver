@@ -3,13 +3,13 @@ package com.fserver.net.session
 import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
 import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.dictionary.MessageCodec
-import com.fserver.net.security.PeerIdentity
+import com.fserver.net.peer.PeerDescriptor
+import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.session.PeerSession.Inbound
 import com.fserver.net.session.PeerSession.State
-import com.fserver.net.spi.SpiId
-import com.fserver.net.spi.Transport
 import com.fserver.net.wire.Envelope
 import com.fserver.net.wire.FrameKind
 import com.fserver.net.wire.ProtocolVersions
@@ -50,8 +50,8 @@ import kotlin.time.Duration.Companion.seconds
  * decoding a `MESSAGE`/`REQUEST`/`RESPONSE` payload. Routing never touches it.
  */
 internal class PeerSessionImpl<M : Any>(
-    override val peer: PeerIdentity,
-    override val transport: SpiId,
+    override val route: PeerRef,
+    val negotiated: NegotiatedParameters,
     private val codec: MessageCodec<M>,
     private val policy: ConnectionPolicy,
     private val logger: NetLogger,
@@ -64,10 +64,11 @@ internal class PeerSessionImpl<M : Any>(
     private val scope = CoroutineScope(
         parentScope.coroutineContext +
                 SupervisorJob(parentScope.coroutineContext[Job]) +
-                CoroutineName("net-session-${peer.deviceId}")
+                CoroutineName("net-session-${negotiated.peer.deviceId}")
     )
 
     private val _state = MutableStateFlow<State>(State.Connecting)
+    override val descriptor: PeerDescriptor = negotiated.peerDescriptor
     override val state: StateFlow<State> = _state.asStateFlow()
 
     private val incomingMessages = Channel<Inbound<M>>(capacity = policy.incomingQueueCapacity)
@@ -260,7 +261,8 @@ internal class PeerSessionImpl<M : Any>(
                 Result.failure(NetworkException.Protocol(envelope.payload.decodeToString()))
             )
 
-            FrameKind.HELLO, FrameKind.HELLO_ACK, FrameKind.READY ->
+            FrameKind.HELLO, FrameKind.HELLO_ACK, FrameKind.READY,
+            FrameKind.DESCRIPTOR_REQUEST, FrameKind.DESCRIPTOR_RESPONSE ->
                 logger.warn("handshake frame ${envelope.kind} on an established session - ignored")
         }
     }
@@ -299,7 +301,7 @@ internal class PeerSessionImpl<M : Any>(
             null
         }
 
-        incomingMessages.send(Inbound(message, peer, reply))
+        incomingMessages.send(Inbound(message, negotiated.peer, reply))
     }
 
     private fun completeRequest(envelope: Envelope) {
@@ -357,7 +359,7 @@ internal class PeerSessionImpl<M : Any>(
             val current = link.value ?: continue
 
             if (System.nanoTime() - lastInboundAt.get() > idleLimit) {
-                logger.warn("peer ${peer.deviceId} silent for $IDLE_PERIODS keep-alive periods - dropping the link")
+                logger.warn("peer ${negotiated.peer.deviceId} silent for $IDLE_PERIODS keep-alive periods - dropping the link")
                 // Closing the channel ends its inbound flow, which is what readLoop watches.
                 runCatching { current.secure.close() }
                 continue

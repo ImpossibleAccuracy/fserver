@@ -88,8 +88,8 @@ class SessionTest {
         val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
         val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
 
-        assertEquals(bob.identity.deviceId, session.peer.deviceId)
-        assertEquals(alice.identity.deviceId, bobSide.peer.deviceId)
+        assertEquals(bob.identity.deviceId, session.negotiatedDeviceId)
+        assertEquals(alice.identity.deviceId, bobSide.negotiatedDeviceId)
         assertEquals(1, alice.connections.sessions.value.size)
         assertEquals(1, bob.connections.sessions.value.size)
     }
@@ -207,6 +207,10 @@ class SessionTest {
 
     private suspend fun firstSession(node: NetworkNode<TestMessage>): PeerSession<TestMessage> =
         node.connections.sessions.first { it.isNotEmpty() }.first()
+
+    /** The id the handshake proved - not necessarily [PeerSession.route]'s, which is what was dialed. */
+    private val PeerSession<*>.negotiatedDeviceId: String
+        get() = (state.value as State.Ready).negotiated.peer.deviceId
 
     private companion object {
         val TIMEOUT = 10.seconds

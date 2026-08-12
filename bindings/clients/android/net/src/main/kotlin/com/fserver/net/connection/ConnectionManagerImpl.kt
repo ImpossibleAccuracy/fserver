@@ -35,11 +35,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 internal class ConnectionManagerImpl<M : Any>(
     private val transports: List<Transport>,
     private val dictionary: MessageDictionary<M>,
-    identityStore: IdentityStore,
+    private val identityStore: IdentityStore,
     crypto: CryptoProvider,
     authenticator: PeerAuthenticator?,
     private val defaultPolicy: ConnectionPolicy,
-    protocolVersions: IntRange,
+    private val protocolVersions: IntRange,
     private val logger: NetLogger,
     private val scope: CoroutineScope,
 ) : ConnectionManager<M> {
@@ -101,11 +101,12 @@ internal class ConnectionManagerImpl<M : Any>(
         policy: ConnectionPolicy?
     ): Result<PeerSession<M>> =
         netRunCatching {
-            session(peer.deviceId)?.let { return@netRunCatching it }
+            val deviceId = peer.descriptor.deviceId
+            session(deviceId)?.let { return@netRunCatching it }
 
             val policy = policy ?: defaultPolicy
             val routes = selector.order(peer.routes, policy)
-            if (routes.isEmpty()) throw NetworkException.NoRoute("device ${peer.deviceId} has no known route")
+            if (routes.isEmpty()) throw NetworkException.NoRoute("device $deviceId has no known route")
 
             var lastFailure: Throwable? = null
             for (route in routes) {
@@ -113,12 +114,12 @@ internal class ConnectionManagerImpl<M : Any>(
                 attempt.getOrNull()?.let { return@netRunCatching it }
                 lastFailure = attempt.exceptionOrNull()
                 logger.warn(
-                    "route ${route.transport.value} failed for ${peer.deviceId}",
+                    "route ${route.transport.value} failed for $deviceId",
                     lastFailure
                 )
             }
 
-            throw lastFailure ?: NetworkException.NoRoute("device ${peer.deviceId} unreachable")
+            throw lastFailure ?: NetworkException.NoRoute("device $deviceId unreachable")
         }
 
     override fun session(deviceId: String): PeerSession<M>? = registry.value[deviceId]
@@ -223,14 +224,14 @@ internal class ConnectionManagerImpl<M : Any>(
         }
 
         val session = PeerSessionImpl(
-            peer = link.negotiated.peer,
-            transport = route.transport,
+            route = route,
+            negotiated = link.negotiated,
             codec = dictionary.codec,
             policy = policy,
             logger = logger,
             parentScope = scope,
             relink = relink,
-            onTerminated = { finished -> registry.update { it - finished.peer.deviceId } },
+            onTerminated = { finished -> registry.update { it - finished.negotiated.peer.deviceId } },
         )
 
         registry.update { it + (deviceId to session) }
@@ -275,7 +276,7 @@ internal class ConnectionManagerImpl<M : Any>(
                 policy = defaultPolicy,
                 relink = null, // No relink: this side never dialed, so it has nothing to dial back.
             )
-            logger.debug("accepted a session with ${session.peer.deviceId}")
+            logger.debug("accepted a session with ${session.route.deviceId}")
         }
 
         override suspend fun reject(reason: CloseReason) {

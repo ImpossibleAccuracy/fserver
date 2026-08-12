@@ -69,7 +69,7 @@ internal class PeerDiscoveryImpl(
                                 }
 
                                 val peer = registry.record(event.peer)
-                                found[peer.deviceId] = peer
+                                found[peer.descriptor.deviceId] = peer
                             }
 
                             is DiscoveryProvider.Event.Disappeared ->

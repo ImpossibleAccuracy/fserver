@@ -1,5 +1,6 @@
 package com.fserver.net.security
 
+import com.fserver.net.peer.PeerDescriptor
 import java.security.MessageDigest
 
 /**
@@ -18,21 +19,31 @@ value class Fingerprint(val value: String) {
     }
 }
 
-/** This device, as other devices see it. */
+/**
+ * This device, as other devices see it.
+ */
 data class LocalIdentity(
     val deviceId: String,
     val displayName: String,
     val publicKey: ByteArray,
+    val kind: PeerDescriptor.Kind? = null,
+    val accessMode: PeerDescriptor.AccessMode? = null,
 ) {
     val fingerprint: Fingerprint = Fingerprint.of(publicKey)
 
     override fun equals(other: Any?): Boolean = other is LocalIdentity &&
             deviceId == other.deviceId &&
             displayName == other.displayName &&
-            publicKey.contentEquals(other.publicKey)
+            publicKey.contentEquals(other.publicKey) &&
+            kind == other.kind &&
+            accessMode == other.accessMode
 
-    override fun hashCode(): Int =
-        (deviceId.hashCode() * 31 + displayName.hashCode()) * 31 + publicKey.contentHashCode()
+    override fun hashCode(): Int {
+        var result = (deviceId.hashCode() * 31 + displayName.hashCode()) * 31 + publicKey.contentHashCode()
+        result = result * 31 + kind.hashCode()
+        result = result * 31 + accessMode.hashCode()
+        return result
+    }
 }
 
 /** The device on the other end, as it described itself during the handshake. */

@@ -35,7 +35,7 @@ class PeerRegistryTest {
     fun `a peer that advertises no device id is keyed by its address`() {
         val peer = registry.record(endpoint("192.168.0.2", attributes = emptyMap()))
 
-        assertEquals("192.168.0.2", peer.deviceId)
+        assertEquals("192.168.0.2", peer.descriptor.deviceId)
         assertTrue(registry.peers.value.containsKey("192.168.0.2"))
     }
 
@@ -85,10 +85,10 @@ class PeerRegistryTest {
             )
         )
 
-        assertNull(peer.kind)
-        assertNull(peer.advertised.accessMode)
-        assertNull(peer.advertised.protocolVersions)
-        assertNull(peer.advertised.dictionaryVersion)
+        assertNull(peer.descriptor.kind)
+        assertNull(peer.descriptor.accessMode)
+        assertNull(peer.descriptor.advertised.protocolVersions)
+        assertNull(peer.descriptor.advertised.dictionaryVersion)
     }
 
     private fun endpoint(

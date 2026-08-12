@@ -4,6 +4,7 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkException
 import com.fserver.net.NetworkNode
 import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
@@ -57,8 +58,8 @@ class ConnectionManagerTest {
             alice.connections.connect(discovered("bob", listOf(DEAD, LOOPBACK))).getOrThrow()
         }
 
-        assertEquals(LOOPBACK, session.transport)
-        assertEquals(bob.identity.deviceId, session.peer.deviceId)
+        assertEquals(LOOPBACK, session.route.transport)
+        assertEquals(bob.identity.deviceId, session.negotiatedDeviceId)
     }
 
     @Test
@@ -152,7 +153,7 @@ class ConnectionManagerTest {
         val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
         val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
 
-        alice.connections.disconnect(session.peer.deviceId, CloseReason.Local("done"))
+        alice.connections.disconnect(session.negotiatedDeviceId, CloseReason.Local("done"))
 
         assertTrue(alice.connections.sessions.value.isEmpty())
         val end = withTimeout(TIMEOUT) { bobSide.state.first { it.isFinal } }
@@ -178,14 +179,17 @@ class ConnectionManagerTest {
 
     /** A peer as discovery would report it, with one route per transport listed. */
     private fun discovered(name: String, transports: List<SpiId> = emptyList()) = DiscoveredPeer(
-        deviceId = "peer-$name",
-        displayName = name,
-        kind = null,
+        descriptor = PeerDescriptor(
+            deviceId = "peer-$name",
+            displayName = name,
+            kind = null,
+            accessMode = null,
+            advertised = PeerDescriptor.Advertised(),
+        ),
         routes = transports.map { id ->
             val endpoint = if (id == DEAD) DeadEndpoint(name) else LoopbackEndpoint(name)
             PeerRef("peer-$name", id, endpoint)
         },
-        advertised = DiscoveredPeer.Advertised(),
         lastSeen = Instant.now(),
     )
 
@@ -210,6 +214,10 @@ class ConnectionManagerTest {
 
     private val PeerSession.State.isFinal: Boolean
         get() = this is PeerSession.State.Closed || this is PeerSession.State.Failed
+
+    /** The id the handshake proved - not necessarily [PeerSession.route]'s, which is what was dialed. */
+    private val PeerSession<*>.negotiatedDeviceId: String
+        get() = (state.value as PeerSession.State.Ready).negotiated.peer.deviceId
 
     private companion object {
         val TIMEOUT = 10.seconds

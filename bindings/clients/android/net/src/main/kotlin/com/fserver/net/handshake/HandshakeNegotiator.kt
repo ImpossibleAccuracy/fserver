@@ -3,6 +3,8 @@ package com.fserver.net.handshake
 import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
 import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.peer.PeerDescriptor
+import com.fserver.net.peer.PeerDescriptorCodec
 import com.fserver.net.security.CryptoProvider
 import com.fserver.net.security.IdentityStore
 import com.fserver.net.security.NegotiatedParameters
@@ -83,6 +85,20 @@ internal class HandshakeNegotiator<M : Any>(
             confirmationCode = confirmationCode,
         )
 
+        write(
+            pump = pump,
+            kind = FrameKind.DESCRIPTOR_REQUEST,
+            payload = PeerDescriptorCodec.encode(localDescriptor())
+        )
+        val descriptorResponse = expect(
+            pump = pump,
+            kind = FrameKind.DESCRIPTOR_RESPONSE,
+            timeout = timeout
+        )
+        val peerDescriptor = PeerDescriptorCodec.decode(
+            descriptorResponse.payload
+        )
+
         write(pump = pump, kind = FrameKind.READY)
 
         return link(
@@ -94,6 +110,7 @@ internal class HandshakeNegotiator<M : Any>(
             protocolVersion = version,
             dictionaryVersion = dictionaryVersion,
             peer = peer,
+            peerDescriptor = peerDescriptor,
         )
     }
 
@@ -129,6 +146,20 @@ internal class HandshakeNegotiator<M : Any>(
             hello(keyExchange.publicKey, capabilities, version..version).encode()
         )
 
+        val incomingDescriptor = expect(
+            pump = pump,
+            kind = FrameKind.DESCRIPTOR_REQUEST,
+            timeout = timeout
+        )
+        val peerDescriptor = PeerDescriptorCodec.decode(
+            incomingDescriptor.payload
+        )
+        write(
+            pump = pump,
+            kind = FrameKind.DESCRIPTOR_RESPONSE,
+            payload = PeerDescriptorCodec.encode(localDescriptor())
+        )
+
         expect(pump, FrameKind.READY, timeout)
 
         return link(
@@ -140,6 +171,7 @@ internal class HandshakeNegotiator<M : Any>(
             protocolVersion = version,
             dictionaryVersion = dictionaryVersion,
             peer = peer,
+            peerDescriptor = peerDescriptor,
         )
     }
 
@@ -179,6 +211,7 @@ internal class HandshakeNegotiator<M : Any>(
         protocolVersion: Int,
         dictionaryVersion: Int,
         peer: PeerIdentity,
+        peerDescriptor: PeerDescriptor,
     ): SessionLink {
         val secret = keyExchange.sharedSecret(remote.keyExchangeKey)
         val secure = SecureChannel(
@@ -196,6 +229,24 @@ internal class HandshakeNegotiator<M : Any>(
                 cipherSuite = crypto.suite,
                 maxFrameSize = minOf(capabilities.maxFrameSize, remote.maxFrameSize),
                 peer = peer,
+                peerDescriptor = peerDescriptor,
+            ),
+        )
+    }
+
+    /** What this side sends over `DESCRIPTOR_REQUEST`/`DESCRIPTOR_RESPONSE`. */
+    private fun localDescriptor(): PeerDescriptor {
+        val local = identityStore.local
+        return PeerDescriptor(
+            deviceId = local.deviceId,
+            displayName = local.displayName,
+            kind = local.kind,
+            accessMode = local.accessMode,
+            advertised = PeerDescriptor.Advertised(
+                protocolVersions = protocolVersions,
+                fingerprint = local.fingerprint,
+                dictionaryId = dictionary.descriptor.id,
+                dictionaryVersion = dictionary.descriptor.version,
             ),
         )
     }

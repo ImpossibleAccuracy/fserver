@@ -9,7 +9,12 @@ import com.fserver.net.NetworkException
 internal enum class FrameKind(val code: Int) {
     HELLO(1),
     HELLO_ACK(2),
-    READY(3),
+
+    /** Mutual disclosure of the [com.fserver.net.peer.PeerDescriptor] fields HELLO does not carry. */
+    DESCRIPTOR_REQUEST(3),
+    DESCRIPTOR_RESPONSE(4),
+
+    READY(5),
 
     MESSAGE(10),
     REQUEST(11),
