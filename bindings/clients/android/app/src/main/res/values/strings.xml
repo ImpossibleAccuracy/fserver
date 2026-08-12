@@ -127,6 +127,15 @@
     <string name="requirement_no_connectivity_title">No network</string>
     <string name="requirement_no_connectivity_description">Join a Wi-Fi network to search it.</string>
 
+    <!-- Incoming connection — the other half of pairing, on the device being connected to -->
+    <string name="incoming_connection_title">Incoming connection</string>
+    <string name="incoming_connection_from">%1$s wants to connect over %2$s.</string>
+    <string name="incoming_connection_fingerprint_label">Device key fingerprint</string>
+    <string name="incoming_connection_fingerprint_hint">Compare these characters with the ones on the other device. If they match, the connection really comes from it.</string>
+    <string name="incoming_connection_code_label">Confirmation code</string>
+    <string name="incoming_connection_code_hint">Both screens must show the same digits.</string>
+    <string name="incoming_connection_unverified">Nothing here identifies this device. Accept it only if you started the connection yourself.</string>
+
     <!-- Pairing — where every route to a device ends: the list, the scanner, a typed address -->
     <string name="pairing_title">Confirm the device</string>
     <string name="pairing_kicker_server">Server</string>

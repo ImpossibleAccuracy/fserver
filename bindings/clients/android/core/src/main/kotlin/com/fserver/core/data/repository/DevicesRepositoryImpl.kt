@@ -59,6 +59,7 @@ internal class DevicesRepositoryImpl(
                         negotiated = it.negotiated,
                     )
                 },
+                hasSession = true,
             )
         }
 
@@ -75,6 +76,7 @@ internal class DevicesRepositoryImpl(
                     identity = profile.identity,
                     negotiated = profile.negotiated,
                 ),
+                hasSession = false,
             )
         }
 
@@ -85,6 +87,7 @@ internal class DevicesRepositoryImpl(
                 foundBy = peer.routes.first().endpoint.transport.asDetectionMethod(),
                 lastSeen = peer.lastSeen,
                 handshake = null,
+                hasSession = false,
             )
         }
 
@@ -150,7 +153,7 @@ internal class DevicesRepositoryImpl(
         connectionManager.profiles.value[deviceId]?.let {
             if (connectionManager.session(deviceId) != null) {
                 // Session alive + handshake already done, return the cached handshake result
-                return Result.success(it.asForeignDevice())
+                return Result.success(it.asForeignDevice(hasSession = true))
             }
         }
 
@@ -199,13 +202,15 @@ private fun SpiId?.asDetectionMethod(): DetectionMethod? = when (this) {
     else -> null
 }
 
-private fun ConnectionManager.Profile.asForeignDevice(): ForeignDevice = ForeignDevice(
-    descriptor = negotiated.peerDescriptor,
-    routes = listOf(route),
-    foundBy = null,
-    lastSeen = Instant.now(),
-    handshake = Handshake(
-        identity = identity,
-        negotiated = negotiated,
+private fun ConnectionManager.Profile.asForeignDevice(hasSession: Boolean = false): ForeignDevice =
+    ForeignDevice(
+        descriptor = negotiated.peerDescriptor,
+        routes = listOf(route),
+        foundBy = null,
+        lastSeen = Instant.now(),
+        handshake = Handshake(
+            identity = identity,
+            negotiated = negotiated,
+        ),
+        hasSession = hasSession,
     )
-)

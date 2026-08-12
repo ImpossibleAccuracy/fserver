@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -63,8 +64,16 @@ class DeviceDiscoveryViewModel(
 
     private val participation = combine(selected, startedMethods, ::Pair)
 
+    private val devices = devicesRepository.onlineDevices
+        .map { list ->
+            list.filterNot {
+                // Hide connected devices
+                it.hasSession
+            }
+        }
+
     private val methodsUi = combine(
-        devicesRepository.onlineDevices,
+        devices,
         devicesRepository.runningScanningMethods,
         participation,
         reports,

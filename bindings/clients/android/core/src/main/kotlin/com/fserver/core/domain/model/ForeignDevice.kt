@@ -13,9 +13,8 @@ data class ForeignDevice internal constructor(
     val foundBy: DetectionMethod?,
     val lastSeen: Instant,
     val handshake: Handshake?,
+    val hasSession: Boolean,
 ) {
-    val hasSession: Boolean get() = handshake != null
-
     data class Handshake(
         val identity: PeerIdentity,
         val negotiated: NegotiatedParameters,

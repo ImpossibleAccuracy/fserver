@@ -18,6 +18,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.fserver.app.presentation.composable.AppStyling
+import com.fserver.app.presentation.composable.IncomingConnectionSheet
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.navigation.rememberAppNavigator
@@ -48,6 +49,7 @@ fun FServerApp(
     viewModel: AppViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val incoming by viewModel.incomingConnection.collectAsState()
 
     val navigator = rememberAppNavigator(state.startDestination)
 
@@ -55,6 +57,15 @@ fun FServerApp(
         navigator = navigator,
     ) {
         NavHostGraph(navigator = navigator)
+
+        // Above the graph rather than inside it: a peer knocks whatever screen is open.
+        incoming?.let { request ->
+            IncomingConnectionSheet(
+                request = request,
+                onAccept = viewModel::acceptIncoming,
+                onDecline = viewModel::declineIncoming,
+            )
+        }
     }
 }
 
