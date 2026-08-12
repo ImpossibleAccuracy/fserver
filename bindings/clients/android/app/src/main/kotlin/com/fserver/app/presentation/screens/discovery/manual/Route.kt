@@ -16,9 +16,14 @@ fun EntryProviderScope<Destination>.manualAddressEntry(
         ManualAddressScreen(
             // The sheet is dismissed before the push, not left underneath it: coming back
             // from confirmation should land on the discovery list, not on a half-filled form.
-            navigateToPairing = { deviceId ->
+            navigateToPairing = { target ->
                 navigator.navigateUp()
-                navigator.navigate(Destination.Pairing(deviceId))
+                navigator.navigate(
+                    Destination.Pairing(
+                        deviceId = target.deviceId,
+                        reconnectionArguments = target.reconnectionArguments
+                    )
+                )
             },
         )
     }

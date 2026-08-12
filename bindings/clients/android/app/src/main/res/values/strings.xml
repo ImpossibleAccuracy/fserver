@@ -140,6 +140,7 @@
     <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
     <string name="pairing_remember_device">Remember the device and do not ask again</string>
     <string name="pairing_confirm">Fingerprints match — connect</string>
+    <string name="pairing_error_unreachable">Could not reach the device again.</string>
 
     <!-- QR scanner -->
     <string name="qr_title">Scan the code</string>

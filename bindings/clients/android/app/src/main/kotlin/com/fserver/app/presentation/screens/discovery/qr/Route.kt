@@ -9,7 +9,14 @@ fun EntryProviderScope<Destination>.qrScanEntry(
 ) {
     entry<Destination.QrScan> {
         QrScanScreen(
-            navigateToPairing = { deviceId -> navigator.navigate(Destination.Pairing(deviceId)) },
+            navigateToPairing = { target ->
+                navigator.navigate(
+                    Destination.Pairing(
+                        deviceId = target.deviceId,
+                        reconnectionArguments = target.reconnectionArguments
+                    )
+                )
+            },
             navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },
             navigateUp = { navigator.navigateUp() },
         )

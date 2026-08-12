@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.discovery.qr
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
 import com.fserver.core.domain.model.exception.MalformedQrException
@@ -26,7 +27,7 @@ class QrScanViewModel(
     fun onIntent(intent: QrScanIntent) {
         when (intent) {
             is QrScanIntent.CodeScanned -> connect(intent.payload)
-            QrScanIntent.ResultConsumed -> _state.update { it.copy(foundDeviceId = null) }
+            QrScanIntent.ResultConsumed -> _state.update { it.copy(found = null) }
         }
     }
 
@@ -57,7 +58,11 @@ class QrScanViewModel(
                         _state.update {
                             it.copy(
                                 isConnecting = false,
-                                foundDeviceId = profile.identity.deviceId,
+                                found = PairingTarget(
+                                    deviceId = profile.identity.deviceId,
+                                    reconnectionArguments = PairingTarget.ConnectionArguments
+                                        .fromEndpoint(profile.route.endpoint),
+                                ),
                                 error = null,
                             )
                         }

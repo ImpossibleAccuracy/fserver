@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.discovery.manual
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
 import com.fserver.core.domain.Constants
@@ -37,7 +38,7 @@ class ManualAddressViewModel(
 
             ManualAddressIntent.ConnectClicked -> connect()
 
-            ManualAddressIntent.ResultConsumed -> _state.update { it.copy(foundDeviceId = null) }
+            ManualAddressIntent.ResultConsumed -> _state.update { it.copy(found = null) }
         }
     }
 
@@ -67,7 +68,11 @@ class ManualAddressViewModel(
                         _state.update {
                             it.copy(
                                 isChecking = false,
-                                foundDeviceId = profile.identity.deviceId,
+                                found = PairingTarget(
+                                    deviceId = profile.identity.deviceId,
+                                    reconnectionArguments = PairingTarget.ConnectionArguments
+                                        .fromEndpoint(profile.route.endpoint),
+                                ),
                                 error = null,
                             )
                         }

@@ -9,6 +9,8 @@ data class PairingState(
     val device: DeviceUi? = null,
     val password: String = "",
     val rememberDevice: Boolean = true,
+    /** Why the device could not be reached again, when the screen had to re-probe it. */
+    val error: String? = null,
 ) {
     @Immutable
     data class DeviceUi(

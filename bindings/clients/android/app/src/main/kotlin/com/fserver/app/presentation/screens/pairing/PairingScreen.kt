@@ -17,6 +17,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,9 +39,11 @@ import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.icon
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
+import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.net.discovery.DiscoveredPeer
 import org.koin.androidx.compose.koinViewModel
@@ -48,26 +51,32 @@ import org.koin.core.parameter.parametersOf
 
 @Composable
 fun PairingScreen(
-    deviceId: String,
-    viewModel: PairingViewModel = koinViewModel { parametersOf(deviceId) },
+    key: Destination.Pairing,
+    viewModel: PairingViewModel = koinViewModel { parametersOf(key) },
     navigateToFiles: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    PairingScreen(
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                is PairingUiEffect.NavigateFiles -> navigateToFiles()
+            }
+        }
+    }
+
+    PairingScreenContent(
         state = state,
         onIntent = viewModel::onIntent,
-        navigateToFiles = navigateToFiles,
         navigateUp = navigateUp,
     )
 }
 
 @Composable
-private fun PairingScreen(
+private fun PairingScreenContent(
     state: PairingState,
     onIntent: (PairingIntent) -> Unit,
-    navigateToFiles: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     DkScaffold(
@@ -82,7 +91,10 @@ private fun PairingScreen(
         val device = state.device
 
         if (device == null) {
-            PairingLoading(modifier = Modifier.padding(innerPadding))
+            PairingUnavailable(
+                error = state.error,
+                modifier = Modifier.padding(innerPadding),
+            )
             return@DkScaffold
         }
 
@@ -157,7 +169,9 @@ private fun PairingScreen(
                 DkPrimaryButton(
                     modifier = Modifier.fillMaxWidth(),
                     text = stringResource(R.string.pairing_confirm),
-                    onClick = navigateToFiles,
+                    onClick = {
+                        onIntent(PairingIntent.Connect)
+                    },
                     enabled = state.canConnect,
                 )
                 DkGhostButton(
@@ -211,8 +225,12 @@ private fun CardFact(text: String) {
     )
 }
 
+/**
+ * Nothing to confirm yet: either the device is still being reached, or reaching it failed. Both
+ * land here, because a card built from half a handshake would invite the user to trust it.
+ */
 @Composable
-private fun PairingLoading(modifier: Modifier = Modifier) {
+private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -221,12 +239,25 @@ private fun PairingLoading(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
         ) {
-            DkInlineSpinner()
-            Text(
-                text = stringResource(R.string.pairing_connecting),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (error == null) {
+                DkInlineSpinner()
+                Text(
+                    text = stringResource(R.string.pairing_connecting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.pairing_error_unreachable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -243,10 +274,9 @@ private val DiscoveredPeer.AccessMode.labelRes: Int
 @Composable
 private fun PairingScreenPreview() {
     FServerTheme {
-        PairingScreen(
+        PairingScreenContent(
             state = PairingState(device = PairingState.SampleDevice),
             onIntent = {},
-            navigateToFiles = {},
             navigateUp = {},
         )
     }
@@ -256,7 +286,7 @@ private fun PairingScreenPreview() {
 @Composable
 private fun PairingScreenPasswordPreview() {
     FServerTheme {
-        PairingScreen(
+        PairingScreenContent(
             state = PairingState(
                 device = PairingState.SampleDevice.copy(
                     name = "HOME-NAS",
@@ -266,7 +296,6 @@ private fun PairingScreenPasswordPreview() {
                 ),
             ),
             onIntent = {},
-            navigateToFiles = {},
             navigateUp = {},
         )
     }
@@ -276,10 +305,9 @@ private fun PairingScreenPasswordPreview() {
 @Composable
 private fun PairingScreenLoadingPreview() {
     FServerTheme {
-        PairingScreen(
+        PairingScreenContent(
             state = PairingState(),
             onIntent = {},
-            navigateToFiles = {},
             navigateUp = {},
         )
     }

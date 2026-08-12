@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
+import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import kotlinx.serialization.Serializable
 
 /**
@@ -55,7 +56,10 @@ sealed interface Destination : NavKey {
      * a typed address — because none of them establishes trust on its own.
      */
     @Serializable
-    data class Pairing(val deviceId: String) : Destination
+    data class Pairing(
+        val deviceId: String,
+        val reconnectionArguments: PairingTarget.ConnectionArguments? = null,
+    ) : Destination
 
     @Serializable
     data object QrScan : Destination

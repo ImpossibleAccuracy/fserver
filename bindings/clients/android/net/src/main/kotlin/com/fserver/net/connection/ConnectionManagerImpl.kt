@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -61,6 +62,12 @@ internal class ConnectionManagerImpl<M : Any>(
     override val sessions: StateFlow<List<PeerSession<M>>> = registry
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    // Outlives the session it came from: pairing looks at a device it has deliberately hung up on.
+    private val profileRegistry = MutableStateFlow<Map<String, ConnectionManager.Profile>>(emptyMap())
+
+    override val profiles: StateFlow<Map<String, ConnectionManager.Profile>> =
+        profileRegistry.asStateFlow()
 
     override val incoming: Flow<ConnectionManager.IncomingRequest> = transports
         .mapNotNull { transport ->
@@ -116,6 +123,9 @@ internal class ConnectionManagerImpl<M : Any>(
 
     override fun session(deviceId: String): PeerSession<M>? = registry.value[deviceId]
 
+    override fun profile(deviceId: String): ConnectionManager.Profile? =
+        profileRegistry.value[deviceId]
+
     override suspend fun disconnect(deviceId: String, reason: CloseReason) {
         registry.value[deviceId]?.close(reason)
     }
@@ -127,15 +137,26 @@ internal class ConnectionManagerImpl<M : Any>(
         netRunCatching {
             val link = openLink(peer, policy ?: defaultPolicy)
             try {
-                ConnectionManager.Profile(
-                    identity = link.negotiated.peer,
-                    negotiated = link.negotiated,
-                    route = peer,
-                )
+                rememberProfile(peer, link)
             } finally {
                 link.secure.close()
             }
         }
+
+    /**
+     * Files the handshake result under the id the peer just claimed. [PeerRef.build] dials with a
+     * blank device id, so the stored route is re-stamped - otherwise nothing could dial it again.
+     */
+    private fun rememberProfile(route: PeerRef, link: SessionLink): ConnectionManager.Profile {
+        val deviceId = link.negotiated.peer.deviceId
+        val profile = ConnectionManager.Profile(
+            identity = link.negotiated.peer,
+            negotiated = link.negotiated,
+            route = route.copy(deviceId = deviceId),
+        )
+        profileRegistry.update { it + (deviceId to profile) }
+        return profile
+    }
 
     suspend fun shutdown() {
         registry.value.values.forEach { it.close(CloseReason.Local("node closed")) }
@@ -181,6 +202,8 @@ internal class ConnectionManagerImpl<M : Any>(
         relink: (suspend () -> SessionLink)?,
     ): PeerSession<M> = registryLock.withLock {
         val deviceId = link.negotiated.peer.deviceId
+        // Only what this side dialled: an inbound socket's remote address is not a route back.
+        if (relink != null) rememberProfile(route, link)
 
         registry.value[deviceId]?.let { existing ->
             val finished =

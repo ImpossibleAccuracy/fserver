@@ -25,6 +25,9 @@ interface DeviceDetectionRepository {
      */
     fun device(id: String): Flow<DiscoveredPeer?>
 
+    /** True if the device is currently among [onlineDevices]. */
+    fun isDeviceOnline(id: String): Boolean
+
     suspend fun startAdvertising()
 
     /**

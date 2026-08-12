@@ -41,6 +41,11 @@ interface ConnectionManager<M : Any> {
     val sessions: StateFlow<List<PeerSession<M>>>
 
     /**
+     * What every handshake so far revealed, by device id, filled by [probe] and [connect].
+     */
+    val profiles: StateFlow<Map<String, Profile>>
+
+    /**
      * Connection attempts from other devices. Nothing is accepted until someone calls
      * [IncomingRequest.accept] - auto-accepting hands any device in radio range a channel into
      * the app.
@@ -58,6 +63,9 @@ interface ConnectionManager<M : Any> {
 
     /** Find device by ID, or null if it is not connected. */
     fun session(deviceId: String): PeerSession<M>?
+
+    /** Last handshake result for [deviceId], or null if it was never reached in this process. */
+    fun profile(deviceId: String): Profile?
 
     suspend fun disconnect(
         deviceId: String,

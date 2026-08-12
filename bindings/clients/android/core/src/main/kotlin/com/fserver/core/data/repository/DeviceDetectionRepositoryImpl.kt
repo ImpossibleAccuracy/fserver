@@ -39,6 +39,9 @@ internal class DeviceDetectionRepositoryImpl(
 
     override fun device(id: String) = peerDiscovery.peer(id)
 
+    override fun isDeviceOnline(id: String): Boolean =
+        peerDiscovery.peers.value.any { it.deviceId == id }
+
     override suspend fun startAdvertising() {
         peerDiscovery.startAdvertising().onFailure {
             Timber.e(it, "Failed to start advertising")

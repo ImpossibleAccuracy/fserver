@@ -99,7 +99,7 @@ class DeviceDiscoveryViewModel(
 
     val state: StateFlow<DeviceDiscoveryState> = combine(
         networkCard,
-        deviceDetectionRepository.onlineDevices,
+        deviceDetectionRepository.onlineDevices, // TODO: add already connected devices to list
         methodsUi,
         setupUi,
         searchStarted,
