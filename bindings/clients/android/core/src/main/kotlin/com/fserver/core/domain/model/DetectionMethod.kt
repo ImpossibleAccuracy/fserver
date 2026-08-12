@@ -11,7 +11,7 @@ import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsS
  * [Automatic] and [OnDemand] describe cost, not scheduling: automatic methods are quiet and cheap
  * enough to run together, on-demand ones are slow, loud, or need the user to supply something.
  * Neither starts on its own - every scan is begun by an explicit
- * [com.fserver.core.domain.repository.DeviceDetectionRepository.startDetection] call, because a
+ * [com.fserver.core.domain.repository.DevicesRepository.startDetection] call, because a
  * method that starts itself turns a permission the user was never asked for into "found nothing".
  *
  * @property [requires] is the entire availability rule: a method is offered only when the current

@@ -3,7 +3,7 @@ package com.fserver.core
 import android.content.Context
 import com.fserver.core.data.di.BackgroundScope
 import com.fserver.core.di.coreModule
-import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
 import com.fserver.core.net.TempAuthStore
@@ -62,14 +62,13 @@ data class FServerConfig(
  */
 class FServerCore private constructor(
     private val koin: Koin,
-    // TODO: temporary public, until the core's public API is fleshed out and the host never needs to reach into the network.
-    val net: NetworkNode<TempMessages>,
+    private val net: NetworkNode<TempMessages>,
     /** Non-null only when the core created the scope, and so is the one allowed to cancel it. */
     private val ownedScope: CoroutineScope?,
 ) : AutoCloseable {
 
     /** Discovery, connection attempts, and the list of devices currently reachable. */
-    val deviceDetection: DeviceDetectionRepository by lazy { koin.get() }
+    val deviceDetection: DevicesRepository by lazy { koin.get() }
 
     /** The network this device is on, as far as detection is concerned. */
     val networkInfo: NetworkInfoRepository by lazy { koin.get() }

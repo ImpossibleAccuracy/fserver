@@ -35,8 +35,8 @@ kotlin {
 }
 
 dependencies {
-    api(projects.net)
-    api(projects.net.transport.android)
+    api(projects.net) // TODO: core shouldnt expose net
+    implementation(projects.net.transport.android)
 
     // JNA loads libnetwork_core.so and marshals calls across the FFI.
     // The @aar variant is required on Android: the plain jar ships JNA's own
