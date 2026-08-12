@@ -2,7 +2,6 @@ package com.fserver.core.data.requirement
 
 import android.Manifest
 import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.DeviceDetectionRequest
 import com.fserver.core.domain.model.NetworkCapability
 import com.fserver.core.domain.model.NetworkInfo
 import com.fserver.core.domain.model.requirement.Requirement

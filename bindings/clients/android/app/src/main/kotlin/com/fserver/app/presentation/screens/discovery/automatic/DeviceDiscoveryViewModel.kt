@@ -10,12 +10,11 @@ import com.fserver.app.presentation.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.DeviceDetectionRequest
-import com.fserver.core.domain.model.FoundDevice
 import com.fserver.core.domain.model.requirement.RequirementReport
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.net.discovery.DiscoveredPeer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -198,11 +197,15 @@ class DeviceDiscoveryViewModel(
             scanJobs[method] = viewModelScope.launch {
                 try {
                     // TODO: surface the failed Result instead of dropping it
-                    deviceDetectionRepository.startDetection(DeviceDetectionRequest.ByMethod(method))
+                    deviceDetectionRepository.startDetection(method)
                 } finally {
                     scanJobs.remove(method)
                 }
             }
+        }
+
+        viewModelScope.launch {
+            deviceDetectionRepository.startAdvertising()
         }
     }
 
@@ -220,9 +223,9 @@ class DeviceDiscoveryViewModel(
     }
 }
 
-private fun FoundDevice.toUi() = DeviceDiscoveryState.DeviceUi(
-    id = id,
-    name = name,
+private fun DiscoveredPeer.toUi() = DeviceDiscoveryState.DeviceUi(
+    id = deviceId,
+    name = displayName,
     kind = kind,
     address = address,
 )

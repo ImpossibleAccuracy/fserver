@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery.composable
+package com.fserver.app.presentation.screens.discovery.shared
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,7 +24,6 @@ import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSurfacePreview
 import com.fserver.app.presentation.designkit.DkTag
-import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.theme.FServerTheme

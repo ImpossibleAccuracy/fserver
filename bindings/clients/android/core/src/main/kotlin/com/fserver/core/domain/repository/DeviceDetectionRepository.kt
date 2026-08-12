@@ -1,17 +1,17 @@
 package com.fserver.core.domain.repository
 
 import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.DeviceConnectionCapabilities
-import com.fserver.core.domain.model.DeviceDetectionRequest
-import com.fserver.core.domain.model.FoundDevice
 import com.fserver.core.domain.model.exception.DetectionFailedException
+import com.fserver.core.domain.model.exception.MalformedQrException
+import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.spi.TransportEndpoint
 import kotlinx.coroutines.flow.Flow
 
 interface DeviceDetectionRepository {
     /**
      * Currently available devices, updated as they are found or lost.
      */
-    val onlineDevices: Flow<List<FoundDevice>>
+    val onlineDevices: Flow<List<DiscoveredPeer>>
 
     /**
      * Methods scanning right now. Per-method rather than a single flag: several run at
@@ -23,26 +23,21 @@ interface DeviceDetectionRepository {
     /**
      * The device with [id], or null once it is no longer among [onlineDevices].
      */
-    fun device(id: String): Flow<FoundDevice?>
+    fun device(id: String): Flow<DiscoveredPeer?>
 
-    /**
-     * Loads the connection capabilities of the device with [deviceId].
-     */
-    suspend fun checkConnectionCapabilities(deviceId: String): Result<DeviceConnectionCapabilities>
+    suspend fun startAdvertising()
 
     /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
      * May be long-running and/or never complete, depending on the request.
-     *
-     * Fails with [com.fserver.core.domain.model.exception.RequirementsNotMetException] when
-     * [RequirementsChecker.forDetection] is not satisfied, rather than letting the platform turn a
-     * missing permission into an opaque scan error.
-     *
-     * @return what *this* run found. The address paths - typed or scanned - need the one
-     * device they asked about, and cannot pick it out of the accumulated list without
-     * guessing which entry is theirs. Starting a request that is already running is a no-op
-     * and returns nothing.
      */
     @Throws(DetectionFailedException::class)
-    suspend fun startDetection(request: DeviceDetectionRequest): Result<List<FoundDevice>>
+    suspend fun startDetection(request: DetectionMethod): Result<Unit>
+
+    /**
+     * Decodes a QR payload into a [TransportEndpoint] that can be used to connect to the device.
+     * @throws MalformedQrException if the payload is not a valid QR code for a device.
+     */
+    @Throws(MalformedQrException::class)
+    suspend fun decodeQrPayload(payload: String): TransportEndpoint
 }

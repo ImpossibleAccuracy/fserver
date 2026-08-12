@@ -1,8 +1,6 @@
 package com.fserver.core.data.di
 
 import com.fserver.core.data.repository.DeviceDetectionRepositoryImpl
-import com.fserver.core.data.repository.MulticastDnsRepository
-import com.fserver.core.data.repository.NearbyConnectionsRepository
 import com.fserver.core.data.repository.NetworkInfoRepositoryImpl
 import com.fserver.core.data.requirement.RequirementsCheckerImpl
 import com.fserver.core.domain.repository.DeviceDetectionRepository
@@ -16,8 +14,4 @@ val repositoryModule = module {
     singleOf(::DeviceDetectionRepositoryImpl) bind DeviceDetectionRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
     singleOf(::RequirementsCheckerImpl) bind RequirementsChecker::class
-
-    // Data-only repositories
-    singleOf(::NearbyConnectionsRepository)
-    singleOf(::MulticastDnsRepository)
 }

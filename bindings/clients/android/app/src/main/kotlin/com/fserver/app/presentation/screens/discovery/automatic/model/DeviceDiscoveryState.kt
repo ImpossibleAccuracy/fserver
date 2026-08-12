@@ -5,7 +5,7 @@ import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.FoundDevice
+import com.fserver.net.discovery.DiscoveredPeer
 
 @Immutable
 data class DeviceDiscoveryState(
@@ -68,7 +68,7 @@ data class DeviceDiscoveryState(
     data class DeviceUi(
         val id: String,
         val name: String,
-        val kind: FoundDevice.Kind,
+        val kind: DiscoveredPeer.Kind?,
         val address: String,
     )
 
@@ -77,13 +77,13 @@ data class DeviceDiscoveryState(
             DeviceUi(
                 id = "macbook",
                 name = "MacBook-Pro.local",
-                kind = FoundDevice.Kind.Laptop,
+                kind = DiscoveredPeer.Kind.Laptop,
                 address = "192.168.1.14:8384",
             ),
             DeviceUi(
                 id = "nas",
                 name = "HOME-NAS",
-                kind = FoundDevice.Kind.Nas,
+                kind = DiscoveredPeer.Kind.Nas,
                 address = "nas.local:8384",
             ),
         )

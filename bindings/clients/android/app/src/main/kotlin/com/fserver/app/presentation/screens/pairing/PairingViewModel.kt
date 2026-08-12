@@ -2,12 +2,11 @@ package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.core.domain.model.DeviceConnectionCapabilities
-import com.fserver.core.domain.model.FoundDevice
-import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.model.address
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
+import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.net.discovery.DiscoveredPeer
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,8 +15,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -29,17 +26,14 @@ class PairingViewModel(
 
     private val password = MutableStateFlow("")
     private val rememberDevice = MutableStateFlow(true)
-    private val capabilities = MutableStateFlow<DeviceConnectionCapabilities?>(null)
 
     val state: StateFlow<PairingState> = combine(
         deviceDetectionRepository.device(deviceId).debounce(200.milliseconds),
-        capabilities,
         password,
         rememberDevice,
-    ) { device, capabilities, password, rememberDevice ->
+    ) { device, password, rememberDevice ->
         PairingState(
-            device = if (device == null || capabilities == null) null
-            else device.toUi(capabilities),
+            device = device?.toUi(),
             password = password,
             rememberDevice = rememberDevice,
         )
@@ -50,22 +44,6 @@ class PairingViewModel(
             initialValue = PairingState(),
         )
 
-    init {
-        viewModelScope.launch {
-            deviceDetectionRepository
-                .checkConnectionCapabilities(deviceId)
-                .fold(
-                    onSuccess = { data ->
-                        capabilities.update { data }
-                    },
-                    onFailure = {
-                        // TODO: show UI error
-                        Timber.e(it, "Failed to load device capabilities")
-                    }
-                )
-        }
-    }
-
     fun onIntent(intent: PairingIntent) {
         when (intent) {
             is PairingIntent.RememberDeviceChanged -> rememberDevice.update { intent.remember }
@@ -74,11 +52,12 @@ class PairingViewModel(
     }
 }
 
-private fun FoundDevice.toUi(capabilities: DeviceConnectionCapabilities) = PairingState.DeviceUi(
-    name = name,
+private fun DiscoveredPeer.toUi() = PairingState.DeviceUi(
+    name = displayName,
     kind = kind,
-    access = capabilities.access,
+    access = advertised.accessMode,
     address = address,
-    technicalLine = "${capabilities.tlsVersion.name} · protocol ${capabilities.protocolVersion.name}",
-    fingerprintGroups = capabilities.fingerprints.map { it.key },
+    // TODO
+    technicalLine = "TODO", //"${capabilities.tlsVersion.name} · protocol ${capabilities.protocolVersion.name}",
+    fingerprintGroups = listOf(), //capabilities.fingerprints.map { it.key },
 )

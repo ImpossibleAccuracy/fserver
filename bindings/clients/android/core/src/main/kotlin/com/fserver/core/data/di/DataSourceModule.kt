@@ -1,15 +1,8 @@
 package com.fserver.core.data.di
 
-import com.fserver.core.data.datasource.multicastdns.MulticastDnsAdvertisingService
-import com.fserver.core.data.datasource.multicastdns.MulticastDnsDiscoveryService
-import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsAdvertisingService
-import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsDiscoveryService
-import com.fserver.core.data.datasource.nearbyconnection.NearbyConnectionsMessenger
-import com.fserver.core.data.detection.link.DeviceLinkFactory
-import com.fserver.core.data.detection.scan.DeviceScannerFactory
+import com.fserver.core.data.datasource.JsonQrCodeParser
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 /** Work that must outlive the screen. Bound in [com.fserver.core.di.coreModule] from the host config. */
@@ -20,14 +13,5 @@ internal typealias BackgroundScope = CoroutineScope
  * nothing here is part of the module's public surface.
  */
 internal val dataSourceModule = module {
-    factoryOf(::DeviceScannerFactory)
-    factoryOf(::DeviceLinkFactory)
-    factoryOf(::MulticastDnsDiscoveryService)
-    factoryOf(::MulticastDnsAdvertisingService)
-    factoryOf(::NearbyConnectionsDiscoveryService)
-    factoryOf(::NearbyConnectionsMessenger)
-
-    // Single, not factory: accept()/reject() must reach the same instance that is advertising,
-    // otherwise the payload callback they register feeds a flow nobody collects.
-    singleOf(::NearbyConnectionsAdvertisingService)
+    factoryOf(::JsonQrCodeParser)
 }

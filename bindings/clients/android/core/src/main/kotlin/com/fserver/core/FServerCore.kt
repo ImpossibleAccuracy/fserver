@@ -1,16 +1,26 @@
 package com.fserver.core
 
 import android.content.Context
+import com.fserver.core.data.di.BackgroundScope
 import com.fserver.core.di.coreModule
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.core.net.TempAuthStore
+import com.fserver.core.net.TempDictionary
+import com.fserver.core.net.TempMessages
+import com.fserver.net.NetworkNode
+import com.fserver.net.config.networkConfig
+import com.fserver.net.transport.android.spi.ip.DirectIpSPI
+import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
+import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
+import org.koin.dsl.module
 
 /**
  * Everything [FServerCore] needs from its host.
@@ -52,6 +62,8 @@ data class FServerConfig(
  */
 class FServerCore private constructor(
     private val koin: Koin,
+    // TODO: temporary public, until the core's public API is fleshed out and the host never needs to reach into the network.
+    val net: NetworkNode<TempMessages>,
     /** Non-null only when the core created the scope, and so is the one allowed to cancel it. */
     private val ownedScope: CoroutineScope?,
 ) : AutoCloseable {
@@ -73,6 +85,7 @@ class FServerCore private constructor(
      * build a new one rather than reusing it.
      */
     override fun close() {
+        net.close()
         koin.close()
         ownedScope?.cancel()
     }
@@ -82,14 +95,46 @@ class FServerCore private constructor(
             val scope = config.backgroundScope
                 ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+            val net = initNet(config.context, scope)
+
             val koin = koinApplication {
-                modules(coreModule(config.context, scope))
+                modules(
+                    coreModule(config.context, scope),
+                    module {
+                        single { net.discovery }
+                        single { net.connections }
+                    }
+                )
             }.koin
 
             return FServerCore(
                 koin = koin,
+                net = net,
                 ownedScope = scope.takeIf { config.backgroundScope == null },
             )
+        }
+
+        private fun initNet(
+            context: Context,
+            coroutineScope: BackgroundScope,
+        ): NetworkNode<TempMessages> {
+            val config = networkConfig(dictionary = TempDictionary()) {
+                identityStore = TempAuthStore()
+                scope = coroutineScope
+
+                install(
+                    DirectIpSPI.create(),
+                    MulticastDnsSPI.create(context),
+                    NearbyConnectionsSPI.create(
+                        context = context,
+                        config = NearbyConnectionsSPI.Config(
+                            serviceId = "_fserver._tcp.",
+                        ),
+                    ),
+                )
+            }
+
+            return NetworkNode.create(config)
         }
     }
 }

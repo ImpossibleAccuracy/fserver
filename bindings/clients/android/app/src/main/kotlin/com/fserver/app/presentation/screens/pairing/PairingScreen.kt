@@ -24,8 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.core.domain.model.DeviceConnectionCapabilities
-import com.fserver.core.domain.model.FoundDevice
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardMeta
@@ -44,6 +42,7 @@ import com.fserver.app.presentation.model.icon
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.net.discovery.DiscoveredPeer
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -193,15 +192,12 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
             CardFact(stringResource(R.string.pairing_address, device.address))
-            CardFact(
-                stringResource(
-                    when (device.access) {
-                        DeviceConnectionCapabilities.Access.Open -> R.string.pairing_access_open
-                        DeviceConnectionCapabilities.Access.Password -> R.string.pairing_access_password
-                        DeviceConnectionCapabilities.Access.Key -> R.string.pairing_access_key
-                    }
+
+            if (device.access != null) {
+                CardFact(
+                    stringResource(device.access.labelRes)
                 )
-            )
+            }
         }
     }
 }
@@ -236,11 +232,11 @@ private fun PairingLoading(modifier: Modifier = Modifier) {
 }
 
 @get:StringRes
-private val DeviceConnectionCapabilities.Access.labelRes: Int
+private val DiscoveredPeer.AccessMode.labelRes: Int
     get() = when (this) {
-        DeviceConnectionCapabilities.Access.Open -> R.string.pairing_access_open
-        DeviceConnectionCapabilities.Access.Password -> R.string.pairing_access_password
-        DeviceConnectionCapabilities.Access.Key -> R.string.pairing_access_key
+        DiscoveredPeer.AccessMode.Open -> R.string.pairing_access_open
+        DiscoveredPeer.AccessMode.Password -> R.string.pairing_access_password
+        DiscoveredPeer.AccessMode.Key -> R.string.pairing_access_key
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
@@ -264,8 +260,8 @@ private fun PairingScreenPasswordPreview() {
             state = PairingState(
                 device = PairingState.SampleDevice.copy(
                     name = "HOME-NAS",
-                    kind = FoundDevice.Kind.Nas,
-                    access = DeviceConnectionCapabilities.Access.Password,
+                    kind = DiscoveredPeer.Kind.Nas,
+                    access = DiscoveredPeer.AccessMode.Password,
                     address = "192.168.1.42:8384",
                 ),
             ),

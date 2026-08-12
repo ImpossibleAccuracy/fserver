@@ -1,131 +1,69 @@
 package com.fserver.core.data.repository
 
-import com.fserver.core.data.detection.link.DeviceLink
-import com.fserver.core.data.detection.link.DeviceLinkFactory
-import com.fserver.core.data.detection.scan.DeviceScanEvent
-import com.fserver.core.data.detection.scan.DeviceScannerFactory
+import com.fserver.core.data.datasource.JsonQrCodeParser
 import com.fserver.core.data.utils.runBackgroundJob
+import com.fserver.core.domain.Constants
 import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.DeviceConnectionCapabilities
-import com.fserver.core.domain.model.DeviceDetectionRequest
-import com.fserver.core.domain.model.FoundDevice
+import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.core.domain.repository.RequirementsChecker
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.discovery.PeerDiscovery
+import com.fserver.net.spi.TransportEndpoint
+import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.update
 import timber.log.Timber
 
 /**
  * Fake detection engine standing in until `:core` is wired up.
  */
 internal class DeviceDetectionRepositoryImpl(
-    private val deviceScannerFactory: DeviceScannerFactory,
-    private val deviceLinkFactory: DeviceLinkFactory,
+    private val peerDiscovery: PeerDiscovery,
     private val requirementsChecker: RequirementsChecker,
+    private val jsonQrCodeParser: JsonQrCodeParser,
 ) : DeviceDetectionRepository {
-    private val devices = MutableStateFlow<List<FoundDevice>>(emptyList())
-    override val onlineDevices: Flow<List<FoundDevice>> = devices.asStateFlow()
+    override val onlineDevices: Flow<List<DiscoveredPeer>> = peerDiscovery.peers
 
-    private val runningRequests = MutableStateFlow<Set<DeviceDetectionRequest>>(emptySet())
-    override val runningScanningMethods: Flow<Set<DetectionMethod>> = runningRequests
-        .map { requests ->
-            requests.mapTo(mutableSetOf()) { it.method }
+    override val runningScanningMethods: Flow<Set<DetectionMethod>> =
+        peerDiscovery.activeScans.map { spiId ->
+            spiId
+                .mapNotNull { id ->
+                    DetectionMethod.entries
+                        .filterIsInstance<DetectionMethod.Automatic>()
+                        .find { it.spiId == id }
+                }
+                .toSet()
         }
 
-    override fun device(id: String): Flow<FoundDevice?> = devices
-        .map { list -> list.firstOrNull { it.id == id } }
-        .distinctUntilChanged()
+    override fun device(id: String) = peerDiscovery.peer(id)
 
-    override suspend fun checkConnectionCapabilities(deviceId: String): Result<DeviceConnectionCapabilities> =
-        runBackgroundJob {
-            val device = devices.value.firstOrNull { it.id == deviceId }
-                ?: throw IllegalArgumentException("Device $deviceId not found")
-
-            val connector = deviceLinkFactory.fromDevice(device)
-
-            connector.loadCapabilities().getOrThrow()
+    override suspend fun startAdvertising() {
+        peerDiscovery.startAdvertising().onFailure {
+            Timber.e(it, "Failed to start advertising")
         }
+    }
 
-    override suspend fun startDetection(
-        request: DeviceDetectionRequest
-    ): Result<List<FoundDevice>> = runBackgroundJob {
-        if (request in runningRequests.value) {
-            return@runBackgroundJob emptyList()
-        }
-
-        // Check before the scanner is built
-        val requirements = requirementsChecker.forDetection(request.method)
+    override suspend fun startDetection(request: DetectionMethod): Result<Unit> = runBackgroundJob {
+        // Check before the scanning
+        val requirements = requirementsChecker.forDetection(request)
         if (!requirements.isSatisfied) {
             throw RequirementsNotMetException(requirements)
         }
 
-        runningRequests.update { it + request }
-
-        try {
-            val scanner = deviceScannerFactory.fromRequest(request)
-
-            coroutineScope {
-                scanner.startScan()
-                    .mapNotNull { event ->
-                        when (event) {
-                            is DeviceScanEvent.Found ->
-                                async { resolveDevice(event.link) }
-
-                            is DeviceScanEvent.Lost -> {
-                                revoke(event.deviceId)
-                                null
-                            }
-                        }
-                    }
-                    .toList()
-                    .awaitAll()
-                    .filterNotNull()
-            }
-        } finally {
-            runningRequests.update { it - request }
-        }
+        val scanParams = SpiRegistry.findAutomaticScanParams(request.spiId)
+            ?: throw IllegalArgumentException("Cannot start detection for ${request.spiId}: no scan params found")
+        peerDiscovery.scan(scanParams).getOrThrow()
     }
 
-    /**
-     * Asks a single discovered peer to describe itself, publishing it on success.
-     *
-     * @return the described device, or `null` if this peer could not be reached, could not be
-     * understood, or was revoked while it was being described.
-     */
-    private suspend fun resolveDevice(connector: DeviceLink): FoundDevice? =
-        connector.loadDeviceInfo()
-            .onSuccess { publish(it) }
-            .onFailure { t ->
-                currentCoroutineContext().ensureActive()
+    override suspend fun decodeQrPayload(payload: String): TransportEndpoint {
+        val dto = jsonQrCodeParser.parse(payload)
+            ?: throw MalformedQrException()
 
-                // TODO: propagate error to UI layer
-                Timber.e(t, "Failed to load device info")
-            }
-            .getOrNull()
-
-    /**
-     * Found devices accumulate: second method finding the same box must not duplicate it.
-     */
-    private fun publish(found: FoundDevice) {
-        devices.update { current -> (current + found).distinctBy { it.id } }
-    }
-
-    /**
-     * Revoke device from memory storage.
-     */
-    private fun revoke(deviceId: String) {
-        devices.update { current -> current.filterNot { it.id == deviceId } }
+        return DirectIpEndpoint(
+            host = dto.ip,
+            port = dto.port ?: Constants.DEFAULT_PORT,
+        )
     }
 }

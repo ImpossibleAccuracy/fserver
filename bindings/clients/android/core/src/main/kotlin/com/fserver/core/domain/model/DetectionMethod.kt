@@ -1,5 +1,10 @@
 package com.fserver.core.domain.model
 
+import com.fserver.net.spi.SpiId
+import com.fserver.net.transport.android.spi.ip.DirectIpSPI
+import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
+import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
+
 /**
  * A way to find a peer device.
  *
@@ -16,6 +21,7 @@ package com.fserver.core.domain.model
  * hand-maintained list.
  */
 sealed interface DetectionMethod {
+    val spiId: SpiId
     val requires: Set<NetworkCapability>
 
     /**
@@ -27,6 +33,7 @@ sealed interface DetectionMethod {
          * needs nothing from the IP network and stays available with no connectivity at all.
          */
         data object NearbyConnections : Automatic {
+            override val spiId: SpiId = NearbyConnectionsSPI.ID
             override val requires: Set<NetworkCapability> = emptySet()
         }
 
@@ -35,6 +42,7 @@ sealed interface DetectionMethod {
          * isolation - which is exactly why [OnDemand.SubnetScan] has to stay reachable as a fallback.
          */
         data object MulticastDns : Automatic {
+            override val spiId: SpiId = MulticastDnsSPI.ID
             override val requires: Set<NetworkCapability> =
                 setOf(NetworkCapability.LOCAL_SUBNET, NetworkCapability.MULTICAST)
         }
@@ -45,11 +53,13 @@ sealed interface DetectionMethod {
 
         /** Brute-force sweep of the local subnet. Slow and loud on the network. */
         data object SubnetScan : OnDemand {
+            override val spiId: SpiId = DirectIpSPI.ID // TODO
             override val requires: Set<NetworkCapability> = setOf(NetworkCapability.LOCAL_SUBNET)
         }
 
         /** User types host:port. Works wherever there is a route at all. */
         data object ManualAddress : OnDemand {
+            override val spiId: SpiId = DirectIpSPI.ID
             override val requires: Set<NetworkCapability> = setOf(NetworkCapability.IP_ROUTING)
         }
     }

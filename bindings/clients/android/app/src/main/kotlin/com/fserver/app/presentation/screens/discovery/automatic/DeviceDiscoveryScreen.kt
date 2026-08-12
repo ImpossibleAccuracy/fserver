@@ -58,7 +58,7 @@ import com.fserver.app.presentation.permission.rememberRequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.composable.DetectionMethodSheet
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
-import com.fserver.app.presentation.screens.discovery.composable.NetworkCard
+import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.domain.model.DetectionMethod
 import org.koin.androidx.compose.koinViewModel
@@ -83,17 +83,6 @@ fun DeviceDiscoveryScreen(
         state = state,
         resolver = resolver,
         onIntent = viewModel::onIntent,
-        // The grant intents stop here: `:core` reports what is missing, but only the host has the
-        // `Activity` the system needs to be asked through.
-        /*onIntent = { intent ->
-            when (intent) {
-                is DeviceDiscoveryIntent.GrantRequested -> resolver.resolve(intent.action)
-                DeviceDiscoveryIntent.GrantAllRequested ->
-                    state.methodSetup?.firstAction?.let(resolver::resolve)
-
-                else -> viewModel.onIntent(intent)
-            }
-        },*/
         navigateToPairing = navigateToPairing,
         navigateUp = navigateUp,
     )

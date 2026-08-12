@@ -2,12 +2,12 @@ package com.fserver.app.presentation.screens.discovery.qr
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.core.domain.model.DeviceDetectionRequest
-import com.fserver.core.domain.model.exception.DetectionFailedException
-import com.fserver.core.domain.model.exception.MalformedQrException
-import com.fserver.core.domain.repository.DeviceDetectionRepository
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
+import com.fserver.core.domain.model.exception.MalformedQrException
+import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.net.connection.ConnectionManager
+import com.fserver.net.connection.PeerRef
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 
 
 class QrScanViewModel(
+    private val connectionManager: ConnectionManager<Any>,
     private val deviceDetectionRepository: DeviceDetectionRepository,
 ) : ViewModel() {
 
@@ -41,45 +42,31 @@ class QrScanViewModel(
                 )
             }
 
-            try {
-                val foundDevices = deviceDetectionRepository
-                    .startDetection(
-                        DeviceDetectionRequest.QrCode(payload)
-                    )
-                    .getOrThrow() // TODO
+            val endpoint = try {
+                deviceDetectionRepository.decodeQrPayload(payload)
+            } catch (_: MalformedQrException) {
+                _state.update { it.copy(error = QrScanState.Error.MalformedCode) }
+                return@launch
+            }
 
-                when {
-                    foundDevices.isEmpty() -> {
+            val ref = PeerRef.build(endpoint)
+
+            connectionManager.probe(ref)
+                .fold(
+                    onSuccess = { profile ->
                         _state.update {
                             it.copy(
                                 isConnecting = false,
-                                foundDeviceId = null,
-                                error = QrScanState.Error.Unreachable,
-                            )
-                        }
-                    }
-
-                    foundDevices.size == 1 -> {
-                        val device = foundDevices.first()
-                        _state.update {
-                            it.copy(
-                                isConnecting = false,
-                                foundDeviceId = device.id,
+                                foundDeviceId = profile.identity.deviceId,
                                 error = null,
                             )
                         }
+                    },
+                    onFailure = { e ->
+                        // TODO: add error messages parser util
+                        _state.update { it.copy(error = QrScanState.Error.Unknown(e.localizedMessage)) }
                     }
-
-                    else -> {
-                        // TODO: show devices picker
-                    }
-                }
-            } catch (_: MalformedQrException) {
-                _state.update { it.copy(error = QrScanState.Error.MalformedCode) }
-            } catch (e: DetectionFailedException) {
-                // TODO: add error messages parser util
-                _state.update { it.copy(error = QrScanState.Error.Unknown(e.localizedMessage)) }
-            }
+                )
         }
     }
 }
