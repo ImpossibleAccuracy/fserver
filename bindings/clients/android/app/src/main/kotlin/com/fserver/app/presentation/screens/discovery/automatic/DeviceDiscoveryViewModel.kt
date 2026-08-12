@@ -2,19 +2,17 @@ package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.model.address
-import com.fserver.app.presentation.model.foundBy
 import com.fserver.app.presentation.model.searchableDetectionMethods
 import com.fserver.app.presentation.model.toCardUi
 import com.fserver.app.presentation.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.requirement.RequirementReport
-import com.fserver.core.domain.repository.DeviceDetectionRepository
+import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
-import com.fserver.net.discovery.DiscoveredPeer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,7 +32,7 @@ import kotlinx.coroutines.launch
  */
 class DeviceDiscoveryViewModel(
     networkInfoRepository: NetworkInfoRepository,
-    private val deviceDetectionRepository: DeviceDetectionRepository,
+    private val devicesRepository: DevicesRepository,
     private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
 
@@ -66,8 +64,8 @@ class DeviceDiscoveryViewModel(
     private val participation = combine(selected, startedMethods, ::Pair)
 
     private val methodsUi = combine(
-        deviceDetectionRepository.onlineDevices,
-        deviceDetectionRepository.runningScanningMethods,
+        devicesRepository.onlineDevices,
+        devicesRepository.runningScanningMethods,
         participation,
         reports,
     ) { devices, running, (selectedMethods, started), reportByMethod ->
@@ -99,7 +97,7 @@ class DeviceDiscoveryViewModel(
 
     val state: StateFlow<DeviceDiscoveryState> = combine(
         networkCard,
-        deviceDetectionRepository.onlineDevices, // TODO: add already connected devices to list
+        devicesRepository.onlineDevices,
         methodsUi,
         setupUi,
         searchStarted,
@@ -197,7 +195,7 @@ class DeviceDiscoveryViewModel(
             scanJobs[method] = viewModelScope.launch {
                 try {
                     // TODO: surface the failed Result instead of dropping it
-                    deviceDetectionRepository.startDetection(method)
+                    devicesRepository.startDetection(method)
                 } finally {
                     scanJobs.remove(method)
                 }
@@ -205,7 +203,7 @@ class DeviceDiscoveryViewModel(
         }
 
         viewModelScope.launch {
-            deviceDetectionRepository.startAdvertising()
+            devicesRepository.startAdvertising()
         }
     }
 
@@ -223,9 +221,10 @@ class DeviceDiscoveryViewModel(
     }
 }
 
-private fun DiscoveredPeer.toUi() = DeviceDiscoveryState.DeviceUi(
-    id = deviceId,
-    name = displayName,
-    kind = kind,
-    address = address,
+private fun ForeignDevice.toUi() = DeviceDiscoveryState.DeviceUi(
+    id = descriptor.deviceId,
+    name = descriptor.displayName,
+    kind = descriptor.kind,
+    address = routes.first().endpoint.address,
+    isPaired = hasSession,
 )

@@ -2,14 +2,11 @@ package com.fserver.app.presentation.screens.discovery.manual
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
+import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.core.domain.Constants
-import com.fserver.core.domain.repository.DeviceDetectionRepository
-import com.fserver.net.connection.ConnectionManager
-import com.fserver.net.connection.PeerRef
-import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
+import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,8 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ManualAddressViewModel(
-    private val connectionManager: ConnectionManager<Any>,
-    private val deviceDetectionRepository: DeviceDetectionRepository,
+    private val devicesRepository: DevicesRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ManualAddressState())
@@ -55,23 +51,22 @@ class ManualAddressViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isChecking = true, error = null) }
 
-            val ref = PeerRef.build(
-                DirectIpEndpoint(
+            devicesRepository
+                .handshake(
                     host = current.host,
-                    port = port ?: Constants.DEFAULT_PORT,
+                    port = port,
                 )
-            )
-
-            connectionManager.probe(ref)
                 .fold(
-                    onSuccess = { profile ->
+                    onSuccess = { device ->
                         _state.update {
                             it.copy(
                                 isChecking = false,
                                 found = PairingTarget(
-                                    deviceId = profile.identity.deviceId,
-                                    reconnectionArguments = PairingTarget.ConnectionArguments
-                                        .fromEndpoint(profile.route.endpoint),
+                                    deviceId = device.descriptor.deviceId,
+                                    reconnectionArguments = PairingTarget.ConnectionArguments.Ip(
+                                        host = current.host,
+                                        port = port,
+                                    ),
                                 ),
                                 error = null,
                             )

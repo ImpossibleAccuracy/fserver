@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.peer.PeerDescriptor
 
 @Immutable
 data class PairingState(
@@ -15,8 +15,8 @@ data class PairingState(
     @Immutable
     data class DeviceUi(
         val name: String,
-        val kind: DiscoveredPeer.Kind?,
-        val access: DiscoveredPeer.AccessMode?,
+        val kind: PeerDescriptor.Kind?,
+        val access: PeerDescriptor.AccessMode?,
         val address: String,
         val technicalLine: String,
         val fingerprintGroups: List<String>,
@@ -24,7 +24,7 @@ data class PairingState(
 
     /** The server asks for a secret only in some access modes; the field follows that. */
     val requiresPassword: Boolean
-        get() = device?.access == DiscoveredPeer.AccessMode.Password
+        get() = device?.access == PeerDescriptor.AccessMode.Password
 
     /**
      * Guards only what the screen can actually check — that the device is still there and a
@@ -37,8 +37,8 @@ data class PairingState(
     companion object {
         val SampleDevice = DeviceUi(
             name = "MacBook-Pro.local",
-            kind = DiscoveredPeer.Kind.Laptop,
-            access = DiscoveredPeer.AccessMode.Open,
+            kind = PeerDescriptor.Kind.Laptop,
+            access = PeerDescriptor.AccessMode.Open,
             address = "192.168.1.14:8384",
             technicalLine = "TLS 1.3 · protocol v1",
             fingerprintGroups = listOf("9f2c 4a01", "b7d3 e820", "15aa cc94", "0f6b 7e31"),

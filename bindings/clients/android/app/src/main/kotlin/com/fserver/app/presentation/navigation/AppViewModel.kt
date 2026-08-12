@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.BuildConfig
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.navigation.model.NavigationState
-import com.fserver.net.connection.ConnectionManager
+import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -20,7 +20,7 @@ import timber.log.Timber
  * started here would turn a permission the user never saw asked into an empty list.
  */
 class AppViewModel(
-    private val connectionManager: ConnectionManager<Any>,
+    private val devicesRepository: DevicesRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -32,7 +32,7 @@ class AppViewModel(
 
     init {
         viewModelScope.launch {
-            connectionManager.incoming
+            devicesRepository.incoming
                 .collect { connection ->
                     Timber.i("Incoming connection request from ${connection.peer.advertisedName} via ${connection.peer.endpoint.transport}. Confirmation code: ${connection.peer.confirmationCode}")
 
@@ -40,7 +40,12 @@ class AppViewModel(
                         // Auto-accept for debugging
                         connection.accept()
                     }
+                    // Assume there are confirmation dialog, not just auto-accept
                 }
         }
+    }
+
+    override fun onCleared() {
+        // TODO: stop discovery and advertising
     }
 }

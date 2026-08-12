@@ -45,7 +45,7 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.peer.PeerDescriptor
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -263,11 +263,11 @@ private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
 }
 
 @get:StringRes
-private val DiscoveredPeer.AccessMode.labelRes: Int
+private val PeerDescriptor.AccessMode.labelRes: Int
     get() = when (this) {
-        DiscoveredPeer.AccessMode.Open -> R.string.pairing_access_open
-        DiscoveredPeer.AccessMode.Password -> R.string.pairing_access_password
-        DiscoveredPeer.AccessMode.Key -> R.string.pairing_access_key
+        PeerDescriptor.AccessMode.Open -> R.string.pairing_access_open
+        PeerDescriptor.AccessMode.Password -> R.string.pairing_access_password
+        PeerDescriptor.AccessMode.Key -> R.string.pairing_access_key
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
@@ -290,8 +290,8 @@ private fun PairingScreenPasswordPreview() {
             state = PairingState(
                 device = PairingState.SampleDevice.copy(
                     name = "HOME-NAS",
-                    kind = DiscoveredPeer.Kind.Nas,
-                    access = DiscoveredPeer.AccessMode.Password,
+                    kind = PeerDescriptor.Kind.Nas,
+                    access = PeerDescriptor.AccessMode.Password,
                     address = "192.168.1.42:8384",
                 ),
             ),

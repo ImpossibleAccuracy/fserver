@@ -3,14 +3,14 @@ package com.fserver.app.presentation.screens.pairing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.model.address
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
+import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
-import com.fserver.core.domain.repository.DeviceDetectionRepository
-import com.fserver.net.connection.ConnectionManager
-import com.fserver.net.connection.PeerRef
-import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.core.data.utils.chainWith
+import com.fserver.core.domain.model.ForeignDevice
+import com.fserver.core.domain.repository.DevicesRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,8 +18,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -27,12 +28,13 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class PairingViewModel(
     private val key: Destination.Pairing,
-    private val connectionManager: ConnectionManager<Any>,
-    private val deviceDetectionRepository: DeviceDetectionRepository,
+    private val devicesRepository: DevicesRepository,
 ) : ViewModel() {
+    private val deviceId = MutableStateFlow(key.deviceId)
+
     private val effects = Channel<PairingUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
@@ -40,34 +42,43 @@ class PairingViewModel(
     private val rememberDevice = MutableStateFlow(true)
     private val probeError = MutableStateFlow<String?>(null)
 
+    private val device = deviceId
+        .flatMapLatest { devicesRepository.device(it) }
+        .debounce(200.milliseconds)
+
     val state: StateFlow<PairingState> = combine(
-        deviceDetectionRepository.device(key.deviceId).debounce(200.milliseconds),
-        connectionManager.profiles.map { it[key.deviceId] },
+        device,
         password,
         rememberDevice,
         probeError,
-    ) { peer, profile, password, rememberDevice, error ->
+    ) { device, password, rememberDevice, error ->
         PairingState(
-            device = deviceUi(peer, profile),
+            device = deviceUi(device),
             password = password,
             rememberDevice = rememberDevice,
             error = error,
         )
-    }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = PairingState(),
-        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = PairingState(),
+    )
 
     init {
-        restoreProfile()
+        ensureHandshake()
+
+        viewModelScope.launch {
+            // Wait for the device to be connected, then navigate to the files screen
+            device.filterNotNull().first { it.hasSession }
+            effects.send(PairingUiEffect.NavigateFiles)
+        }
     }
 
     fun onIntent(intent: PairingIntent) {
         when (intent) {
             is PairingIntent.RememberDeviceChanged -> rememberDevice.update { intent.remember }
             is PairingIntent.PasswordChanged -> password.update { intent.password }
+
             PairingIntent.Connect -> viewModelScope.launch {
                 if (connect()) {
                     effects.send(
@@ -78,106 +89,65 @@ class PairingViewModel(
         }
     }
 
-    /**
-     * Tries to connect to the device in three ways:
-     * 1. Using the saved handshake, if any.
-     * 2. Using the discovered peer, if any.
-     * 3. Using the reconnection arguments, if any.
-     * If all three fail, the error is stored in [probeError] and the function returns false.
-     */
-    private suspend fun connect(): Boolean = connectUsingSavedHandshake()
-        .recoverCatching {
-            connectUsingDiscoveredPeer().getOrThrow()
-        }
-        .recoverCatching {
-            if (key.reconnectionArguments == null) throw it
-            else tryReconnectByArguments().getOrThrow()
-        }
-        .fold(
-            onSuccess = { true },
-            onFailure = { e ->
-                probeError.update { e.localizedMessage }
-                false
+    // TODO: pass auth to `connect`
+    private suspend fun connect(): Boolean =
+        devicesRepository.connect(deviceId.value)
+            .onFailure { t ->
+                probeError.update { t.localizedMessage }
             }
-        )
-
-    private suspend fun connectUsingSavedHandshake(): Result<Unit> =
-        connectionManager.profile(key.deviceId)
-            ?.let { profile ->
-                connectionManager.connect(profile.route).map { }
-            }
-            ?: Result.failure(IllegalStateException("No saved handshake for ${key.deviceId}"))
-
-    private suspend fun connectUsingDiscoveredPeer(): Result<Unit> {
-        val peer = deviceDetectionRepository.device(key.deviceId).firstOrNull()
-            ?: return Result.failure(IllegalStateException("No discovered peer for ${key.deviceId}"))
-
-        return connectionManager.connect(peer).map { }
-    }
-
-    private suspend fun tryReconnectByArguments(): Result<Unit> {
-        val endpoint = key.reconnectionArguments?.asEndpoint()
-            ?: return Result.failure(IllegalStateException("No reconnection arguments for ${key.deviceId}"))
-
-        val ref = PeerRef(
-            deviceId = key.deviceId,
-            transport = endpoint.transport,
-            endpoint = endpoint,
-        )
-
-        return connectionManager.connect(ref).map { }
-    }
+            .isSuccess
 
     /**
-     * Handshakes again when the screen came back to an empty cache - after process death, or when
-     * the app was killed mid-flow. Nothing to do when discovery still knows the device, or when
-     * the screen was opened from the discovery list and so carries no address of its own.
+     * Ensure handshake performed for [key] device.
+     * Pairing screen shouldn't trust advertised info (like fingerprint).
      */
-    private fun restoreProfile() {
-        val endpoint = key.reconnectionArguments?.asEndpoint() ?: return
-        if (connectionManager.profile(key.deviceId) != null) return
-
-        // The device is not in the cache, but discovery still knows it. No need to probe.
-        if (deviceDetectionRepository.isDeviceOnline(key.deviceId)) return
+    private fun ensureHandshake() {
+        val id = deviceId.value
+        val arguments = key.reconnectionArguments
 
         viewModelScope.launch {
-            val ref = PeerRef(
-                deviceId = key.deviceId,
-                transport = endpoint.transport,
-                endpoint = endpoint,
-            )
+            // First, try handshake by deviceId
+            devicesRepository.handshakeByDeviceId(id)
+                .chainWith {
+                    // If failed, try handshake by connection arguments (IP or QR payload)
+                    when (arguments) {
+                        null -> null
 
-            // The result lands in ConnectionManager.profiles, which `state` is already reading.
-            connectionManager.probe(ref).onFailure { e ->
-                // TODO: add error messages parser util
-                probeError.update { e.localizedMessage }
-            }
+                        is PairingTarget.ConnectionArguments.Ip ->
+                            devicesRepository.handshake(arguments.host, arguments.port)
+
+                        is PairingTarget.ConnectionArguments.QrPayload ->
+                            devicesRepository.handshake(arguments.payload)
+                    }
+                }
+                ?.fold(
+                    onSuccess = {
+                        // Device ID changed after handshake, update it to new one
+                        deviceId.value = it.descriptor.deviceId
+                    },
+                    onFailure = { t ->
+                        // TODO: add error messages parser util
+                        probeError.update { t.localizedMessage }
+                    }
+                )
         }
     }
 }
 
-/**
- * The device as two sources see it.
- * The handshake wins wherever they overlap: it is the only one
- * that talked to the device, while discovered is whatever the network claimed.
- */
-private fun deviceUi(
-    peer: DiscoveredPeer?,
-    profile: ConnectionManager.Profile?,
-): PairingState.DeviceUi? {
-    if (peer == null && profile == null) return null
+private fun deviceUi(device: ForeignDevice?): PairingState.DeviceUi? {
+    if (device == null) return null
 
-    val fingerprint = profile?.identity?.fingerprint ?: peer?.advertised?.fingerprint
+    val handshake = device.handshake
 
     return PairingState.DeviceUi(
-        name = profile?.identity?.displayName ?: peer?.displayName.orEmpty(),
-        kind = peer?.kind,
-        access = peer?.advertised?.accessMode,
-        address = profile?.route?.endpoint?.address ?: peer?.address.orEmpty(),
+        name = device.descriptor.displayName,
+        kind = device.descriptor.kind,
+        access = device.descriptor.accessMode,
+        address = device.routes.first().endpoint.address,
         // TODO: hardcoded strings, extract
-        technicalLine = profile?.negotiated
-            ?.let { "${it.cipherSuite.name} · protocol v${it.protocolVersion}" }
-            .orEmpty(),
-        fingerprintGroups = fingerprint?.value?.split(" ").orEmpty(),
+        technicalLine = device.descriptor.advertised
+            .let { "${it.dictionaryId} · protocol v${it.dictionaryVersion}" },
+        fingerprintGroups = handshake?.identity?.fingerprint?.value?.split(" ")
+            .orEmpty()
     )
 }

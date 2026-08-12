@@ -1,8 +1,6 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.net.spi.TransportEndpoint
-import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import kotlinx.serialization.Serializable
 
 /**
@@ -21,18 +19,10 @@ data class PairingTarget(
      */
     @Serializable
     sealed interface ConnectionArguments {
-        fun asEndpoint(): TransportEndpoint?
+        @Serializable
+        data class Ip(val host: String, val port: Int?) : ConnectionArguments
 
         @Serializable
-        data class Ip(val host: String, val port: Int) : ConnectionArguments {
-            override fun asEndpoint(): TransportEndpoint = DirectIpEndpoint(host, port)
-        }
-
-        companion object {
-            fun fromEndpoint(endpoint: TransportEndpoint) = when (endpoint) {
-                is DirectIpEndpoint -> Ip(endpoint.host, endpoint.port)
-                else -> null
-            }
-        }
+        data class QrPayload(val payload: String) : ConnectionArguments
     }
 }

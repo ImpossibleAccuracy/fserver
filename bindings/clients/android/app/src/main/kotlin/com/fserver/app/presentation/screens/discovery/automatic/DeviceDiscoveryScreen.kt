@@ -178,7 +178,16 @@ private fun DeviceDiscoveryScreen(
                     item(key = "found-placeholder") { ResultPlaceholders() }
                 } else {
                     items(state.devices, key = { it.id }) { device ->
-                        DeviceRow(device = device, onClick = { navigateToPairing(device.id) })
+                        DeviceRow(
+                            device = device,
+                            onClick = {
+                                if (device.isPaired) {
+                                    // TODO: process with already paired device
+                                } else {
+                                    navigateToPairing(device.id)
+                                }
+                            }
+                        )
                         DkFadingDivider()
                     }
                 }

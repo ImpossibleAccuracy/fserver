@@ -22,6 +22,4 @@ val coreModule = module {
     single { get<FServerCore>().deviceDetection }
     single { get<FServerCore>().networkInfo }
     single { get<FServerCore>().requirements }
-    single { get<FServerCore>().net.discovery }
-    single { get<FServerCore>().net.connections }
 }
