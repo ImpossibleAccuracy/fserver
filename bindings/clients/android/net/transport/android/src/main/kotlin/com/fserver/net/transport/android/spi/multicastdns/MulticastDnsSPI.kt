@@ -22,6 +22,7 @@ public data object MulticastDnsSPI {
                 ),
                 discoveryProvider = MulticastDnsDiscoveryProvider(
                     context = applicationContext,
+                    identityStore = environment.identityStore,
                 ),
                 advertiser = MulticastDnsAdvertiser(
                     context = applicationContext,

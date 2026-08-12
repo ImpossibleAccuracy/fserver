@@ -1,6 +1,8 @@
 package com.fserver.net.transport.android.spi.multicastdns
 
 import android.content.Context
+import com.fserver.net.discovery.PeerAttributes
+import com.fserver.net.security.IdentityStore
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.SpiId
@@ -11,6 +13,7 @@ import java.io.IOException
 
 internal class MulticastDnsDiscoveryProvider(
     private val context: Context,
+    private val identityStore: IdentityStore,
 ) : DiscoveryProvider {
     private val discoveryService = MulticastDnsDiscoveryService(context)
 
@@ -38,14 +41,18 @@ internal class MulticastDnsDiscoveryProvider(
                     )
                 )
 
-                is MulticastDnsDiscoveryService.Event.Found -> DiscoveryProvider.Event.Appeared(
-                    DiscoveredEndpoint(
-                        endpoint = discoveryEvent.peer.asEndpoint(),
-                        advertisedName = discoveryEvent.peer.name,
-                        attributes = discoveryEvent.peer.attributes,
-                        confirmationCode = null,
+                is MulticastDnsDiscoveryService.Event.Found -> {
+                    // mDNS can detect its own device, so we filter it out here
+                    if (discoveryEvent.peer.attributes[PeerAttributes.DEVICE_ID] == identityStore.local.deviceId) null
+                    else DiscoveryProvider.Event.Appeared(
+                        DiscoveredEndpoint(
+                            endpoint = discoveryEvent.peer.asEndpoint(),
+                            advertisedName = discoveryEvent.peer.name,
+                            attributes = discoveryEvent.peer.attributes,
+                            confirmationCode = null,
+                        )
                     )
-                )
+                }
 
                 is MulticastDnsDiscoveryService.Event.Disconnected ->
                     DiscoveryProvider.Event.Disappeared(

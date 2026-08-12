@@ -63,6 +63,11 @@ internal class PeerDiscoveryImpl(
                     provider.scan(params).collect { event ->
                         when (event) {
                             is DiscoveryProvider.Event.Appeared -> {
+                                if (event.peer.attributes[PeerAttributes.DEVICE_ID] == identityStore.local.deviceId) {
+                                    // Discovery provider found its own device, ignore it
+                                    return@collect
+                                }
+
                                 val peer = registry.record(event.peer)
                                 found[peer.deviceId] = peer
                             }
