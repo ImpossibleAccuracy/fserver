@@ -214,14 +214,17 @@ internal class RequestManagerImpl<M : Any>(
 
         val channel = openChannel(transport, peer.endpoint, policy)
         val pump = FramePump(scope, channel)
+
         return try {
-            negotiator.connect(
-                pump = pump,
-                capabilities = transport.capabilities,
-                confirmationCode = channel.confirmationCode,
-                policy = policy,
-                request = request,
-            )
+            pump.runOrAbort {
+                negotiator.connect(
+                    pump = pump,
+                    capabilities = transport.capabilities,
+                    confirmationCode = channel.confirmationCode,
+                    policy = policy,
+                    request = request,
+                )
+            }
         } catch (e: Throwable) {
             pump.close()
             throw e

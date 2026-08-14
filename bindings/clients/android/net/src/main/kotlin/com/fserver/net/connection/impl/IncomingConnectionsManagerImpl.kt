@@ -147,9 +147,16 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
             watchdog.cancel()
 
             val link = try {
-                inbound.accept(confirmationCode, config.policy)
+                pump.runOrAbort {
+                    inbound.accept(
+                        confirmationCode = confirmationCode,
+                        policy = config.policy
+                    )
+                }
             } catch (e: Throwable) {
-                if (e is NetworkException.AuthenticationRejected) throttle.onAuthenticationFailed(source)
+                if (e is NetworkException.AuthenticationRejected) throttle.onAuthenticationFailed(
+                    source
+                )
                 pump.close()
                 throw e
             } finally {

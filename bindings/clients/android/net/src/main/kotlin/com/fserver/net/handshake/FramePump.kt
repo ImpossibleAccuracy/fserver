@@ -4,10 +4,14 @@ import com.fserver.net.NetworkException
 import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 
@@ -39,13 +43,46 @@ internal class FramePump(
 
     /** One frame, for the handshake. Everything after it goes to [remaining]. */
     suspend fun next(timeout: Duration): ByteArray =
-        withTimeoutOrNull(timeout) { frames.receive() }
-            ?: throw NetworkException.Handshake("peer went quiet for $timeout")
+        withTimeoutOrNull(timeout) {
+            try {
+                frames.receive()
+            } catch (_: ClosedReceiveChannelException) {
+                // Drained after a clean close: nothing more is coming, and nobody said why.
+                throw NetworkException.SessionLinkLost(null)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // The collector in [job] hit an actual transport error; carry it along.
+                throw NetworkException.SessionLinkLost(e)
+            }
+        } ?: throw NetworkException.Handshake("peer went quiet for $timeout")
 
     /** The rest of the stream, handed to the session. Completes when the link goes down. */
     fun remaining(): Flow<ByteArray> = frames.receiveAsFlow()
 
     suspend fun send(frame: ByteArray): Result<Unit> = channel.send(frame)
+
+    /**
+     * Runs [block], but if the link goes down before it finishes, cancels it and throws instead of
+     * leaving it suspended on a pump that will never produce another frame. Used to bound anything
+     * that waits on a person (auth confirmation) against the peer hanging up mid-wait.
+     */
+    suspend fun <T> runOrAbort(block: suspend () -> T): T = coroutineScope {
+        val work = async { block() }
+        val watcher = async {
+            job.join()
+            // Unknown cause: pump closed/finished without errors, so report a generic link loss.
+            NetworkException.SessionLinkLost(null)
+        }
+
+        select {
+            work.onAwait {
+                watcher.cancel()
+                it
+            }
+            watcher.onAwait { throw it }
+        }
+    }
 
     override fun close() {
         job.cancel()
