@@ -143,8 +143,10 @@ class HandshakeNegotiatorTest {
     }
 
     @Test
-    fun `the authenticator sees the identity and the transport's confirmation code`() =
+    fun `the authenticator sees the identity and a comparable code`() =
         runBlocking {
+            // confirm-dh ignores whatever raw string the transport hands it (there is none, on a
+            // plain socket) and derives its own fingerprint from both sides' identity keys instead.
             var seenCode: String? = null
             var seenDeviceId: String? = null
             val alice = EphemeralIdentityStore(displayName = "alice")
@@ -160,7 +162,8 @@ class HandshakeNegotiatorTest {
             )
 
             assertEquals(alice.local.deviceId, seenDeviceId)
-            assertEquals("4821", seenCode)
+            assertTrue(seenCode != null && seenCode != "4821")
+            assertTrue(seenCode!!.matches(Regex("[0-9a-f]{4}( [0-9a-f]{4}){3}")))
         }
 
     // ------------------------------------------------------------------ what the public half says

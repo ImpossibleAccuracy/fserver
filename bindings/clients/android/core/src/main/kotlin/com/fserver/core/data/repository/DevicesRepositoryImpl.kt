@@ -10,10 +10,12 @@ import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.ForeignDevice.Handshake
 import com.fserver.core.domain.model.Greeting
+import com.fserver.core.domain.model.PendingConfirmation
 import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.core.net.InteractivePeerAuthenticator
 import com.fserver.core.net.TempMessages
 import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.connection.PeerRef
@@ -40,6 +42,7 @@ internal class DevicesRepositoryImpl(
     private val incomingConnectionsManager: IncomingConnectionsManager<TempMessages>,
     private val requirementsChecker: RequirementsChecker,
     private val jsonQrCodeParser: JsonQrCodeParser,
+    private val interactiveAuthenticator: InteractivePeerAuthenticator,
 ) : DevicesRepository {
     override val onlineDevices: Flow<List<ForeignDevice>> = combine(
         peerDiscovery.peers,
@@ -121,6 +124,12 @@ internal class DevicesRepositoryImpl(
         }
     override val incoming: Flow<IncomingConnectionsManager.IncomingRequest>
         get() = incomingConnectionsManager.incoming
+
+    override val pendingConfirmation: Flow<PendingConfirmation?>
+        get() = interactiveAuthenticator.pending
+
+    override fun resolvePendingConfirmation(accept: Boolean) =
+        interactiveAuthenticator.resolve(accept)
 
     override fun device(id: String): Flow<ForeignDevice?> = onlineDevices.map { list ->
         list.find { it.deviceId == id }

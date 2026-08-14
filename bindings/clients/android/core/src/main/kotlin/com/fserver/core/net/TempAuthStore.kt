@@ -9,6 +9,6 @@ class TempAuthStore : IdentityStore {
     override val local: LocalIdentity = LocalIdentity(
         deviceId = UUID.randomUUID().toString(),
         displayName = Build.MODEL,
-        publicKey = "abcd".toByteArray(),
+        publicKey = Build.MODEL.toByteArray(),
     )
 }

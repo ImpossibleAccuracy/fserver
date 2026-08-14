@@ -5,6 +5,7 @@ import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.Greeting
+import com.fserver.core.domain.model.PendingConfirmation
 import com.fserver.core.domain.model.exception.DetectionFailedException
 import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.net.connection.IncomingConnectionsManager
@@ -23,11 +24,22 @@ interface DevicesRepository {
      */
     val runningScanningMethods: Flow<Set<DetectionMethod>>
 
+    /**
+     * Incoming connection requests, updated as they arrive and are accepted or rejected.
+     */
     val incoming: Flow<IncomingConnectionsManager.IncomingRequest>
 
     /**
-     * The device with [id], or null once it is no longer among [onlineDevices].
+     * The peer currently waiting on this device to compare its code, or null. Both [probe]/[connect]
+     * and an accepted [incoming] request suspend on this while it is set - Э9 scaffold, see
+     * `docs/Handshake Migration.md`.
      */
+    val pendingConfirmation: Flow<PendingConfirmation?>
+
+    /** Answers whoever is in [pendingConfirmation] */
+    fun resolvePendingConfirmation(accept: Boolean)
+
+    /** The device with [id], or null once it is no longer among [onlineDevices]. */
     fun device(id: String): Flow<ForeignDevice?>
 
     /** Start advertising this device to others. May be long-running. */

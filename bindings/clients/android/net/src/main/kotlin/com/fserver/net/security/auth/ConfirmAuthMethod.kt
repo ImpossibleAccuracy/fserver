@@ -1,8 +1,9 @@
 package com.fserver.net.security.auth
 
 import com.fserver.net.NetworkException
-import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.identity.Fingerprint
 import com.fserver.net.security.identity.PeerIdentityCodec
 import java.security.MessageDigest
 
@@ -34,7 +35,12 @@ class ConfirmAuthMethod(
             aead.open(io.exchange(aead.seal(PeerIdentityCodec.encode(context.local))))
         )
 
-        val verdict = authenticator?.verify(peer, context.confirmationCode)
+        // just scaffold: no PAKE yet, so the "code" is a fingerprint of both identity keys, sorted
+        // so role (initiator/responder) does not change which side sees which half first - both
+        // screens end up with the same string to compare.
+        val code = pairFingerprint(context.local.publicKey, peer.publicKey)
+
+        val verdict = authenticator?.verify(peer, code)
             ?: PeerAuthenticator.Decision.Trust
         if (verdict is PeerAuthenticator.Decision.Reject) {
             throw NetworkException.AuthenticationRejected(verdict.reason)
@@ -65,6 +71,19 @@ class ConfirmAuthMethod(
             update(prologue)
             digest()
         }
+
+    private fun pairFingerprint(a: ByteArray, b: ByteArray): String {
+        val (first, second) = if (compareUnsigned(a, b) <= 0) a to b else b to a
+        return Fingerprint.of(first + second).value
+    }
+
+    private fun compareUnsigned(a: ByteArray, b: ByteArray): Int {
+        for (i in 0 until minOf(a.size, b.size)) {
+            val cmp = (a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF)
+            if (cmp != 0) return cmp
+        }
+        return a.size - b.size
+    }
 
     companion object {
         val ID: AuthMethodId = AuthMethodId("confirm-dh")

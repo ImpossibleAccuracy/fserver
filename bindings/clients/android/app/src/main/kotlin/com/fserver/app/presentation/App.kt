@@ -19,6 +19,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.fserver.app.presentation.composable.AppStyling
 import com.fserver.app.presentation.composable.IncomingConnectionSheet
+import com.fserver.app.presentation.composable.PendingConfirmationDialog
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.navigation.rememberAppNavigator
@@ -50,6 +51,7 @@ fun FServerApp(
 ) {
     val state by viewModel.state.collectAsState()
     val incoming by viewModel.incomingConnection.collectAsState()
+    val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
 
     val navigator = rememberAppNavigator(state.startDestination)
 
@@ -64,6 +66,16 @@ fun FServerApp(
                 request = request,
                 onAccept = viewModel::acceptIncoming,
                 onDecline = viewModel::declineIncoming,
+            )
+        }
+
+        // The actual code compare, mid-handshake. Can follow either sheet above, or a Connect
+        // tapped on the pairing screen - it shows up wherever that call happens to be pending.
+        pendingConfirmation?.let { request ->
+            PendingConfirmationDialog(
+                request = request,
+                onConfirm = viewModel::confirmPendingCode,
+                onReject = viewModel::rejectPendingCode,
             )
         }
     }

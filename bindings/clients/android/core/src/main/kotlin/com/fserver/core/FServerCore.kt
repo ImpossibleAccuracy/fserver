@@ -6,9 +6,11 @@ import com.fserver.core.di.coreModule
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.core.net.InteractivePeerAuthenticator
 import com.fserver.core.net.TempAuthStore
 import com.fserver.core.net.TempDictionary
 import com.fserver.core.net.TempMessages
+import com.fserver.core.net.TimberNetLogger
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.networkConfig
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
@@ -94,7 +96,8 @@ class FServerCore private constructor(
             val scope = config.backgroundScope
                 ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-            val net = initNet(config.context, scope)
+            val authenticator = InteractivePeerAuthenticator()
+            val net = initNet(config.context, scope, authenticator)
 
             val koin = koinApplication {
                 modules(
@@ -103,6 +106,7 @@ class FServerCore private constructor(
                         single { net.discovery }
                         single { net.incoming }
                         single { net.requestsManager }
+                        single { authenticator }
                     }
                 )
             }.koin
@@ -117,10 +121,13 @@ class FServerCore private constructor(
         private fun initNet(
             context: Context,
             coroutineScope: BackgroundScope,
+            peerAuthenticator: InteractivePeerAuthenticator,
         ): NetworkNode<TempMessages> {
             val config = networkConfig(dictionary = TempDictionary()) {
                 identityStore = TempAuthStore()
+                authenticator = peerAuthenticator
                 scope = coroutineScope
+                logger = TimberNetLogger
 
                 install(
                     DirectIpSPI.create(),

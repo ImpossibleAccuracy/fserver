@@ -134,7 +134,14 @@
     <string name="incoming_connection_fingerprint_hint">Compare these characters with the ones on the other device. If they match, the connection really comes from it.</string>
     <string name="incoming_connection_code_label">Confirmation code</string>
     <string name="incoming_connection_code_hint">Both screens must show the same digits.</string>
-    <string name="incoming_connection_unverified">Nothing here identifies this device. Accept it only if you started the connection yourself.</string>
+    <string name="incoming_connection_unverified">Nothing here identifies this device yet — you\'ll compare a code next. Accept only if you started the connection yourself.</string>
+
+    <!-- Peer confirmation — the actual code compare, once one exists (mid-handshake, both sides) -->
+    <string name="peer_confirm_title">Compare and confirm</string>
+    <string name="peer_confirm_body">Compare this code with the one shown on the other device.</string>
+    <string name="peer_confirm_hint">If they match, confirm. If they don\'t, reject — something is wrong.</string>
+    <string name="peer_confirm_accept">Codes match</string>
+    <string name="peer_confirm_reject">Reject</string>
 
     <!-- Pairing — where every route to a device ends: the list, the scanner, a typed address -->
     <string name="pairing_title">Confirm the device</string>

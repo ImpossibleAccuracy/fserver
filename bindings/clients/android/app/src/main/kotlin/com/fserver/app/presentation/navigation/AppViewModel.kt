@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+
 /**
  * Owns where the app opens, and the connection prompts that can arrive over any screen.
  *
@@ -48,6 +49,12 @@ class AppViewModel(
         .map { it.firstOrNull()?.toUi() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    // Э9 scaffold: the code compare, mid-handshake - fires for both an accepted incoming request
+    // and an outgoing connect(), whichever screen triggered it.
+    val pendingConfirmation = devicesRepository.pendingConfirmation
+        .map { it?.toUi() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         viewModelScope.launch {
             devicesRepository.incoming.collect { request ->
@@ -62,6 +69,10 @@ class AppViewModel(
     }
 
     fun declineIncoming() = answer { it.reject(CloseReason.RejectedByUser) }
+
+    fun confirmPendingCode() = devicesRepository.resolvePendingConfirmation(accept = true)
+
+    fun rejectPendingCode() = devicesRepository.resolvePendingConfirmation(accept = false)
 
     /**
      * Takes the request off the queue first: accepting is a network round trip, and leaving it on
