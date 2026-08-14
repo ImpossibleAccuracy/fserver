@@ -4,17 +4,25 @@ import com.fserver.core.data.datasource.JsonQrCodeParser
 import com.fserver.core.data.utils.chainWith
 import com.fserver.core.data.utils.runBackgroundJob
 import com.fserver.core.domain.Constants
+import com.fserver.core.domain.model.AuthMethod
+import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.ForeignDevice.Handshake
+import com.fserver.core.domain.model.Greeting
 import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.RequirementsChecker
 import com.fserver.core.net.TempMessages
-import com.fserver.net.connection.ConnectionManager
+import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.RequestManager
 import com.fserver.net.discovery.PeerDiscovery
+import com.fserver.net.peer.PublicGreeting
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.AuthRequest
+import com.fserver.net.security.auth.ConfirmAuthMethod
 import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
@@ -28,26 +36,29 @@ import java.time.Instant
 
 internal class DevicesRepositoryImpl(
     private val peerDiscovery: PeerDiscovery,
-    private val connectionManager: ConnectionManager<TempMessages>,
+    private val requestManager: RequestManager<TempMessages>,
+    private val incomingConnectionsManager: IncomingConnectionsManager<TempMessages>,
     private val requirementsChecker: RequirementsChecker,
     private val jsonQrCodeParser: JsonQrCodeParser,
 ) : DevicesRepository {
     override val onlineDevices: Flow<List<ForeignDevice>> = combine(
         peerDiscovery.peers,
-        connectionManager.sessions, // TODO: Filter out inactive sessions
-        connectionManager.profiles,
+        incomingConnectionsManager.sessions, // TODO: Filter out inactive sessions
+        requestManager.profiles,
     ) { peers, sessions, profiles ->
         val result = mutableListOf<ForeignDevice>()
         val profiles = profiles.toMutableMap()
 
-        val peersByIds = peers.associateByTo(mutableMapOf()) { it.descriptor.deviceId }
+        val peersByIds = peers.associateByTo(mutableMapOf()) { it.advertised.deviceId }
 
         sessions.mapTo(result) { session ->
             val peer = peersByIds.remove(session.descriptor.deviceId)
             val handshake = profiles.remove(session.descriptor.deviceId)
 
             ForeignDevice(
-                descriptor = session.descriptor,
+                deviceId = session.descriptor.deviceId,
+                displayName = session.descriptor.displayName,
+                kind = session.descriptor.kind,
                 routes = listOf(session.route)
                     .plus(peer?.routes ?: emptyList())
                     .distinctBy { it.transport },
@@ -68,7 +79,9 @@ internal class DevicesRepositoryImpl(
             val foundBy = peer?.routes?.first()?.transport
 
             ForeignDevice(
-                descriptor = profile.negotiated.peerDescriptor,
+                deviceId = profile.negotiated.peerDescriptor.deviceId,
+                displayName = profile.negotiated.peerDescriptor.displayName,
+                kind = profile.negotiated.peerDescriptor.kind,
                 routes = listOf(profile.route),
                 foundBy = foundBy.asDetectionMethod(),
                 lastSeen = Instant.now(),
@@ -82,9 +95,11 @@ internal class DevicesRepositoryImpl(
 
         peersByIds.mapTo(result) { (_, peer) ->
             ForeignDevice(
-                descriptor = peer.descriptor,
+                deviceId = peer.advertised.deviceId,
+                displayName = peer.advertised.displayName,
+                kind = peer.advertised.kind,
                 routes = peer.routes,
-                foundBy = peer.routes.first().endpoint.transport.asDetectionMethod(),
+                foundBy = peer.routes.first().transport.asDetectionMethod(),
                 lastSeen = peer.lastSeen,
                 handshake = null,
                 hasSession = false,
@@ -104,11 +119,11 @@ internal class DevicesRepositoryImpl(
                 }
                 .toSet()
         }
-    override val incoming: Flow<ConnectionManager.IncomingRequest>
-        get() = connectionManager.incoming
+    override val incoming: Flow<IncomingConnectionsManager.IncomingRequest>
+        get() = incomingConnectionsManager.incoming
 
     override fun device(id: String): Flow<ForeignDevice?> = onlineDevices.map { list ->
-        list.find { it.descriptor.deviceId == id }
+        list.find { it.deviceId == id }
     }
 
     override suspend fun startAdvertising() {
@@ -129,18 +144,48 @@ internal class DevicesRepositoryImpl(
         peerDiscovery.scan(scanParams).getOrThrow()
     }
 
-    override suspend fun connect(deviceId: String): Result<Unit> {
-        if (connectionManager.sessions.value.any { it.descriptor.deviceId == deviceId }) {
+    override suspend fun probe(arguments: ConnectionArguments): Result<Greeting> = when (arguments) {
+        is ConnectionArguments.DiscoveredDevice -> {
+            val device = peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
+            if (device == null) {
+                Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
+            } else {
+                requestManager.probe(device)
+            }
+        }
+
+        is ConnectionArguments.Ip -> requestManager.probe(arguments.toPeerRef())
+
+        is ConnectionArguments.QrPayload -> arguments.toPeerRefOrNull()
+            ?.let { requestManager.probe(it) }
+            ?: Result.failure(MalformedQrException())
+    }.map { it.toDomain() }
+
+    override suspend fun connect(arguments: ConnectionArguments, method: AuthMethod?): Result<Unit> {
+        val request = AuthRequest(method = method?.toAuthMethodId())
+
+        return when (arguments) {
+            is ConnectionArguments.DiscoveredDevice -> connectKnown(arguments.id, request)
+            is ConnectionArguments.Ip -> requestManager.connect(arguments.toPeerRef(), request = request).map { }
+            is ConnectionArguments.QrPayload -> arguments.toPeerRefOrNull()
+                ?.let { requestManager.connect(it, request = request).map { } }
+                ?: Result.failure(MalformedQrException())
+        }
+    }
+
+    /** Reconnects to a device already known by [deviceId] — discovered, or previously probed. */
+    private suspend fun connectKnown(deviceId: String, request: AuthRequest): Result<Unit> {
+        if (incomingConnectionsManager.sessions.value.any { it.descriptor.deviceId == deviceId }) {
             return Result.success(Unit)
         }
 
         return peerDiscovery.peers.value
-            .find { it.descriptor.deviceId == deviceId }
-            ?.let { connectionManager.connect(it) } // Try to connect by discovered route first
+            .find { it.advertised.deviceId == deviceId }
+            ?.let { requestManager.connect(it, request = request) } // Try to connect by discovered route first
             .chainWith {
                 // Fallback to previously probed route, if any.
-                connectionManager.profile(deviceId)
-                    ?.let { connectionManager.connect(it.route).map { } }
+                requestManager.profile(deviceId)
+                    ?.let { requestManager.connect(it.route, request = request).map { } }
             }
             ?.map { }
             ?: Result.failure(
@@ -149,50 +194,14 @@ internal class DevicesRepositoryImpl(
             )
     }
 
-    override suspend fun handshakeByDeviceId(deviceId: String): Result<ForeignDevice> {
-        connectionManager.profiles.value[deviceId]?.let {
-            if (connectionManager.session(deviceId) != null) {
-                // Session alive + handshake already done, return the cached handshake result
-                return Result.success(it.asForeignDevice(hasSession = true))
-            }
+    private fun ConnectionArguments.Ip.toPeerRef(): PeerRef = PeerRef.build(
+        DirectIpEndpoint(host = host, port = port ?: Constants.DEFAULT_PORT)
+    )
+
+    private fun ConnectionArguments.QrPayload.toPeerRefOrNull(): PeerRef? =
+        jsonQrCodeParser.parse(payload)?.let {
+            PeerRef.build(DirectIpEndpoint(host = it.ip, port = it.port ?: Constants.DEFAULT_PORT))
         }
-
-        val device = peerDiscovery.peers.value.find { it.descriptor.deviceId == deviceId }
-            ?: return Result.failure(IllegalArgumentException("Device $deviceId not found"))
-
-        return connectionManager.probe(device)
-            .map { it.asForeignDevice() }
-    }
-
-    override suspend fun handshake(
-        host: String,
-        port: Int?
-    ): Result<ForeignDevice> {
-        val peer = PeerRef.build(
-            DirectIpEndpoint(
-                host = host,
-                port = port ?: Constants.DEFAULT_PORT,
-            )
-        )
-
-        return connectionManager.probe(peer)
-            .map { it.asForeignDevice() }
-    }
-
-    override suspend fun handshake(payload: String): Result<ForeignDevice> {
-        val dto = jsonQrCodeParser.parse(payload)
-            ?: return Result.failure(MalformedQrException())
-
-        val peer = PeerRef.build(
-            DirectIpEndpoint(
-                host = dto.ip,
-                port = dto.port ?: Constants.DEFAULT_PORT,
-            )
-        )
-
-        return connectionManager.probe(peer)
-            .map { it.asForeignDevice() }
-    }
 }
 
 private fun SpiId?.asDetectionMethod(): DetectionMethod? = when (this) {
@@ -202,15 +211,18 @@ private fun SpiId?.asDetectionMethod(): DetectionMethod? = when (this) {
     else -> null
 }
 
-private fun ConnectionManager.Profile.asForeignDevice(hasSession: Boolean = false): ForeignDevice =
-    ForeignDevice(
-        descriptor = negotiated.peerDescriptor,
-        routes = listOf(route),
-        foundBy = null,
-        lastSeen = Instant.now(),
-        handshake = Handshake(
-            identity = identity,
-            negotiated = negotiated,
-        ),
-        hasSession = hasSession,
-    )
+private fun PublicGreeting.toDomain(): Greeting = Greeting(
+    protocolVersions = protocolVersions,
+    methods = methods.mapNotNull { it.toDomain() },
+)
+
+private fun AuthMethodId.toDomain(): AuthMethod? = when (this) {
+    ConfirmAuthMethod.ID -> AuthMethod.ConfirmFingerprint
+    AuthMethodId.NEARBY_SAS -> AuthMethod.NearbySas
+    else -> null
+}
+
+private fun AuthMethod.toAuthMethodId(): AuthMethodId = when (this) {
+    AuthMethod.ConfirmFingerprint -> ConfirmAuthMethod.ID
+    AuthMethod.NearbySas -> AuthMethodId.NEARBY_SAS
+}

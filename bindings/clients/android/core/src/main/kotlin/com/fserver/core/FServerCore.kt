@@ -101,7 +101,8 @@ class FServerCore private constructor(
                     coreModule(config.context, scope),
                     module {
                         single { net.discovery }
-                        single { net.connections }
+                        single { net.incoming }
+                        single { net.requestsManager }
                     }
                 )
             }.koin

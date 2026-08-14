@@ -1,10 +1,13 @@
 package com.fserver.core.domain.repository
 
+import com.fserver.core.domain.model.AuthMethod
+import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
+import com.fserver.core.domain.model.Greeting
 import com.fserver.core.domain.model.exception.DetectionFailedException
 import com.fserver.core.domain.model.exception.MalformedQrException
-import com.fserver.net.connection.ConnectionManager.IncomingRequest
+import com.fserver.net.connection.IncomingConnectionsManager
 import kotlinx.coroutines.flow.Flow
 
 interface DevicesRepository {
@@ -20,7 +23,7 @@ interface DevicesRepository {
      */
     val runningScanningMethods: Flow<Set<DetectionMethod>>
 
-    val incoming: Flow<IncomingRequest>
+    val incoming: Flow<IncomingConnectionsManager.IncomingRequest>
 
     /**
      * The device with [id], or null once it is no longer among [onlineDevices].
@@ -38,22 +41,23 @@ interface DevicesRepository {
     @Throws(DetectionFailedException::class)
     suspend fun startDetection(request: DetectionMethod): Result<Unit>
 
-    suspend fun connect(deviceId: String): Result<Unit>
-
     /**
-     * Attempts to connect to device by [deviceId].
-     */
-    suspend fun handshakeByDeviceId(deviceId: String): Result<ForeignDevice>
-
-    /**
-     * Attempts to connect to device with given arguments.
-     */
-    suspend fun handshake(host: String, port: Int?): Result<ForeignDevice>
-
-    /**
-     * Decodes a QR payload and attempts to connect to device.
+     * The public greeting for the device behind [arguments] — versions and offered methods,
+     * nothing trusted yet. Costs no user interaction; safe to call to fill in a UI before the
+     * user commits to anything.
      *
-     * @throws MalformedQrException if the payload is not a valid QR code for a device.
+     * @throws MalformedQrException if [arguments] is a [ConnectionArguments.QrPayload] that is
+     * not a valid QR code for a device.
      */
-    suspend fun handshake(payload: String): Result<ForeignDevice>
+    suspend fun probe(arguments: ConnectionArguments): Result<Greeting>
+
+    /**
+     * Runs the full handshake for the device behind [arguments], ending in a session.
+     *
+     * @param method which offered method to authenticate with. Null takes whatever the two sides
+     * have in common; set it when the user picked one off a [Greeting] shown earlier.
+     * @throws MalformedQrException if [arguments] is a [ConnectionArguments.QrPayload] that is
+     * not a valid QR code for a device.
+     */
+    suspend fun connect(arguments: ConnectionArguments, method: AuthMethod? = null): Result<Unit>
 }
