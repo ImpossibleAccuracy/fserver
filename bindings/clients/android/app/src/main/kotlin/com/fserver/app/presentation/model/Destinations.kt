@@ -4,6 +4,8 @@ import androidx.navigation3.runtime.NavKey
 import com.fserver.core.domain.model.ConnectionArguments
 import kotlinx.serialization.Serializable
 
+sealed interface UnauthenticatedDestinations
+
 /**
  * Navigation 3 keys. Each key is the whole description of a destination — the back stack
  * is a plain list of these, owned by the app rather than by a navigator.
@@ -23,7 +25,7 @@ sealed interface Destination : NavKey {
 
 
     @Serializable
-    data object Onboarding : Destination
+    data object Onboarding : Destination, UnauthenticatedDestinations
 
     @Serializable
     data object Files {
@@ -45,11 +47,11 @@ sealed interface Destination : NavKey {
      * until the user picks one of them.
      */
     @Serializable
-    data object Connect : Destination
+    data object Connect : Destination, UnauthenticatedDestinations
 
     /** Search on the local network — picking methods, granting what they need, and scanning. */
     @Serializable
-    data object DeviceDiscovery : Destination
+    data object DeviceDiscovery : Destination, UnauthenticatedDestinations
 
     /**
      * Confirm and connect. Every way of finding a device ends here — the list, the scanner,

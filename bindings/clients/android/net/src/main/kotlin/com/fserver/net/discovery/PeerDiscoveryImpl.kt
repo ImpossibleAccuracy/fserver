@@ -112,6 +112,8 @@ internal class PeerDiscoveryImpl(
         advertisingJobs = advertisingJobs.filter(Job::isActive)
         if (advertisingJobs.isNotEmpty()) return@netRunCatching
 
+        logger.debug("starting advertising with ${advertisers.joinToString { it.id.value }}")
+
         val payload = advertisement()
         advertisingJobs = advertisers.map { advertiser ->
             scope.launch {
@@ -127,6 +129,8 @@ internal class PeerDiscoveryImpl(
     override fun stopAdvertising() {
         advertisingJobs.forEach(Job::cancel)
         advertisingJobs = emptyList()
+
+        logger.debug("advertising stopped")
     }
 
     override fun peer(deviceId: String): Flow<DiscoveredPeer?> = registry.peers

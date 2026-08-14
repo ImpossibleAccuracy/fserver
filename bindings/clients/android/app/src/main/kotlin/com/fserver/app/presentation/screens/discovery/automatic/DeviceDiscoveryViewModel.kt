@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Search is the user's to start.
@@ -36,6 +37,7 @@ class DeviceDiscoveryViewModel(
     private val devicesRepository: DevicesRepository,
     private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
+    private val advertisingService = devicesRepository.advertisingServiceLease()
 
     private val selected = MutableStateFlow<Set<DetectionMethod>>(emptySet())
     private val openSetup = MutableStateFlow<DetectionMethod?>(null)
@@ -212,8 +214,13 @@ class DeviceDiscoveryViewModel(
         }
 
         viewModelScope.launch {
-            devicesRepository.startAdvertising()
+            // TODO: need to restart service (after permissions changed)
+            advertisingService.start()
         }
+    }
+
+    override fun onCleared() {
+        runBlocking { advertisingService.stop() }
     }
 
     /**

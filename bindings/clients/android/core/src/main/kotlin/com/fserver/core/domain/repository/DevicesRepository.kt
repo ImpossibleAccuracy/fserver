@@ -42,10 +42,6 @@ interface DevicesRepository {
     /** The device with [id], or null once it is no longer among [onlineDevices]. */
     fun device(id: String): Flow<ForeignDevice?>
 
-    /** Start advertising this device to others. May be long-running. */
-    // TODO: migrate to owner-locked advertising
-    suspend fun startAdvertising()
-
     /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
      * May be long-running and/or never complete, depending on the request.
@@ -72,4 +68,7 @@ interface DevicesRepository {
      * not a valid QR code for a device.
      */
     suspend fun connect(arguments: ConnectionArguments, method: AuthMethod? = null): Result<Unit>
+
+    /** Create lease for advertising service */
+    fun advertisingServiceLease(): ServiceLease
 }

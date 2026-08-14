@@ -46,6 +46,9 @@ class AppNavigator internal constructor(
     val isSectionRootVisible: Boolean
         get() = stackOf(activeSection).dropLastWhile { it is Destination.Overlay }.size == 1
 
+    val currentTopDestination: Destination?
+        get() = activeBackStack.lastOrNull()
+
     /**
      * Switches to [screen] if it is a section root, otherwise pushes it onto the active section.
      *

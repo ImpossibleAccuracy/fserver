@@ -10,9 +10,12 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -22,6 +25,7 @@ import com.fserver.app.presentation.composable.IncomingConnectionSheet
 import com.fserver.app.presentation.composable.PendingConfirmationDialog
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
+import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
@@ -35,6 +39,7 @@ import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.transfers.transfersEntry
+import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
 
 // Material 3 emphasized, like sytem enter/exit anim
@@ -49,11 +54,29 @@ private fun smallOffset(full: Int) = (full * 0.08f).toInt()
 fun FServerApp(
     viewModel: AppViewModel = koinViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
-    val incoming by viewModel.incomingConnection.collectAsState()
-    val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
+    val uiState by viewModel.state.collectAsState()
+    val state = uiState ?: return
 
+    val lifecycleOwner = LocalLifecycleOwner.current
     val navigator = rememberAppNavigator(state.startDestination)
+
+    LaunchedEffect(lifecycleOwner, navigator) {
+        val currentDestinationFlow = snapshotFlow { navigator.currentTopDestination }
+
+        combine(
+            lifecycleOwner.lifecycle.currentStateFlow,
+            currentDestinationFlow,
+            ::Pair
+        )
+            .collect { (lifecycle, destination) ->
+                viewModel.onIntent(
+                    AppRootIntent.ForegroundStateChanged(
+                        lifecycle = lifecycle,
+                        destination = destination,
+                    )
+                )
+            }
+    }
 
     AppStyling(
         navigator = navigator,
@@ -61,21 +84,29 @@ fun FServerApp(
         NavHostGraph(navigator = navigator)
 
         // Above the graph rather than inside it: a peer knocks whatever screen is open.
-        incoming?.let { request ->
+        state.incomingConnection?.let { request ->
             IncomingConnectionSheet(
                 request = request,
-                onAccept = viewModel::acceptIncoming,
-                onDecline = viewModel::declineIncoming,
+                onAccept = {
+                    viewModel.onIntent(AppRootIntent.AcceptIncomingConnection)
+                },
+                onDecline = {
+                    viewModel.onIntent(AppRootIntent.RejectIncomingConnection)
+                },
             )
         }
 
         // The actual code compare, mid-handshake. Can follow either sheet above, or a Connect
         // tapped on the pairing screen - it shows up wherever that call happens to be pending.
-        pendingConfirmation?.let { request ->
+        state.pendingConfirmation?.let { request ->
             PendingConfirmationDialog(
                 request = request,
-                onConfirm = viewModel::confirmPendingCode,
-                onReject = viewModel::rejectPendingCode,
+                onConfirm = {
+                    viewModel.onIntent(AppRootIntent.AcceptPendingConfirmation)
+                },
+                onReject = {
+                    viewModel.onIntent(AppRootIntent.RejectPendingConfirmation)
+                },
             )
         }
     }

@@ -15,6 +15,7 @@ import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.core.domain.repository.ServiceLease
 import com.fserver.core.net.InteractivePeerAuthenticator
 import com.fserver.core.net.TempMessages
 import com.fserver.net.connection.IncomingConnectionsManager
@@ -33,7 +34,6 @@ import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import timber.log.Timber
 import java.time.Instant
 
 internal class DevicesRepositoryImpl(
@@ -44,6 +44,11 @@ internal class DevicesRepositoryImpl(
     private val jsonQrCodeParser: JsonQrCodeParser,
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
 ) : DevicesRepository {
+    private val advertisingController = ServiceLifecycleController(
+        startService = { peerDiscovery.startAdvertising() },
+        stopService = { peerDiscovery.stopAdvertising() },
+    )
+
     override val onlineDevices: Flow<List<ForeignDevice>> = combine(
         peerDiscovery.peers,
         incomingConnectionsManager.sessions, // TODO: Filter out inactive sessions
@@ -135,12 +140,6 @@ internal class DevicesRepositoryImpl(
         list.find { it.deviceId == id }
     }
 
-    override suspend fun startAdvertising() {
-        peerDiscovery.startAdvertising().onFailure {
-            Timber.e(it, "Failed to start advertising")
-        }
-    }
-
     override suspend fun startDetection(request: DetectionMethod): Result<Unit> = runBackgroundJob {
         // Check before the scanning
         val requirements = requirementsChecker.forDetection(request)
@@ -153,29 +152,38 @@ internal class DevicesRepositoryImpl(
         peerDiscovery.scan(scanParams).getOrThrow()
     }
 
-    override suspend fun probe(arguments: ConnectionArguments): Result<Greeting> = when (arguments) {
-        is ConnectionArguments.DiscoveredDevice -> {
-            val device = peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
-            if (device == null) {
-                Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
-            } else {
-                requestManager.probe(device)
+    override suspend fun probe(arguments: ConnectionArguments): Result<Greeting> =
+        when (arguments) {
+            is ConnectionArguments.DiscoveredDevice -> {
+                val device =
+                    peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
+                if (device == null) {
+                    Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
+                } else {
+                    requestManager.probe(device)
+                }
             }
-        }
 
-        is ConnectionArguments.Ip -> requestManager.probe(arguments.toPeerRef())
+            is ConnectionArguments.Ip -> requestManager.probe(arguments.toPeerRef())
 
-        is ConnectionArguments.QrPayload -> arguments.toPeerRefOrNull()
-            ?.let { requestManager.probe(it) }
-            ?: Result.failure(MalformedQrException())
-    }.map { it.toDomain() }
+            is ConnectionArguments.QrPayload -> arguments.toPeerRefOrNull()
+                ?.let { requestManager.probe(it) }
+                ?: Result.failure(MalformedQrException())
+        }.map { it.toDomain() }
 
-    override suspend fun connect(arguments: ConnectionArguments, method: AuthMethod?): Result<Unit> {
+    override suspend fun connect(
+        arguments: ConnectionArguments,
+        method: AuthMethod?
+    ): Result<Unit> {
         val request = AuthRequest(method = method?.toAuthMethodId())
 
         return when (arguments) {
             is ConnectionArguments.DiscoveredDevice -> connectKnown(arguments.id, request)
-            is ConnectionArguments.Ip -> requestManager.connect(arguments.toPeerRef(), request = request).map { }
+            is ConnectionArguments.Ip -> requestManager.connect(
+                arguments.toPeerRef(),
+                request = request
+            ).map { }
+
             is ConnectionArguments.QrPayload -> arguments.toPeerRefOrNull()
                 ?.let { requestManager.connect(it, request = request).map { } }
                 ?: Result.failure(MalformedQrException())
@@ -190,7 +198,12 @@ internal class DevicesRepositoryImpl(
 
         return peerDiscovery.peers.value
             .find { it.advertised.deviceId == deviceId }
-            ?.let { requestManager.connect(it, request = request) } // Try to connect by discovered route first
+            ?.let {
+                requestManager.connect(
+                    it,
+                    request = request
+                )
+            } // Try to connect by discovered route first
             .chainWith {
                 // Fallback to previously probed route, if any.
                 requestManager.profile(deviceId)
@@ -211,6 +224,9 @@ internal class DevicesRepositoryImpl(
         jsonQrCodeParser.parse(payload)?.let {
             PeerRef.build(DirectIpEndpoint(host = it.ip, port = it.port ?: Constants.DEFAULT_PORT))
         }
+
+    override fun advertisingServiceLease(): ServiceLease =
+        advertisingController.newLease()
 }
 
 private fun SpiId?.asDetectionMethod(): DetectionMethod? = when (this) {
