@@ -37,11 +37,14 @@ internal object NearbyEndpointInfo {
     // not know by length and keeps the rest.
     private const val TAG_DEVICE_ID_UUID: Byte = 0x01
     private const val TAG_DEVICE_ID_TEXT: Byte = 0x02
-    private const val TAG_FINGERPRINT_RAW: Byte = 0x03
-    private const val TAG_FINGERPRINT_TEXT: Byte = 0x04
+    // 0x03 and 0x04 carried the key fingerprint. Retired: a stable identifier on the air is what
+    // lets a passive listener follow a device between networks. Reserved, never reused.
     private const val TAG_DISPLAY_NAME: Byte = 0x05
     private const val TAG_PROTOCOL_MIN: Byte = 0x06
     private const val TAG_PROTOCOL_MAX: Byte = 0x07
+
+    // 0x08 briefly carried the auth methods. Retired: this transport fixes its own method, so a
+    // peer reads it off the transport rather than off the air. Reserved, never reused.
 
     /** Anything the encoding has no compact form for: `key=value`, UTF-8. */
     private const val TAG_ATTRIBUTE: Byte = 0x7F
@@ -74,15 +77,6 @@ internal object NearbyEndpointInfo {
             }
         }
 
-        essential[PeerAttributes.FINGERPRINT]?.let { fingerprint ->
-            val raw = fingerprint.asFingerprintBytes()
-            if (raw != null) {
-                out.putRecord(TAG_FINGERPRINT_RAW, raw)
-            } else {
-                out.putRecord(TAG_FINGERPRINT_TEXT, fingerprint.toByteArray(Charsets.UTF_8))
-            }
-        }
-
         essential[PeerAttributes.DISPLAY_NAME]?.let { name ->
             val capped = name.takeUtf8(MAX_DISPLAY_NAME_BYTES)
             if (capped.isNotEmpty()) {
@@ -96,8 +90,8 @@ internal object NearbyEndpointInfo {
             ?.let { out.putRecord(TAG_PROTOCOL_MAX, byteArrayOf(it)) }
 
         val text = LinkedHashMap<String, String>()
-        essential.forEach { (key, value) -> if (key !in COMPACT_KEYS) text[key] = value }
-        optional.forEach { (key, value) -> if (key !in text) text[key] = value }
+        essential.forEach { (key, value) -> if (key !in COMPACT_KEYS && key !in OMITTED) text[key] = value }
+        optional.forEach { (key, value) -> if (key !in text && key !in OMITTED) text[key] = value }
 
         for ((key, value) in text) {
             if (key.isEmpty() || key.contains(ASSIGN)) continue
@@ -132,12 +126,6 @@ internal object NearbyEndpointInfo {
 
                 TAG_DEVICE_ID_TEXT ->
                     attributes[PeerAttributes.DEVICE_ID] = value.toString(Charsets.UTF_8)
-
-                TAG_FINGERPRINT_RAW ->
-                    attributes[PeerAttributes.FINGERPRINT] = value.asFingerprintString()
-
-                TAG_FINGERPRINT_TEXT ->
-                    attributes[PeerAttributes.FINGERPRINT] = value.toString(Charsets.UTF_8)
 
                 TAG_DISPLAY_NAME ->
                     attributes[PeerAttributes.DISPLAY_NAME] = value.toString(Charsets.UTF_8)
@@ -174,10 +162,16 @@ internal object NearbyEndpointInfo {
         val attributes: Map<String, String>,
     )
 
+    /**
+     * Keys this transport never broadcasts. The auth method is fixed by the transport itself, so
+     * announcing it would spend a scarce budget saying what the peer already knows from the
+     * connection it is about to make.
+     */
+    private val OMITTED = setOf(PeerAttributes.AUTH_METHODS)
+
     /** Keys with a compact record of their own; everything else goes out as text. */
     private val COMPACT_KEYS = setOf(
         PeerAttributes.DEVICE_ID,
-        PeerAttributes.FINGERPRINT,
         PeerAttributes.DISPLAY_NAME,
         PeerAttributes.PROTOCOL_MIN,
         PeerAttributes.PROTOCOL_MAX,

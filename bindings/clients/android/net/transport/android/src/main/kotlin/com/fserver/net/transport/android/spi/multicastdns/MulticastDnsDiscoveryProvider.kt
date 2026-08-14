@@ -2,7 +2,7 @@ package com.fserver.net.transport.android.spi.multicastdns
 
 import android.content.Context
 import com.fserver.net.discovery.PeerAttributes
-import com.fserver.net.security.IdentityStore
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.SpiId

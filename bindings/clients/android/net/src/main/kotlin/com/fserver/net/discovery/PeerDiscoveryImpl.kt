@@ -2,8 +2,9 @@ package com.fserver.net.discovery
 
 import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
-import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.IdentityStore
+import com.fserver.net.config.AdvertisementPolicy
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.SpiId
@@ -27,7 +28,8 @@ internal class PeerDiscoveryImpl(
     private val providers: List<DiscoveryProvider>,
     private val advertisers: List<Advertiser>,
     private val identityStore: IdentityStore,
-    private val dictionary: MessageDictionary.Descriptor,
+    private val policy: AdvertisementPolicy,
+    private val authMethods: List<AuthMethodId>,
     private val advertisedAttributes: Map<String, String>,
     private val logger: NetLogger,
     private val scope: CoroutineScope,
@@ -69,7 +71,7 @@ internal class PeerDiscoveryImpl(
                                 }
 
                                 val peer = registry.record(event.peer)
-                                found[peer.descriptor.deviceId] = peer
+                                found[peer.advertised.deviceId] = peer
                             }
 
                             is DiscoveryProvider.Event.Disappeared ->
@@ -100,6 +102,11 @@ internal class PeerDiscoveryImpl(
     }
 
     override suspend fun startAdvertising(): Result<Unit> = netRunCatching {
+        if (!policy.enabled) {
+            logger.debug("advertising is off; this device will not announce itself")
+            return@netRunCatching
+        }
+
         // An advertiser that gave up leaves a finished job behind;
         // keeping it would make every later call a no-op and device would stay invisible.
         advertisingJobs = advertisingJobs.filter(Job::isActive)
@@ -127,11 +134,15 @@ internal class PeerDiscoveryImpl(
         .distinctUntilChanged()
 
     /**
-     * What this device puts on the wire about itself. Descriptive only - never a claim of access.
+     * What this device puts on the air about itself: the public greeting, plus a name to pick it
+     * out of a list. Descriptive only - never a claim of access.
      *
-     * Essential is what identifies the device and says whether it can be talked to at all; the
-     * rest is decoration a peer can also learn from the handshake, so a transport short of room
-     * may leave it off.
+     * Deliberately absent: the key fingerprint, which would let a passive listener follow this
+     * device between networks, and the dictionary, which a connection reports better. Which of
+     * the rest goes out is [policy]'s call, not this class's.
+     *
+     * Essential is what a peer needs to tell one device from another and know how to approach it;
+     * the rest is decoration a transport short of room may leave off.
      */
     private fun advertisement(): Advertiser.Payload {
         val local = identityStore.local
@@ -139,14 +150,20 @@ internal class PeerDiscoveryImpl(
             identity = local,
             essential = buildMap {
                 put(PeerAttributes.DEVICE_ID, local.deviceId)
-                put(PeerAttributes.DISPLAY_NAME, local.displayName)
-                put(PeerAttributes.FINGERPRINT, local.fingerprint.value)
                 put(PeerAttributes.PROTOCOL_MIN, ProtocolVersions.SUPPORTED.first.toString())
                 put(PeerAttributes.PROTOCOL_MAX, ProtocolVersions.SUPPORTED.last.toString())
+                if (authMethods.isNotEmpty()) {
+                    put(
+                        PeerAttributes.AUTH_METHODS,
+                        authMethods.joinToString(PeerAttributes.SEPARATOR) { it.value },
+                    )
+                }
+                // Essential when published at all: telling one device from another in a list is
+                // exactly what a name is for, and a transport short of room should not drop it
+                // ahead of the decoration.
+                if (policy.publishName) put(PeerAttributes.DISPLAY_NAME, local.displayName)
             },
             optional = buildMap {
-                put(PeerAttributes.DICTIONARY_ID, dictionary.id)
-                put(PeerAttributes.DICTIONARY_VERSION, dictionary.version.toString())
                 putAll(advertisedAttributes)
             },
         )

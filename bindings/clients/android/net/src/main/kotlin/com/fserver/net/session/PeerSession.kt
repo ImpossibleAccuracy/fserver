@@ -3,7 +3,7 @@ package com.fserver.net.session
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.NegotiatedParameters
-import com.fserver.net.security.PeerIdentity
+import com.fserver.net.security.identity.PeerIdentity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration

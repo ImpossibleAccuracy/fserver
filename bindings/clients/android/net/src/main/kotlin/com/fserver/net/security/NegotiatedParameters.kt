@@ -1,6 +1,8 @@
 package com.fserver.net.security
 
 import com.fserver.net.peer.PeerDescriptor
+import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.identity.PeerIdentity
 
 /** What the two ends agreed on. Shown by the pairing UI, and the reason a session is a session. */
 data class NegotiatedParameters(

@@ -2,7 +2,7 @@ package com.fserver.net.discovery
 
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.peer.PeerDescriptor
-import com.fserver.net.security.Fingerprint
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.spi.DiscoveredEndpoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,17 +32,12 @@ internal class PeerRegistry {
         )
 
         val peer = DiscoveredPeer(
-            descriptor = PeerDescriptor(
+            advertised = AdvertisedPeer(
                 deviceId = deviceId,
                 displayName = attributes[PeerAttributes.DISPLAY_NAME] ?: endpoint.advertisedName,
                 kind = attributes[PeerAttributes.KIND]?.let(::parseKind),
-                accessMode = attributes[PeerAttributes.ACCESS]?.let(::parseAccess),
-                advertised = PeerDescriptor.Advertised(
-                    protocolVersions = versionRange(attributes),
-                    fingerprint = attributes[PeerAttributes.FINGERPRINT]?.let(::Fingerprint),
-                    dictionaryId = attributes[PeerAttributes.DICTIONARY_ID],
-                    dictionaryVersion = attributes[PeerAttributes.DICTIONARY_VERSION]?.toIntOrNull(),
-                ),
+                protocolVersions = versionRange(attributes),
+                methods = parseMethods(attributes[PeerAttributes.AUTH_METHODS]),
             ),
             routes = listOf(route),
             lastSeen = Instant.now(),
@@ -94,9 +89,14 @@ internal class PeerRegistry {
         return min..max
     }
 
+    private fun parseMethods(raw: String?): List<AuthMethodId> = raw
+        ?.split(PeerAttributes.SEPARATOR)
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
+        ?.map(::AuthMethodId)
+        .orEmpty()
+
+    /** By name, unlike [com.fserver.net.peer.PeerDescriptorCodec], which goes by ordinal. */
     private fun parseKind(raw: String): PeerDescriptor.Kind? =
         PeerDescriptor.Kind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
-
-    private fun parseAccess(raw: String): PeerDescriptor.AccessMode? =
-        PeerDescriptor.AccessMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 }

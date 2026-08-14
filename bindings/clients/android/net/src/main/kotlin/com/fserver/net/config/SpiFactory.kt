@@ -2,7 +2,7 @@ package com.fserver.net.config
 
 import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
-import com.fserver.net.security.IdentityStore
+import com.fserver.net.security.identity.IdentityStore
 
 /**
  * Builds one SPI's parts once the node-wide settings are known.

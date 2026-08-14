@@ -1,5 +1,6 @@
 package com.fserver.net.discovery
 
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.support.LoopbackEndpoint
 import org.junit.Assert.assertEquals
@@ -35,7 +36,7 @@ class PeerRegistryTest {
     fun `a peer that advertises no device id is keyed by its address`() {
         val peer = registry.record(endpoint("192.168.0.2", attributes = emptyMap()))
 
-        assertEquals("192.168.0.2", peer.descriptor.deviceId)
+        assertEquals("192.168.0.2", peer.advertised.deviceId)
         assertTrue(registry.peers.value.containsKey("192.168.0.2"))
     }
 
@@ -78,17 +79,35 @@ class PeerRegistryTest {
                 address = "192.168.0.2",
                 attributes = DEVICE + mapOf(
                     PeerAttributes.KIND to "toaster",
-                    PeerAttributes.ACCESS to "whatever",
                     PeerAttributes.PROTOCOL_MIN to "1", // no max: an incomplete range is no range
-                    PeerAttributes.DICTIONARY_VERSION to "v3",
+                    PeerAttributes.AUTH_METHODS to " , ,",
                 ),
             )
         )
 
-        assertNull(peer.descriptor.kind)
-        assertNull(peer.descriptor.accessMode)
-        assertNull(peer.descriptor.advertised.protocolVersions)
-        assertNull(peer.descriptor.advertised.dictionaryVersion)
+        assertNull(peer.advertised.kind)
+        assertNull(peer.advertised.protocolVersions)
+        assertEquals(emptyList<AuthMethodId>(), peer.advertised.methods)
+    }
+
+    @Test
+    fun `the advertised methods are parsed as a hint for the list`() {
+        val peer = registry.record(
+            endpoint(
+                address = "192.168.0.2",
+                attributes = DEVICE + mapOf(
+                    PeerAttributes.PROTOCOL_MIN to "1",
+                    PeerAttributes.PROTOCOL_MAX to "2",
+                    PeerAttributes.AUTH_METHODS to "confirm-dh,nearby-sas",
+                ),
+            )
+        )
+
+        assertEquals(1..2, peer.advertised.protocolVersions)
+        assertEquals(
+            listOf(AuthMethodId("confirm-dh"), AuthMethodId("nearby-sas")),
+            peer.advertised.methods,
+        )
     }
 
     private fun endpoint(

@@ -1,6 +1,9 @@
 package com.fserver.net.transport.android.spi.nearbyconnection
 
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.spi.ChannelSecurity
 import com.fserver.net.spi.DiscoveredEndpoint
+import com.fserver.net.spi.GreetingSource
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
@@ -28,10 +31,14 @@ internal class NearbyConnectionsTransport(
     override val id: SpiId = NearbyConnectionsSPI.ID
 
     override val capabilities: TransportCapabilities = TransportCapabilities(
-        isLinkEncrypted = true,
-        requiresPeerConfirmation = true,
         // Nearby refuses a bytes payload over its own limit
         maxFrameSize = ConnectionsClient.MAX_BYTES_DATA_SIZE,
+        // Nearby encrypts the link and derives the digits from that key exchange, so comparing
+        // them authenticates the channel. It says nothing about which device is on the other end.
+        security = ChannelSecurity.Sas(AuthMethodId.NEARBY_SAS),
+        // No anonymous phase: bytes cannot flow before the connection is accepted. What a peer
+        // would learn from a greeting is already in the endpoint info, exchanged before that.
+        greeting = GreetingSource.Transport,
     )
 
     override val listener: Transport.Listener = TransportListener()

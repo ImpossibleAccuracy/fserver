@@ -1,4 +1,4 @@
-package com.fserver.net.security
+package com.fserver.net.security.crypto
 
 import java.security.SecureRandom
 
@@ -13,7 +13,7 @@ interface CryptoProvider {
 
     fun aead(sharedSecret: ByteArray, role: Role): Aead
 
-    /** Names the primitives a session ended up using; carried in [NegotiatedParameters]. */
+    /** Names the primitives a session ended up using; carried in [com.fserver.net.security.NegotiatedParameters]. */
     // TODO: inline into provider class
     data class Suite(
         val name: String,

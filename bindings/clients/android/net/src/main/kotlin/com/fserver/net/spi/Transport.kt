@@ -1,5 +1,6 @@
 package com.fserver.net.spi
 
+import com.fserver.net.security.auth.AuthMethodId
 import kotlinx.coroutines.flow.Flow
 
 /** Opens outgoing channels, and - when it can - accepts incoming ones. */
@@ -56,21 +57,46 @@ interface Transport {
 }
 
 /**
- * What a transport can and cannot do. Read by `:net` when it picks a route and a cipher suite;
- * never used as a security control.
+ * What a transport can and cannot do. Declared statically, before any connection exists - which is
+ * what makes [security] checkable: `:net` compares a peer's claim against its own transport's
+ * declaration, never against the claim itself.
  */
 data class TransportCapabilities(
-    /** True when the link is already encrypted (Nearby). Does not remove the handshake. */
-    val isLinkEncrypted: Boolean = false,
     val maxFrameSize: Int = DEFAULT_MAX_FRAME_SIZE,
-    /** True when the transport has its own out-of-band confirmation, like Nearby's digits. */
-    val requiresPeerConfirmation: Boolean = false,
     val isMetered: Boolean = false,
+    val security: ChannelSecurity = ChannelSecurity.None,
+    val greeting: GreetingSource = GreetingSource.Wire,
 ) {
     companion object {
         const val DEFAULT_MAX_FRAME_SIZE: Int = 512 * 1024
     }
 }
+
+/** What the transport hands over before `:net` has done anything. */
+sealed interface ChannelSecurity {
+    /** Raw bytes. The full key agreement has to run. */
+    data object None : ChannelSecurity
+
+    /**
+     * The transport encrypts the link itself and derives a short string from that key exchange,
+     * which the user compares on both devices - a real SAS, not a placeholder.
+     *
+     * Only the method id lives here, because capabilities are static: the string itself belongs to
+     * one connection and arrives through [Transport.Channel.confirmationCode] or
+     * [DiscoveredEndpoint.confirmationCode].
+     *
+     * Note what this does *not* give: a long-term identity. The channel is authenticated, the
+     * device is not, so a key still has to be exchanged and pinned inside it.
+     */
+    data class Sas(val method: AuthMethodId) : ChannelSecurity
+}
+
+/**
+ * Where the public greeting comes from. [Transport] means the transport already exchanged it
+ * out of band (Nearby carries it in the endpoint info, before the connection is accepted), so a
+ * probe opens nothing at all.
+ */
+enum class GreetingSource { Wire, Transport, None }
 
 /**
  * An address a [Transport] can open a channel to. Concrete types live in transport modules -

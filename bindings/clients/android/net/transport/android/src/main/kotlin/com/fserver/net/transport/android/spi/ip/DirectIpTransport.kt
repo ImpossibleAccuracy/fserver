@@ -27,7 +27,7 @@ internal class DirectIpTransport(
     override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> =
         runCatching {
             require(endpoint is DirectIpEndpoint) {
-                "not a dialable multicast-dns endpoint: ${endpoint.address}"
+                "not a direct-ip endpoint: ${endpoint.address}"
             }
             openSocket(endpoint)
         }.onFailure {

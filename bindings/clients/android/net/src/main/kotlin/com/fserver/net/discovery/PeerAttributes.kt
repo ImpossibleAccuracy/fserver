@@ -9,10 +9,11 @@ object PeerAttributes {
     const val DEVICE_ID = "did"
     const val DISPLAY_NAME = "name"
     const val KIND = "kind"
-    const val FINGERPRINT = "fp"
     const val PROTOCOL_MIN = "pmin"
     const val PROTOCOL_MAX = "pmax"
-    const val ACCESS = "access"
-    const val DICTIONARY_ID = "dict"
-    const val DICTIONARY_VERSION = "dictv"
+
+    /** Comma-separated auth method ids - the greeting, for peers that cannot ask for one. */
+    const val AUTH_METHODS = "auth"
+
+    internal const val SEPARATOR = ","
 }

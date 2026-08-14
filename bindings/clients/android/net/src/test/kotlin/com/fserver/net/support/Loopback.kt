@@ -43,12 +43,24 @@ class LoopbackNetwork {
         delivering = false
     }
 
-    fun transport(self: String): Transport = LoopbackTransport(self)
+    /**
+     * @param capabilities what this end declares. Tests that exercise transport-supplied auth pass
+     * a [com.fserver.net.spi.ChannelSecurity.Sas] here.
+     * @param confirmationCode the out-of-band string both ends of this link report. Both sides get
+     * the dialler's value, which is what a real SAS transport does.
+     */
+    fun transport(
+        self: String,
+        capabilities: TransportCapabilities = DEFAULT_CAPABILITIES,
+        confirmationCode: String? = null,
+    ): Transport = LoopbackTransport(self, capabilities, confirmationCode)
 
-    private inner class LoopbackTransport(private val self: String) : Transport {
+    private inner class LoopbackTransport(
+        private val self: String,
+        override val capabilities: TransportCapabilities,
+        private val confirmationCode: String?,
+    ) : Transport {
         override val id: SpiId = LOOPBACK
-
-        override val capabilities = TransportCapabilities(maxFrameSize = 64 * 1024)
 
         override fun supports(endpoint: TransportEndpoint) = endpoint is LoopbackEndpoint
 
@@ -62,9 +74,11 @@ class LoopbackNetwork {
                 wires += toResponder
                 wires += toInitiator
 
-                val responderSide =
-                    LoopbackChannel(LoopbackEndpoint(self), toResponder, toInitiator)
-                val initiatorSide = LoopbackChannel(target, toInitiator, toResponder)
+                val responderSide = LoopbackChannel(
+                    LoopbackEndpoint(self), toResponder, toInitiator, confirmationCode
+                )
+                val initiatorSide =
+                    LoopbackChannel(target, toInitiator, toResponder, confirmationCode)
 
                 inbox.send(
                     LoopbackInbound(
@@ -72,6 +86,7 @@ class LoopbackNetwork {
                         peer = DiscoveredEndpoint(
                             endpoint = LoopbackEndpoint(self),
                             advertisedName = self,
+                            confirmationCode = confirmationCode,
                         ),
                     )
                 )
@@ -92,6 +107,7 @@ class LoopbackNetwork {
         override val endpoint: TransportEndpoint,
         private val incoming: Channel<ByteArray>,
         private val outgoing: Channel<ByteArray>,
+        override val confirmationCode: String?,
     ) : Transport.Channel {
         override val inbound: Flow<ByteArray> = incoming.receiveAsFlow()
 
@@ -115,5 +131,9 @@ class LoopbackNetwork {
         override suspend fun accept(): Result<Transport.Channel> = Result.success(channel)
 
         override suspend fun reject() = channel.close()
+    }
+
+    private companion object {
+        val DEFAULT_CAPABILITIES = TransportCapabilities(maxFrameSize = 64 * 1024)
     }
 }

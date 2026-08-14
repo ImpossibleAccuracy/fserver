@@ -5,6 +5,7 @@ import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession
 import com.fserver.net.support.LOOPBACK
 import com.fserver.net.support.LoopbackEndpoint
@@ -48,17 +49,17 @@ class EncryptedSessionTest {
         runBlocking {
             val alice = node("alice")
             val bob = node("bob")
-            scope.launch { bob.connections.incoming.collect { it.accept() } }
+            scope.launch { bob.incoming.incoming.collect { it.accept() } }
             delay(50)
 
             val session = withTimeout(TIMEOUT) {
-                alice.connections.connect(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")))
+                alice.requestsManager.connect(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")))
                     .getOrThrow()
             }
             session.send(TestMessage.Notice(SECRET)).getOrThrow()
 
             val received = withTimeout(TIMEOUT) {
-                bob.connections.sessions.first { it.isNotEmpty() }.first().incoming.first()
+                bob.incoming.sessions.first { it.isNotEmpty() }.first().incoming.first()
             }
 
             assertEquals(TestMessage.Notice(SECRET), received.message)
@@ -70,6 +71,29 @@ class EncryptedSessionTest {
             assertFalse(network.wireFrames.any { it.readable().contains(SECRET) })
             assertTrue(network.wireFrames.isNotEmpty())
         }
+
+    @Test
+    fun `the descriptor never reaches the wire in the clear`() = runBlocking {
+        val alice = node("alice")
+        val bob = node(DESCRIBED)
+        scope.launch { bob.incoming.incoming.collect { it.accept() } }
+        delay(50)
+
+        withTimeout(TIMEOUT) {
+            alice.requestsManager
+                .connect(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint(DESCRIBED)))
+                .getOrThrow()
+        }
+
+        // The name is descriptor data, so it may only ever travel sealed. Seeing it here would
+        // mean the exchange slipped back ahead of the seal.
+        assertFalse(network.wireFrames.any { it.readable().contains(DESCRIBED) })
+        // ...and it did arrive, so this is not passing because nothing was exchanged.
+        assertEquals(
+            DESCRIBED,
+            alice.incoming.sessions.value.single().descriptor.displayName,
+        )
+    }
 
     private fun node(name: String): NetworkNode<TestMessage> = NetworkNode.create(
         NetworkConfig(
@@ -87,5 +111,8 @@ class EncryptedSessionTest {
     private companion object {
         val TIMEOUT = 10.seconds
         const val SECRET = "top-secret-payload"
+
+        /** Distinctive enough that finding it on the wire cannot be a coincidence. */
+        const val DESCRIBED = "bob-the-named-device"
     }
 }

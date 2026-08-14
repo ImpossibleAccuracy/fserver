@@ -4,8 +4,11 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkException
 import com.fserver.net.NetworkNode
 import com.fserver.net.discovery.DiscoveredPeer
-import com.fserver.net.peer.PeerDescriptor
-import com.fserver.net.security.EphemeralIdentityStore
+import com.fserver.net.discovery.AdvertisedPeer
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.AuthRequest
+import com.fserver.net.security.auth.ConfirmAuthMethod
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.SpiId
@@ -30,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -55,7 +59,7 @@ class ConnectionManagerTest {
         acceptEverything(bob)
 
         val session = withTimeout(TIMEOUT) {
-            alice.connections.connect(discovered("bob", listOf(DEAD, LOOPBACK))).getOrThrow()
+            alice.requestsManager.connect(discovered("bob", listOf(DEAD, LOOPBACK))).getOrThrow()
         }
 
         assertEquals(LOOPBACK, session.route.transport)
@@ -67,12 +71,12 @@ class ConnectionManagerTest {
         val alice = node("alice", transports = listOf(DeadTransport()))
 
         val outcome = withTimeout(TIMEOUT) {
-            alice.connections.connect(discovered("bob", listOf(DEAD)))
+            alice.requestsManager.connect(discovered("bob", listOf(DEAD)))
         }
 
         assertTrue(outcome.isFailure)
         assertTrue(outcome.exceptionOrNull() is NetworkException.Transport)
-        assertTrue(alice.connections.sessions.value.isEmpty())
+        assertTrue(alice.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -80,8 +84,8 @@ class ConnectionManagerTest {
         runBlocking {
             val alice = node("alice")
 
-            val routeless = alice.connections.connect(discovered("bob"))
-            val uncarried = alice.connections.connect(
+            val routeless = alice.requestsManager.connect(discovered("bob"))
+            val uncarried = alice.requestsManager.connect(
                 PeerRef("peer-bob", DEAD, DeadEndpoint("bob"))
             )
 
@@ -104,25 +108,53 @@ class ConnectionManagerTest {
         assertTrue(error is NetworkException.Transport)
         assertTrue(error!!.message!!.contains("session limit"))
         // The one that got in first is the one that stays.
-        assertEquals(listOf(kept), alice.connections.sessions.value)
+        assertEquals(listOf(kept), alice.incoming.sessions.value)
         assertTrue(kept.state.value is PeerSession.State.Ready)
     }
 
     @Test
-    fun `probe reports what the handshake revealed and leaves no session behind`() = runBlocking {
+    fun `probe returns the public greeting and asks nobody anything`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+
+        // Deliberately no acceptEverything: a probe must not need anyone to answer for it.
+        val seen = Channel<String>(Channel.UNLIMITED)
+        collectIncoming(bob) { request -> seen.send(request.peer.advertisedName) }
+
+        val greeting = withTimeout(TIMEOUT) {
+            alice.requestsManager.probe(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")))
+                .getOrThrow()
+        }
+
+        assertEquals(listOf(ConfirmAuthMethod.ID), greeting.methods)
+        assertEquals(1..1, greeting.protocolVersions)
+        // Nothing was created, on either side, and bob was never asked about it.
+        assertTrue(alice.incoming.sessions.value.isEmpty())
+        assertTrue(alice.requestsManager.profiles.value.isEmpty())
+        assertTrue(bob.incoming.sessions.value.isEmpty())
+        delay(SETTLE)
+        assertNull(seen.tryReceive().getOrNull())
+    }
+
+    @Test
+    fun `a method that was prompted for but is no longer offered ends the attempt`() = runBlocking {
         val alice = node("alice")
         val bob = node("bob")
         acceptEverything(bob)
 
-        val profile = withTimeout(TIMEOUT) {
-            alice.connections.probe(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")))
-                .getOrThrow()
+        // The prompt came from a greeting on some other connection; this one offers nothing of
+        // the kind. Running whatever is left instead would be a silent downgrade.
+        val outcome = withTimeout(TIMEOUT) {
+            alice.requestsManager.connect(
+                PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")),
+                request = AuthRequest(method = AuthMethodId("spake2-imaginary")),
+            )
         }
 
-        assertEquals(bob.identity.deviceId, profile.identity.deviceId)
-        assertEquals(bob.identity.fingerprint, profile.identity.fingerprint)
-        assertEquals(1, profile.negotiated.protocolVersion)
-        assertTrue(alice.connections.sessions.value.isEmpty())
+        val refused = outcome.exceptionOrNull()
+        assertTrue(refused is NetworkException.Handshake)
+        assertTrue(refused!!.message!!.contains("is not on offer"))
+        assertTrue(alice.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -140,8 +172,8 @@ class ConnectionManagerTest {
 
         assertEquals("alice", withTimeout(TIMEOUT) { seen.receive() })
         assertTrue(outcome.isFailure)
-        assertTrue(alice.connections.sessions.value.isEmpty())
-        assertTrue(bob.connections.sessions.value.isEmpty())
+        assertTrue(alice.incoming.sessions.value.isEmpty())
+        assertTrue(bob.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -153,12 +185,17 @@ class ConnectionManagerTest {
         val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
         val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
 
-        alice.connections.disconnect(session.negotiatedDeviceId, CloseReason.Local("done"))
+        alice.requestsManager.disconnect(session.negotiatedDeviceId, CloseReason.Local("done"))
 
-        assertTrue(alice.connections.sessions.value.isEmpty())
+        // Unregistering trails the close on both sides, so wait for the registry rather than
+        // reading it the instant the call returns.
+        withTimeout(TIMEOUT) { alice.incoming.sessions.first { it.isEmpty() } }
         val end = withTimeout(TIMEOUT) { bobSide.state.first { it.isFinal } }
         assertTrue(end is PeerSession.State.Closed)
-        assertTrue(bob.connections.sessions.value.isEmpty())
+        // Reaching Closed is the session's own news; the manager unregisters just after, so wait
+        // on the registry rather than reading it the instant the state flips.
+        withTimeout(TIMEOUT) { bob.incoming.sessions.first { it.isEmpty() } }
+        Unit
     }
 
     // ------------------------------------------------------------------ helpers
@@ -179,12 +216,9 @@ class ConnectionManagerTest {
 
     /** A peer as discovery would report it, with one route per transport listed. */
     private fun discovered(name: String, transports: List<SpiId> = emptyList()) = DiscoveredPeer(
-        descriptor = PeerDescriptor(
+        advertised = AdvertisedPeer(
             deviceId = "peer-$name",
             displayName = name,
-            kind = null,
-            accessMode = null,
-            advertised = PeerDescriptor.Advertised(),
         ),
         routes = transports.map { id ->
             val endpoint = if (id == DEAD) DeadEndpoint(name) else LoopbackEndpoint(name)
@@ -194,7 +228,7 @@ class ConnectionManagerTest {
     )
 
     private suspend fun connect(from: NetworkNode<TestMessage>, to: String) =
-        from.connections.connect(PeerRef("peer-$to", LOOPBACK, LoopbackEndpoint(to)))
+        from.requestsManager.connect(PeerRef("peer-$to", LOOPBACK, LoopbackEndpoint(to)))
 
     private suspend fun acceptEverything(node: NetworkNode<TestMessage>): Job =
         collectIncoming(node) { it.accept() }
@@ -202,15 +236,15 @@ class ConnectionManagerTest {
     /** `incoming` is a hot, replay-free flow: nothing may be dialled before a collector is on it. */
     private suspend fun collectIncoming(
         node: NetworkNode<TestMessage>,
-        handle: suspend (ConnectionManager.IncomingRequest) -> Unit,
+        handle: suspend (IncomingConnectionsManager.IncomingRequest) -> Unit,
     ): Job {
-        val job = scope.launch { node.connections.incoming.collect { handle(it) } }
+        val job = scope.launch { node.incoming.incoming.collect { handle(it) } }
         delay(SUBSCRIBE_GRACE)
         return job
     }
 
     private suspend fun firstSession(node: NetworkNode<TestMessage>): PeerSession<TestMessage> =
-        node.connections.sessions.first { it.isNotEmpty() }.first()
+        node.incoming.sessions.first { it.isNotEmpty() }.first()
 
     private val PeerSession.State.isFinal: Boolean
         get() = this is PeerSession.State.Closed || this is PeerSession.State.Failed
@@ -222,6 +256,7 @@ class ConnectionManagerTest {
     private companion object {
         val TIMEOUT = 10.seconds
         val SUBSCRIBE_GRACE = 50.milliseconds
+        val SETTLE = 300.milliseconds
 
         // Deterministic: no keep-alive timers, no retries.
         val POLICY = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None)

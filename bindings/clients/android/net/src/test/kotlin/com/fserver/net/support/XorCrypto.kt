@@ -1,6 +1,6 @@
 package com.fserver.net.support
 
-import com.fserver.net.security.CryptoProvider
+import com.fserver.net.security.crypto.CryptoProvider
 import java.security.SecureRandom
 
 /**

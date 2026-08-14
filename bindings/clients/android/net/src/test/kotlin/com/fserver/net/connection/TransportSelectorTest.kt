@@ -1,7 +1,7 @@
 package com.fserver.net.connection
 
+import com.fserver.net.connection.impl.TransportSelector
 import com.fserver.net.spi.SpiId
-import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.support.DEAD
 import com.fserver.net.support.DeadEndpoint

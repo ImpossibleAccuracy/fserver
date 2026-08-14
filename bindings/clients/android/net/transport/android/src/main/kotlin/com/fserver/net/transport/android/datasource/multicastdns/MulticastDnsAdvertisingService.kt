@@ -3,7 +3,7 @@ package com.fserver.net.transport.android.datasource.multicastdns
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
-import com.fserver.net.security.LocalIdentity
+import com.fserver.net.security.identity.LocalIdentity
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow

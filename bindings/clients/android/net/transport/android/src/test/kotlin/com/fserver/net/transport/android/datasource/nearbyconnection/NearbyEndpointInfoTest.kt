@@ -1,7 +1,6 @@
 package com.fserver.net.transport.android.datasource.nearbyconnection
 
 import com.fserver.net.discovery.PeerAttributes
-import com.fserver.net.security.Fingerprint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -13,8 +12,6 @@ class NearbyEndpointInfoTest {
     fun `an advertisement survives the round trip`() {
         val essential = identity()
         val optional = mapOf(
-            PeerAttributes.DICTIONARY_ID to "fserver",
-            PeerAttributes.DICTIONARY_VERSION to "3",
             PeerAttributes.KIND to "phone",
         )
 
@@ -37,16 +34,31 @@ class NearbyEndpointInfoTest {
     }
 
     @Test
-    fun `the fingerprint survives, unlike under the text encoding`() {
-        val fingerprint = Fingerprint.of(ByteArray(32) { it.toByte() }).value
+    fun `the protocol range survives, since only the air can carry it`() {
+        val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(identity()))
 
-        val decoded = NearbyEndpointInfo.decode(
-            NearbyEndpointInfo.encode(identity(fingerprint = fingerprint))
-        )
+        assertEquals("1", decoded.attributes[PeerAttributes.PROTOCOL_MIN])
+        assertEquals("2", decoded.attributes[PeerAttributes.PROTOCOL_MAX])
+    }
 
-        // Byte-for-byte what the pairing screen shows, so a device found over Nearby and the same
-        // device found over mDNS read as one.
-        assertEquals(fingerprint, decoded.attributes[PeerAttributes.FINGERPRINT])
+    @Test
+    fun `the auth methods never go on the air, even when handed in`() {
+        val essential = identity() + (PeerAttributes.AUTH_METHODS to METHODS)
+
+        val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(essential))
+
+        // This transport fixes its own method, so a peer reads it off the transport. Broadcasting
+        // it would spend a scarce budget repeating what the connection already settles.
+        assertNull(decoded.attributes[PeerAttributes.AUTH_METHODS])
+    }
+
+    @Test
+    fun `the key fingerprint never goes on the air`() {
+        val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(identity()))
+
+        // Retired on purpose: a stable digest broadcast continuously is what lets a passive
+        // listener follow a device from one network to the next.
+        assertNull(decoded.attributes["fp"])
     }
 
     @Test
@@ -64,14 +76,12 @@ class NearbyEndpointInfoTest {
     @Test
     fun `a value too long to fit does not hide the ones behind it`() {
         val optional = mapOf(
-            PeerAttributes.DICTIONARY_ID to "d".repeat(NearbyEndpointInfo.MAX_BYTES),
-            PeerAttributes.DICTIONARY_VERSION to "7",
+            PeerAttributes.KIND to "Phone",
         )
 
         val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(identity(), optional))
 
-        assertNull(decoded.attributes[PeerAttributes.DICTIONARY_ID])
-        assertEquals("7", decoded.attributes[PeerAttributes.DICTIONARY_VERSION])
+        assertEquals("Phone", decoded.attributes[PeerAttributes.KIND])
     }
 
     @Test
@@ -94,15 +104,6 @@ class NearbyEndpointInfoTest {
         val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(essential))
 
         assertEquals("bob's desktop", decoded.attributes[PeerAttributes.DEVICE_ID])
-    }
-
-    @Test
-    fun `a fingerprint in an unexpected shape travels as text`() {
-        val essential = identity(fingerprint = "not-a-digest")
-
-        val decoded = NearbyEndpointInfo.decode(NearbyEndpointInfo.encode(essential))
-
-        assertEquals("not-a-digest", decoded.attributes[PeerAttributes.FINGERPRINT])
     }
 
     @Test
@@ -137,17 +138,15 @@ class NearbyEndpointInfoTest {
     private fun identity(
         deviceId: String = DEVICE_ID,
         displayName: String = "alice's phone",
-        fingerprint: String = FINGERPRINT,
     ) = mapOf(
         PeerAttributes.DEVICE_ID to deviceId,
         PeerAttributes.DISPLAY_NAME to displayName,
-        PeerAttributes.FINGERPRINT to fingerprint,
         PeerAttributes.PROTOCOL_MIN to "1",
         PeerAttributes.PROTOCOL_MAX to "2",
     )
 
     private companion object {
         const val DEVICE_ID = "8f1c2d3e-4a5b-6c7d-8e9f-0a1b2c3d4e5f"
-        const val FINGERPRINT = "9f2c 4a01 b7d3 e820"
+        const val METHODS = "confirm-dh,nearby-sas"
     }
 }

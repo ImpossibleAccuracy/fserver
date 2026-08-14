@@ -1,5 +1,7 @@
 package com.fserver.net.security
 
+import com.fserver.net.security.identity.PeerIdentity
+
 /**
  * The trust gate. Only the host can run it - it is the one holding a screen on which a user can
  * compare a fingerprint or a pair of digits.

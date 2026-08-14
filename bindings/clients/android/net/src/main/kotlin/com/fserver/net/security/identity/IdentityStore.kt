@@ -1,4 +1,4 @@
-package com.fserver.net.security
+package com.fserver.net.security.identity
 
 import com.fserver.net.peer.PeerDescriptor
 import java.security.SecureRandom
@@ -18,14 +18,12 @@ class EphemeralIdentityStore(
     deviceId: String = UUID.randomUUID().toString(),
     displayName: String = "unnamed device",
     kind: PeerDescriptor.Kind? = null,
-    accessMode: PeerDescriptor.AccessMode? = null,
 ) : IdentityStore {
     override val local: LocalIdentity = LocalIdentity(
         deviceId = deviceId,
         displayName = displayName,
         publicKey = ByteArray(PUBLIC_KEY_SIZE).also(SecureRandom()::nextBytes),
         kind = kind,
-        accessMode = accessMode,
     )
 
     private companion object {

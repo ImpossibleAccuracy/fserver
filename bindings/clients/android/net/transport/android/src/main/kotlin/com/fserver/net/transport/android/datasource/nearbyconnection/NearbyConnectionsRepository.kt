@@ -2,7 +2,7 @@ package com.fserver.net.transport.android.datasource.nearbyconnection
 
 import android.content.Context
 import com.fserver.net.discovery.PeerAttributes
-import com.fserver.net.security.IdentityStore
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.ConnectionsStatusCodes

@@ -10,9 +10,14 @@ internal enum class FrameKind(val code: Int) {
     HELLO(1),
     HELLO_ACK(2),
 
-    /** Mutual disclosure of the [com.fserver.net.peer.PeerDescriptor] fields HELLO does not carry. */
-    DESCRIPTOR_REQUEST(3),
-    DESCRIPTOR_RESPONSE(4),
+    /** One round of the chosen [com.fserver.net.security.auth.AuthMethod]. Payload is opaque here. */
+    AUTH(3),
+
+    /**
+     * Everything about a device that is not public: sent inside the sealed channel, once by each
+     * side and in either order, because by then there is nothing to take turns over.
+     */
+    DESCRIPTOR(4),
 
     READY(5),
 

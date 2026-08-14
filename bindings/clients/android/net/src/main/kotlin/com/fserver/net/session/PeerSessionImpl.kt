@@ -261,8 +261,8 @@ internal class PeerSessionImpl<M : Any>(
                 Result.failure(NetworkException.Protocol(envelope.payload.decodeToString()))
             )
 
-            FrameKind.HELLO, FrameKind.HELLO_ACK, FrameKind.READY,
-            FrameKind.DESCRIPTOR_REQUEST, FrameKind.DESCRIPTOR_RESPONSE ->
+            FrameKind.HELLO, FrameKind.HELLO_ACK, FrameKind.AUTH,
+            FrameKind.DESCRIPTOR, FrameKind.READY ->
                 logger.warn("handshake frame ${envelope.kind} on an established session - ignored")
         }
     }

@@ -5,7 +5,7 @@ import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.EphemeralIdentityStore
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.session.PeerSession
 import com.fserver.net.session.CloseReason
@@ -90,8 +90,8 @@ class SessionTest {
 
         assertEquals(bob.identity.deviceId, session.negotiatedDeviceId)
         assertEquals(alice.identity.deviceId, bobSide.negotiatedDeviceId)
-        assertEquals(1, alice.connections.sessions.value.size)
-        assertEquals(1, bob.connections.sessions.value.size)
+        assertEquals(1, alice.incoming.sessions.value.size)
+        assertEquals(1, bob.incoming.sessions.value.size)
     }
 
     @Test
@@ -104,7 +104,7 @@ class SessionTest {
         val second = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = bob.identity.deviceId).getOrThrow() }
 
         assertTrue(first === second)
-        assertEquals(1, alice.connections.sessions.value.size)
+        assertEquals(1, alice.incoming.sessions.value.size)
     }
 
     @Test
@@ -117,7 +117,7 @@ class SessionTest {
 
         assertTrue(outcome.isFailure)
         assertTrue(outcome.exceptionOrNull() is NetworkException.Handshake)
-        assertTrue(alice.connections.sessions.value.isEmpty())
+        assertTrue(alice.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -130,7 +130,7 @@ class SessionTest {
         val outcome = withTimeout(TIMEOUT) { connect(alice, "bob") }
 
         assertTrue(outcome.isFailure)
-        assertTrue(bob.connections.sessions.value.isEmpty())
+        assertTrue(bob.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -147,7 +147,7 @@ class SessionTest {
         withTimeout(TIMEOUT) {
             bobSide.state.first { it is State.Closed || it is State.Failed }
         }
-        assertTrue(alice.connections.sessions.value.isEmpty())
+        assertTrue(alice.incoming.sessions.value.isEmpty())
     }
 
     @Test
@@ -164,7 +164,7 @@ class SessionTest {
         // Same instance, back in Ready: a held reference stays valid across a reconnect.
         withTimeout(TIMEOUT) { session.state.first { it is State.Connecting } }
         withTimeout(TIMEOUT) { session.state.first { it is State.Ready } }
-        assertTrue(alice.connections.sessions.value.contains(session))
+        assertTrue(alice.incoming.sessions.value.contains(session))
     }
 
     // ------------------------------------------------------------------ helpers
@@ -199,14 +199,14 @@ class SessionTest {
         from: NetworkNode<TestMessage>,
         to: String,
         deviceId: String = "peer-$to",
-    ) = from.connections.connect(PeerRef(deviceId, LOOPBACK, LoopbackEndpoint(to)))
+    ) = from.requestsManager.connect(PeerRef(deviceId, LOOPBACK, LoopbackEndpoint(to)))
 
     private fun acceptEverything(node: NetworkNode<TestMessage>): Job = scope.launch {
-        node.connections.incoming.collect { it.accept() }
+        node.incoming.incoming.collect { it.accept() }
     }
 
     private suspend fun firstSession(node: NetworkNode<TestMessage>): PeerSession<TestMessage> =
-        node.connections.sessions.first { it.isNotEmpty() }.first()
+        node.incoming.sessions.first { it.isNotEmpty() }.first()
 
     /** The id the handshake proved - not necessarily [PeerSession.route]'s, which is what was dialed. */
     private val PeerSession<*>.negotiatedDeviceId: String

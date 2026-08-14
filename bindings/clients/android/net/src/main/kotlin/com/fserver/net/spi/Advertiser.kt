@@ -1,6 +1,6 @@
 package com.fserver.net.spi
 
-import com.fserver.net.security.LocalIdentity
+import com.fserver.net.security.identity.LocalIdentity
 import kotlinx.coroutines.flow.Flow
 
 /** Makes this device findable by whatever a [DiscoveryProvider] on the other side is scanning. */

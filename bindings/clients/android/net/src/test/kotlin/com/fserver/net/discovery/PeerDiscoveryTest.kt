@@ -1,7 +1,9 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.NetLogger
-import com.fserver.net.security.EphemeralIdentityStore
+import com.fserver.net.security.identity.EphemeralIdentityStore
+import com.fserver.net.config.AdvertisementPolicy
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
@@ -26,10 +28,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class PeerDiscoveryTest {
@@ -72,9 +76,9 @@ class PeerDiscoveryTest {
 
         val found = discovery.scan(ByAddress).getOrThrow()
 
-        assertEquals(listOf("bob-device"), found.map { it.descriptor.deviceId })
+        assertEquals(listOf("bob-device"), found.map { it.advertised.deviceId })
         val published = withTimeout(TIMEOUT) { discovery.peers.first { it.isNotEmpty() } }
-        assertEquals(listOf("bob-device"), published.map { it.descriptor.deviceId })
+        assertEquals(listOf("bob-device"), published.map { it.advertised.deviceId })
     }
 
     @Test
@@ -110,7 +114,7 @@ class PeerDiscoveryTest {
         discovery.stopScan(Id("mdns"))
 
         val found = withTimeout(TIMEOUT) { scan.await() }.getOrThrow()
-        assertEquals(listOf("bob-device"), found.map { it.descriptor.deviceId })
+        assertEquals(listOf("bob-device"), found.map { it.advertised.deviceId })
         assertTrue(discovery.activeScans.value.isEmpty())
     }
 
@@ -143,18 +147,51 @@ class PeerDiscoveryTest {
             identityStore.local.deviceId,
             payload.attributes[PeerAttributes.DEVICE_ID],
         )
-        assertEquals(
-            identityStore.local.fingerprint.value,
-            payload.attributes[PeerAttributes.FINGERPRINT],
-        )
+        // A stable key fingerprint on the air is what lets a listener follow a device between
+        // networks, so it must not appear under any key.
+        assertTrue(identityStore.local.fingerprint.value !in payload.attributes.values)
         assertEquals(
             ProtocolVersions.SUPPORTED.last.toString(),
             payload.attributes[PeerAttributes.PROTOCOL_MAX],
         )
-        assertEquals(DICTIONARY.id, payload.attributes[PeerAttributes.DICTIONARY_ID])
+        assertEquals("confirm-dh", payload.attributes[PeerAttributes.AUTH_METHODS])
         assertEquals("phone", payload.attributes[PeerAttributes.KIND])
         // The host's own value is merged over the one :net filled in.
         assertEquals("Alice's phone", payload.attributes[PeerAttributes.DISPLAY_NAME])
+    }
+
+    @Test
+    fun `a device reachable only by code never announces itself`() = runBlocking {
+        val advertiser = FakeAdvertiser(Id("mdns"))
+        val discovery = discovery(
+            advertisers = listOf(advertiser),
+            advertisement = AdvertisementPolicy(enabled = false),
+        )
+
+        // Not a failure - being unfindable is the mode working, and the caller has nothing to fix.
+        discovery.startAdvertising().getOrThrow()
+
+        delay(SETTLE)
+        assertNull(advertiser.payloadOrNull())
+    }
+
+    @Test
+    fun `withholding the name still leaves enough to approach the device`() = runBlocking {
+        val advertiser = FakeAdvertiser(Id("mdns"))
+        val discovery = discovery(
+            advertisers = listOf(advertiser),
+            advertisement = AdvertisementPolicy(publishName = false),
+        )
+
+        discovery.startAdvertising().getOrThrow()
+        val payload = withTimeout(TIMEOUT) { advertiser.awaitPayload() }
+
+        assertNull(payload.attributes[PeerAttributes.DISPLAY_NAME])
+        assertEquals(
+            identityStore.local.deviceId,
+            payload.attributes[PeerAttributes.DEVICE_ID],
+        )
+        assertEquals("confirm-dh", payload.attributes[PeerAttributes.AUTH_METHODS])
     }
 
     @Test
@@ -205,11 +242,13 @@ class PeerDiscoveryTest {
         providers: List<DiscoveryProvider> = emptyList(),
         advertisers: List<Advertiser> = emptyList(),
         advertisedAttributes: Map<String, String> = emptyMap(),
+        advertisement: AdvertisementPolicy = AdvertisementPolicy(),
     ) = PeerDiscoveryImpl(
         providers = providers,
         advertisers = advertisers,
         identityStore = identityStore,
-        dictionary = DICTIONARY,
+        policy = advertisement,
+        authMethods = listOf(AuthMethodId("confirm-dh")),
         advertisedAttributes = advertisedAttributes,
         logger = NetLogger.None,
         scope = scope,
@@ -263,6 +302,8 @@ class PeerDiscoveryTest {
             }
         }
 
+        fun payloadOrNull(): Advertiser.Payload? = payloads.firstOrNull()
+
         suspend fun awaitPayload(): Advertiser.Payload {
             while (payloads.isEmpty()) delay(10)
             return payloads.first()
@@ -271,6 +312,7 @@ class PeerDiscoveryTest {
 
     private companion object {
         val DICTIONARY = TestDictionary().descriptor
+        val SETTLE = 200.milliseconds
         val TIMEOUT = 5.seconds
 
         fun Id(value: String) = SpiId(value)

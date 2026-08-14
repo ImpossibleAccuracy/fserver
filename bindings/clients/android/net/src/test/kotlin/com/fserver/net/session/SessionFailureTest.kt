@@ -8,7 +8,7 @@ import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.EphemeralIdentityStore
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.support.LOOPBACK
 import com.fserver.net.support.LoopbackEndpoint
@@ -168,17 +168,17 @@ class SessionFailureTest {
     ).also(nodes::add)
 
     private suspend fun connect(from: NetworkNode<TestMessage>, to: String) =
-        from.connections.connect(PeerRef("peer-$to", LOOPBACK, LoopbackEndpoint(to)))
+        from.requestsManager.connect(PeerRef("peer-$to", LOOPBACK, LoopbackEndpoint(to)))
 
     /** `incoming` is hot and replay-free: nothing may be dialled before a collector is on it. */
     private suspend fun acceptEverything(node: NetworkNode<TestMessage>): Job {
-        val job = scope.launch { node.connections.incoming.collect { it.accept() } }
+        val job = scope.launch { node.incoming.incoming.collect { it.accept() } }
         delay(50)
         return job
     }
 
     private suspend fun firstSession(node: NetworkNode<TestMessage>): PeerSession<TestMessage> =
-        node.connections.sessions.first { it.isNotEmpty() }.first()
+        node.incoming.sessions.first { it.isNotEmpty() }.first()
 
     /** Speaks the right dictionary on the handshake and nonsense on the wire. */
     private class PoisonDictionary : MessageDictionary<TestMessage> {

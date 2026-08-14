@@ -3,13 +3,15 @@ package com.fserver.net.config
 import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.CryptoProvider
-import com.fserver.net.security.IdentityStore
-import com.fserver.net.security.PassthroughCryptoProvider
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.identity.IdentityStore
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.Transport
+import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -18,7 +20,12 @@ import kotlinx.coroutines.CoroutineScope
  * @property dictionary the whole reason this module is generic: one user, one dictionary.
  * @property authenticator optional. Leaving it null trusts every peer that completes a
  * handshake - fine for a test rig, wrong for a shipping client.
- * @property crypto defaults to [com.fserver.net.security.PassthroughCryptoProvider], which does **not** encrypt.
+ * @property authMethods ways this node is willing to authenticate a peer. Empty means the node
+ * builds the defaults - [com.fserver.net.security.auth.ConfirmAuthMethod] over [authenticator], plus
+ * [com.fserver.net.security.auth.SasAuthMethod] for transports that carry their own confirmation.
+ * @property crypto defaults to [PassthroughCryptoProvider], which does **not** encrypt.
+ * @property advertisement what this device announces about itself, and whether it announces at
+ * all.
  * @property advertisedAttributes extra key/values to put in the advertisement, merged over the
  * ones `:net` fills in.
  * @property scope work that must outlive a caller; null means the node owns one and cancels it
@@ -34,9 +41,12 @@ data class NetworkConfig<T : Any>(
     val discoveryProviders: List<DiscoveryProvider> = emptyList(),
     val advertisers: List<Advertiser> = emptyList(),
     val authenticator: PeerAuthenticator? = null,
+    val authMethods: List<AuthMethod> = emptyList(),
     val crypto: CryptoProvider = PassthroughCryptoProvider,
     val policy: ConnectionPolicy = ConnectionPolicy(),
+    val advertisement: AdvertisementPolicy = AdvertisementPolicy(),
     val advertisedAttributes: Map<String, String> = emptyMap(),
     val logger: NetLogger = NetLogger.None,
     val scope: CoroutineScope? = null,
+    val protocolVersions: IntRange = ProtocolVersions.SUPPORTED,
 )

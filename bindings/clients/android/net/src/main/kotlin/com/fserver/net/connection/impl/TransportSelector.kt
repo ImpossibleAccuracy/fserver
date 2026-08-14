@@ -1,5 +1,7 @@
-package com.fserver.net.connection
+package com.fserver.net.connection.impl
 
+import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.PeerRef
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
 

@@ -3,9 +3,9 @@ package com.fserver.net.config
 import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.CryptoProvider
-import com.fserver.net.security.IdentityStore
-import com.fserver.net.security.PassthroughCryptoProvider
+import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.identity.IdentityStore
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.PeerAuthenticator
 import kotlinx.coroutines.CoroutineScope
 
@@ -23,6 +23,7 @@ class NetworkConfigBuilder<T : Any>(
     var authenticator: PeerAuthenticator? = null
     var crypto: CryptoProvider = PassthroughCryptoProvider
     var policy: ConnectionPolicy = ConnectionPolicy()
+    var advertisement: AdvertisementPolicy = AdvertisementPolicy()
     var logger: NetLogger = NetLogger.None
     var scope: CoroutineScope? = null
 
@@ -75,6 +76,7 @@ class NetworkConfigBuilder<T : Any>(
             authenticator = authenticator,
             crypto = crypto,
             policy = policy,
+            advertisement = advertisement,
             advertisedAttributes = containers.fold(emptyMap<String, String>()) { acc, container ->
                 acc + container.advertisedAttributes
             } + attributes,

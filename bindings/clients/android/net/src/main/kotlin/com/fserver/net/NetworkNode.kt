@@ -1,12 +1,21 @@
 package com.fserver.net
 
 import com.fserver.net.config.NetworkConfig
-import com.fserver.net.connection.ConnectionManager
-import com.fserver.net.connection.ConnectionManagerImpl
+import com.fserver.net.connection.IncomingConnectionsManager
+import com.fserver.net.connection.RequestManager
+import com.fserver.net.connection.impl.ConnectionsHolder
+import com.fserver.net.connection.impl.IncomingConnectionsManagerImpl
+import com.fserver.net.connection.impl.RequestManagerImpl
 import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.discovery.PeerDiscoveryImpl
-import com.fserver.net.security.LocalIdentity
-import com.fserver.net.wire.ProtocolVersions
+import com.fserver.net.handshake.HandshakeNegotiator
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.ConfirmAuthMethod
+import com.fserver.net.security.identity.LocalIdentity
+import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.spi.ChannelSecurity
+import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,15 +34,22 @@ import kotlin.time.Duration.Companion.seconds
 class NetworkNode<M : Any> private constructor(
     val identity: LocalIdentity,
     val discovery: PeerDiscovery,
-    val connections: ConnectionManager<M>,
-    private val connectionsImpl: ConnectionManagerImpl<M>,
+    private val incomingConnectionsImpl: IncomingConnectionsManagerImpl<M>,
+    private val requestManagerImpl: RequestManagerImpl<M>,
     /** Non-null only when the node created the scope, and so is the one allowed to cancel it. */
     private val ownedScope: CoroutineScope?,
 ) : AutoCloseable {
+    val incoming: IncomingConnectionsManager<M> = incomingConnectionsImpl
+    val requestsManager: RequestManager<M> = requestManagerImpl
 
     override fun close() {
         // Bounded: transport that will not shut down must not wedge the host's teardown.
-        runBlocking { withTimeoutOrNull(SHUTDOWN_GRACE) { connectionsImpl.shutdown() } }
+        runBlocking {
+            withTimeoutOrNull(SHUTDOWN_GRACE) {
+                incomingConnectionsImpl.shutdown()
+                requestManagerImpl.shutdown()
+            }
+        }
         discovery.stopAdvertising()
         ownedScope?.cancel()
     }
@@ -51,15 +67,27 @@ class NetworkNode<M : Any> private constructor(
                 config.logger.warn("crypto suite '${config.crypto.suite.name}' does not encrypt - frames go out in the clear")
             }
 
-            val connections = ConnectionManagerImpl(
-                transports = config.transports,
+            val authMethods = config.authMethods.ifEmpty { defaultAuthMethods(config) }
+            val config = config.copy(authMethods = authMethods)
+
+            val negotiator = HandshakeNegotiator(config = config)
+            val connectionsHolder = ConnectionsHolder(
                 dictionary = config.dictionary,
-                identityStore = config.identityStore,
-                crypto = config.crypto,
-                authenticator = config.authenticator,
-                defaultPolicy = config.policy,
-                protocolVersions = ProtocolVersions.SUPPORTED,
                 logger = config.logger,
+                scope = scope,
+            )
+
+            val incoming = IncomingConnectionsManagerImpl(
+                config = config,
+                negotiator = negotiator,
+                connectionsHolder = connectionsHolder,
+                scope = scope,
+            )
+
+            val requestManager = RequestManagerImpl(
+                config = config,
+                negotiator = negotiator,
+                connectionsHolder = connectionsHolder,
                 scope = scope,
             )
 
@@ -67,7 +95,8 @@ class NetworkNode<M : Any> private constructor(
                 providers = config.discoveryProviders,
                 advertisers = config.advertisers,
                 identityStore = config.identityStore,
-                dictionary = config.dictionary.descriptor,
+                policy = config.advertisement,
+                authMethods = advertisableMethods(authMethods, config.transports),
                 advertisedAttributes = config.advertisedAttributes,
                 logger = config.logger,
                 scope = scope,
@@ -76,10 +105,35 @@ class NetworkNode<M : Any> private constructor(
             return NetworkNode(
                 identity = config.identityStore.local,
                 discovery = discovery,
-                connections = connections,
-                connectionsImpl = connections,
+                incomingConnectionsImpl = incoming,
+                requestManagerImpl = requestManager,
                 ownedScope = scope.takeIf { config.scope == null },
             )
+        }
+
+        /**
+         * What a node runs when the host names no methods: ask the user, and defer to transport
+         * that already did. Order is preference order - the SAS one is only ever reachable on
+         * transport that declares it, so listing it first costs nothing elsewhere.
+         */
+        private fun defaultAuthMethods(config: NetworkConfig<*>): List<AuthMethod> = listOf(
+            SasAuthMethod(config.authenticator),
+            ConfirmAuthMethod(config.crypto, config.authenticator),
+        )
+
+        /**
+         * Which methods are worth putting on the air. A transport-backed one is announced only if
+         * some installed transport actually backs it - promising `nearby-sas` over Wi-Fi would be
+         * a claim this node cannot honour.
+         */
+        private fun advertisableMethods(
+            methods: List<AuthMethod>,
+            transports: List<Transport>,
+        ): List<AuthMethodId> {
+            val backed = transports
+                .mapNotNull { (it.capabilities.security as? ChannelSecurity.Sas)?.method }
+                .toSet()
+            return methods.filter { !it.requiresChannelSecurity || it.id in backed }.map { it.id }
         }
     }
 }
