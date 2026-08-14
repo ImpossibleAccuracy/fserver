@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.model
 
-import com.fserver.net.connection.ConnectionManager
+import com.fserver.net.connection.IncomingConnectionsManager
+
 
 /**
  * A device asking to connect, as the sheet needs it.
@@ -17,7 +18,7 @@ data class IncomingConnectionUi(
     val confirmationCode: String?,
 )
 
-fun ConnectionManager.IncomingRequest.toUi(): IncomingConnectionUi = IncomingConnectionUi(
+fun IncomingConnectionsManager.IncomingRequest.toUi(): IncomingConnectionUi = IncomingConnectionUi(
     deviceName = peer.advertisedName,
     via = transport.value,
     fingerprintGroups = null,

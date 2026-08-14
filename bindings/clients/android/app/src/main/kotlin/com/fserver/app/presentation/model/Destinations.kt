@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
+import com.fserver.core.domain.model.ConnectionArguments
 import kotlinx.serialization.Serializable
 
 /**
@@ -57,8 +57,7 @@ sealed interface Destination : NavKey {
      */
     @Serializable
     data class Pairing(
-        val deviceId: String,
-        val reconnectionArguments: PairingTarget.ConnectionArguments? = null,
+        val connectionArguments: ConnectionArguments,
     ) : Destination
 
     @Serializable

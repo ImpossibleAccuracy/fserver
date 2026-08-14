@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
+import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,17 +41,13 @@ class QrScanViewModel(
             }
 
             devicesRepository
-                .handshake(payload = payload)
+                .probe(ConnectionArguments.QrPayload(payload))
                 .fold(
-                    onSuccess = { device ->
+                    onSuccess = {
                         _state.update {
                             it.copy(
                                 isConnecting = false,
-                                found = PairingTarget(
-                                    deviceId = device.descriptor.deviceId,
-                                    reconnectionArguments =
-                                        PairingTarget.ConnectionArguments.QrPayload(payload),
-                                ),
+                                found = ConnectionArguments.QrPayload(payload),
                                 error = null,
                             )
                         }

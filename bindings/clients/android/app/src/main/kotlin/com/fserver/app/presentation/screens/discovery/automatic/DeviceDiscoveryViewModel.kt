@@ -231,9 +231,9 @@ class DeviceDiscoveryViewModel(
 }
 
 private fun ForeignDevice.toUi() = DeviceDiscoveryState.DeviceUi(
-    id = descriptor.deviceId,
-    name = descriptor.displayName,
-    kind = descriptor.kind,
+    id = deviceId,
+    name = displayName,
+    kind = kind,
     address = routes.first().endpoint.address,
     isPaired = hasSession,
 )

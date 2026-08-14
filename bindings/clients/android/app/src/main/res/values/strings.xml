@@ -141,14 +141,17 @@
     <string name="pairing_kicker_server">Server</string>
     <string name="pairing_connecting">Reaching the device…</string>
     <string name="pairing_address">address · %1$s</string>
-    <string name="pairing_access_open">access · open to anyone on the network</string>
-    <string name="pairing_access_password">access · by password</string>
-    <string name="pairing_access_key">access · by key</string>
-    <string name="pairing_password_label">Access password</string>
+    <string name="pairing_unknown_device">Unknown device</string>
+    <string name="pairing_protocol_pending">checking what it offers…</string>
+    <string name="pairing_method_label">Authenticate via</string>
+    <string name="pairing_method_confirm_fingerprint">Compare fingerprints</string>
+    <string name="pairing_method_nearby_sas">Compare on-screen code</string>
     <string name="pairing_fingerprint_label">Server key fingerprint</string>
     <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
+    <string name="pairing_fingerprint_pending">Shown once connected — a greeting alone proves nothing.</string>
     <string name="pairing_remember_device">Remember the device and do not ask again</string>
     <string name="pairing_confirm">Fingerprints match — connect</string>
+    <string name="pairing_confirm_sas">Codes match — connect</string>
     <string name="pairing_error_unreachable">Could not reach the device again.</string>
 
     <!-- QR scanner -->

@@ -58,7 +58,10 @@ Always pass `--no-daemon`.
 ./gradlew --no-daemon assembleDevDebug
 ./gradlew --no-daemon assembleProdRelease
 
-# core tests (plain JVM JUnit4)
+# net tests
+./gradlew --no-daemon :net:test
+
+# core tests
 ./gradlew --no-daemon :core:test
 ./gradlew --no-daemon :core:test --tests "com.fserver.core.SyncEngineTest"
 ./gradlew --no-daemon :core:test --tests "com.fserver.core.SyncEngineTest.evictDoesNotPropagateDelete"

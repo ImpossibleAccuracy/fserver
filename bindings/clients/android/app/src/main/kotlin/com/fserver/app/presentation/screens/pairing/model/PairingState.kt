@@ -1,46 +1,60 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.core.domain.model.AuthMethod
 import com.fserver.net.peer.PeerDescriptor
 
 @Immutable
 data class PairingState(
-    /** Null while the device is being looked up, or once it has dropped off the network. */
+    /** Null while the greeting is still in flight, or once it has failed. */
     val device: DeviceUi? = null,
-    val password: String = "",
     val rememberDevice: Boolean = true,
-    /** Why the device could not be reached again, when the screen had to re-probe it. */
+    val isConnecting: Boolean = false,
+    /** Why the device could not be reached, or why the connection attempt failed. */
     val error: String? = null,
 ) {
     @Immutable
     data class DeviceUi(
-        val name: String,
-        val kind: PeerDescriptor.Kind?,
-        val access: PeerDescriptor.AccessMode?,
-        val address: String,
-        val technicalLine: String,
+        /**
+         * Null when [id] didn't come from discovery and hasn't resolved to one yet — a manual
+         * address or QR code, before or while it's being probed. Shown once known, never
+         * fabricated: an unresolved peer gets no name or kind guessed on its behalf.
+         */
+        val identity: IdentityUi?,
+        /** Null only when nothing about the address is known yet either — mid-QR-decode. */
+        val address: String?,
+        /** Protocol version range the device offered, from the public greeting. */
+        val protocolLine: String,
+        val offeredMethods: List<AuthMethod>,
+        val selectedMethod: AuthMethod?,
+        /** Empty until a session is actually up — the greeting proves nothing by itself. */
         val fingerprintGroups: List<String>,
-    )
-
-    /** The server asks for a secret only in some access modes; the field follows that. */
-    val requiresPassword: Boolean
-        get() = device?.access == PeerDescriptor.AccessMode.Password
+    ) {
+        @Immutable
+        data class IdentityUi(
+            val name: String,
+            val kind: PeerDescriptor.Kind?,
+        )
+    }
 
     /**
-     * Guards only what the screen can actually check — that the device is still there and a
-     * password was typed where one is demanded. The fingerprint comparison is not in here:
-     * it happens in the user's head, and the button must not imply the app verified it.
+     * Guards only what the screen can actually check — that a greeting came back and a method is
+     * picked. The fingerprint comparison is not in here: it happens in the user's head, and the
+     * button must not imply the app verified it.
      */
     val canConnect: Boolean
-        get() = device != null && (!requiresPassword || password.isNotBlank())
+        get() = device != null && !isConnecting
 
     companion object {
         val SampleDevice = DeviceUi(
-            name = "MacBook-Pro.local",
-            kind = PeerDescriptor.Kind.Laptop,
-            access = PeerDescriptor.AccessMode.Open,
+            identity = DeviceUi.IdentityUi(
+                name = "MacBook-Pro.local",
+                kind = PeerDescriptor.Kind.Laptop,
+            ),
             address = "192.168.1.14:8384",
-            technicalLine = "TLS 1.3 · protocol v1",
+            protocolLine = "protocol v1",
+            offeredMethods = listOf(AuthMethod.ConfirmFingerprint),
+            selectedMethod = AuthMethod.ConfirmFingerprint,
             fingerprintGroups = listOf("9f2c 4a01", "b7d3 e820", "15aa cc94", "0f6b 7e31"),
         )
     }

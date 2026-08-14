@@ -13,7 +13,7 @@ value class AuthMethodId(val value: String) {
     override fun toString(): String = value
 
     companion object {
-        /** Nearby's own digit comparison. Only ever valid on a transport that declares it. */
+        /** Nearby's own digit comparison. Only ever valid on transport that declares it. */
         val NEARBY_SAS: AuthMethodId = AuthMethodId("nearby-sas")
     }
 }

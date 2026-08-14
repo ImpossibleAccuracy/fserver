@@ -1,6 +1,5 @@
 package com.fserver.app.presentation.screens.pairing
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +33,9 @@ import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
+import com.fserver.app.presentation.designkit.DkSegmentedControl
+import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
@@ -45,6 +45,7 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.domain.model.AuthMethod
 import com.fserver.net.peer.PeerDescriptor
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -111,27 +112,34 @@ private fun PairingScreenContent(
             ) {
                 DeviceCard(device = device)
 
+                if (device.offeredMethods.isNotEmpty()) {
+                    AuthMethodPicker(
+                        offeredMethods = device.offeredMethods,
+                        selectedMethod = device.selectedMethod,
+                        onSelect = { onIntent(PairingIntent.MethodSelected(it)) },
+                    )
+                }
+
                 Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
                     Text(
                         text = stringResource(R.string.pairing_fingerprint_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    DkFingerprintBlock(groups = device.fingerprintGroups)
-                    Text(
-                        text = stringResource(R.string.pairing_fingerprint_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                if (state.requiresPassword) {
-                    DkTextField(
-                        label = stringResource(R.string.pairing_password_label),
-                        value = state.password,
-                        onValueChange = { onIntent(PairingIntent.PasswordChanged(it)) },
-                        isPassword = true,
-                    )
+                    if (device.fingerprintGroups.isNotEmpty()) {
+                        DkFingerprintBlock(groups = device.fingerprintGroups)
+                        Text(
+                            text = stringResource(R.string.pairing_fingerprint_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.pairing_fingerprint_pending),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
 
                 Row(
@@ -154,6 +162,14 @@ private fun PairingScreenContent(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+
+                if (state.error != null) {
+                    Text(
+                        text = state.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             Spacer(
@@ -168,7 +184,13 @@ private fun PairingScreenContent(
             ) {
                 DkPrimaryButton(
                     modifier = Modifier.fillMaxWidth(),
-                    text = stringResource(R.string.pairing_confirm),
+                    text = stringResource(
+                        if (device.selectedMethod == AuthMethod.NearbySas) {
+                            R.string.pairing_confirm_sas
+                        } else {
+                            R.string.pairing_confirm
+                        }
+                    ),
                     onClick = {
                         onIntent(PairingIntent.Connect)
                     },
@@ -185,9 +207,9 @@ private fun PairingScreenContent(
 }
 
 /**
- * Everything the device asserted about itself, in the open and in one block — including the
- * access mode, so a server that will ask for nothing says so before the user connects
- * rather than after.
+ * Everything known about the device so far, in one block. Before a session exists that may be
+ * only the greeting's protocol/method list — a manual address or QR code has no confirmed name
+ * or kind until the handshake actually completes.
  */
 @Composable
 private fun DeviceCard(device: PairingState.DeviceUi) {
@@ -198,23 +220,53 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
         ) {
-            DkThumbnail(icon = device.kind.icon)
+            DkThumbnail(icon = device.identity?.kind.icon)
             Column {
-                DkCardTitle(device.name)
-                DkCardMeta(device.technicalLine)
+                DkCardTitle(device.identity?.name ?: stringResource(R.string.pairing_unknown_device))
+                DkCardMeta(
+                    device.protocolLine.ifEmpty { stringResource(R.string.pairing_protocol_pending) }
+                )
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
-            CardFact(stringResource(R.string.pairing_address, device.address))
-
-            if (device.access != null) {
-                CardFact(
-                    stringResource(device.access.labelRes)
-                )
+        if (device.address != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
+                CardFact(stringResource(R.string.pairing_address, device.address))
             }
         }
     }
 }
+
+/** Lets the user pick which of the device's offered methods to authenticate with. */
+@Composable
+private fun AuthMethodPicker(
+    offeredMethods: List<AuthMethod>,
+    selectedMethod: AuthMethod?,
+    onSelect: (AuthMethod) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
+        Text(
+            text = stringResource(R.string.pairing_method_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (offeredMethods.size > 1) {
+            DkSegmentedControl(
+                options = offeredMethods.map { DkSegmentedOption(value = it, label = it.label) },
+                selected = selectedMethod ?: offeredMethods.first(),
+                onSelect = onSelect,
+            )
+        } else {
+            CardFact((selectedMethod ?: offeredMethods.first()).label)
+        }
+    }
+}
+
+/** Friendly name for the method. */
+private val AuthMethod.label: String
+    @Composable get() = when (this) {
+        AuthMethod.ConfirmFingerprint -> stringResource(R.string.pairing_method_confirm_fingerprint)
+        AuthMethod.NearbySas -> stringResource(R.string.pairing_method_nearby_sas)
+    }
 
 @Composable
 private fun CardFact(text: String) {
@@ -262,14 +314,6 @@ private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
     }
 }
 
-@get:StringRes
-private val PeerDescriptor.AccessMode.labelRes: Int
-    get() = when (this) {
-        PeerDescriptor.AccessMode.Open -> R.string.pairing_access_open
-        PeerDescriptor.AccessMode.Password -> R.string.pairing_access_password
-        PeerDescriptor.AccessMode.Key -> R.string.pairing_access_key
-    }
-
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun PairingScreenPreview() {
@@ -282,17 +326,42 @@ private fun PairingScreenPreview() {
     }
 }
 
-@Preview(name = "Password required", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Multiple methods offered", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun PairingScreenPasswordPreview() {
+private fun PairingScreenMultiMethodPreview() {
     FServerTheme {
         PairingScreenContent(
             state = PairingState(
                 device = PairingState.SampleDevice.copy(
-                    name = "HOME-NAS",
-                    kind = PeerDescriptor.Kind.Nas,
-                    access = PeerDescriptor.AccessMode.Password,
+                    identity = PairingState.DeviceUi.IdentityUi(
+                        name = "HOME-NAS",
+                        kind = PeerDescriptor.Kind.Nas,
+                    ),
                     address = "192.168.1.42:8384",
+                    offeredMethods = listOf(AuthMethod.ConfirmFingerprint, AuthMethod.NearbySas),
+                    selectedMethod = AuthMethod.NearbySas,
+                    fingerprintGroups = emptyList(),
+                ),
+            ),
+            onIntent = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Manual address, unresolved", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PairingScreenUnresolvedPreview() {
+    FServerTheme {
+        PairingScreenContent(
+            state = PairingState(
+                device = PairingState.DeviceUi(
+                    identity = null,
+                    address = "192.168.1.42:8384",
+                    protocolLine = "protocol v1",
+                    offeredMethods = listOf(AuthMethod.ConfirmFingerprint),
+                    selectedMethod = AuthMethod.ConfirmFingerprint,
+                    fingerprintGroups = emptyList(),
                 ),
             ),
             onIntent = {},

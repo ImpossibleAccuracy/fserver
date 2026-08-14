@@ -181,11 +181,7 @@ private fun DeviceDiscoveryScreen(
                         DeviceRow(
                             device = device,
                             onClick = {
-                                if (device.isPaired) {
-                                    // TODO: process with already paired device
-                                } else {
-                                    navigateToPairing(device.id)
-                                }
+                                navigateToPairing(device.id)
                             }
                         )
                         DkFadingDivider()

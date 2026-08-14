@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
+import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.Constants
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,26 +48,19 @@ class ManualAddressViewModel(
             return
         }
 
+        val arguments = ConnectionArguments.Ip(host = current.host, port = port)
+
         viewModelScope.launch {
             _state.update { it.copy(isChecking = true, error = null) }
 
             devicesRepository
-                .handshake(
-                    host = current.host,
-                    port = port,
-                )
+                .probe(arguments)
                 .fold(
-                    onSuccess = { device ->
+                    onSuccess = {
                         _state.update {
                             it.copy(
                                 isChecking = false,
-                                found = PairingTarget(
-                                    deviceId = device.descriptor.deviceId,
-                                    reconnectionArguments = PairingTarget.ConnectionArguments.Ip(
-                                        host = current.host,
-                                        port = port,
-                                    ),
-                                ),
+                                found = arguments,
                                 error = null,
                             )
                         }

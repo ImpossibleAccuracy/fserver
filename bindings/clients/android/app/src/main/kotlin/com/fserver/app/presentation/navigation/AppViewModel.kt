@@ -3,17 +3,16 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.model.IncomingConnectionUi
 import com.fserver.app.presentation.model.toUi
 import com.fserver.app.presentation.navigation.model.NavigationState
 import com.fserver.core.domain.repository.DevicesRepository
-import com.fserver.net.connection.ConnectionManager
+import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.session.CloseReason
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -35,14 +34,15 @@ class AppViewModel(
 
     private val _state = MutableStateFlow(
         NavigationState(
-            startDestination = Destination.Onboarding
+            startDestination = Destination.Connect
         )
     )
     val state = _state.asStateFlow()
 
     // Queued rather than replaced: two devices can knock at once, and dropping one silently
     // leaves its user watching a spinner that will only ever time out.
-    private val pending = MutableStateFlow<List<ConnectionManager.IncomingRequest>>(emptyList())
+    private val pending =
+        MutableStateFlow<List<IncomingConnectionsManager.IncomingRequest>>(emptyList())
 
     val incomingConnection = pending
         .map { it.firstOrNull()?.toUi() }
@@ -67,7 +67,7 @@ class AppViewModel(
      * Takes the request off the queue first: accepting is a network round trip, and leaving it on
      * screen until that returns invites a second tap on a decision already made.
      */
-    private fun answer(verdict: suspend (ConnectionManager.IncomingRequest) -> Unit) {
+    private fun answer(verdict: suspend (IncomingConnectionsManager.IncomingRequest) -> Unit) {
         val request = pending.value.firstOrNull() ?: return
         pending.update { it.drop(1) }
 

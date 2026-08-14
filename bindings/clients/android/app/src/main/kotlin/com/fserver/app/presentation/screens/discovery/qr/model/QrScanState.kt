@@ -1,14 +1,14 @@
 package com.fserver.app.presentation.screens.discovery.qr.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
+import com.fserver.core.domain.model.ConnectionArguments
 
 @Immutable
 data class QrScanState(
     val isConnecting: Boolean = false,
     val error: Error? = null,
     /** Set once the scanned address answered; the screen navigates on and clears it. */
-    val found: PairingTarget? = null,
+    val found: ConnectionArguments? = null,
 ) {
     sealed interface Error {
         data object MalformedCode : Error

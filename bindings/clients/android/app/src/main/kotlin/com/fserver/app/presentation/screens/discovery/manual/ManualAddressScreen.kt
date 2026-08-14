@@ -22,16 +22,16 @@ import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTextField
-import com.fserver.app.presentation.screens.pairing.model.PairingTarget
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
+import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ManualAddressScreen(
     viewModel: ManualAddressViewModel = koinViewModel(),
-    navigateToPairing: (target: PairingTarget) -> Unit,
+    navigateToPairing: (target: ConnectionArguments) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

@@ -20,8 +20,7 @@ fun EntryProviderScope<Destination>.manualAddressEntry(
                 navigator.navigateUp()
                 navigator.navigate(
                     Destination.Pairing(
-                        deviceId = target.deviceId,
-                        reconnectionArguments = target.reconnectionArguments
+                        connectionArguments = target
                     )
                 )
             },
