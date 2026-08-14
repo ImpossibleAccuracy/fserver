@@ -1,7 +1,6 @@
 package com.fserver.net.connection
 
 import com.fserver.net.spi.SpiId
-import com.fserver.net.spi.Transport
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -29,6 +28,18 @@ data class ConnectionPolicy(
     val maxSessions: Int = 16,
     val sendQueueCapacity: Int = 64,
     val incomingQueueCapacity: Int = 64,
+    val throttleConfig: ThrottleConfig = ThrottleConfig(),
+)
+
+data class ThrottleConfig(
+    /** how far back [maxAttempts] looks; a fixed sliding window per source address. */
+    val window: Duration = 10.seconds,
+    val maxAttempts: Int = 5,
+    /** cap on connections running the public greeting or `AUTH` at once, unauthenticated */
+    val maxPendingHandshakes: Int = 32,
+    /** the wait after the first rejection; each further one doubles it, capped at [maxDelay]. */
+    val initialDelay: Duration = 30.seconds,
+    val maxDelay: Duration = 5.minutes,
 )
 
 /**

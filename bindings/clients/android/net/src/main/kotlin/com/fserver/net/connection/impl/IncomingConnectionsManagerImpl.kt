@@ -4,6 +4,8 @@ import com.fserver.net.NetworkException
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.throttle.HandshakeSource
+import com.fserver.net.connection.throttle.HandshakeThrottle
 import com.fserver.net.handshake.FramePump
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.peer.PublicGreeting
@@ -32,6 +34,8 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
     private val connectionsHolder: ConnectionsHolder<M>,
     private val scope: CoroutineScope,
 ) : IncomingConnectionsManager<M> {
+
+    private val throttle = HandshakeThrottle(config.policy)
 
     override val sessions: StateFlow<List<PeerSession<M>>> = connectionsHolder.sessions
         .map { it.values.toList() }
@@ -70,14 +74,22 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
 
     /**
      * Answers an inbound connection and takes it through the public greeting. Returns null when
-     * the peer never asked to authenticate - a probe, a scan, or a link that simply died - so
-     * nothing is raised for it.
+     * the source is throttled, or the peer never asked to authenticate - a probe, a scan, or a
+     * link that simply died - so nothing is raised for it.
      */
     private suspend fun admit(
         owner: Transport,
         connection: Transport.InboundConnection,
     ): IncomingConnectionsManager.IncomingRequest? {
+        val source = HandshakeSource(owner.id, connection.peer.endpoint)
+        if (!throttle.reserve(source)) {
+            config.logger.debug("refusing $source: pre-auth limit or rate limit reached")
+            runCatching { connection.reject() }
+            return null
+        }
+
         val channel = connection.accept().getOrElse {
+            throttle.release()
             config.logger.warn("could not answer ${connection.peer.advertisedName}", it)
             return null
         }
@@ -86,12 +98,14 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
         val inbound = try {
             negotiator.receive(pump, owner.capabilities, config.policy)
         } catch (e: Throwable) {
+            throttle.release()
             pump.close()
             config.logger.debug("inbound from ${connection.peer.advertisedName} ended before auth: ${e.message}")
             return null
         }
 
         return IncomingRequest(
+            source = source,
             connection = connection,
             confirmationCode = channel.confirmationCode,
             pump = pump,
@@ -106,6 +120,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
      * within the auth deadline is the same as a refusal.
      */
     private inner class IncomingRequest(
+        private val source: HandshakeSource,
         private val connection: Transport.InboundConnection,
         override val confirmationCode: String?,
         private val pump: FramePump,
@@ -121,6 +136,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
         private val watchdog = scope.launch {
             delay(config.policy.authTimeout)
             if (settled.compareAndSet(false, true)) {
+                throttle.release()
                 config.logger.debug("nobody answered the request from ${peer.advertisedName}")
                 runCatching { inbound.reject("no answer") }
             }
@@ -135,9 +151,13 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
             val link = try {
                 inbound.accept(confirmationCode, config.policy)
             } catch (e: Throwable) {
+                if (e is NetworkException.AuthenticationRejected) throttle.onAuthenticationFailed(source)
                 pump.close()
                 throw e
+            } finally {
+                throttle.release()
             }
+            throttle.onAuthenticated(source)
 
             val session = connectionsHolder.register(
                 route = PeerRef(
@@ -156,6 +176,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
         override suspend fun reject(reason: CloseReason) {
             if (!settled.compareAndSet(false, true)) return
             watchdog.cancel()
+            throttle.release()
             try {
                 inbound.reject(reason.toString())
             } catch (e: Exception) {
