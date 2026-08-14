@@ -4,6 +4,7 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.security.PeerAuthenticator
@@ -174,7 +175,7 @@ class SessionTest {
         dictionary: MessageDictionary<TestMessage> = TestDictionary(),
         authenticator: PeerAuthenticator? = null,
         // Deterministic by default: no timers, no retries.
-        policy: ConnectionPolicy = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None),
+        policy: ConnectionPolicy = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null),
     ): NetworkNode<TestMessage> = NetworkNode.create(
         NetworkConfig(
             dictionary = dictionary,
@@ -187,7 +188,7 @@ class SessionTest {
     ).also(nodes::add)
 
     private val reconnecting = ConnectionPolicy(
-        keepAlive = null,
+        timeouts = TimeoutsConfig(keepAlive = null),
         reconnect = ReconnectPolicy.ExponentialBackoff(
             initialDelay = 50.milliseconds,
             maxDelay = 200.milliseconds,

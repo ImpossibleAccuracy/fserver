@@ -13,6 +13,7 @@ import com.fserver.core.net.TempMessages
 import com.fserver.core.net.TimberNetLogger
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.networkConfig
+import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
@@ -128,6 +129,13 @@ class FServerCore private constructor(
                 authenticator = peerAuthenticator
                 scope = coroutineScope
                 logger = TimberNetLogger
+                policy = ConnectionPolicy(
+                    transportOrder = listOf(
+                        NearbyConnectionsSPI.ID,
+                        MulticastDnsSPI.ID,
+                        DirectIpSPI.ID,
+                    )
+                )
 
                 install(
                     DirectIpSPI.create(),

@@ -15,7 +15,6 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.session.SessionLink
-import com.fserver.net.spi.ChannelSecurity
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.FrameKind
@@ -120,7 +119,7 @@ internal class HandshakeNegotiator(
 
         // The initiator names its choice in the first AUTH frame. Whether that choice is allowed
         // here is decided against this side's own transport, never against the claim itself.
-        val first = wire.expect(FrameKind.AUTH, policy.authTimeout)
+        val first = wire.expect(FrameKind.AUTH, policy.authConfig.authTimeout)
         val reader = ByteReader(first.payload)
         val chosen = AuthMethodId(reader.string())
         val firstPayload = reader.bytes()

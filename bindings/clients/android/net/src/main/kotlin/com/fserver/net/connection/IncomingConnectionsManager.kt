@@ -1,6 +1,5 @@
 package com.fserver.net.connection
 
-import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.DiscoveredEndpoint
@@ -33,11 +32,6 @@ interface IncomingConnectionsManager<M : Any> {
     interface IncomingRequest {
         val transport: SpiId
         val peer: DiscoveredEndpoint
-
-        /** What the peer said publicly. Unverified, like every greeting. */
-        val greeting: PublicGreeting
-
-        /** Digits or code the user must compare, when the transport provides one. */
         val confirmationCode: String?
 
         /** On success the session shows up in [sessions]. */

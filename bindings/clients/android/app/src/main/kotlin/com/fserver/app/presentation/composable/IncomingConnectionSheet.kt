@@ -16,11 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.fserver.app.R
-import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.IncomingConnectionUi
 import com.fserver.app.presentation.theme.FServerTheme
 
@@ -69,35 +67,8 @@ fun IncomingConnectionSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            when {
-                request.fingerprintGroups != null -> {
-                    Text(
-                        text = stringResource(R.string.incoming_connection_fingerprint_label),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    DkFingerprintBlock(groups = request.fingerprintGroups)
-                    Text(
-                        text = stringResource(R.string.incoming_connection_fingerprint_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                request.confirmationCode != null -> {
-                    Text(
-                        text = stringResource(R.string.incoming_connection_code_label),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    Text(text = request.confirmationCode, style = DkType.monoFingerprint)
-                    Text(
-                        text = stringResource(R.string.incoming_connection_code_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                // Neither a fingerprint nor digits: nothing here proves which device this is.
-                else -> Text(
+            if (request.isUnsecured) {
+                Text(
                     text = stringResource(R.string.incoming_connection_unverified),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
@@ -123,8 +94,7 @@ private fun IncomingConnectionSheetPreview() {
             request = IncomingConnectionUi(
                 deviceName = "Alice's laptop",
                 via = "multicast-dns",
-                fingerprintGroups = listOf("9f2c 4a01", "b7d3 e820", "15aa cc94", "0f6b 7e31"),
-                confirmationCode = null,
+                isUnsecured = false,
             ),
             onAccept = {},
             onDecline = {},

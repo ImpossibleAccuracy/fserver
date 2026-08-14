@@ -8,7 +8,6 @@ import com.fserver.net.connection.throttle.HandshakeSource
 import com.fserver.net.connection.throttle.HandshakeThrottle
 import com.fserver.net.handshake.FramePump
 import com.fserver.net.handshake.HandshakeNegotiator
-import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.DiscoveredEndpoint
@@ -128,13 +127,12 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
     ) : IncomingConnectionsManager.IncomingRequest {
         override val transport: SpiId = connection.transport
         override val peer: DiscoveredEndpoint = connection.peer
-        override val greeting: PublicGreeting = inbound.greeting
 
         private val settled = AtomicBoolean(false)
 
         /** Kills the request if the user never answers. */
         private val watchdog = scope.launch {
-            delay(config.policy.authTimeout)
+            delay(config.policy.authConfig.authTimeout)
             if (settled.compareAndSet(false, true)) {
                 throttle.release()
                 config.logger.debug("nobody answered the request from ${peer.advertisedName}")

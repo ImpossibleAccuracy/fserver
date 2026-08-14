@@ -14,7 +14,6 @@ import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.session.SessionLink
-import com.fserver.net.spi.ChannelSecurity
 import com.fserver.net.spi.GreetingSource
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
@@ -88,9 +87,7 @@ internal class RequestManagerImpl<M : Any>(
                     protocolVersions = peer.advertised.protocolVersions ?: IntRange.EMPTY,
                     // The method is not: such transport fixes it, and this side reads that
                     // off its own declaration rather than believing a broadcast.
-                    methods = listOfNotNull(
-                        (capabilities.security as? ChannelSecurity.Sas)?.method,
-                    ),
+                    methods = listOfNotNull(capabilities.security),
                 )
             }
 
@@ -193,7 +190,7 @@ internal class RequestManagerImpl<M : Any>(
         endpoint: TransportEndpoint,
         policy: ConnectionPolicy,
     ): Transport.Channel =
-        withTimeoutOrNull(policy.connectTimeout) { transport.open(endpoint) }
+        withTimeoutOrNull(policy.timeouts.connect) { transport.open(endpoint) }
             ?.getOrElse {
                 throw NetworkException.Transport(
                     "could not open ${endpoint.address}",

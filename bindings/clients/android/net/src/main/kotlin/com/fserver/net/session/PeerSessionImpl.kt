@@ -71,13 +71,14 @@ internal class PeerSessionImpl<M : Any>(
     override val descriptor: PeerDescriptor = negotiated.peerDescriptor
     override val state: StateFlow<State> = _state.asStateFlow()
 
-    private val incomingMessages = Channel<Inbound<M>>(capacity = policy.incomingQueueCapacity)
+    private val incomingMessages =
+        Channel<Inbound<M>>(capacity = policy.sessionConfig.incomingQueueCapacity)
     override val incoming: Flow<Inbound<M>> = incomingMessages.receiveAsFlow()
 
     // Control frames get their own queue and are always drained first: a keep-alive or a close
     // must not wait behind a file transfer. The split is by Envelope.Kind - no payload is read.
     private val controlQueue = Channel<OutgoingFrame>(Channel.BUFFERED)
-    private val appQueue = Channel<OutgoingFrame>(policy.sendQueueCapacity)
+    private val appQueue = Channel<OutgoingFrame>(policy.sessionConfig.sendQueueCapacity)
 
     private val link = MutableStateFlow<SessionLink?>(null)
     private val pending = ConcurrentHashMap<Long, CompletableDeferred<Result<M>>>()
@@ -90,7 +91,7 @@ internal class PeerSessionImpl<M : Any>(
     fun start(initial: SessionLink) {
         install(initial)
         scope.launch { writeLoop() }
-        policy.keepAlive?.let { period -> scope.launch { keepAliveLoop(period) } }
+        policy.timeouts.keepAlive?.let { period -> scope.launch { keepAliveLoop(period) } }
     }
 
     private fun install(newLink: SessionLink) {
@@ -146,8 +147,10 @@ internal class PeerSessionImpl<M : Any>(
     override suspend fun send(message: M): Result<Unit> = guarded {
         enqueue(
             queue = appQueue,
-            envelope = app(
+            envelope = Envelope(
+                version = ProtocolVersions.CURRENT,
                 kind = FrameKind.MESSAGE,
+                messageId = nextMessageId.getAndIncrement(),
                 payload = codec.encode(message),
             )
         )
@@ -169,7 +172,7 @@ internal class PeerSessionImpl<M : Any>(
                 )
             )
 
-            val effectiveTimeout = timeout ?: policy.requestTimeout
+            val effectiveTimeout = timeout ?: policy.timeouts.request
             val result = withTimeoutOrNull(effectiveTimeout) { answer.await() }
                 ?: throw NetworkException.RequestTimeout(effectiveTimeout)
 
@@ -320,13 +323,17 @@ internal class PeerSessionImpl<M : Any>(
         failPending(NetworkException.SessionLinkLost(cause))
 
         val backoff = policy.reconnect
-        if (relink == null || backoff !is ReconnectPolicy.ExponentialBackoff) {
+        if (relink == null || backoff == null) {
             terminate(State.Closed(CloseReason.LinkLost(cause)))
             return
         }
 
         _state.value = State.Connecting
-        var delayMs = backoff.initialDelay
+
+        var delayMs = when (backoff) {
+            is ReconnectPolicy.ExponentialBackoff -> backoff.initialDelay
+            is ReconnectPolicy.StaticDelay -> backoff.delay
+        }
 
         repeat(backoff.maxAttempts) { attempt ->
             delay(delayMs)
@@ -337,7 +344,12 @@ internal class PeerSessionImpl<M : Any>(
             }
 
             logger.warn("reconnect attempt ${attempt + 1} failed", rebuilt.exceptionOrNull())
-            delayMs = minOf(delayMs * 2, backoff.maxDelay)
+
+            val maxDelay = when (backoff) {
+                is ReconnectPolicy.ExponentialBackoff -> backoff.maxDelay
+                is ReconnectPolicy.StaticDelay -> backoff.delay
+            }
+            delayMs = minOf(delayMs * 2, maxDelay)
         }
 
         terminate(State.Failed(NetworkException.SessionLinkLost(cause)))
@@ -370,13 +382,6 @@ internal class PeerSessionImpl<M : Any>(
     }
 
     // ------------------------------------------------------------------ helpers
-
-    private fun app(kind: FrameKind, payload: ByteArray) = Envelope(
-        version = ProtocolVersions.CURRENT,
-        kind = kind,
-        messageId = nextMessageId.getAndIncrement(),
-        payload = payload,
-    )
 
     private fun control(
         kind: FrameKind,

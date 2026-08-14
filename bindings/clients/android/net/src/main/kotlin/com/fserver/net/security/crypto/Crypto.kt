@@ -14,7 +14,6 @@ interface CryptoProvider {
     fun aead(sharedSecret: ByteArray, role: Role): Aead
 
     /** Names the primitives a session ended up using; carried in [com.fserver.net.security.NegotiatedParameters]. */
-    // TODO: inline into provider class
     data class Suite(
         val name: String,
         /** False means frames go out as-is. Only acceptable while the transport itself is trusted. */

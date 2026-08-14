@@ -9,7 +9,6 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
-import com.fserver.net.spi.ChannelSecurity
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteWriter
 import com.fserver.net.wire.FrameKind
@@ -19,7 +18,7 @@ import kotlin.time.Duration
  * Method selection and the `AUTH` round trip.
  *
  * [offered] is the security property, not a convenience: a method that leans on the transport's
- * own protection is offered only where the transport declares it, and a transport with such
+ * own protection is offered only where the transport declares it, and transport with such
  * protection offers nothing weaker beside it. Both roles go through here, so a peer naming a
  * transport-backed method on a plain socket is refused on either end.
  */
@@ -28,8 +27,8 @@ internal class AuthPhase(
 ) {
     fun offered(capabilities: TransportCapabilities): List<AuthMethod> =
         when (val security = capabilities.security) {
-            is ChannelSecurity.Sas -> config.authMethods.filter { it.id == security.method }
-            ChannelSecurity.None -> config.authMethods.filterNot { it.requiresChannelSecurity }
+            null -> config.authMethods.filterNot { it.requiresChannelSecurity }
+            else -> config.authMethods.filter { it.id == security }
         }
 
     fun assertLocallyOffered(id: AuthMethodId, capabilities: TransportCapabilities): AuthMethod =
@@ -73,8 +72,8 @@ internal class AuthPhase(
             // Only the side that picked the method announces it, and only on its first frame.
             methodId = method.id.takeIf { firstIncoming == null },
             pending = firstIncoming,
-            timeout = policy.authTimeout,
-            maxRounds = policy.maxAuthRounds,
+            timeout = policy.authConfig.authTimeout,
+            maxRounds = policy.authConfig.maxAuthRounds,
         )
         val context = AuthContext(
             role = role,

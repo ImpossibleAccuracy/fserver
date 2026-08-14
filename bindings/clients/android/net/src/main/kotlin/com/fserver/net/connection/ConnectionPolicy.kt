@@ -6,29 +6,44 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * @property transportOrder preferred route order; null keeps the order the transports were
- * registered in.
- * @property keepAlive null switches PING/PONG off. With it on, a link that stays silent for three
- * periods is treated as dead.
- * @property authTimeout how long to wait for one authentication round. Far longer than
- * [handshakeTimeout] on purpose: a person comparing digits or typing a password is not a stalled
- * network, and holding both to the same deadline drops connections the moment someone hesitates.
- * @property maxAuthRounds cap on the exchanges one authentication method may run, so a peer cannot
- * keep a pre-authentication connection alive forever by never finishing.
+ * @property transportOrder preferred route order; null keeps the order the transports were registered in.
  */
 data class ConnectionPolicy(
     val transportOrder: List<SpiId>? = null,
-    val connectTimeout: Duration = 15.seconds,
-    val handshakeTimeout: Duration = 10.seconds,
-    val authTimeout: Duration = 2.minutes,
+    val authConfig: AuthConfig = AuthConfig(),
+    val timeouts: TimeoutsConfig = TimeoutsConfig(),
+    val reconnect: ReconnectPolicy? = ReconnectPolicy.ExponentialBackoff(),
+    val sessionConfig: SessionConfig = SessionConfig(),
+    val throttleConfig: ThrottleConfig = ThrottleConfig(),
+)
+
+data class AuthConfig(
+    /**
+     * cap on the exchanges one authentication method may run,
+     * so a peer cannot keep a pre-authentication connection alive forever by never finishing.
+     */
     val maxAuthRounds: Int = 8,
-    val requestTimeout: Duration = 30.seconds,
+    /**
+     * how long to wait for one authentication round.
+     * Should be longer than [TimeoutsConfig.handshake]: person comparing digits or typing
+     * password is not a stalled network, and holding both to the same deadline
+     * drops connections the moment someone hesitates.
+     */
+    val authTimeout: Duration = 2.minutes,
+)
+
+data class TimeoutsConfig(
+    val connect: Duration = 15.seconds,
+    val handshake: Duration = 10.seconds,
+    val request: Duration = 30.seconds,
+    /** null switches PING/PONG off. With it on, a link that stays silent for three periods is treated as dead. */
     val keepAlive: Duration? = 30.seconds,
-    val reconnect: ReconnectPolicy = ReconnectPolicy.ExponentialBackoff(),
+)
+
+data class SessionConfig(
     val maxSessions: Int = 16,
     val sendQueueCapacity: Int = 64,
     val incomingQueueCapacity: Int = 64,
-    val throttleConfig: ThrottleConfig = ThrottleConfig(),
 )
 
 data class ThrottleConfig(
@@ -42,17 +57,18 @@ data class ThrottleConfig(
     val maxDelay: Duration = 5.minutes,
 )
 
-/**
- * What happens after a link drops. Note what is *not* here: re-sending messages. `:net`
- * guarantees at-most-once within a session, and a blind repeat of an `evict` is how user data
- * disappears.
- */
+/** What happens after a link drops. */
 sealed interface ReconnectPolicy {
-    data object None : ReconnectPolicy
+    val maxAttempts: Int
+
+    data class StaticDelay(
+        val delay: Duration = 5.seconds,
+        override val maxAttempts: Int = 5,
+    ) : ReconnectPolicy
 
     data class ExponentialBackoff(
         val initialDelay: Duration = 1.seconds,
         val maxDelay: Duration = 30.seconds,
-        val maxAttempts: Int = 5,
+        override val maxAttempts: Int = 5,
     ) : ReconnectPolicy
 }

@@ -5,7 +5,7 @@ import com.fserver.net.NetworkException
 import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
-import com.fserver.net.connection.ReconnectPolicy
+import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.identity.EphemeralIdentityStore
@@ -196,7 +196,7 @@ class SessionFailureTest {
     private companion object {
         val TIMEOUT = 10.seconds
 
-        val POLICY = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None)
-        val KEEPALIVE = POLICY.copy(keepAlive = 100.milliseconds)
+        val POLICY = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null)
+        val KEEPALIVE = POLICY.copy(timeouts = POLICY.timeouts.copy(keepAlive = 100.milliseconds))
     }
 }

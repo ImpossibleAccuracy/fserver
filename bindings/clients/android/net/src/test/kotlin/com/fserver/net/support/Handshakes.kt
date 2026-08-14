@@ -1,19 +1,21 @@
 package com.fserver.net.support
 
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.connection.AuthConfig
 import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.handshake.FramePump
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.peer.PublicGreeting
-import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.AuthMethod
-import com.fserver.net.security.auth.ConfirmAuthMethod
-import com.fserver.net.security.crypto.CryptoProvider
-import com.fserver.net.security.identity.EphemeralIdentityStore
-import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthRequest
+import com.fserver.net.security.auth.ConfirmAuthMethod
 import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
@@ -25,7 +27,10 @@ import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.seconds
 
 /** Short enough that a stalled test fails fast, long enough that a slow machine does not. */
-internal val TEST_POLICY = ConnectionPolicy(handshakeTimeout = 5.seconds, authTimeout = 5.seconds)
+internal val TEST_POLICY = ConnectionPolicy(
+    timeouts = TimeoutsConfig(handshake = 5.seconds),
+    authConfig = AuthConfig(authTimeout = 5.seconds),
+)
 
 /**
  * A negotiator with the node's own defaults for [AuthMethod], so tests exercise what ships rather

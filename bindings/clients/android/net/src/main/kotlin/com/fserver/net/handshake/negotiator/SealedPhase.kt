@@ -24,7 +24,7 @@ internal class SealedPhase(
         policy: ConnectionPolicy,
     ): PeerDescriptor {
         wire.write(FrameKind.DESCRIPTOR, PeerDescriptorCodec.encode(localDescriptor(capabilities)))
-        val incoming = wire.expect(FrameKind.DESCRIPTOR, policy.handshakeTimeout)
+        val incoming = wire.expect(FrameKind.DESCRIPTOR, policy.timeouts.handshake)
         return PeerDescriptorCodec.decode(incoming.payload)
     }
 
@@ -41,7 +41,7 @@ internal class SealedPhase(
     suspend fun confirmReady(wire: Wire, role: CryptoProvider.Role, policy: ConnectionPolicy) = when (role) {
         CryptoProvider.Role.Initiator -> wire.write(FrameKind.READY)
         CryptoProvider.Role.Responder -> {
-            wire.expect(FrameKind.READY, policy.handshakeTimeout)
+            wire.expect(FrameKind.READY, policy.timeouts.handshake)
             Unit
         }
     }

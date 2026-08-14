@@ -95,7 +95,7 @@ class ConnectionManagerTest {
 
     @Test
     fun `the session limit is enforced once the handshake is already done`() = runBlocking {
-        val alice = node("alice", policy = POLICY.copy(maxSessions = 1))
+        val alice = node("alice", policy = POLICY.copy(sessionConfig = POLICY.sessionConfig.copy(maxSessions = 1)))
         val bob = node("bob")
         val carol = node("carol")
         acceptEverything(bob)
@@ -259,6 +259,6 @@ class ConnectionManagerTest {
         val SETTLE = 300.milliseconds
 
         // Deterministic: no keep-alive timers, no retries.
-        val POLICY = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None)
+        val POLICY = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null)
     }
 }

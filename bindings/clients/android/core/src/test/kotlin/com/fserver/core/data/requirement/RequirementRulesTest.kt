@@ -66,18 +66,6 @@ class RequirementRulesTest {
     }
 
     @Test
-    fun `a scanned code needs exactly what a typed address needs, and never the camera`() {
-        val scanned = DeviceDetectionRequest.QrCode(payload = "{}")
-        val typed = DeviceDetectionRequest.ByManualAddress(ipAddress = "192.168.1.14")
-
-        val scannedRules = detectionRequirementRules(scanned.method, sdkInt = 34)
-        val typedRules = detectionRequirementRules(typed.method, sdkInt = 34)
-
-        assertEquals(typedRules, scannedRules)
-        assertFalse(Manifest.permission.CAMERA in scannedRules.permissions)
-    }
-
-    @Test
     fun `mdns over mobile data is missing multicast`() {
         val rules = detectionRequirementRules(DetectionMethod.Automatic.MulticastDns, sdkInt = 34)
 

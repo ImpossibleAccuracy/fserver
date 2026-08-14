@@ -12,9 +12,8 @@ import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.ConfirmAuthMethod
-import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.security.auth.SasAuthMethod
-import com.fserver.net.spi.ChannelSecurity
+import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -131,7 +130,7 @@ class NetworkNode<M : Any> private constructor(
             transports: List<Transport>,
         ): List<AuthMethodId> {
             val backed = transports
-                .mapNotNull { (it.capabilities.security as? ChannelSecurity.Sas)?.method }
+                .mapNotNull { it.capabilities.security }
                 .toSet()
             return methods.filter { !it.requiresChannelSecurity || it.id in backed }.map { it.id }
         }

@@ -57,38 +57,19 @@ interface Transport {
 }
 
 /**
- * What a transport can and cannot do. Declared statically, before any connection exists - which is
- * what makes [security] checkable: `:net` compares a peer's claim against its own transport's
- * declaration, never against the claim itself.
+ * What a transport can and cannot do. Declared statically,
+ * before any connection exists - which is what makes properties peer-independent.
  */
 data class TransportCapabilities(
     val maxFrameSize: Int = DEFAULT_MAX_FRAME_SIZE,
-    val isMetered: Boolean = false,
-    val security: ChannelSecurity = ChannelSecurity.None,
+    /** Transport-level security, if any. Null when the transport does not authenticate or encrypt. */
+    val security: AuthMethodId? = null,
+    /** Where the public greeting comes from. */
     val greeting: GreetingSource = GreetingSource.Wire,
 ) {
     companion object {
         const val DEFAULT_MAX_FRAME_SIZE: Int = 512 * 1024
     }
-}
-
-/** What the transport hands over before `:net` has done anything. */
-sealed interface ChannelSecurity {
-    /** Raw bytes. The full key agreement has to run. */
-    data object None : ChannelSecurity
-
-    /**
-     * The transport encrypts the link itself and derives a short string from that key exchange,
-     * which the user compares on both devices - a real SAS, not a placeholder.
-     *
-     * Only the method id lives here, because capabilities are static: the string itself belongs to
-     * one connection and arrives through [Transport.Channel.confirmationCode] or
-     * [DiscoveredEndpoint.confirmationCode].
-     *
-     * Note what this does *not* give: a long-term identity. The channel is authenticated, the
-     * device is not, so a key still has to be exchanged and pinned inside it.
-     */
-    data class Sas(val method: AuthMethodId) : ChannelSecurity
 }
 
 /**

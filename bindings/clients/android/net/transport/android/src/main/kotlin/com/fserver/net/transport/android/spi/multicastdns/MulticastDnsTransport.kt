@@ -64,7 +64,7 @@ internal class MulticastDnsTransport(
             try {
                 socket.connect(
                     /* endpoint = */ InetSocketAddress(endpoint.host, endpoint.port),
-                    /* timeout = */ connectionPolicy.connectTimeout.inWholeMilliseconds.toInt()
+                    /* timeout = */ connectionPolicy.timeouts.connect.inWholeMilliseconds.toInt()
                 )
                 // A connect that lands after the caller gave up would otherwise leak the socket.
                 currentCoroutineContext().ensureActive()

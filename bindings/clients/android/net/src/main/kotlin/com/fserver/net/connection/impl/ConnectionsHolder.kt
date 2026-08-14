@@ -55,9 +55,9 @@ internal class ConnectionsHolder<M : Any>(
             forgetDevice(deviceId)
         }
 
-        if (registry.value.size >= policy.maxSessions) {
+        if (registry.value.size >= policy.sessionConfig.maxSessions) {
             link.secure.close()
-            throw NetworkException.Transport("session limit ${policy.maxSessions} reached")
+            throw NetworkException.Transport("session limit ${policy.sessionConfig.maxSessions} reached")
         }
 
         val session = PeerSessionImpl(

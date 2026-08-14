@@ -4,7 +4,7 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
-import com.fserver.net.connection.ReconnectPolicy
+import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession
 import com.fserver.net.support.LOOPBACK
@@ -101,7 +101,7 @@ class EncryptedSessionTest {
             identityStore = EphemeralIdentityStore(displayName = name),
             transports = listOf(network.transport(name)),
             crypto = XorCryptoProvider(),
-            policy = ConnectionPolicy(keepAlive = null, reconnect = ReconnectPolicy.None),
+            policy = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null),
             scope = scope,
         )
     ).also(nodes::add)

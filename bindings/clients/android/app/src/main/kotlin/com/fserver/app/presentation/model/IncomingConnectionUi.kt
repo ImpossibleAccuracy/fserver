@@ -12,15 +12,12 @@ import com.fserver.net.connection.IncomingConnectionsManager
 data class IncomingConnectionUi(
     val deviceName: String,
     val via: String,
-    /** Pre-grouped for `DkFingerprintBlock`. Null when nothing about the peer is proven yet. */
-    val fingerprintGroups: List<String>?,
-    /** Digits shown on both screens, when the transport produced a pair. */
-    val confirmationCode: String?,
+    val isUnsecured: Boolean,
 )
 
 fun IncomingConnectionsManager.IncomingRequest.toUi(): IncomingConnectionUi = IncomingConnectionUi(
     deviceName = peer.advertisedName,
     via = transport.value,
-    fingerprintGroups = null,
-    confirmationCode = confirmationCode,
+    // Neither a fingerprint nor digits: nothing here proves which device this is.
+    isUnsecured = confirmationCode != null,
 )

@@ -36,7 +36,7 @@ internal class PublicPhase(
         val localHello = hello(capabilities, config.protocolVersions).encode()
         wire.write(FrameKind.HELLO, localHello)
 
-        val ack = wire.expect(FrameKind.HELLO_ACK, policy.handshakeTimeout)
+        val ack = wire.expect(FrameKind.HELLO_ACK, policy.timeouts.handshake)
         val remote = PublicHello.decode(ack.payload)
 
         val version = remote.maxVersion
@@ -59,7 +59,7 @@ internal class PublicPhase(
         capabilities: TransportCapabilities,
         policy: ConnectionPolicy,
     ): PublicHalfResult {
-        val incoming = wire.expect(FrameKind.HELLO, policy.handshakeTimeout)
+        val incoming = wire.expect(FrameKind.HELLO, policy.timeouts.handshake)
         val remote = PublicHello.decode(incoming.payload)
 
         val version = minOf(remote.maxVersion, config.protocolVersions.last)

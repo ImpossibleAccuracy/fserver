@@ -6,16 +6,16 @@ import kotlinx.coroutines.flow.map
 import kotlin.time.Duration
 
 /**
- * The transport channel with the session's [com.fserver.net.security.crypto.CryptoProvider.Aead] wrapped around it. Everything
- * above writes plaintext frames and never learns whether they were encrypted.
+ * The transport channel with the session's [com.fserver.net.security.crypto.CryptoProvider.Aead] wrapped around it.
+ * Everything above writes plaintext frames and never learns whether they were encrypted.
  *
  * Built over frame accessors rather than the raw channel: the handshake already consumed part of
  * the stream, and re-collecting a transport flow could drop what arrived in between.
  *
  * [next] exists because the handshake is not finished when this is built - the descriptors are
- * still to come, and they go through here so they are never in the clear. [inbound] is deliberately
- * lazy: taking the rest of the stream before the handshake has stopped pulling single frames off
- * it would have the two race for the same frames.
+ * still to come, and they go through here so they are never in the clear.
+ * [inbound] is deliberately lazy: taking the rest of the stream before
+ * the handshake has stopped pulling single frames off it would have the two race for the same frames.
  */
 internal class SecureChannel(
     private val reader: suspend (Duration) -> ByteArray,

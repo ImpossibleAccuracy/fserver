@@ -47,7 +47,7 @@ class AppViewModel(
     val state = combine(
         startDestination,
         pending,
-        devicesRepository.pendingConfirmation
+        devicesRepository.pendingConfirmation,
     ) { destination, pending, pendingConfirmation ->
         AppRootState(
             startDestination = destination,

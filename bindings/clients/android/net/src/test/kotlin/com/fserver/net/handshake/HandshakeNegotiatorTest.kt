@@ -1,24 +1,23 @@
 package com.fserver.net.handshake
 
 import com.fserver.net.NetworkException
+import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
-import com.fserver.net.security.auth.HandshakeIo
-import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.identity.PeerIdentity
-import com.fserver.net.spi.ChannelSecurity
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.support.TEST_POLICY
 import com.fserver.net.support.TestDictionary
+import com.fserver.net.support.XorCryptoProvider
 import com.fserver.net.support.channelPair
 import com.fserver.net.support.handshake
 import com.fserver.net.support.negotiate
-import com.fserver.net.support.XorCryptoProvider
 import com.fserver.net.support.negotiator
 import com.fserver.net.wire.ByteWriter
 import com.fserver.net.wire.Envelope
@@ -31,12 +30,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import java.security.MessageDigest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.MessageDigest
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -198,7 +197,7 @@ class HandshakeNegotiatorTest {
             // does not, so he will not run it at all. There is nothing left in common.
             val (initiator, responder) = scope.handshake(
                 initiatorCapabilities = TransportCapabilities(
-                    security = ChannelSecurity.Sas(AuthMethodId.NEARBY_SAS)
+                    security = AuthMethodId.NEARBY_SAS
                 ),
                 initiatorConfirmationCode = "4821",
             )
@@ -241,7 +240,7 @@ class HandshakeNegotiatorTest {
                 delay(600)
                 PeerAuthenticator.Decision.Trust
             }),
-            policy = TEST_POLICY.copy(handshakeTimeout = 200.milliseconds),
+            policy = TEST_POLICY.copy(timeouts = TEST_POLICY.timeouts.copy(handshake = 200.milliseconds)),
         )
 
         assertTrue(initiator.isSuccess)
@@ -253,7 +252,7 @@ class HandshakeNegotiatorTest {
         val (initiator, _) = scope.handshake(
             initiator = negotiator("alice", authMethods = listOf(Endless)),
             responder = negotiator("bob", authMethods = listOf(Endless)),
-            policy = TEST_POLICY.copy(maxAuthRounds = 2),
+            policy = TEST_POLICY.copy(authConfig = TEST_POLICY.authConfig.copy(maxAuthRounds = 2)),
         )
 
         val error = initiator.exceptionOrNull()
@@ -328,7 +327,7 @@ class HandshakeNegotiatorTest {
                 negotiator("bob"),
                 ours,
                 CryptoProvider.Role.Responder,
-                policy = TEST_POLICY.copy(handshakeTimeout = 100.milliseconds),
+                policy = TEST_POLICY.copy(timeouts = TEST_POLICY.timeouts.copy(handshake = 100.milliseconds)),
             )
 
             val outcome = withTimeout(TIMEOUT) { responder.await() }
