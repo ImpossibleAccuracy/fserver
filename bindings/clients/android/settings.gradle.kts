@@ -23,9 +23,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // spake2-java (io.github.muntashirakon, via MuntashirAkon/spake2-java) isn't on Maven
-        // Central, only JitPack.
-        maven("https://jitpack.io")
     }
 }
 

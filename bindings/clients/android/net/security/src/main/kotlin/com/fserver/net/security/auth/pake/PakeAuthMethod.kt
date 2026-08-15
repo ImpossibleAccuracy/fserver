@@ -10,15 +10,18 @@ import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.shared.AuthHelper
 import com.fserver.net.security.crypto.CryptoProvider
-import io.github.muntashirakon.crypto.spake2.Spake2Context
-import io.github.muntashirakon.crypto.spake2.Spake2Role
+import com.fserver.net.wire.ByteWriter
 
 /**
- * Password-authenticated key exchange (SPAKE2).
+ * Password-authenticated pairing - placeholder, **not** a real PAKE.
  *
- * TODO: Current SPAKE2 library is unsafe for production use:
- * it prevents use of our custom keys, and print all it's own keys to "System.out".
- * It's OK while app in development, but we need to replace it with a proper implementation before release.
+ * A true PAKE leaks nothing about the password to an active attacker. This one only mixes the
+ * password into an ephemeral key agreement, so a man-in-the-middle who records one handshake can
+ * brute-force the password offline. It exists so the pairing flow above it can be built and tested;
+ * replace it with a real SPAKE2/OPAQUE implementation before release.
+ *
+ * Passive attackers still learn nothing (the key agreement covers that), and a wrong password
+ * fails at [confirmKey] rather than silently producing a broken session.
  */
 class PakeAuthMethod(
     private val crypto: CryptoProvider,
@@ -51,7 +54,7 @@ class PakeAuthMethod(
             }
         }
 
-        val peerKey = runSpake2Exchange(io, context, rawPassword.encodeToByteArray())
+        val peerKey = runExchange(io, context, rawPassword.encodeToByteArray())
         val secretWithPrologue = AuthHelper.bind(peerKey, context.prologue, BIND_LABEL)
         val aead = crypto.aead(
             AuthHelper.deriveKey(secretWithPrologue, HANDSHAKE_KEY_INFO), context.role
@@ -76,49 +79,48 @@ class PakeAuthMethod(
     }
 
     /**
-     * Runs the SPAKE2 message round trip via [Spake2Context], seeded with [password] and
-     * [AuthContext.prologue] so a mismatched negotiation can never land on the same key as matched one.
+     * One ephemeral key agreement, with the password and both public keys folded into the result.
+     * Two ends that disagree on either the password or what they saw on the wire end up with
+     * different secrets - which [confirmKey] then catches.
      */
-    private suspend fun runSpake2Exchange(
+    private suspend fun runExchange(
         io: HandshakeIo,
         context: AuthContext,
-        password: ByteArray
+        password: ByteArray,
     ): ByteArray {
-        // Init SPAKE2 context, using current role
-        val spake2Context = Spake2Context(
-            /* myRole = */
-            when (context.role) {
-                CryptoProvider.Role.Initiator -> Spake2Role.Alice
-                CryptoProvider.Role.Responder -> Spake2Role.Bob
-            },
-            /* myName = */ context.role.name.toByteArray(),
-            /* theirName = */ context.role.reverse().name.toByteArray(),
-        )
+        val localKeyPair = crypto.newKeyExchange()
+        val peerPublicKey = io.exchange(localKeyPair.publicKey)
+        val agreed = localKeyPair.sharedSecret(peerPublicKey)
 
-        // Generate SPAKE2 message from password
-        val localMsg = spake2Context.generateMessage(password)
-
-        // Exchange messages
-        val response = io.exchange(localMsg)
-
-        // Process the response and derive the shared key
-        return try {
-            spake2Context.processMessage(response)
-        } catch (e: Exception) {
-            throw NetworkException.AuthenticationRejected(
-                "SPAKE2 key exchange failed",
-                e
-            )
+        // Role decides the order, so both ends hash the same bytes.
+        val (initiatorKey, responderKey) = when (context.role) {
+            CryptoProvider.Role.Initiator -> localKeyPair.publicKey to peerPublicKey
+            CryptoProvider.Role.Responder -> peerPublicKey to localKeyPair.publicKey
         }
+
+        val transcript = ByteWriter(password.size + initiatorKey.size + responderKey.size + 16)
+            .bytes(password)
+            .bytes(initiatorKey)
+            .bytes(responderKey)
+            .toByteArray()
+
+        return AuthHelper.bind(agreed, transcript, EXCHANGE_LABEL)
     }
 
     /**
      * Explicit key-confirmation round.
-     * SPAKE2 does not fail on its own when the password differs - both sides just end up with different keys.
-     * So each side proves it holds the same key as the other before anything is trusted on top of it.
+     * The exchange above does not fail on its own when the password differs - both sides just end
+     * up with different keys. So each side proves it holds the same key as the other before
+     * anything is trusted on top of it.
      */
     private suspend fun confirmKey(io: HandshakeIo, aead: CryptoProvider.Aead) {
-        val receivedFrame = aead.open(io.exchange(aead.seal(CONFIRMED)))
+        val receivedFrame = try {
+            aead.open(io.exchange(aead.seal(CONFIRMED)))
+        } catch (e: NetworkException.Protocol) {
+            // A wrong password shows up here first: the peer's frame will not open under our key.
+            throw NetworkException.AuthenticationRejected("key confirmation failed", e)
+        }
+
         if (!receivedFrame.contentEquals(CONFIRMED)) {
             throw NetworkException.AuthenticationRejected("key confirmation failed")
         }
@@ -129,13 +131,14 @@ class PakeAuthMethod(
     ) : AuthRequest.Params
 
     companion object {
-        val ID: AuthMethodId = AuthMethodId("spake2-ver1")
+        val ID: AuthMethodId = AuthMethodId("pake-stub-1")
 
-        private val HANDSHAKE_KEY_INFO = "spake2-ver1:handshake".encodeToByteArray()
-        private val SESSION_KEY_INFO = "spake2-ver1:session".encodeToByteArray()
+        private val HANDSHAKE_KEY_INFO = "pake-stub-1:handshake".encodeToByteArray()
+        private val SESSION_KEY_INFO = "pake-stub-1:session".encodeToByteArray()
 
-        private val BIND_LABEL = "spake2-ver1:bind".encodeToByteArray()
+        private val EXCHANGE_LABEL = "pake-stub-1:exchange".encodeToByteArray()
+        private val BIND_LABEL = "pake-stub-1:bind".encodeToByteArray()
 
-        private val CONFIRMED = "spake2-ver1:confirmed".encodeToByteArray()
+        private val CONFIRMED = "pake-stub-1:confirmed".encodeToByteArray()
     }
 }

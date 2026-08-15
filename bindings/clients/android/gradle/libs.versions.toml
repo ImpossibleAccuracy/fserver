@@ -25,7 +25,6 @@ documentfile = "1.1.0"
 
 # Crypto
 bouncycastle = "1.80"
-spake2Java = "2.2.1"
 cryptography = "0.6.0"
 
 [libraries]
@@ -94,7 +93,6 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 # SPAKE2 (RFC 9382), BoringSSL-compatible, JVM module only (not the Android JNI one) - published on
 # JitPack, not Maven Central.
-spake2-java = { group = "com.github.MuntashirAkon.spake2-java", name = "spake2-java", version.ref = "spake2Java" }
 
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
 cryptography-provider = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }

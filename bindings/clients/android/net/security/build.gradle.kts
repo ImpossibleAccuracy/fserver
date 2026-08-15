@@ -21,7 +21,6 @@ dependencies {
 
     // CryptoProvider primitives
     implementation(libs.bouncycastle.bcprov)
-    implementation(libs.spake2.java)
     implementation(libs.cryptography.core)
     implementation(libs.cryptography.provider)
 
