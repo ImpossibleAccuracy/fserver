@@ -9,7 +9,6 @@ import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
-import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.support.TEST_POLICY
@@ -35,7 +34,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.security.MessageDigest
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -197,7 +195,7 @@ class HandshakeNegotiatorTest {
             // does not, so he will not run it at all. There is nothing left in common.
             val (initiator, responder) = scope.handshake(
                 initiatorCapabilities = TransportCapabilities(
-                    security = AuthMethodId.NEARBY_SAS
+                    security = AuthMethodId.TransportConfirmation
                 ),
                 initiatorConfirmationCode = "4821",
             )
@@ -219,7 +217,7 @@ class HandshakeNegotiatorTest {
         mallory.frame(
             FrameKind.AUTH,
             ByteWriter(64)
-                .string(AuthMethodId.NEARBY_SAS.value)
+                .string(AuthMethodId.TransportConfirmation.value)
                 .bytes(ByteArray(0))
                 .toByteArray(),
         )
@@ -354,25 +352,8 @@ class HandshakeNegotiatorTest {
     private fun forgedHello() = PublicHello(
         minVersion = ProtocolVersions.SUPPORTED.first,
         maxVersion = ProtocolVersions.SUPPORTED.last,
-        methods = listOf(AuthMethodId.NEARBY_SAS),
+        methods = listOf(AuthMethodId.TransportConfirmation),
     )
-
-    /**
-     * Keys the session off the prologue and nothing else, so that whether the two sides agree is
-     * exactly whether they saw the same hellos. [tampered] plays the side that did not.
-     */
-    private class PrologueBound(private val tampered: Boolean = false) : AuthMethod {
-        override val id = AuthMethodId("prologue-bound")
-
-        override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
-            io.exchange(ByteArray(0))
-            val prologue = context.prologue.copyOf().also { if (tampered) it[0]++ }
-            return AuthOutcome(
-                sharedSecret = MessageDigest.getInstance("SHA-256").digest(prologue),
-                peer = PeerIdentity(context.local.deviceId, context.local.publicKey),
-            )
-        }
-    }
 
     /** Never stops talking, which is what the round limit exists for. */
     private object Endless : AuthMethod {

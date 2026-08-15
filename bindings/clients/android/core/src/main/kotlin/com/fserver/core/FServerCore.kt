@@ -14,6 +14,8 @@ import com.fserver.core.net.TimberNetLogger
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.networkConfig
 import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
@@ -127,6 +129,7 @@ class FServerCore private constructor(
             val config = networkConfig(dictionary = TempDictionary()) {
                 identityStore = TempAuthStore()
                 authenticator = peerAuthenticator
+                crypto = X25519CryptoProvider
                 scope = coroutineScope
                 logger = TimberNetLogger
                 policy = ConnectionPolicy(
@@ -136,6 +139,21 @@ class FServerCore private constructor(
                         DirectIpSPI.ID,
                     )
                 )
+
+                /*installAuth {
+                    ConfirmAuthMethod(
+                        crypto = it.crypto,
+                        authenticator = it.authenticator,
+                    )
+                }*/
+
+                installAuth {
+                    SasAuthMethod(
+                        crypto = it.crypto,
+                        authenticator = it.authenticator,
+                        confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
+                    )
+                }
 
                 install(
                     DirectIpSPI.create(),

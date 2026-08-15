@@ -154,9 +154,9 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
                     )
                 }
             } catch (e: Throwable) {
-                if (e is NetworkException.AuthenticationRejected) throttle.onAuthenticationFailed(
-                    source
-                )
+                if (e is NetworkException.AuthenticationRejected) {
+                    throttle.onAuthenticationFailed(source)
+                }
                 pump.close()
                 throw e
             } finally {

@@ -25,7 +25,7 @@ import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.ConfirmAuthMethod
+import com.fserver.net.security.auth.SasAuthMethod
 import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
@@ -242,12 +242,12 @@ private fun PublicGreeting.toDomain(): Greeting = Greeting(
 )
 
 private fun AuthMethodId.toDomain(): AuthMethod? = when (this) {
-    ConfirmAuthMethod.ID -> AuthMethod.ConfirmFingerprint
-    AuthMethodId.NEARBY_SAS -> AuthMethod.NearbySas
+    SasAuthMethod.ID -> AuthMethod.ConfirmFingerprint
+    AuthMethodId.TransportConfirmation -> AuthMethod.NearbySas
     else -> null
 }
 
 private fun AuthMethod.toAuthMethodId(): AuthMethodId = when (this) {
-    AuthMethod.ConfirmFingerprint -> ConfirmAuthMethod.ID
-    AuthMethod.NearbySas -> AuthMethodId.NEARBY_SAS
+    AuthMethod.ConfirmFingerprint -> SasAuthMethod.ID
+    AuthMethod.NearbySas -> AuthMethodId.TransportConfirmation
 }

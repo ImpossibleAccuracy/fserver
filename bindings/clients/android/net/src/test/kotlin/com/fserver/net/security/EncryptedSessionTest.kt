@@ -5,6 +5,7 @@ import com.fserver.net.NetworkNode
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.TimeoutsConfig
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession
 import com.fserver.net.support.LOOPBACK
@@ -12,6 +13,7 @@ import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.LoopbackNetwork
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.support.TestMessage
+import com.fserver.net.support.TestingAuthMethod
 import com.fserver.net.support.XorCryptoProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -101,6 +103,7 @@ class EncryptedSessionTest {
             identityStore = EphemeralIdentityStore(displayName = name),
             transports = listOf(network.transport(name)),
             crypto = XorCryptoProvider(),
+            authMethods = listOf(TestingAuthMethod(crypto = XorCryptoProvider())),
             policy = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null),
             scope = scope,
         )

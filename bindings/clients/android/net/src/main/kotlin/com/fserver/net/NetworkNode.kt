@@ -11,8 +11,7 @@ import com.fserver.net.discovery.PeerDiscoveryImpl
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.auth.ConfirmAuthMethod
-import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.auth.TransportConfirmationAuthMethod
 import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CoroutineScope
@@ -66,7 +65,7 @@ class NetworkNode<M : Any> private constructor(
                 config.logger.warn("crypto suite '${config.crypto.suite.name}' does not encrypt - frames go out in the clear")
             }
 
-            val authMethods = config.authMethods.ifEmpty { defaultAuthMethods(config) }
+            val authMethods = config.authMethods.plus(TransportConfirmationAuthMethod(config.authenticator))
             val config = config.copy(authMethods = authMethods)
 
             val negotiator = HandshakeNegotiator(config = config)
@@ -109,16 +108,6 @@ class NetworkNode<M : Any> private constructor(
                 ownedScope = scope.takeIf { config.scope == null },
             )
         }
-
-        /**
-         * What a node runs when the host names no methods: ask the user, and defer to transport
-         * that already did. Order is preference order - the SAS one is only ever reachable on
-         * transport that declares it, so listing it first costs nothing elsewhere.
-         */
-        private fun defaultAuthMethods(config: NetworkConfig<*>): List<AuthMethod> = listOf(
-            SasAuthMethod(config.authenticator),
-            ConfirmAuthMethod(config.crypto, config.authenticator),
-        )
 
         /**
          * Which methods are worth putting on the air. A transport-backed one is announced only if

@@ -11,8 +11,7 @@ import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.ConfirmAuthMethod
-import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.auth.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
@@ -48,9 +47,9 @@ internal fun negotiator(
     config = NetworkConfig(
         dictionary = dictionary,
         identityStore = identityStore,
-        authMethods = authMethods ?: listOf(
-            SasAuthMethod(authenticator),
-            ConfirmAuthMethod(crypto, authenticator),
+        authMethods = authMethods?.plus(TestingAuthMethod(crypto, authenticator)) ?: listOf(
+            TransportConfirmationAuthMethod(authenticator),
+            TestingAuthMethod(crypto, authenticator),
         ),
         crypto = crypto,
         protocolVersions = versions,

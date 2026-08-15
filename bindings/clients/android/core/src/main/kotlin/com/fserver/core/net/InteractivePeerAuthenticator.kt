@@ -33,7 +33,11 @@ class InteractivePeerAuthenticator : PeerAuthenticator {
         answer = deferred
         _pending.value = PendingConfirmation(
             deviceId = candidate.deviceId,
-            codeGroups = confirmationCode?.split(" ").orEmpty(),
+            codeGroups = confirmationCode?.let {
+                val trimmed = it.trim().replace(" ", "")
+                if (trimmed.length < GroupSize * 2) listOf(trimmed)
+                else trimmed.chunked(GroupSize)
+            }.orEmpty(),
         )
 
         val accepted = try {
@@ -53,5 +57,9 @@ class InteractivePeerAuthenticator : PeerAuthenticator {
     /** Answers whichever peer is currently in [pending]. No-op if there is none. */
     fun resolve(accept: Boolean) {
         answer?.complete(accept)
+    }
+
+    companion object {
+        const val GroupSize = 4
     }
 }

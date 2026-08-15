@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 
 /** Minimal big-endian writer. Everything `:net` puts on the wire is built with this. */
-internal class ByteWriter(initialCapacity: Int = 64) {
+class ByteWriter(initialCapacity: Int = 64) {
     private var buffer = ByteBuffer.allocate(initialCapacity)
 
     fun u8(value: Int) = apply { ensure(1); buffer.put(value.toByte()) }
@@ -38,7 +38,7 @@ internal class ByteWriter(initialCapacity: Int = 64) {
 }
 
 /** Matching reader. Every malformed input surfaces as [NetworkException.Protocol], never as a raw buffer error. */
-internal class ByteReader(source: ByteArray) {
+class ByteReader(source: ByteArray) {
     private val buffer = ByteBuffer.wrap(source)
 
     val remaining: Int get() = buffer.remaining()

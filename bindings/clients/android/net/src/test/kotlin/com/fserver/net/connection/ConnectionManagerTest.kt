@@ -1,13 +1,13 @@
 package com.fserver.net.connection
 
-import com.fserver.net.config.NetworkConfig
 import com.fserver.net.NetworkException
 import com.fserver.net.NetworkNode
-import com.fserver.net.discovery.DiscoveredPeer
+import com.fserver.net.config.NetworkConfig
 import com.fserver.net.discovery.AdvertisedPeer
+import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.ConfirmAuthMethod
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
@@ -21,6 +21,7 @@ import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.LoopbackNetwork
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.support.TestMessage
+import com.fserver.net.support.TestingAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -95,7 +96,10 @@ class ConnectionManagerTest {
 
     @Test
     fun `the session limit is enforced once the handshake is already done`() = runBlocking {
-        val alice = node("alice", policy = POLICY.copy(sessionConfig = POLICY.sessionConfig.copy(maxSessions = 1)))
+        val alice = node(
+            "alice",
+            policy = POLICY.copy(sessionConfig = POLICY.sessionConfig.copy(maxSessions = 1))
+        )
         val bob = node("bob")
         val carol = node("carol")
         acceptEverything(bob)
@@ -126,7 +130,7 @@ class ConnectionManagerTest {
                 .getOrThrow()
         }
 
-        assertEquals(listOf(ConfirmAuthMethod.ID), greeting.methods)
+        assertEquals(listOf(TestingAuthMethod.ID), greeting.methods)
         assertEquals(1..1, greeting.protocolVersions)
         // Nothing was created, on either side, and bob was never asked about it.
         assertTrue(alice.incoming.sessions.value.isEmpty())
@@ -208,6 +212,7 @@ class ConnectionManagerTest {
         NetworkConfig(
             dictionary = TestDictionary(),
             identityStore = EphemeralIdentityStore(displayName = name),
+            authMethods = listOf(TestingAuthMethod()),
             transports = transports,
             policy = policy,
             scope = scope,

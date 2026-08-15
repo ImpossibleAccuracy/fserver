@@ -36,6 +36,7 @@ kotlin {
 
 dependencies {
     api(projects.net) // TODO: core shouldnt expose net
+    implementation(projects.net.security)
     implementation(projects.net.transport.android)
 
     // JNA loads libnetwork_core.so and marshals calls across the FFI.

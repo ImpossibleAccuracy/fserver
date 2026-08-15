@@ -6,22 +6,12 @@ import com.fserver.net.security.identity.PeerIdentityCodec
 import java.security.MessageDigest
 
 /**
- * Defers to a transport that already encrypted the link and derived a short string from that key
- * exchange - Nearby's digits. The user comparing them on both screens is a real short
- * authentication string, so this is delegation rather than a placeholder.
- *
- * Identities go across unsealed here, which is only acceptable because this method is offered
- * solely on a transport declaring [com.fserver.net.spi.ChannelSecurity.Sas] - that is, one that
- * has already encrypted the link.
- *
- * Two things it does not give. The channel is authenticated, the *device* is not: there is no
- * proof tying the key below to the party that compared digits, which is why the key still has to
- * be pinned by the host. And the verdict must never outlive the connection it was given for -
- * only a pinned key may be cached.
+ * Defers to transport that already encrypted the link and
+ * derived a short string from that key exchange (e.g. Nearby's digits).
  */
-class SasAuthMethod(
+class TransportConfirmationAuthMethod(
     private val authenticator: PeerAuthenticator?,
-    override val id: AuthMethodId = AuthMethodId.NEARBY_SAS,
+    override val id: AuthMethodId = AuthMethodId.TransportConfirmation,
 ) : AuthMethod {
     override val requiresChannelSecurity: Boolean = true
 

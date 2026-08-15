@@ -8,6 +8,7 @@ import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.support.LOOPBACK
@@ -15,6 +16,7 @@ import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.LoopbackNetwork
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.support.TestMessage
+import com.fserver.net.support.TestingAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -162,6 +164,7 @@ class SessionFailureTest {
             dictionary = dictionary,
             identityStore = EphemeralIdentityStore(displayName = name),
             transports = listOf(network.transport(name)),
+            authMethods = listOf(TestingAuthMethod()),
             policy = policy,
             scope = scope,
         )

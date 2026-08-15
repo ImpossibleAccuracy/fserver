@@ -2,20 +2,22 @@ package com.fserver.net
 
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionPolicy
-import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageDictionary
-import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.security.PeerAuthenticator
-import com.fserver.net.session.PeerSession
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
+import com.fserver.net.session.PeerSession
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.support.LOOPBACK
 import com.fserver.net.support.LoopbackEndpoint
 import com.fserver.net.support.LoopbackNetwork
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.support.TestMessage
+import com.fserver.net.support.TestingAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -101,8 +103,20 @@ class SessionTest {
         val bob = node("bob")
         acceptEverything(bob)
 
-        val first = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = bob.identity.deviceId).getOrThrow() }
-        val second = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = bob.identity.deviceId).getOrThrow() }
+        val first = withTimeout(TIMEOUT) {
+            connect(
+                alice,
+                "bob",
+                deviceId = bob.identity.deviceId
+            ).getOrThrow()
+        }
+        val second = withTimeout(TIMEOUT) {
+            connect(
+                alice,
+                "bob",
+                deviceId = bob.identity.deviceId
+            ).getOrThrow()
+        }
 
         assertTrue(first === second)
         assertEquals(1, alice.incoming.sessions.value.size)
@@ -124,7 +138,9 @@ class SessionTest {
     @Test
     fun `an authenticator that refuses stops the handshake`() = runBlocking {
         val alice = node("alice")
-        val bob = node("bob", authenticator = { _, _ -> PeerAuthenticator.Decision.Reject("unknown device") })
+        val bob = node(
+            "bob",
+            authenticator = { _, _ -> PeerAuthenticator.Decision.Reject("unknown device") })
 
         acceptEverything(bob)
 
@@ -157,7 +173,8 @@ class SessionTest {
         val bob = node("bob")
         acceptEverything(bob)
 
-        val session = withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = "peer-bob").getOrThrow() }
+        val session =
+            withTimeout(TIMEOUT) { connect(alice, "bob", deviceId = "peer-bob").getOrThrow() }
         withTimeout(TIMEOUT) { firstSession(bob) }
 
         network.cutLinks()
@@ -175,13 +192,17 @@ class SessionTest {
         dictionary: MessageDictionary<TestMessage> = TestDictionary(),
         authenticator: PeerAuthenticator? = null,
         // Deterministic by default: no timers, no retries.
-        policy: ConnectionPolicy = ConnectionPolicy(timeouts = TimeoutsConfig(keepAlive = null), reconnect = null),
+        policy: ConnectionPolicy = ConnectionPolicy(
+            timeouts = TimeoutsConfig(keepAlive = null),
+            reconnect = null
+        ),
     ): NetworkNode<TestMessage> = NetworkNode.create(
         NetworkConfig(
             dictionary = dictionary,
             identityStore = EphemeralIdentityStore(displayName = name),
             transports = listOf(network.transport(name)),
             authenticator = authenticator,
+            authMethods = listOf(TestingAuthMethod(authenticator = authenticator)),
             policy = policy,
             scope = scope,
         )

@@ -11,7 +11,7 @@ import com.fserver.net.wire.ByteWriter
  * exchange is not protected by the transport, a method is expected to seal these bytes under the
  * key it has just derived.
  */
-internal object PeerIdentityCodec {
+object PeerIdentityCodec {
     fun encode(identity: LocalIdentity): ByteArray = ByteWriter(64)
         .string(identity.deviceId)
         .bytes(identity.publicKey)

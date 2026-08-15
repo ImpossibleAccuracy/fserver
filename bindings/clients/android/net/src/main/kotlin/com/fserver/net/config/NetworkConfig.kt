@@ -3,11 +3,11 @@ package com.fserver.net.config
 import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
-import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
-import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.Transport
@@ -20,9 +20,7 @@ import kotlinx.coroutines.CoroutineScope
  * @property dictionary the whole reason this module is generic: one user, one dictionary.
  * @property authenticator optional. Leaving it null trusts every peer that completes a
  * handshake - fine for a test rig, wrong for a shipping client.
- * @property authMethods ways this node is willing to authenticate a peer. Empty means the node
- * builds the defaults - [com.fserver.net.security.auth.ConfirmAuthMethod] over [authenticator], plus
- * [com.fserver.net.security.auth.SasAuthMethod] for transports that carry their own confirmation.
+ * @property authMethods ways this node is willing to authenticate a peer.
  * @property crypto defaults to [PassthroughCryptoProvider], which does **not** encrypt.
  * @property advertisement what this device announces about itself, and whether it announces at
  * all.
