@@ -10,6 +10,7 @@ import dev.whyoleg.cryptography.BinarySize.Companion.bytes
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.HKDF
 import dev.whyoleg.cryptography.algorithms.SHA256
+import java.math.BigInteger
 import java.security.MessageDigest
 import java.security.SecureRandom
 
@@ -17,6 +18,9 @@ import java.security.SecureRandom
  * Short Authentication String (SAS) authentication method.
  * Allows two peers to verify each other's identity by comparing a short code derived from their public keys.
  * This method is suitable for scenarios where users can manually compare codes, such as in a mobile app or web interface.
+ *
+ * The peer identity travels sealed, but its key is claimed, not proven: proving possession needs
+ * identity signing keys, which do not exist yet.
  */
 class SasAuthMethod(
     private val crypto: CryptoProvider,
@@ -28,35 +32,38 @@ class SasAuthMethod(
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
         val localKeyPair = crypto.newKeyExchange()
-        val localNonce = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        val localNonce = ByteArray(NONCE_SIZE).also { SecureRandom().nextBytes(it) }
 
-        // Compute hash of key, nonce and prologue to commit to our key and nonce before revealing them
-        val commitment = commitmentHash(localKeyPair.publicKey, localNonce, context.prologue)
+        // Commit to the exact reveal bytes before revealing them. The length-prefixed encoding
+        // plus the strict decode below leave the peer exactly one valid (key, nonce) parse, so a
+        // commitment cannot be re-split into another pair after our reveal to grind the SAS.
+        val localReveal = SasMessage(localKeyPair.publicKey, localNonce).encode()
+        val commitment = commitmentHash(localReveal, context.prologue)
         val peerCommitment = io.exchange(commitment)
 
         // After commitment exchange, reveal our key and nonce to the peer
-        io.send(SasMessage(localKeyPair.publicKey, localNonce).encode())
-        val revealed = SasMessage.decode(io.receive())
+        io.send(localReveal)
+        val peerReveal = io.receive()
 
         // Verify hash and actual keys match, otherwise the peer is cheating and we abort the handshake
-        verifyCommitment(
-            peerCommitment = peerCommitment,
-            peerPublicKey = revealed.publicKey,
-            peerNonce = revealed.nonce,
-            prologue = context.prologue,
-        )
+        verifyCommitment(peerCommitment, peerReveal, context.prologue)
+        val revealed = SasMessage.decode(peerReveal, expectedKeySize = localKeyPair.publicKey.size)
 
         // Derive the shared secret using our private key and the peer's public key
         val sharedSecret = localKeyPair.sharedSecret(revealed.publicKey)
 
         // Bind prologue into shared secret to ensure both sides saw the same prologue
         val secretWithPrologue = bind(sharedSecret, context.prologue)
-        val aead = crypto.aead(secretWithPrologue, context.role)
+
+        // Handshake and session must never share AEAD keys: the session channel restarts nonce
+        // counters at zero, so keying both from the same secret would reuse (key, nonce) pairs.
+        val aead = crypto.aead(deriveKey(secretWithPrologue, HANDSHAKE_KEY_INFO), context.role)
+
         // Send our identity and receive the peer's identity, using encrypted channel
         io.send(aead.seal(PeerIdentityCodec.encode(context.local)))
         val peer = PeerIdentityCodec.decode(aead.open(io.receive()))
 
-        // Compute short code from secret and full
+        // Compute short code from secret and full transcript
         val transcript = buildTranscript(
             prologue = context.prologue,
             role = context.role,
@@ -76,22 +83,22 @@ class SasAuthMethod(
             throw NetworkException.AuthenticationRejected(verdict.reason)
         }
 
-        io.exchange(aead.seal(CONFIRMED))
+        if (!aead.open(io.exchange(aead.seal(CONFIRMED))).contentEquals(CONFIRMED)) {
+            throw NetworkException.AuthenticationRejected("peer did not confirm SAS")
+        }
 
         return AuthOutcome(
-            sharedSecret = secretWithPrologue,
+            sharedSecret = deriveKey(secretWithPrologue, SESSION_KEY_INFO),
             peer = peer,
         )
     }
 
     private fun commitmentHash(
-        publicKey: ByteArray,
-        localNonce: ByteArray,
+        reveal: ByteArray,
         prologue: ByteArray
     ): ByteArray = cryptographyProvider.get(SHA256).hasher()
         .createHashFunction().use {
-            it.update(publicKey)
-            it.update(localNonce)
+            it.update(reveal)
             it.update(prologue)
 
             it.hashToByteArray()
@@ -99,15 +106,10 @@ class SasAuthMethod(
 
     private fun verifyCommitment(
         peerCommitment: ByteArray,
-        peerPublicKey: ByteArray,
-        peerNonce: ByteArray,
+        peerReveal: ByteArray,
         prologue: ByteArray
     ) {
-        val computedCommitment = commitmentHash(
-            publicKey = peerPublicKey,
-            localNonce = peerNonce,
-            prologue = prologue
-        )
+        val computedCommitment = commitmentHash(peerReveal, prologue)
 
         if (!MessageDigest.isEqual(peerCommitment, computedCommitment)) {
             throw NetworkException.AuthenticationRejected("commitment mismatch")
@@ -122,6 +124,16 @@ class SasAuthMethod(
 
                 it.hashToByteArray()
             }
+
+    private suspend fun deriveKey(secret: ByteArray, info: ByteArray): ByteArray =
+        cryptographyProvider.get(HKDF)
+            .secretDerivation(
+                digest = SHA256,
+                outputSize = DERIVED_KEY_SIZE.bytes,
+                salt = null,
+                info = info,
+            )
+            .deriveSecretToByteArray(secret)
 
     /**
      * Orders the transcript by role rather than "local"/"peer" - those flip depending on which
@@ -142,7 +154,13 @@ class SasAuthMethod(
             } else {
                 arrayOf(peerPublicKey, peerNonce, localPublicKey, localNonce)
             }
-        return prologue + initiatorKey + initiatorNonce + responderKey + responderNonce
+        return ByteWriter(prologue.size + initiatorKey.size + responderKey.size + 2 * NONCE_SIZE + 20)
+            .bytes(prologue)
+            .bytes(initiatorKey)
+            .bytes(initiatorNonce)
+            .bytes(responderKey)
+            .bytes(responderNonce)
+            .toByteArray()
     }
 
     private suspend fun deriveSas(
@@ -153,29 +171,35 @@ class SasAuthMethod(
 
         val derivation = hkdf.secretDerivation(
             digest = SHA256,
-            outputSize = confirmationCodeLength.bytes,
+            // Extra bytes make the modulo reduction bias negligible.
+            outputSize = (confirmationCodeLength + MODULO_BIAS_MARGIN).bytes,
             salt = null,
             info = transcript,
         )
 
         val codeBytes = derivation.deriveSecretToByteArray(sharedSecret)
 
-        return buildString {
-            // Convert bytes into numeric string
-            for (b in codeBytes) {
-                val number = b.toUByte().toInt() % 10
-
-                append(number.toString())
-            }
-        }
+        return BigInteger(1, codeBytes)
+            .mod(BigInteger.TEN.pow(confirmationCodeLength))
+            .toString()
+            .padStart(confirmationCodeLength, '0')
     }
 
     companion object {
         val ID: AuthMethodId = AuthMethodId("sas-1")
-        private val CONFIRMED = ByteArray(0)
-        //private val HKDF_SALT = "sas-v1".encodeToByteArray()
+
+        /** Control bytes to confirm both sides saw the same SAS code. */
+        private val CONFIRMED = "CFD".encodeToByteArray()
+
+        private val HANDSHAKE_KEY_INFO = "sas-1:handshake".encodeToByteArray()
+        private val SESSION_KEY_INFO = "sas-1:session".encodeToByteArray()
+
+        internal const val NONCE_SIZE = 32
+        private const val DERIVED_KEY_SIZE = 32
+        private const val MODULO_BIAS_MARGIN = 8
     }
 }
+
 
 private class SasMessage(
     val publicKey: ByteArray,
@@ -188,10 +212,20 @@ private class SasMessage(
             .toByteArray()
 
     companion object Codec {
-        fun decode(bytes: ByteArray): SasMessage {
+        /** Strict: sizes pinned and no trailing bytes, or a commitment would bind more than one parse. */
+        fun decode(bytes: ByteArray, expectedKeySize: Int): SasMessage {
             val reader = ByteReader(bytes)
             val publicKey = reader.bytes()
             val nonce = reader.bytes()
+            if (publicKey.size != expectedKeySize) {
+                throw NetworkException.Protocol("SAS reveal key is ${publicKey.size} bytes, expected $expectedKeySize")
+            }
+            if (nonce.size != SasAuthMethod.NONCE_SIZE) {
+                throw NetworkException.Protocol("SAS reveal nonce is ${nonce.size} bytes, expected ${SasAuthMethod.NONCE_SIZE}")
+            }
+            if (reader.remaining != 0) {
+                throw NetworkException.Protocol("SAS reveal has ${reader.remaining} trailing bytes")
+            }
             return SasMessage(publicKey, nonce)
         }
     }

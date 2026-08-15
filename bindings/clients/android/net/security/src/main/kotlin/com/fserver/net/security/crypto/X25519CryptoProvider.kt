@@ -1,5 +1,7 @@
 package com.fserver.net.security.crypto
 
+import com.fserver.net.NetworkException
+import org.bouncycastle.crypto.InvalidCipherTextException
 import org.bouncycastle.crypto.agreement.X25519Agreement
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.generators.HKDFBytesGenerator
@@ -32,9 +34,18 @@ object X25519CryptoProvider : CryptoProvider {
             override val publicKey: ByteArray = public.encoded
 
             override fun sharedSecret(peerPublicKey: ByteArray): ByteArray {
+                // BC silently zero-pads short keys and ignores extra bytes, so size is checked here.
+                if (peerPublicKey.size != KEY_SIZE) {
+                    throw NetworkException.Protocol("X25519 key is ${peerPublicKey.size} bytes, expected $KEY_SIZE")
+                }
                 val agreement = X25519Agreement().apply { init(private) }
                 val secret = ByteArray(agreement.agreementSize)
-                agreement.calculateAgreement(X25519PublicKeyParameters(peerPublicKey, 0), secret, 0)
+                try {
+                    agreement.calculateAgreement(X25519PublicKeyParameters(peerPublicKey, 0), secret, 0)
+                } catch (e: IllegalStateException) {
+                    // BC throws when the peer key is a low-order point and the secret would be all zeros.
+                    throw NetworkException.Protocol("X25519 agreement failed", e)
+                }
                 return secret
             }
         }
@@ -92,8 +103,12 @@ object X25519CryptoProvider : CryptoProvider {
             val cipher = ChaCha20Poly1305()
             cipher.init(forEncryption, AEADParameters(KeyParameter(key), TAG_BITS, nonce))
             val out = ByteArray(cipher.getOutputSize(input.size))
-            val written = cipher.processBytes(input, 0, input.size, out, 0)
-            cipher.doFinal(out, written)
+            try {
+                val written = cipher.processBytes(input, 0, input.size, out, 0)
+                cipher.doFinal(out, written)
+            } catch (e: InvalidCipherTextException) {
+                throw NetworkException.Protocol("frame failed to open", e)
+            }
             return out
         }
 
