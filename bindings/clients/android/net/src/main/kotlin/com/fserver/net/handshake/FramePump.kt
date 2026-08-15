@@ -72,7 +72,7 @@ internal class FramePump(
         val watcher = async {
             job.join()
             // Unknown cause: pump closed/finished without errors, so report a generic link loss.
-            NetworkException.SessionLinkLost(null)
+            NetworkException.SessionLinkLost(null) // FIXME: any error inside work somehow wrapped inside this, need to fix
         }
 
         select {

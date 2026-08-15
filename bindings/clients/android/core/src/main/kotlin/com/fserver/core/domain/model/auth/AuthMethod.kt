@@ -1,4 +1,4 @@
-package com.fserver.core.domain.model
+package com.fserver.core.domain.model.auth
 
 /**
  * Available authentication methods.
@@ -9,4 +9,7 @@ enum class AuthMethod {
 
     /** Nearby's own channel security, confirmed by comparing a short on-screen code. */
     NearbySas,
+
+    /** Password-authenticated key exchange. */
+    Password,
 }

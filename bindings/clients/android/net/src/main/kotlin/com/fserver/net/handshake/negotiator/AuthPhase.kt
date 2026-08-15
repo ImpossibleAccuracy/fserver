@@ -7,6 +7,7 @@ import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.spi.TransportCapabilities
@@ -26,10 +27,14 @@ internal class AuthPhase(
     private val config: NetworkConfig<*>,
 ) {
     fun offered(capabilities: TransportCapabilities): List<AuthMethod> =
-        when (val security = capabilities.security) {
-            null -> config.authMethods.filterNot { it.requiresChannelSecurity }
-            else -> config.authMethods.filter { it.id == security }
-        }
+        config.authMethods
+            .filter { it.isEnabled }
+            .let { methods ->
+                when (val security = capabilities.security) {
+                    null -> methods.filterNot { it.requiresChannelSecurity }
+                    else -> methods.filter { it.id == security }
+                }
+            }
 
     fun assertLocallyOffered(id: AuthMethodId, capabilities: TransportCapabilities): AuthMethod =
         offered(capabilities).firstOrNull { it.id == id }
@@ -62,6 +67,7 @@ internal class AuthPhase(
         wire: Wire,
         method: AuthMethod,
         role: CryptoProvider.Role,
+        request: AuthRequest?,
         prologue: ByteArray,
         confirmationCode: String?,
         policy: ConnectionPolicy,
@@ -77,6 +83,7 @@ internal class AuthPhase(
         )
         val context = AuthContext(
             role = role,
+            request = request,
             prologue = prologue,
             confirmationCode = confirmationCode,
             local = config.identityStore.local,

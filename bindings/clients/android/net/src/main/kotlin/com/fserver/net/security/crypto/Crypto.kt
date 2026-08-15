@@ -33,7 +33,15 @@ interface CryptoProvider {
     }
 
     /** Which side of the handshake this end is on - the two derive different directional keys. */
-    enum class Role { Initiator, Responder }
+    enum class Role {
+        Initiator,
+        Responder;
+
+        fun reverse(): Role = when (this) {
+            Initiator -> Responder
+            Responder -> Initiator
+        }
+    }
 }
 
 /**

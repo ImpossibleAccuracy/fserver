@@ -1,6 +1,6 @@
 package com.fserver.core.domain.repository
 
-import com.fserver.core.domain.model.AuthMethod
+import com.fserver.core.domain.model.auth.AuthMethod
 import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
@@ -67,7 +67,7 @@ interface DevicesRepository {
      * @throws MalformedQrException if [arguments] is a [ConnectionArguments.QrPayload] that is
      * not a valid QR code for a device.
      */
-    suspend fun connect(arguments: ConnectionArguments, method: AuthMethod? = null): Result<Unit>
+    suspend fun connect(arguments: ConnectionArguments, method: AuthMethod? = null, password: String? = null): Result<Unit>
 
     /** Create lease for advertising service */
     fun advertisingServiceLease(): ServiceLease

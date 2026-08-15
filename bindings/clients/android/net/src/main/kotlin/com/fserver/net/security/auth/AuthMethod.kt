@@ -15,6 +15,8 @@ import com.fserver.net.security.identity.PeerIdentity
 interface AuthMethod {
     val id: AuthMethodId
 
+    val isEnabled: Boolean get() = true
+
     /**
      * True when this method leans on protection the transport provides and means nothing without it.
      * Such a method is never offered on transport that does not declare it - see [com.fserver.net.spi.ChannelSecurity].
@@ -47,6 +49,9 @@ interface HandshakeIo {
 
 class AuthContext(
     val role: CryptoProvider.Role,
+
+    /** The request the caller made, if any. */
+    val request: AuthRequest?,
 
     /**
      * The hello payloads of *this* connection, initiator's first. Mixed into the derived key so

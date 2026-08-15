@@ -1,15 +1,17 @@
-package com.fserver.net.security.auth
+package com.fserver.net.security.auth.sas
 
 import com.fserver.net.NetworkException
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.AuthContext
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.HandshakeIo
+import com.fserver.net.security.auth.shared.AuthHelper
 import com.fserver.net.security.crypto.CryptoProvider
-import com.fserver.net.security.crypto.IdentitySignature
-import com.fserver.net.security.identity.PeerIdentity
-import com.fserver.net.security.identity.PeerIdentityCodec
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.ByteWriter
 import dev.whyoleg.cryptography.BinarySize.Companion.bytes
-import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.HKDF
 import dev.whyoleg.cryptography.algorithms.SHA256
 import java.math.BigInteger
@@ -29,7 +31,6 @@ class SasAuthMethod(
     private val authenticator: PeerAuthenticator?,
     private val confirmationCodeLength: Int = 8,
 ) : AuthMethod {
-    private val cryptographyProvider = CryptographyProvider.Default
     override val id: AuthMethodId = ID
 
     init {
@@ -65,11 +66,14 @@ class SasAuthMethod(
         val sharedSecret = localKeyPair.sharedSecret(revealed.publicKey)
 
         // Bind prologue into shared secret to ensure both sides saw the same prologue
-        val secretWithPrologue = bind(sharedSecret, context.prologue)
+        val secretWithPrologue = AuthHelper.bind(sharedSecret, context.prologue, BIND_LABEL)
 
         // Handshake and session must never share AEAD keys: the session channel restarts nonce
         // counters at zero, so keying both from the same secret would reuse (key, nonce) pairs.
-        val aead = crypto.aead(deriveKey(secretWithPrologue, HANDSHAKE_KEY_INFO), context.role)
+        val aead = crypto.aead(
+            AuthHelper.deriveKey(secretWithPrologue, HANDSHAKE_KEY_INFO),
+            context.role
+        )
 
         // Create full transcript of the handshake
         val transcript = buildTranscript(
@@ -81,7 +85,7 @@ class SasAuthMethod(
             peerNonce = revealed.nonce,
         )
 
-        val peer = receivePeerIdentity(context, transcript, io, aead)
+        val peer = AuthHelper.receivePeerIdentity(context, transcript, io, aead)
 
         // Compute short code
         val sas = deriveSas(
@@ -99,68 +103,18 @@ class SasAuthMethod(
         }
 
         return AuthOutcome(
-            sharedSecret = deriveKey(secretWithPrologue, SESSION_KEY_INFO),
+            sharedSecret = AuthHelper.deriveKey(
+                secretWithPrologue,
+                SESSION_KEY_INFO,
+            ),
             peer = peer,
         )
-    }
-
-    /**
-     * Send our identity using private key to sign the transcript and prove we are the owner of the identity.
-     * The peer will verify the signature using the public key in the identity.
-     */
-    private suspend fun receivePeerIdentity(
-        context: AuthContext,
-        transcript: ByteArray,
-        io: HandshakeIo,
-        aead: CryptoProvider.Aead,
-    ): PeerIdentity {
-        val sendIdentity = suspend {
-            val identityBytes = PeerIdentityCodec.encode(context.local)
-            val signature = context.sign(popData(context.role, transcript, identityBytes))
-            io.send(
-                aead.seal(
-                    EncryptedIdentity(identityBytes, signature).encode()
-                )
-            )
-        }
-
-        val receiveIdentity = suspend {
-            val encryptedPeerIdentity = EncryptedIdentity.decode(aead.open(io.receive()))
-            PeerIdentityCodec.decode(encryptedPeerIdentity.identity)
-                .also { peer ->
-                    val peerRole = if (context.role == CryptoProvider.Role.Initiator)
-                        CryptoProvider.Role.Responder else CryptoProvider.Role.Initiator
-
-                    // Verify before returning
-                    IdentitySignature.verify(
-                        publicKey = peer.publicKey,
-                        data = popData(peerRole, transcript, encryptedPeerIdentity.identity),
-                        signature = encryptedPeerIdentity.signature
-                    )
-                }
-        }
-
-        return when (context.role) {
-            CryptoProvider.Role.Initiator -> {
-                // If we are initiator, send our identity first.
-                sendIdentity()
-                receiveIdentity()
-            }
-
-            CryptoProvider.Role.Responder -> {
-                // If we are responder, verify peer's identity first.
-                // It secures from active device enumeration on LAN
-                receiveIdentity().also {
-                    sendIdentity()
-                }
-            }
-        }
     }
 
     private fun commitmentHash(
         reveal: ByteArray,
         prologue: ByteArray
-    ): ByteArray = cryptographyProvider.get(SHA256).hasher()
+    ): ByteArray = AuthHelper.cryptographyProvider.get(SHA256).hasher()
         .createHashFunction().use {
             it.update(COMMITMENT_LABEL)
             it.update(reveal)
@@ -180,26 +134,6 @@ class SasAuthMethod(
             throw NetworkException.AuthenticationRejected("commitment mismatch")
         }
     }
-
-    private fun bind(secret: ByteArray, prologue: ByteArray): ByteArray =
-        cryptographyProvider.get(SHA256).hasher()
-            .createHashFunction().use {
-                it.update(BIND_LABEL)
-                it.update(secret)
-                it.update(prologue)
-
-                it.hashToByteArray()
-            }
-
-    private suspend fun deriveKey(secret: ByteArray, info: ByteArray): ByteArray =
-        cryptographyProvider.get(HKDF)
-            .secretDerivation(
-                digest = SHA256,
-                outputSize = DERIVED_KEY_SIZE.bytes,
-                salt = null,
-                info = info,
-            )
-            .deriveSecretToByteArray(secret)
 
     /**
      * Entire handshake transcript, including prologue, public keys, and nonce.
@@ -227,24 +161,12 @@ class SasAuthMethod(
             .toByteArray()
     }
 
-    /** Proof-of-possession data to sign, including the transcript and identity. */
-    private fun popData(
-        signer: CryptoProvider.Role,
-        transcript: ByteArray,
-        identityBytes: ByteArray,
-    ): ByteArray = ByteWriter(POP_LABEL.size + transcript.size + identityBytes.size + 16)
-        .raw(POP_LABEL)
-        .u8(if (signer == CryptoProvider.Role.Initiator) 0 else 1)
-        .bytes(transcript)
-        .bytes(identityBytes)
-        .toByteArray()
-
     /** Compute short authentication string from shared secret and handshake transcript. */
     private suspend fun deriveSas(
         sharedSecret: ByteArray,
         transcript: ByteArray,
     ): String {
-        val hkdf = cryptographyProvider.get(HKDF)
+        val hkdf = AuthHelper.cryptographyProvider.get(HKDF)
 
         val derivation = hkdf.secretDerivation(
             digest = SHA256,
@@ -273,10 +195,8 @@ class SasAuthMethod(
 
         private val COMMITMENT_LABEL = "sas-1:commitment".encodeToByteArray()
         private val BIND_LABEL = "sas-1:bind".encodeToByteArray()
-        private val POP_LABEL = "sas-1:pop".encodeToByteArray()
 
         internal const val NONCE_SIZE = 32
-        private const val DERIVED_KEY_SIZE = 32
         private const val MODULO_BIAS_MARGIN = 8
     }
 }
@@ -308,29 +228,6 @@ private class SasMessage(
                 throw NetworkException.Protocol("SAS reveal has ${reader.remaining} trailing bytes")
             }
             return SasMessage(publicKey, nonce)
-        }
-    }
-}
-
-private class EncryptedIdentity(
-    val identity: ByteArray,
-    val signature: ByteArray
-) {
-    fun encode(): ByteArray =
-        ByteWriter(4 + identity.size + 4 + signature.size)
-            .bytes(identity)
-            .bytes(signature)
-            .toByteArray()
-
-    companion object Codec {
-        fun decode(bytes: ByteArray): EncryptedIdentity {
-            val reader = ByteReader(bytes)
-            val identity = reader.bytes()
-            val signature = reader.bytes()
-            if (reader.remaining != 0) {
-                throw NetworkException.Protocol("Encrypted identity has ${reader.remaining} trailing bytes")
-            }
-            return EncryptedIdentity(identity, signature)
         }
     }
 }

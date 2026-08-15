@@ -2,6 +2,7 @@ package com.fserver.net.security.auth
 
 import com.fserver.net.NetworkException
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
@@ -487,6 +488,7 @@ class SasAuthMethodTest {
                     io = bobIo,
                     context = AuthContext(
                         role = CryptoProvider.Role.Responder,
+                        request = null,
                         prologue = prologue,
                         confirmationCode = null,
                         local = bob.identity,
@@ -594,6 +596,7 @@ class SasAuthMethodTest {
                 io = io,
                 context = AuthContext(
                     role = role,
+                    request = null,
                     prologue = prologue,
                     confirmationCode = null,
                     local = claimed,

@@ -1,5 +1,7 @@
 package com.fserver.core.domain.model
 
+import com.fserver.core.domain.model.auth.AuthMethod
+
 /**
  * What a device is willing to say before anyone authenticates: which protocol versions it speaks
  * and which of the methods it offers this build recognizes.

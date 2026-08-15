@@ -14,7 +14,9 @@ import com.fserver.core.net.TimberNetLogger
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.networkConfig
 import com.fserver.net.connection.ConnectionPolicy
-import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.auth.pake.PakeAuthMethod
+import com.fserver.net.security.auth.pake.PakePasswordStorage
+import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
@@ -145,6 +147,21 @@ class FServerCore private constructor(
                         crypto = it.crypto,
                         authenticator = it.authenticator,
                         confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
+                    )
+                }
+
+                installAuth {
+                    PakeAuthMethod(
+                        crypto = it.crypto,
+                        authenticator = it.authenticator,
+                        passwordStorage = object : PakePasswordStorage {
+                            // TODO: development version
+                            override val isPasswordSet: Boolean = true
+
+                            override suspend fun loadSavedPassword(): String {
+                                return "ABCD"
+                            }
+                        }
                     )
                 }
 

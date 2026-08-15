@@ -4,13 +4,13 @@ import com.fserver.core.data.datasource.JsonQrCodeParser
 import com.fserver.core.data.utils.chainWith
 import com.fserver.core.data.utils.runBackgroundJob
 import com.fserver.core.domain.Constants
-import com.fserver.core.domain.model.AuthMethod
 import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.DetectionMethod
 import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.ForeignDevice.Handshake
 import com.fserver.core.domain.model.Greeting
 import com.fserver.core.domain.model.PendingConfirmation
+import com.fserver.core.domain.model.auth.AuthMethod
 import com.fserver.core.domain.model.exception.MalformedQrException
 import com.fserver.core.domain.model.exception.RequirementsNotMetException
 import com.fserver.core.domain.repository.DevicesRepository
@@ -25,7 +25,8 @@ import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.SasAuthMethod
+import com.fserver.net.security.auth.pake.PakeAuthMethod
+import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.spi.SpiId
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
@@ -173,9 +174,16 @@ internal class DevicesRepositoryImpl(
 
     override suspend fun connect(
         arguments: ConnectionArguments,
-        method: AuthMethod?
+        method: AuthMethod?,
+        password: String?
     ): Result<Unit> {
-        val request = AuthRequest(method = method?.toAuthMethodId())
+        val request = AuthRequest(
+            method = method?.toAuthMethodId(),
+            params = when (method) {
+                AuthMethod.Password -> password?.let { PakeAuthMethod.PakeAuthParams(it) }
+                else -> null
+            }
+        )
 
         return when (arguments) {
             is ConnectionArguments.DiscoveredDevice -> connectKnown(arguments.id, request)
@@ -244,10 +252,12 @@ private fun PublicGreeting.toDomain(): Greeting = Greeting(
 private fun AuthMethodId.toDomain(): AuthMethod? = when (this) {
     SasAuthMethod.ID -> AuthMethod.ConfirmFingerprint
     AuthMethodId.TransportConfirmation -> AuthMethod.NearbySas
+    PakeAuthMethod.ID -> AuthMethod.Password
     else -> null
 }
 
 private fun AuthMethod.toAuthMethodId(): AuthMethodId = when (this) {
     AuthMethod.ConfirmFingerprint -> SasAuthMethod.ID
     AuthMethod.NearbySas -> AuthMethodId.TransportConfirmation
+    AuthMethod.Password -> PakeAuthMethod.ID
 }

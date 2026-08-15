@@ -11,4 +11,9 @@ package com.fserver.net.security.auth
  *
  * A real PAKE will add the secret here.
  */
-data class AuthRequest(val method: AuthMethodId? = null)
+data class AuthRequest(
+    val method: AuthMethodId? = null,
+    val params: Params? = null,
+) {
+    interface Params
+}
