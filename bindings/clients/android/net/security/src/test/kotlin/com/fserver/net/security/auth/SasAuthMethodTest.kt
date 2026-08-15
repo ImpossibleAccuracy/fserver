@@ -19,31 +19,37 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.security.Signature
+import java.security.interfaces.ECPublicKey
+import java.security.spec.ECGenParameterSpec
 
 class SasAuthMethodTest {
+
+    private val trustAll = PeerAuthenticator { _, _ -> PeerAuthenticator.Decision.Trust }
 
     @Test
     fun `both sides derive the same session key and resolve each other's identity`() = runTest {
         val (aliceIo, bobIo) = pairedIo()
         val prologue = "hello-bytes".encodeToByteArray()
-        val alice = identity("alice")
-        val bob = identity("bob")
+        val alice = TestPeer("alice")
+        val bob = TestPeer("bob")
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = alice
+            peer = alice
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
-            local = bob
+            peer = bob
         )
 
         val (aliceResult, bobResult) = aliceOutcome.await() to bobOutcome.await()
@@ -52,8 +58,8 @@ class SasAuthMethodTest {
             aliceResult.getOrThrow().sharedSecret,
             bobResult.getOrThrow().sharedSecret
         )
-        assertEquals(bob.deviceId, aliceResult.getOrThrow().peer.deviceId)
-        assertEquals(alice.deviceId, bobResult.getOrThrow().peer.deviceId)
+        assertEquals(bob.identity.deviceId, aliceResult.getOrThrow().peer.deviceId)
+        assertEquals(alice.identity.deviceId, bobResult.getOrThrow().peer.deviceId)
     }
 
     @Test
@@ -72,7 +78,7 @@ class SasAuthMethodTest {
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
             method = SasAuthMethod(
@@ -81,7 +87,7 @@ class SasAuthMethodTest {
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
-            local = identity("bob"),
+            peer = TestPeer("bob"),
         )
 
         aliceOutcome.await().getOrThrow()
@@ -107,14 +113,14 @@ class SasAuthMethodTest {
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null, confirmationCodeLength = 6),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll, confirmationCodeLength = 6),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
-            local = identity("bob"),
+            peer = TestPeer("bob"),
         )
 
         aliceOutcome.await().getOrThrow()
@@ -131,11 +137,11 @@ class SasAuthMethodTest {
         val adversary = launch { keySubstitutingAdversary(adversaryIo, prologue) }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         ).await()
 
         assertTrue(aliceOutcome.isFailure)
@@ -168,90 +174,299 @@ class SasAuthMethodTest {
     }
 
     @Test
-    fun `an active MITM can steal both identities but cannot make the two SAS codes agree`() =
-        runTest {
-            // Mallory sits between Alice and Bob as two separate connections - she cannot break DH,
-            // so each leg runs its own key exchange under her own ephemeral key. What she *can* do is
-            // lie about whose identity that key belongs to: towards Alice she claims Bob's identity
-            // fields, towards Bob she claims Alice's. Both handshakes complete and both victims end up
-            // believing they reached each other directly - identity alone does not catch this.
-            val (aliceIo, malloryTowardAliceIo) = pairedIo()
-            val (malloryTowardBobIo, bobIo) = pairedIo()
-            val prologue = "hello-bytes".encodeToByteArray()
+    fun `rejects a reveal with a wrong-size nonce even when its commitment matches`() = runTest {
+        val reveal = ByteWriter()
+            .bytes(X25519CryptoProvider.newKeyExchange().publicKey)
+            .bytes(ByteArray(31).also { SecureRandom().nextBytes(it) })
+            .toByteArray()
 
-            val alice = identity("alice")
-            val bob = identity("bob")
+        assertRevealRejected(reveal)
+    }
 
-            var aliceSas: String? = null
-            var bobSas: String? = null
+    @Test
+    fun `reveal is not sent until the peer's commitment has arrived`() = runTest {
+        // The commitment scheme only binds if the reveal waits for the peer to commit first -
+        // otherwise a peer could pick its keypair after seeing ours and grind the SAS.
+        val (aliceIo, bobIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+        val events = mutableListOf<String>()
 
-            val aliceOutcome = runSide(
-                method = SasAuthMethod(
-                    X25519CryptoProvider,
-                    { _, code -> aliceSas = code; PeerAuthenticator.Decision.Trust }),
-                io = aliceIo,
-                role = CryptoProvider.Role.Initiator,
-                prologue = prologue,
-                local = alice,
-            )
-            val malloryTowardAlice = runSide(
-                method = SasAuthMethod(X25519CryptoProvider, null),
-                io = malloryTowardAliceIo,
-                role = CryptoProvider.Role.Responder,
-                prologue = prologue,
-                local = bob.copy(), // Mallory claiming to be Bob
-            )
-            val malloryTowardBob = runSide(
-                method = SasAuthMethod(X25519CryptoProvider, null),
-                io = malloryTowardBobIo,
-                role = CryptoProvider.Role.Initiator,
-                prologue = prologue,
-                local = alice.copy(), // Mallory claiming to be Alice
-            )
-            val bobOutcome = runSide(
-                method = SasAuthMethod(
-                    crypto = X25519CryptoProvider,
-                    authenticator = { _, code -> bobSas = code; PeerAuthenticator.Decision.Trust }
-                ),
-                io = bobIo,
-                role = CryptoProvider.Role.Responder,
-                prologue = prologue,
-                local = bob,
-            )
+        val aliceOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = object : HandshakeIo {
+                override suspend fun send(payload: ByteArray) {
+                    events += "send"
+                    aliceIo.send(payload)
+                }
 
-            val aliceResult = aliceOutcome.await().getOrThrow()
-            malloryTowardAlice.await().getOrThrow()
-            malloryTowardBob.await().getOrThrow()
-            val bobResult = bobOutcome.await().getOrThrow()
+                override suspend fun receive(): ByteArray {
+                    events += "receive"
+                    return aliceIo.receive()
+                }
+            },
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = TestPeer("alice"),
+        )
+        val bobOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = bobIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = TestPeer("bob"),
+        )
 
-            // The identity layer is fully fooled: both victims believe they finished the handshake
-            // with each other, not with Mallory.
-            assertEquals(bob.deviceId, aliceResult.peer.deviceId)
-            assertEquals(alice.deviceId, bobResult.peer.deviceId)
-            // What Mallory cannot forge: her two independent DH exchanges never share a transcript, so
-            // the codes the two victims would read out to each other do not match. This is the one
-            // thing standing between "handshake completed" and "handshake completed with an attacker".
-            // Note Mallory here is two honest runs; adaptive attacks need hand-written adversaries.
-            assertNotEquals(aliceSas, bobSas)
+        aliceOutcome.await().getOrThrow()
+        bobOutcome.await().getOrThrow()
+
+        // Commitment out, peer commitment in, only then the reveal.
+        assertEquals(listOf("send", "receive", "send"), events.take(3))
+    }
+
+    @Test
+    fun `an active MITM cannot claim the victims' identities`() = runTest {
+        // Before proof of possession Mallory could relay both legs and claim Bob's identity toward
+        // Alice and Alice's toward Bob. Now each leg requires a transcript signature under the
+        // claimed key, which she does not hold - both victims must reject her.
+        val (aliceIo, malloryTowardAliceIo) = pairedIo()
+        val (malloryTowardBobIo, bobIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+
+        val alice = TestPeer("alice")
+        val bob = TestPeer("bob")
+        val mallory = TestPeer("mallory")
+
+        val aliceOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = aliceIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = alice,
+        )
+        val malloryTowardAlice = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = malloryTowardAliceIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = mallory,
+            claimed = bob.identity, // Mallory claiming to be Bob, signing with her own key
+        )
+        val malloryTowardBob = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = malloryTowardBobIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = mallory,
+            claimed = alice.identity, // Mallory claiming to be Alice
+        )
+        val bobOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = bobIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = bob,
+        )
+
+        val aliceResult = aliceOutcome.await()
+        val bobResult = bobOutcome.await()
+
+        assertTrue(aliceResult.isFailure)
+        assertTrue(aliceResult.exceptionOrNull() is NetworkException.AuthenticationRejected)
+        assertTrue(bobResult.isFailure)
+        assertTrue(bobResult.exceptionOrNull() is NetworkException.AuthenticationRejected)
+
+        malloryTowardAlice.cancel()
+        malloryTowardBob.cancel()
+    }
+
+    @Test
+    fun `an active MITM under her own identity cannot make the two SAS codes agree`() = runTest {
+        // Proof of possession forces Mallory to show her own identity, so this variant is what
+        // remains of the classic relay: both handshakes complete, but her two independent DH
+        // exchanges never share a transcript, so the codes the victims would read out to each
+        // other cannot match. Note Mallory is two honest runs; adaptive attacks need hand-written
+        // adversaries.
+        val (aliceIo, malloryTowardAliceIo) = pairedIo()
+        val (malloryTowardBobIo, bobIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+
+        val mallory = TestPeer("mallory")
+
+        var aliceSas: String? = null
+        var bobSas: String? = null
+
+        val aliceOutcome = runSide(
+            method = SasAuthMethod(
+                X25519CryptoProvider,
+                { _, code -> aliceSas = code; PeerAuthenticator.Decision.Trust }),
+            io = aliceIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = TestPeer("alice"),
+        )
+        val malloryTowardAlice = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = malloryTowardAliceIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = mallory,
+        )
+        val malloryTowardBob = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = malloryTowardBobIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = mallory,
+        )
+        val bobOutcome = runSide(
+            method = SasAuthMethod(
+                crypto = X25519CryptoProvider,
+                authenticator = { _, code -> bobSas = code; PeerAuthenticator.Decision.Trust }
+            ),
+            io = bobIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = TestPeer("bob"),
+        )
+
+        val aliceResult = aliceOutcome.await().getOrThrow()
+        malloryTowardAlice.await().getOrThrow()
+        malloryTowardBob.await().getOrThrow()
+        val bobResult = bobOutcome.await().getOrThrow()
+
+        // Both victims see Mallory's identity - she can no longer hide it -
+        // and the SAS codes still refuse to line up.
+        assertEquals(mallory.identity.deviceId, aliceResult.peer.deviceId)
+        assertEquals(mallory.identity.deviceId, bobResult.peer.deviceId)
+        assertNotEquals(aliceSas, bobSas)
+    }
+
+    @Test
+    fun `rejects a peer that claims an identity key it cannot sign for`() = runTest {
+        val (aliceIo, bobIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+        val bob = TestPeer("bob")
+
+        val imposter = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = bobIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = TestPeer("imposter"),
+            claimed = bob.identity,
+        )
+
+        val aliceOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = aliceIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = TestPeer("alice"),
+        ).await()
+
+        assertTrue(aliceOutcome.isFailure)
+        assertTrue(aliceOutcome.exceptionOrNull() is NetworkException.AuthenticationRejected)
+        imposter.cancel()
+    }
+
+    @Test
+    fun `responder withholds its identity until the initiator proves one`() = runTest {
+        // Active device enumeration defense: a responder must not reveal who it is to an
+        // initiator that completed the key exchange but never authenticated.
+        val (adversaryIo, responderIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+        val responderSent = mutableListOf<ByteArray>()
+
+        val adversary = launch {
+            val reveal = ByteWriter()
+                .bytes(X25519CryptoProvider.newKeyExchange().publicKey)
+                .bytes(ByteArray(32).also { SecureRandom().nextBytes(it) })
+                .toByteArray()
+            adversaryIo.exchange(commitment(reveal, prologue))
+            adversaryIo.send(reveal)
+            adversaryIo.receive()
+            adversaryIo.send(ByteArray(64)) // garbage instead of a sealed identity
         }
+
+        val responderOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = RecordingIo(responderIo, responderSent),
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = TestPeer("responder"),
+        ).await()
+
+        assertTrue(responderOutcome.isFailure)
+        // Commitment and reveal only - the sealed identity frame was never sent.
+        assertEquals(2, responderSent.size)
+        adversary.cancel()
+    }
+
+    @Test
+    fun `construction fails without an authenticator`() {
+        assertTrue(
+            runCatching {
+                SasAuthMethod(X25519CryptoProvider, null)
+            }.exceptionOrNull() is IllegalArgumentException
+        )
+    }
+
+    @Test
+    fun `construction fails on a degenerate confirmation code length`() {
+        for (length in intArrayOf(-1, 0, 3, 17)) {
+            assertTrue(
+                "length $length must be rejected",
+                runCatching {
+                    SasAuthMethod(X25519CryptoProvider, trustAll, confirmationCodeLength = length)
+                }.exceptionOrNull() is IllegalArgumentException
+            )
+        }
+    }
+
+    @Test
+    fun `mirrored frames do not authenticate`() = runTest {
+        // An adversary that echoes every frame back: the commitment and reveal mirror cleanly, but
+        // the directional AEAD keys differ per side, so the reflected identity frame cannot open -
+        // and even if it could, the role byte inside the signed data would not verify.
+        val (aliceIo, mirrorIo) = pairedIo()
+        val prologue = "hello-bytes".encodeToByteArray()
+
+        val mirror = launch {
+            while (true) {
+                mirrorIo.send(mirrorIo.receive())
+            }
+        }
+
+        val aliceOutcome = runSide(
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            io = aliceIo,
+            role = CryptoProvider.Role.Initiator,
+            prologue = prologue,
+            peer = TestPeer("alice"),
+        ).await()
+
+        assertTrue(aliceOutcome.isFailure)
+        assertTrue(aliceOutcome.exceptionOrNull() is NetworkException)
+        mirror.cancel()
+    }
 
     @Test
     fun `aborts when the two sides do not agree on the prologue`() = runTest {
         val (aliceIo, bobIo) = pairedIo()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = "alice-saw-this".encodeToByteArray(),
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = "bob-saw-this".encodeToByteArray(),
-            local = identity("bob"),
+            peer = TestPeer("bob"),
         )
 
         val results = listOf(aliceOutcome.await(), bobOutcome.await())
@@ -263,17 +478,19 @@ class SasAuthMethodTest {
     fun `authenticator rejection aborts the handshake with its reason`() = runTest {
         val (aliceIo, bobIo) = pairedIo()
         val prologue = "hello-bytes".encodeToByteArray()
+        val bob = TestPeer("bob")
 
         // Bob trusts and then waits for a confirmation that never comes - cancelled at the end.
-        val bob = launch {
+        val bobJob = launch {
             runCatching {
-                SasAuthMethod(X25519CryptoProvider, null).run(
+                SasAuthMethod(X25519CryptoProvider, trustAll).run(
                     io = bobIo,
                     context = AuthContext(
                         role = CryptoProvider.Role.Responder,
                         prologue = prologue,
                         confirmationCode = null,
-                        local = identity("bob"),
+                        local = bob.identity,
+                        sign = { bob.sign(it) },
                     )
                 )
             }
@@ -286,14 +503,14 @@ class SasAuthMethodTest {
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         ).await()
 
         assertTrue(aliceOutcome.isFailure)
         val failure = aliceOutcome.exceptionOrNull()
         assertTrue(failure is NetworkException.AuthenticationRejected)
         assertTrue(failure!!.message!!.contains("codes did not match"))
-        bob.cancel()
+        bobJob.cancel()
     }
 
     @Test
@@ -305,18 +522,18 @@ class SasAuthMethodTest {
         val sent = mutableListOf<ByteArray>()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = RecordingIo(aliceIo, sent),
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity(canary),
+            peer = TestPeer(canary),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
-            local = identity("bob"),
+            peer = TestPeer("bob"),
         )
 
         aliceOutcome.await().getOrThrow()
@@ -339,18 +556,18 @@ class SasAuthMethodTest {
         val aliceSent = mutableListOf<ByteArray>()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = RecordingIo(aliceIo, aliceSent),
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
-            local = identity("bob"),
+            peer = TestPeer("bob"),
         )
 
         aliceOutcome.await().getOrThrow()
@@ -369,7 +586,8 @@ class SasAuthMethodTest {
         io: HandshakeIo,
         role: CryptoProvider.Role,
         prologue: ByteArray,
-        local: LocalIdentity,
+        peer: TestPeer,
+        claimed: LocalIdentity = peer.identity,
     ): Deferred<Result<AuthOutcome>> = async {
         runCatching {
             method.run(
@@ -378,7 +596,8 @@ class SasAuthMethodTest {
                     role = role,
                     prologue = prologue,
                     confirmationCode = null,
-                    local = local
+                    local = claimed,
+                    sign = { peer.sign(it) },
                 )
             )
         }
@@ -396,7 +615,7 @@ class SasAuthMethodTest {
             .bytes(nonce)
             .toByteArray()
 
-        io.exchange(sha256(committedReveal, prologue))
+        io.exchange(commitment(committedReveal, prologue))
 
         val substituteReveal = ByteWriter()
             .bytes(X25519CryptoProvider.newKeyExchange().publicKey)
@@ -412,23 +631,27 @@ class SasAuthMethodTest {
         val prologue = "hello-bytes".encodeToByteArray()
 
         val adversary = launch {
-            adversaryIo.exchange(sha256(reveal, prologue))
+            adversaryIo.exchange(commitment(reveal, prologue))
             adversaryIo.send(reveal)
             adversaryIo.receive()
         }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, null),
+            method = SasAuthMethod(X25519CryptoProvider, trustAll),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
-            local = identity("alice"),
+            peer = TestPeer("alice"),
         ).await()
 
         assertTrue(aliceOutcome.isFailure)
         assertTrue(aliceOutcome.exceptionOrNull() is NetworkException.Protocol)
         adversary.cancel()
     }
+
+    /** Mirrors the production commitment: labelled SHA-256 over the reveal and prologue. */
+    private fun commitment(reveal: ByteArray, prologue: ByteArray): ByteArray =
+        sha256("sas-1:commitment".encodeToByteArray(), reveal, prologue)
 
     private fun sha256(vararg parts: ByteArray): ByteArray =
         MessageDigest.getInstance("SHA-256").run {
@@ -447,11 +670,33 @@ class SasAuthMethodTest {
         return false
     }
 
-    private fun identity(name: String): LocalIdentity = LocalIdentity(
-        deviceId = name,
-        displayName = name,
-        publicKey = ByteArray(32).also { SecureRandom().nextBytes(it) },
-    )
+    /** A device with a real P-256 identity pair, signing the way a KeyStore-backed store would. */
+    private class TestPeer(name: String) {
+        private val keys = KeyPairGenerator.getInstance("EC")
+            .apply { initialize(ECGenParameterSpec("secp256r1")) }
+            .generateKeyPair()
+
+        val identity = LocalIdentity(
+            deviceId = name,
+            displayName = name,
+            publicKey = (keys.public as ECPublicKey).uncompressedPoint(),
+        )
+
+        fun sign(data: ByteArray): ByteArray = Signature.getInstance("SHA256withECDSA").run {
+            initSign(keys.private)
+            update(data)
+            sign()
+        }
+
+        private fun ECPublicKey.uncompressedPoint(): ByteArray =
+            byteArrayOf(0x04) + w.affineX.toByteArray().fitTo(32) + w.affineY.toByteArray().fitTo(32)
+
+        private fun ByteArray.fitTo(length: Int): ByteArray = when {
+            size == length -> this
+            size > length -> copyOfRange(size - length, size)
+            else -> ByteArray(length - size) + this
+        }
+    }
 
     private fun pairedIo(): Pair<HandshakeIo, HandshakeIo> {
         val aToB = Channel<ByteArray>(Channel.UNLIMITED)

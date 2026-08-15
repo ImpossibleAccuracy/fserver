@@ -11,4 +11,8 @@ class TempAuthStore : IdentityStore {
         displayName = Build.MODEL,
         publicKey = Build.MODEL.toByteArray(),
     )
+
+    // TODO: back with a KeyStore-held P-256 pair; publicKey above is not a real key either.
+    override suspend fun sign(data: ByteArray): ByteArray =
+        throw NotImplementedError("TempAuthStore has no signing key")
 }

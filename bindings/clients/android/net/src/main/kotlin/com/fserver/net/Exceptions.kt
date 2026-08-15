@@ -25,7 +25,7 @@ sealed class NetworkException(message: String, cause: Throwable? = null) : Excep
     ) : Handshake("dictionary rejected: $reason (remote ${remote.id} v${remote.version})")
 
     /** The host's authenticator refused this peer. */
-    class AuthenticationRejected(reason: String) : Handshake("peer rejected: $reason")
+    class AuthenticationRejected(reason: String, cause: Throwable? = null) : Handshake("peer rejected: $reason", cause)
 
     /** The session is gone; open a new one instead of retrying on this object. */
     class SessionClosed(message: String = "session is closed") : NetworkException(message)

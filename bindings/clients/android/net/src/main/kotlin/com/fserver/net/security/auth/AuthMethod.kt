@@ -47,20 +47,26 @@ interface HandshakeIo {
 
 class AuthContext(
     val role: CryptoProvider.Role,
+
     /**
      * The hello payloads of *this* connection, initiator's first. Mixed into the derived key so
      * that tampering with what the two sides negotiated in the clear breaks the session instead of
      * quietly succeeding.
      */
     val prologue: ByteArray,
+
     /** Out-of-band string the transport produced, when it has one. */
     val confirmationCode: String?,
+
     /**
-     * This device. Nothing above states who this is any more - the public hello carries no
+     * This device. Nothing above states who this is anymore - the public hello carries no
      * identity at all - so a method sends this itself, and is the reason the peer's answer counts
      * for something.
      */
     val local: LocalIdentity,
+
+    /** Signs with [local]'s identity key; a method uses it to prove possession of the claimed key. */
+    val sign: suspend (ByteArray) -> ByteArray,
 )
 
 class AuthOutcome(

@@ -80,6 +80,7 @@ internal class AuthPhase(
             prologue = prologue,
             confirmationCode = confirmationCode,
             local = config.identityStore.local,
+            sign = config.identityStore::sign,
         )
         return wire.guarded { method.run(io, context) }
     }
