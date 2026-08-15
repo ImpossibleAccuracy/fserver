@@ -153,6 +153,7 @@
     <string name="pairing_method_label">Authenticate via</string>
     <string name="pairing_method_confirm_fingerprint">Compare fingerprints</string>
     <string name="pairing_method_nearby_sas">Compare on-screen code</string>
+    <string name="pairing_method_password">Enter password</string>
     <string name="pairing_fingerprint_label">Server key fingerprint</string>
     <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
     <string name="pairing_fingerprint_pending">Shown once connected — a greeting alone proves nothing.</string>

@@ -7,10 +7,10 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.core.domain.Constants
-import com.fserver.core.domain.model.AuthMethod
 import com.fserver.core.domain.model.ConnectionArguments
 import com.fserver.core.domain.model.ForeignDevice
 import com.fserver.core.domain.model.Greeting
+import com.fserver.core.domain.model.auth.AuthMethod
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -43,10 +43,8 @@ class PairingViewModel(
     private val effects = Channel<PairingUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
-    private val rememberDevice = MutableStateFlow(true)
+    private val editable = MutableStateFlow(Editable())
     private val selectedMethod = MutableStateFlow<AuthMethod?>(null)
-    private val isConnecting = MutableStateFlow(false)
-    private val error = MutableStateFlow<String?>(null)
 
     /** The result of [probe] — versions and methods, nothing trusted yet. */
     private val greeting = MutableStateFlow<Greeting?>(null)
@@ -55,19 +53,18 @@ class PairingViewModel(
         ?.let { id -> devicesRepository.device(id).debounce(200.milliseconds) }
         ?: flowOf(null)
 
-    private val flags = combine(rememberDevice, isConnecting, error, ::Flags)
-
     val state: StateFlow<PairingState> = combine(
         device,
         greeting,
         selectedMethod,
-        flags,
-    ) { device, greeting, selectedMethod, flags ->
+        editable,
+    ) { device, greeting, selectedMethod, editable ->
         PairingState(
             device = deviceUi(device, greeting, selectedMethod),
-            rememberDevice = flags.rememberDevice,
-            isConnecting = flags.isConnecting,
-            error = flags.error,
+            rememberDevice = editable.rememberDevice,
+            isConnecting = editable.isConnecting,
+            password = editable.password,
+            error = editable.error,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -90,24 +87,28 @@ class PairingViewModel(
 
     fun onIntent(intent: PairingIntent) {
         when (intent) {
-            is PairingIntent.RememberDeviceChanged -> rememberDevice.update { intent.remember }
+            is PairingIntent.RememberDeviceChanged -> editable.update { it.copy(rememberDevice = intent.remember) }
             is PairingIntent.MethodSelected -> selectedMethod.update { intent.method }
 
             PairingIntent.Connect -> viewModelScope.launch {
-                isConnecting.update { true }
+                editable.update { it.copy(isConnecting = true) }
                 val connected = connect()
-                isConnecting.update { false }
+                editable.update { it.copy(isConnecting = false) }
 
                 if (connected) {
                     effects.send(PairingUiEffect.NavigateFiles)
                 }
             }
+
+            is PairingIntent.UpdatePassword -> editable.update {
+                it.copy(password = intent.password)
+            }
         }
     }
 
     private suspend fun connect(): Boolean = devicesRepository
-        .connect(key.connectionArguments, selectedMethod.value)
-        .onFailure { t -> error.update { t.localizedMessage } }
+        .connect(key.connectionArguments, selectedMethod.value, editable.value.password)
+        .onFailure { t -> editable.update { it.copy(error = t.localizedMessage) } }
         .isSuccess
 
     /**
@@ -116,7 +117,7 @@ class PairingViewModel(
      */
     private fun probe() {
         viewModelScope.launch {
-            error.update { null }
+            editable.update { it.copy(error = null) }
 
             devicesRepository.probe(key.connectionArguments).fold(
                 onSuccess = { result ->
@@ -127,7 +128,7 @@ class PairingViewModel(
                 },
                 onFailure = { t ->
                     // TODO: add error messages parser util
-                    error.update { t.localizedMessage }
+                    editable.update { it.copy(error = t.localizedMessage) }
                 }
             )
         }
@@ -168,10 +169,11 @@ class PairingViewModel(
     } else {
         "protocol v${versions.first}–${versions.last}"
     }
-
-    private data class Flags(
-        val rememberDevice: Boolean,
-        val isConnecting: Boolean,
-        val error: String?,
-    )
 }
+
+private data class Editable(
+    val rememberDevice: Boolean = false,
+    val isConnecting: Boolean = false,
+    val password: String? = null,
+    val error: String? = null,
+)

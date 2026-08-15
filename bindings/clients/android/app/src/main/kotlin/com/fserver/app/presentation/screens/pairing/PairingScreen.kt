@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +46,7 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.AuthMethod
+import com.fserver.core.domain.model.auth.AuthMethod
 import com.fserver.net.peer.PeerDescriptor
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -126,19 +127,36 @@ private fun PairingScreenContent(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (device.fingerprintGroups.isNotEmpty()) {
-                        DkFingerprintBlock(groups = device.fingerprintGroups)
-                        Text(
-                            text = stringResource(R.string.pairing_fingerprint_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.pairing_fingerprint_pending),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    when (device.selectedMethod) {
+                        AuthMethod.NearbySas,
+                        AuthMethod.ConfirmFingerprint -> {
+                            if (device.fingerprintGroups.isNotEmpty()) {
+                                DkFingerprintBlock(groups = device.fingerprintGroups)
+                                Text(
+                                    text = stringResource(R.string.pairing_fingerprint_hint),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.pairing_fingerprint_pending),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        AuthMethod.Password -> {
+                            OutlinedTextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = state.password ?: "",
+                                onValueChange = {
+                                    onIntent(PairingIntent.UpdatePassword(it))
+                                }
+                            )
+                        }
+
+                        null -> {}
                     }
                 }
 
@@ -222,7 +240,9 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
         ) {
             DkThumbnail(icon = device.identity?.kind.icon)
             Column {
-                DkCardTitle(device.identity?.name ?: stringResource(R.string.pairing_unknown_device))
+                DkCardTitle(
+                    device.identity?.name ?: stringResource(R.string.pairing_unknown_device)
+                )
                 DkCardMeta(
                     device.protocolLine.ifEmpty { stringResource(R.string.pairing_protocol_pending) }
                 )
@@ -266,6 +286,7 @@ private val AuthMethod.label: String
     @Composable get() = when (this) {
         AuthMethod.ConfirmFingerprint -> stringResource(R.string.pairing_method_confirm_fingerprint)
         AuthMethod.NearbySas -> stringResource(R.string.pairing_method_nearby_sas)
+        AuthMethod.Password -> stringResource(R.string.pairing_method_password)
     }
 
 @Composable

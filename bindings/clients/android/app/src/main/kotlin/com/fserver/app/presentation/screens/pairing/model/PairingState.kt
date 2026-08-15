@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.AuthMethod
+import com.fserver.core.domain.model.auth.AuthMethod
 import com.fserver.net.peer.PeerDescriptor
 
 @Immutable
@@ -10,6 +10,7 @@ data class PairingState(
     val device: DeviceUi? = null,
     val rememberDevice: Boolean = true,
     val isConnecting: Boolean = false,
+    val password: String? = null,
     /** Why the device could not be reached, or why the connection attempt failed. */
     val error: String? = null,
 ) {
