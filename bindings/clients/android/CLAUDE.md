@@ -20,7 +20,8 @@ Load-bearing docs for `:net` work:
   from today's handshake to that protocol. Read before touching `:net/handshake`,
   `ConnectionManager`, or transport capabilities.
 
-Project is **early-stage** now.
+Project is **early-stage** now. Don't worry about versioning issues when making changes (but not
+when doing code review).
 
 ## Module boundary (the one rule that matters)
 
@@ -93,5 +94,7 @@ Always pass `--no-daemon`.
 - **Suggest skills/agents for recurring work.** Task repeats or encodes reusable knowledge (module
   scaffolding, protocol-change checklist, spec cross-referencing) → remind user to capture as skill
   or agent instead of re-deriving each session.
-- Don't document obvious things/implementatin details into CLAUDE.md. Always ask user if they want to add something to CLAUDE.md before doing so.
-- Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2 sentences.
+- Don't document obvious things/implementatin details into CLAUDE.md. Always ask user if they want
+  to add something to CLAUDE.md before doing so.
+- Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2
+  sentences.

@@ -127,7 +127,7 @@ class FServerCore private constructor(
             peerAuthenticator: InteractivePeerAuthenticator,
         ): NetworkNode<TempMessages> {
             val config = networkConfig(dictionary = TempDictionary()) {
-                identityStore = TempAuthStore()
+                identityStore = TempAuthStore(context)
                 authenticator = peerAuthenticator
                 crypto = X25519CryptoProvider
                 scope = coroutineScope
