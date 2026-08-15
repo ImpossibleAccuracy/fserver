@@ -88,4 +88,8 @@ interface TransportEndpoint {
 
     /** Stable textual form, used for logging and de-duplication only. */
     val address: String
+
+    /** Host part of address, used for strong equality checks. */
+    val hostAddress: String
+        get() = address
 }

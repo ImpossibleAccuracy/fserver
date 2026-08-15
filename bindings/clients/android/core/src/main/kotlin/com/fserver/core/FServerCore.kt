@@ -140,13 +140,6 @@ class FServerCore private constructor(
                     )
                 )
 
-                /*installAuth {
-                    ConfirmAuthMethod(
-                        crypto = it.crypto,
-                        authenticator = it.authenticator,
-                    )
-                }*/
-
                 installAuth {
                     SasAuthMethod(
                         crypto = it.crypto,

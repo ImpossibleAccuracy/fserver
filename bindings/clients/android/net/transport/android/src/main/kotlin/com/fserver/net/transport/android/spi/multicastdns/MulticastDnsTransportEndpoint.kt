@@ -16,4 +16,5 @@ internal data class MulticastDnsTransportEndpoint(
 
     // Kept distinct from a dialable address so an inbound route never de-dups with a discovered one.
     override val address: String = if (isDialable) "$host:$port" else "$host:$port/inbound"
+    override val hostAddress: String = host
 }

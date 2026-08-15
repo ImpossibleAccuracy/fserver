@@ -9,4 +9,5 @@ public data class DirectIpEndpoint(
 ) : TransportEndpoint {
     override val transport: SpiId = DirectIpSPI.ID
     override val address: String = "$host:$port"
+    override val hostAddress: String = host
 }
