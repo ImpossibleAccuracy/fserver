@@ -20,13 +20,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
@@ -47,9 +47,11 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    private val requests = MutableSharedFlow<IncomingConnectionsManager.IncomingRequest>()
+    // A SharedFlow drops emissions made while nobody is collecting - a handshake landing right
+    // before the host subscribes would vanish with no signal. A channel queues instead.
+    private val requests = Channel<IncomingConnectionsManager.IncomingRequest>(Channel.BUFFERED)
     override val incoming: Flow<IncomingConnectionsManager.IncomingRequest> =
-        requests.asSharedFlow()
+        requests.receiveAsFlow()
 
     // One job per listening transport, keyed so a reload only disturbs the transports that
     // actually changed. Re-listening wholesale would unbind and rebind sockets that were working,
@@ -99,7 +101,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
             listener.listen().collect { connection ->
                 // One coroutine each per connection
                 launch {
-                    admit(owner = transport, connection = connection)?.let { requests.emit(it) }
+                    admit(owner = transport, connection = connection)?.let { requests.send(it) }
                 }
             }
         } catch (e: CancellationException) {
