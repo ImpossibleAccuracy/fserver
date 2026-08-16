@@ -43,7 +43,7 @@ internal class MulticastDnsDiscoveryProvider(
 
                 is MulticastDnsDiscoveryService.Event.Found -> {
                     // mDNS can detect its own device, so we filter it out here
-                    if (discoveryEvent.peer.attributes[PeerAttributes.DEVICE_ID] == identityStore.local.deviceId) null
+                    if (discoveryEvent.peer.attributes[PeerAttributes.DEVICE_ID] == identityStore.local().deviceId) null
                     else DiscoveryProvider.Event.Appeared(
                         DiscoveredEndpoint(
                             endpoint = discoveryEvent.peer.asEndpoint(),

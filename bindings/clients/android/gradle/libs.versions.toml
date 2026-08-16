@@ -11,6 +11,7 @@ lifecycleViewmodelNavigation3 = "2.11.0"
 koin = "4.2.2"
 kotlinxSerializationJson = "1.11.0"
 kotlinxCoroutines = "1.11.0"
+datastore = "1.2.1"
 jna = "5.17.0"
 annotation = "1.10.0"
 timber = "5.0.1"
@@ -77,6 +78,9 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxSerializationJson" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
+# Data storage
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 
@@ -91,8 +95,6 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 # JVM and on Android down to minSdk 24 - unlike javax.crypto XDH/ChaCha20-Poly1305, which Conscrypt
 # only backs from API 31/28.
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
-# SPAKE2 (RFC 9382), BoringSSL-compatible, JVM module only (not the Android JNI one) - published on
-# JitPack, not Maven Central.
 
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
 cryptography-provider = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }

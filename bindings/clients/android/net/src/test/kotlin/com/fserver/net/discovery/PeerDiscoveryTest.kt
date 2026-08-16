@@ -149,14 +149,14 @@ class PeerDiscoveryTest {
         discovery.startAdvertising().getOrThrow()
         val payload = withTimeout(TIMEOUT) { advertiser.awaitPayload() }
 
-        assertEquals(identityStore.local, payload.identity)
+        assertEquals(identityStore.local(), payload.identity)
         assertEquals(
-            identityStore.local.deviceId,
+            identityStore.local().deviceId,
             payload.attributes[PeerAttributes.DEVICE_ID],
         )
         // A stable key fingerprint on the air is what lets a listener follow a device between
         // networks, so it must not appear under any key.
-        assertTrue(identityStore.local.fingerprint.value !in payload.attributes.values)
+        assertTrue(identityStore.local().fingerprint.value !in payload.attributes.values)
         assertEquals(
             ProtocolVersions.SUPPORTED.last.toString(),
             payload.attributes[PeerAttributes.PROTOCOL_MAX],
@@ -195,7 +195,7 @@ class PeerDiscoveryTest {
 
         assertNull(payload.attributes[PeerAttributes.DISPLAY_NAME])
         assertEquals(
-            identityStore.local.deviceId,
+            identityStore.local().deviceId,
             payload.attributes[PeerAttributes.DEVICE_ID],
         )
         assertEquals("confirm-dh", payload.attributes[PeerAttributes.AUTH_METHODS])
@@ -302,7 +302,7 @@ class PeerDiscoveryTest {
         val payloads = CopyOnWriteArrayList<Advertiser.Payload>()
         val cancellations = AtomicInteger()
 
-        override fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = flow {
+        override suspend fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = flow {
             payloads += payload
             emit(Advertiser.Event.Started)
             if (keepRunning) {

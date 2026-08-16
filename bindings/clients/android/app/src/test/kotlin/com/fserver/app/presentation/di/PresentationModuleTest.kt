@@ -2,7 +2,9 @@ package com.fserver.app.presentation.di
 
 import android.content.Context
 import com.fserver.app.di.coreModule
+import com.fserver.app.di.dataModule
 import com.fserver.app.di.presentationModule
+import com.fserver.app.presentation.model.Destination
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
@@ -21,16 +23,16 @@ class PresentationModuleTest {
      * internals are not part of this graph and nothing here can check them.
      *
      * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
-     * `androidContext()` at start-up, and `String` is the device id `PairingViewModel` takes from
-     * `parametersOf`.
+     * `androidContext()` at start-up, and `Destination.Pairing` is the nav key `PairingViewModel`
+     * takes from `parametersOf`.
      */
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun `every screen's dependencies can be resolved`() {
         module {
-            includes(presentationModule, coreModule)
+            includes(dataModule, presentationModule, coreModule)
         }.verify(
-            extraTypes = listOf(String::class, Context::class),
+            extraTypes = listOf(String::class, Context::class, Destination.Pairing::class),
         )
     }
 }

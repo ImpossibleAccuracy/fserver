@@ -1,45 +1,19 @@
 package com.fserver.core
 
-import android.content.Context
-import com.fserver.core.data.di.BackgroundScope
+import com.fserver.core.data.security.InteractivePeerAuthenticator
 import com.fserver.core.di.coreModule
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
 import com.fserver.core.domain.repository.RequirementsChecker
-import com.fserver.core.net.InteractivePeerAuthenticator
-import com.fserver.core.net.TempAuthStore
-import com.fserver.core.net.TempDictionary
-import com.fserver.core.net.TempMessages
-import com.fserver.core.net.TimberNetLogger
-import com.fserver.net.NetworkNode
-import com.fserver.net.config.networkConfig
-import com.fserver.net.connection.ConnectionPolicy
-import com.fserver.net.security.auth.pake.PakeAuthMethod
-import com.fserver.net.security.auth.pake.PakePasswordStorage
-import com.fserver.net.security.auth.sas.SasAuthMethod
-import com.fserver.net.security.crypto.X25519CryptoProvider
-import com.fserver.net.transport.android.spi.ip.DirectIpSPI
-import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
-import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
+import com.fserver.core.net.NetworkController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
-
-/**
- * Everything [FServerCore] needs from its host.
- *
- * @param context application context.
- * @param backgroundScope scope for work that must survive the caller (advertising, discovery).
- * `null` means the core creates and owns one, and cancels it on [FServerCore.close].
- */
-data class FServerConfig(
-    val context: Context,
-    val backgroundScope: CoroutineScope? = null,
-)
 
 /**
  * Entry point to `:core`. Build one per process, keep it, [close] it when the host dies.
@@ -69,12 +43,7 @@ data class FServerConfig(
  */
 class FServerCore private constructor(
     private val koin: Koin,
-    /**
-     * Shuts the network node down. A lambda rather than the node itself: `:net` is an
-     * `implementation` dependency, so no `:net` type may appear in this class's signature - not
-     * even on a private member.
-     */
-    private val closeNet: () -> Unit,
+    private val network: NetworkController,
     /** Non-null only when the core created the scope, and so is the one allowed to cancel it. */
     private val ownedScope: CoroutineScope?,
 ) : AutoCloseable {
@@ -95,10 +64,18 @@ class FServerCore private constructor(
      * Tears down the internal graph and stops background work. After this the instance is dead -
      * build a new one rather than reusing it.
      */
-    override fun close() {
-        closeNet()
+    suspend fun shutdown() {
+        network.shutdown()
         koin.close()
         ownedScope?.cancel()
+    }
+
+    /**
+     * [shutdown] for callers with no coroutine to hand. Blocks the calling thread while `:net`
+     * flushes its CLOSE frames - up to a few seconds - so never call it on the main thread.
+     */
+    override fun close() {
+        runBlocking { shutdown() }
     }
 
     companion object {
@@ -107,15 +84,20 @@ class FServerCore private constructor(
                 ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
             val authenticator = InteractivePeerAuthenticator()
-            val net = initNet(config.context, scope, authenticator)
+
+            val network = NetworkController(
+                config = config,
+                authenticator = authenticator,
+                coroutineScope = scope,
+            )
 
             val koin = koinApplication {
                 modules(
                     coreModule(config.context, scope),
                     module {
-                        single { net.discovery }
-                        single { net.incoming }
-                        single { net.requestsManager }
+                        single { config.localIdentityStore }
+                        single { config.authSettingsStore }
+                        single { network }
                         single { authenticator }
                     }
                 )
@@ -123,66 +105,9 @@ class FServerCore private constructor(
 
             return FServerCore(
                 koin = koin,
-                closeNet = net::close,
+                network = network,
                 ownedScope = scope.takeIf { config.backgroundScope == null },
             )
-        }
-
-        private fun initNet(
-            context: Context,
-            coroutineScope: BackgroundScope,
-            peerAuthenticator: InteractivePeerAuthenticator,
-        ): NetworkNode<TempMessages> {
-            val config = networkConfig(dictionary = TempDictionary()) {
-                identityStore = TempAuthStore(context)
-                authenticator = peerAuthenticator
-                crypto = X25519CryptoProvider
-                scope = coroutineScope
-                logger = TimberNetLogger
-                policy = ConnectionPolicy(
-                    transportOrder = listOf(
-                        NearbyConnectionsSPI.ID,
-                        MulticastDnsSPI.ID,
-                        DirectIpSPI.ID,
-                    )
-                )
-
-                installAuth {
-                    SasAuthMethod(
-                        crypto = it.crypto,
-                        authenticator = it.authenticator,
-                        confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
-                    )
-                }
-
-                installAuth {
-                    PakeAuthMethod(
-                        crypto = it.crypto,
-                        authenticator = it.authenticator,
-                        passwordStorage = object : PakePasswordStorage {
-                            // TODO: development version
-                            override val isPasswordSet: Boolean = true
-
-                            override suspend fun loadSavedPassword(): String {
-                                return "ABCD"
-                            }
-                        }
-                    )
-                }
-
-                install(
-                    DirectIpSPI.create(),
-                    MulticastDnsSPI.create(context),
-                    NearbyConnectionsSPI.create(
-                        context = context,
-                        config = NearbyConnectionsSPI.Config(
-                            serviceId = "_fserver._tcp.",
-                        ),
-                    ),
-                )
-            }
-
-            return NetworkNode.create(config)
         }
     }
 }

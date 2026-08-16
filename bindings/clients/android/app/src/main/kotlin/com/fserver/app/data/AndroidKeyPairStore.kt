@@ -1,6 +1,5 @@
-package com.fserver.core.net
+package com.fserver.app.data
 
-import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyPair
@@ -12,9 +11,10 @@ import java.security.spec.ECGenParameterSpec
  * Android KeyStore-backed identity key. P-256 (`secp256r1`) + SHA-256, matching
  * [com.fserver.net.security.crypto.IdentitySignature] - the private key never leaves hardware.
  */
-internal class KeyPairStore(val context: Context) {
+internal class AndroidKeyPairStore {
+    fun getOrCreate(alias: String): KeyPair = get(alias) ?: generate(alias)
 
-    fun generateAndroidKeyPair(alias: String): KeyPair {
+    private fun generate(alias: String): KeyPair {
         val kpg = KeyPairGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_EC,
             "AndroidKeyStore"
@@ -33,7 +33,7 @@ internal class KeyPairStore(val context: Context) {
         return kpg.generateKeyPair()
     }
 
-    fun getAndroidKeyPair(alias: String): KeyPair? {
+    private fun get(alias: String): KeyPair? {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
         if (!keyStore.containsAlias(alias)) return null
@@ -43,7 +43,4 @@ internal class KeyPairStore(val context: Context) {
         // Note: the private key bytes stay inside hardware; this object is a handle only.
         return KeyPair(entry.certificate.publicKey, entry.privateKey)
     }
-
-    fun getOrCreateAndroidKeyPair(alias: String): KeyPair =
-        getAndroidKeyPair(alias) ?: generateAndroidKeyPair(alias)
 }

@@ -64,7 +64,7 @@ class ConnectionManagerTest {
         }
 
         assertEquals(LOOPBACK, session.route.transport)
-        assertEquals(bob.identity.deviceId, session.negotiatedDeviceId)
+        assertEquals(bob.config.identityStore.local().deviceId, session.negotiatedDeviceId)
     }
 
     @Test

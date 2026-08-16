@@ -91,8 +91,8 @@ class SessionTest {
         val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
         val bobSide = withTimeout(TIMEOUT) { firstSession(bob) }
 
-        assertEquals(bob.identity.deviceId, session.negotiatedDeviceId)
-        assertEquals(alice.identity.deviceId, bobSide.negotiatedDeviceId)
+        assertEquals(bob.config.identityStore.local().deviceId, session.negotiatedDeviceId)
+        assertEquals(alice.config.identityStore.local().deviceId, bobSide.negotiatedDeviceId)
         assertEquals(1, alice.incoming.sessions.value.size)
         assertEquals(1, bob.incoming.sessions.value.size)
     }
@@ -107,14 +107,14 @@ class SessionTest {
             connect(
                 alice,
                 "bob",
-                deviceId = bob.identity.deviceId
+                deviceId = bob.config.identityStore.local().deviceId
             ).getOrThrow()
         }
         val second = withTimeout(TIMEOUT) {
             connect(
                 alice,
                 "bob",
-                deviceId = bob.identity.deviceId
+                deviceId = bob.config.identityStore.local().deviceId
             ).getOrThrow()
         }
 

@@ -1,4 +1,4 @@
-package com.fserver.core.net
+package com.fserver.core.net.temp
 
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary

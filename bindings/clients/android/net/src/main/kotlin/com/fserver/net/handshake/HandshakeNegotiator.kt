@@ -151,7 +151,7 @@ internal class HandshakeNegotiator(
         capabilities: TransportCapabilities,
         policy: ConnectionPolicy,
     ): SessionLink {
-        val identity = config.identityStore.local
+        val identity = config.identityStore.local()
 
         val outcome = authPhase.run(
             identity = identity,

@@ -109,6 +109,9 @@ dependencies {
     // Serialization — nav keys
     implementation(libs.kotlinx.serialization.json)
 
+    // Data storage
+    implementation(libs.androidx.datastore.preferences)
+
     // IO
     implementation(libs.androidx.documentfile)
 

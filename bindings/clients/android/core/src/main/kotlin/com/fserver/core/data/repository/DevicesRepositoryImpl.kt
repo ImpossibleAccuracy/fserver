@@ -2,12 +2,13 @@ package com.fserver.core.data.repository
 
 import com.fserver.core.data.datasource.JsonQrCodeParser
 import com.fserver.core.data.model.IncomingConnectionWrapper
+import com.fserver.core.data.security.InteractivePeerAuthenticator
 import com.fserver.core.data.utils.chainWith
 import com.fserver.core.data.utils.runBackgroundJob
 import com.fserver.core.domain.Constants
 import com.fserver.core.domain.model.connection.IncomingConnection
 import com.fserver.core.domain.model.connection.PendingConfirmation
-import com.fserver.core.domain.model.connection.auth.AuthMethod
+import com.fserver.core.domain.model.connection.auth.AuthCredentials
 import com.fserver.core.domain.model.connection.auth.Greeting
 import com.fserver.core.domain.model.connection.device.DeviceKind
 import com.fserver.core.domain.model.connection.device.ForeignDevice
@@ -19,12 +20,8 @@ import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.RequirementsChecker
 import com.fserver.core.domain.repository.ServiceLease
-import com.fserver.core.net.InteractivePeerAuthenticator
-import com.fserver.core.net.TempMessages
-import com.fserver.net.connection.IncomingConnectionsManager
+import com.fserver.core.net.NetworkController
 import com.fserver.net.connection.PeerRef
-import com.fserver.net.connection.RequestManager
-import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.pake.PakeAuthMethod
@@ -36,22 +33,20 @@ import kotlinx.coroutines.flow.map
 import java.time.Instant
 
 internal class DevicesRepositoryImpl(
-    private val peerDiscovery: PeerDiscovery,
-    private val requestManager: RequestManager<TempMessages>,
-    private val incomingConnectionsManager: IncomingConnectionsManager<TempMessages>,
+    private val network: NetworkController,
     private val requirementsChecker: RequirementsChecker,
     private val jsonQrCodeParser: JsonQrCodeParser,
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
 ) : DevicesRepository {
     private val advertisingController = ServiceLifecycleController(
-        startService = { peerDiscovery.startAdvertising() },
-        stopService = { peerDiscovery.stopAdvertising() },
+        startService = { network.peerDiscovery.startAdvertising() },
+        stopService = { network.peerDiscovery.stopAdvertising() },
     )
 
     override val onlineDevices: Flow<List<ForeignDevice>> = combine(
-        peerDiscovery.peers,
-        incomingConnectionsManager.sessions, // TODO: Filter out inactive sessions
-        requestManager.profiles,
+        network.peerDiscovery.peers,
+        network.incomingConnections.sessions, // TODO: Filter out inactive sessions
+        network.requestManager.profiles,
     ) { peers, sessions, profiles ->
         val result = mutableListOf<ForeignDevice>()
         val profiles = profiles.toMutableMap()
@@ -110,7 +105,7 @@ internal class DevicesRepositoryImpl(
     }
 
     override val runningScanningMethods: Flow<Set<DetectionMethod>> =
-        peerDiscovery.activeScans.map { spiId ->
+        network.peerDiscovery.activeScans.map { spiId ->
             spiId
                 .mapNotNull { id ->
                     DetectionMethod.entries
@@ -120,7 +115,7 @@ internal class DevicesRepositoryImpl(
                 .toSet()
         }
     override val incoming: Flow<IncomingConnection>
-        get() = incomingConnectionsManager.incoming.map { IncomingConnectionWrapper(it) }
+        get() = network.incomingConnections.incoming.map { IncomingConnectionWrapper(it) }
 
     override val pendingConfirmation: Flow<PendingConfirmation?>
         get() = interactiveAuthenticator.pending
@@ -141,72 +136,71 @@ internal class DevicesRepositoryImpl(
 
         val scanParams = SpiRegistry.findAutomaticScanParams(request.spiId)
             ?: throw IllegalArgumentException("Cannot start detection for ${request.spiId}: no scan params found")
-        peerDiscovery.scan(scanParams).getOrThrow()
+        network.peerDiscovery.scan(scanParams).getOrThrow()
     }
 
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
         when (arguments) {
             is PeerLocator.DiscoveredDevice -> {
                 val device =
-                    peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
+                    network.peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
                 if (device == null) {
                     Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
                 } else {
-                    requestManager.probe(device)
+                    network.requestManager.probe(device)
                 }
             }
 
-            is PeerLocator.Ip -> requestManager.probe(arguments.toPeerRef())
+            is PeerLocator.Ip -> network.requestManager.probe(arguments.toPeerRef())
 
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-                ?.let { requestManager.probe(it) }
+                ?.let { network.requestManager.probe(it) }
                 ?: Result.failure(MalformedQrException())
         }.map { Greeting.fromNetworkGreeting(it) }
 
     override suspend fun connect(
         arguments: PeerLocator,
-        method: AuthMethod?,
-        password: String?
+        credentials: AuthCredentials?,
     ): Result<Unit> {
         val request = AuthRequest(
-            method = method?.authMethodId,
-            params = when (method) {
-                AuthMethod.Password -> password?.let { PakeAuthMethod.PakeAuthParams(it) }
+            method = credentials?.method?.authMethodId,
+            params = when (credentials) {
+                is AuthCredentials.Password -> PakeAuthMethod.PakeAuthParams(credentials.password)
                 else -> null
             }
         )
 
         return when (arguments) {
             is PeerLocator.DiscoveredDevice -> connectKnown(arguments.id, request)
-            is PeerLocator.Ip -> requestManager.connect(
+            is PeerLocator.Ip -> network.requestManager.connect(
                 arguments.toPeerRef(),
                 request = request
             ).map { }
 
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-                ?.let { requestManager.connect(it, request = request).map { } }
+                ?.let { network.requestManager.connect(it, request = request).map { } }
                 ?: Result.failure(MalformedQrException())
         }
     }
 
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
     private suspend fun connectKnown(deviceId: String, request: AuthRequest): Result<Unit> {
-        if (incomingConnectionsManager.sessions.value.any { it.descriptor.deviceId == deviceId }) {
+        if (network.incomingConnections.sessions.value.any { it.descriptor.deviceId == deviceId }) {
             return Result.success(Unit)
         }
 
-        return peerDiscovery.peers.value
+        return network.peerDiscovery.peers.value
             .find { it.advertised.deviceId == deviceId }
             ?.let {
-                requestManager.connect(
+                network.requestManager.connect(
                     it,
                     request = request
                 )
             } // Try to connect by discovered route first
             .chainWith {
                 // Fallback to previously probed route, if any.
-                requestManager.profile(deviceId)
-                    ?.let { requestManager.connect(it.route, request = request).map { } }
+                network.requestManager.profile(deviceId)
+                    ?.let { network.requestManager.connect(it.route, request = request).map { } }
             }
             ?.map { }
             ?: Result.failure(

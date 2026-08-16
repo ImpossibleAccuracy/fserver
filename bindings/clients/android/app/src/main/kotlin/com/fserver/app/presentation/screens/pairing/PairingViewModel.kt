@@ -7,10 +7,11 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.core.domain.Constants
-import com.fserver.core.domain.model.network.PeerLocator
-import com.fserver.core.domain.model.connection.device.ForeignDevice
-import com.fserver.core.domain.model.connection.auth.Greeting
+import com.fserver.core.domain.model.connection.auth.AuthCredentials
 import com.fserver.core.domain.model.connection.auth.AuthMethod
+import com.fserver.core.domain.model.connection.auth.Greeting
+import com.fserver.core.domain.model.connection.device.ForeignDevice
+import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -107,9 +108,16 @@ class PairingViewModel(
     }
 
     private suspend fun connect(): Boolean = devicesRepository
-        .connect(key.peerLocator, selectedMethod.value, editable.value.password)
+        .connect(arguments = key.peerLocator, credentials = credentials())
         .onFailure { t -> editable.update { it.copy(error = t.localizedMessage) } }
         .isSuccess
+
+    private fun credentials(): AuthCredentials? = when (selectedMethod.value) {
+        AuthMethod.ConfirmFingerprint -> AuthCredentials.ConfirmFingerprint
+        AuthMethod.NearbySas -> AuthCredentials.NearbySas
+        AuthMethod.Password -> AuthCredentials.Password(editable.value.password.orEmpty())
+        null -> null
+    }
 
     /**
      * Ensure the greeting for [key] is fetched. Pairing screen shouldn't trust advertised info

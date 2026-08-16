@@ -5,7 +5,8 @@ import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.auth.sas.SasAuthMethod
 
 /**
- * Available authentication methods.
+ * Available authentication methods. Names a method, and nothing else: what a peer must *present*
+ * is [AuthCredentials], what this device *accepts* is [OfferedAuthMethod].
  */
 enum class AuthMethod(
     internal val authMethodId: AuthMethodId,
@@ -21,6 +22,6 @@ enum class AuthMethod(
 
     companion object {
         internal fun fromId(methodId: AuthMethodId): AuthMethod? =
-            AuthMethod.entries.find { it.authMethodId == methodId }
+            entries.find { it.authMethodId == methodId }
     }
 }

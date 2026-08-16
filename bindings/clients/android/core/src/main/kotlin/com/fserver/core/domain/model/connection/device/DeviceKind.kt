@@ -5,7 +5,7 @@ package com.fserver.core.domain.model.connection.device
  * nothing about it is proven by the handshake.
  */
 enum class DeviceKind(
-    private val serialized: String,
+    internal val serialized: String,
 ) {
     Desktop("desktop"),
     Laptop("laptop"),

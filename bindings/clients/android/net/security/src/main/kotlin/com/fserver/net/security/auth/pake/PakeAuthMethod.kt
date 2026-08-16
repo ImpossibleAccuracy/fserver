@@ -25,13 +25,10 @@ import com.fserver.net.wire.ByteWriter
  */
 class PakeAuthMethod(
     private val crypto: CryptoProvider,
-    private val passwordStorage: PakePasswordStorage,
     private val authenticator: PeerAuthenticator?,
+    private val loadSavedPassword: suspend () -> String,
 ) : AuthMethod {
     override val id: AuthMethodId = ID
-
-    override val isEnabled: Boolean
-        get() = passwordStorage.isPasswordSet
 
     init {
         requireNotNull(authenticator) {
@@ -50,7 +47,7 @@ class PakeAuthMethod(
             }
 
             CryptoProvider.Role.Responder -> {
-                passwordStorage.loadSavedPassword()
+                loadSavedPassword()
             }
         }
 

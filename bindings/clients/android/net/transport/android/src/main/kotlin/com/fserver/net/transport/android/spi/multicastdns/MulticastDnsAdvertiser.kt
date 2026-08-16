@@ -28,7 +28,7 @@ internal class MulticastDnsAdvertiser(
 
     override val id: SpiId = MulticastDnsSPI.ID
 
-    override fun advertise(
+    override suspend fun advertise(
         payload: Advertiser.Payload
     ): Flow<Advertiser.Event> = multicastDnsPortBinder.value
         .flatMapLatest { port ->

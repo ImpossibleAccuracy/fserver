@@ -1,4 +1,4 @@
-package com.fserver.core.net
+package com.fserver.core.data.security
 
 import com.fserver.core.domain.model.connection.PendingConfirmation
 import com.fserver.net.security.PeerAuthenticator
@@ -13,7 +13,7 @@ import kotlinx.coroutines.sync.withLock
  * Э9 scaffold: gates every peer on an explicit user comparison instead of trusting on sight.
  * No real PAKE yet - the code compared is whatever the [AuthMethod][com.fserver.net.security.auth.AuthMethod]
  * derived (a fingerprint for confirm-dh, digits for Nearby's SAS) - but this is the first thing
- * that actually asks, rather than defaulting every verdict to [PeerAuthenticator.Decision.Trust].
+ * that actually asks, rather than defaulting every verdict to [Decision.Trust].
  *
  * One comparison in flight at a time: a second peer knocking mid-comparison queues behind [lock]
  * rather than clobbering [pending].

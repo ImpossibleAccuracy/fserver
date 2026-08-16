@@ -158,7 +158,7 @@ class HandshakeNegotiatorTest {
                 responderConfirmationCode = "4821",
             )
 
-            assertEquals(alice.local.deviceId, seenDeviceId)
+            assertEquals(alice.local().deviceId, seenDeviceId)
             assertTrue(seenCode != null && seenCode != "4821")
             assertTrue(seenCode!!.matches(Regex("[0-9a-f]{4}( [0-9a-f]{4}){3}")))
         }
@@ -181,9 +181,9 @@ class HandshakeNegotiatorTest {
         // Anyone who merely dialled the address gets versions and method names, and nothing that
         // says which device answered - not the id, not the name, not the long-term key.
         val readable = String(envelope.payload, Charsets.ISO_8859_1)
-        assertFalse(readable.contains(alice.local.deviceId))
-        assertFalse(readable.contains(alice.local.displayName))
-        assertFalse(envelope.payload.contains(alice.local.publicKey))
+        assertFalse(readable.contains(alice.local().deviceId))
+        assertFalse(readable.contains(alice.local().displayName))
+        assertFalse(envelope.payload.contains(alice.local().publicKey))
     }
 
     // ------------------------------------------------------------------ method selection

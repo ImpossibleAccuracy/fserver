@@ -3,7 +3,7 @@ package com.fserver.net.security.identity
 
 /** Provider for [LocalIdentity] instances. */
 interface IdentityStore {
-    val local: LocalIdentity
+    suspend fun local(): LocalIdentity
 
     /**
      * Signs with the private half of [local]'s identity key.

@@ -14,15 +14,15 @@ import java.util.UUID
  * (`SHA256withECDSA`, public key as an uncompressed SEC1 point).
  */
 class EphemeralIdentityStore(
-    deviceId: String = UUID.randomUUID().toString(),
-    displayName: String = "unnamed device",
-    kind: String? = null,
+    val deviceId: String = UUID.randomUUID().toString(),
+    val displayName: String = "unnamed device",
+    val kind: String? = null,
 ) : IdentityStore {
     private val keys = KeyPairGenerator.getInstance("EC")
         .apply { initialize(ECGenParameterSpec("secp256r1")) }
         .generateKeyPair()
 
-    override val local: LocalIdentity = LocalIdentity(
+    override suspend fun local(): LocalIdentity = LocalIdentity(
         deviceId = deviceId,
         displayName = displayName,
         publicKey = (keys.public as ECPublicKey).uncompressedPoint(),

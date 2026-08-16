@@ -55,20 +55,20 @@ dependencies {
     // @RequiresApi, referenced by uniffi's Android object cleaner
     implementation(libs.androidx.annotation)
 
-    // Coroutines — every repository seam is a suspend fun or a Flow, so this is api, not impl.
+    // Coroutines - every repository seam is a suspend fun or a Flow, so this is api, not impl.
     api(libs.kotlinx.coroutines.android)
 
-    // Dependency injection — internal wiring only. `FServerCore` runs a standalone Koin container
+    // Dependency injection - internal wiring only. `FServerCore` runs a standalone Koin container
     // instead of joining the host's, so Koin stays off the consumer's compile classpath and a
     // consuming UI is free to use Hilt, hand-wiring, or its own Koin graph.
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.core)
 
-    // Nearby Connections — device discovery/transport without a shared network
+    // Nearby Connections - device discovery/transport without a shared network
     implementation(libs.play.services.nearby)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    // Serialization — the payload a scanned connection code carries
+    // Serialization - the payload a scanned connection code carries
     implementation(libs.kotlinx.serialization.json)
 
     // Logging
@@ -83,7 +83,7 @@ dependencies {
 // This module is heavely depend on workspace/core:
 // Kotlin bindings by uniffi-bindgen, the per-ABI .so by cargo-ndk.
 // Both are build output, so they live under build/generated/rust and are wired
-// into the main source set below — nothing generated is ever committed.
+// into the main source set below - nothing generated is ever committed.
 val generatedRustDir: Provider<Directory> = layout.buildDirectory.dir("generated/rust")
 val generatedKotlinDir: Provider<Directory> = generatedRustDir.map { it.dir("kotlin") }
 val generatedJniLibsDir: Provider<Directory> = generatedRustDir.map { it.dir("jniLibs") }

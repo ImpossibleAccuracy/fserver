@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.Flow
 interface Advertiser {
     val id: SpiId
 
-    fun advertise(payload: Payload): Flow<Event>
+    /** Suspends only to prepare the advertisement; the flow carries what happens after. */
+    suspend fun advertise(payload: Payload): Flow<Event>
 
     /**
      * What this device tells the network about itself. Built by `:net` from the local identity.

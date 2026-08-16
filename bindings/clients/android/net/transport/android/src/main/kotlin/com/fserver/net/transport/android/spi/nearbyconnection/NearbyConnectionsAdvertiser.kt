@@ -19,7 +19,7 @@ internal class NearbyConnectionsAdvertiser(
      * first; [Advertiser.Payload.optional] goes out only while there is room left, and what does
      * not fit a peer learns from the handshake instead.
      */
-    override fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = repository
+    override suspend fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = repository
         .startAdvertising(essential = payload.essential, optional = payload.optional)
         .map { event ->
             when (event) {

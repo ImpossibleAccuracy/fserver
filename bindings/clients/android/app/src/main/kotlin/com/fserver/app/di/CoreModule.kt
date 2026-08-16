@@ -17,7 +17,15 @@ import org.koin.dsl.module
  * `Application` a reliable teardown callback to hang one on.
  */
 val coreModule = module {
-    single { FServerCore.create(FServerConfig(context = androidContext())) }
+    single {
+        FServerCore.create(
+            FServerConfig(
+                context = androidContext(),
+                localIdentityStore = get(),
+                authSettingsStore = get(),
+            )
+        )
+    }
 
     single { get<FServerCore>().deviceDetection }
     single { get<FServerCore>().networkInfo }

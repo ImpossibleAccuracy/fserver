@@ -1,4 +1,4 @@
-package com.fserver.core.net
+package com.fserver.core.net.adapter
 
 import com.fserver.net.NetLogger
 import timber.log.Timber

@@ -54,7 +54,7 @@ internal class PeerDiscoveryImpl(
     override suspend fun scan(
         params: DiscoveryProvider.ScanParams
     ): Result<List<DiscoveredPeer>> = netRunCatching {
-        val identity = config.identityStore.local
+        val identity = config.identityStore.local()
 
         val provider = config.discoveryProviders.firstOrNull { it.accepts(params) }
             ?: throw NetworkException.Transport("no discovery provider handles $params")
@@ -150,7 +150,7 @@ internal class PeerDiscoveryImpl(
         .distinctUntilChanged()
 
     /** Caller holds [advertisingLock]. */
-    private fun launchAdvertisers(config: NetworkConfig<*>) {
+    private suspend fun launchAdvertisers(config: NetworkConfig<*>) {
         if (!config.policy.advertisement.enabled) {
             config.logger.debug("advertising is off; this device will not announce itself")
             return
@@ -167,13 +167,17 @@ internal class PeerDiscoveryImpl(
         advertisingJobs = config.advertisers
             .map { advertiser ->
                 scope.launch {
-                    advertiser.advertise(payload).collect { event ->
-                        if (event is Advertiser.Event.Failed) {
-                            config.logger.warn(
-                                "advertiser ${advertiser.id.value} failed",
-                                event.cause
-                            )
+                    try {
+                        advertiser.advertise(payload).collect { event ->
+                            if (event is Advertiser.Event.Failed) {
+                                config.logger.warn(
+                                    "advertiser ${advertiser.id.value} failed",
+                                    event.cause
+                                )
+                            }
                         }
+                    } catch (e: Exception) {
+                        config.logger.error("advertiser ${advertiser.id.value} failed", e)
                     }
                 }
             }
@@ -201,8 +205,8 @@ internal class PeerDiscoveryImpl(
     }
 
     /** Compute payload for advertisers */
-    private fun advertisement(config: NetworkConfig<*>): Advertiser.Payload {
-        val identity = config.identityStore.local
+    private suspend fun advertisement(config: NetworkConfig<*>): Advertiser.Payload {
+        val identity = config.identityStore.local()
         return Advertiser.Payload(
             identity = identity,
             essential = buildMap {

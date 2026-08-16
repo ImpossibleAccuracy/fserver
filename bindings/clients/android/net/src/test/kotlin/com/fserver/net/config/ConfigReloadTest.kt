@@ -338,7 +338,7 @@ class ConfigReloadTest {
         val payloads = CopyOnWriteArrayList<Advertiser.Payload>()
         val cancellations = AtomicInteger()
 
-        override fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = flow {
+        override suspend fun advertise(payload: Advertiser.Payload): Flow<Advertiser.Event> = flow {
             payloads += payload
             emit(Advertiser.Event.Started)
             try {

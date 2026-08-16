@@ -12,7 +12,6 @@ import com.fserver.net.discovery.PeerDiscoveryImpl
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.TransportConfirmationAuthMethod
-import com.fserver.net.security.identity.LocalIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,7 +31,6 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalAtomicApi::class)
 class NetworkNode<M : Any> private constructor(
-    val identity: LocalIdentity,
     private val configHolder: NetworkConfigHolder<M>,
     val discovery: PeerDiscovery,
     private val incomingConnectionsImpl: IncomingConnectionsManagerImpl<M>,
@@ -47,7 +45,11 @@ class NetworkNode<M : Any> private constructor(
     /** Current config, which may be swapped at runtime with [reloadConfig]. */
     val config: NetworkConfig<M> get() = configHolder.current
 
-    /** Swaps live config in place. */
+    /**
+     * Swaps live config in place.
+     *
+     * @throws IllegalArgumentException when the new config is incompatible with old one
+     */
     suspend fun reloadConfig(new: NetworkConfig<M>) {
         check(!closed.load()) { "node is closed" }
 
@@ -65,20 +67,27 @@ class NetworkNode<M : Any> private constructor(
         configHolder.reload(fillConfig(new))
     }
 
-    override fun close() {
+    /**
+     * Tears the node down without blocking. Prefer this over [close] from a coroutine: [close]
+     * has to `runBlocking` its way through the same work, and holds the calling thread for up
+     * to [SHUTDOWN_GRACE] doing it.
+     */
+    suspend fun shutdown() {
         if (!closed.compareAndSet(false, true)) return
 
-        // Shutdown all background work
-        runBlocking {
-            withTimeoutOrNull(SHUTDOWN_GRACE) {
-                discovery.stopAdvertising()
-                incomingConnectionsImpl.shutdown()
-                requestManagerImpl.shutdown()
-            }
+        withTimeoutOrNull(SHUTDOWN_GRACE) {
+            discovery.stopAdvertising()
+            incomingConnectionsImpl.shutdown()
+            requestManagerImpl.shutdown()
         }
 
         // Cancel scope to ensure node is fully cleaned up
         ownedScope?.cancel()
+    }
+
+    /** [shutdown] for callers with no coroutine to hand. Blocks the calling thread. */
+    override fun close() {
+        runBlocking { shutdown() }
     }
 
     companion object {
@@ -122,7 +131,6 @@ class NetworkNode<M : Any> private constructor(
             configHolder.register(discovery)
 
             return NetworkNode(
-                identity = config.identityStore.local,
                 configHolder = configHolder,
                 discovery = discovery,
                 incomingConnectionsImpl = incoming,

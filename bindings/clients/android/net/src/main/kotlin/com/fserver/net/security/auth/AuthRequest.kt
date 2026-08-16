@@ -15,5 +15,6 @@ data class AuthRequest(
     val method: AuthMethodId? = null,
     val params: Params? = null,
 ) {
+    /** Implementation-specific parameters for the chosen [method]. */
     interface Params
 }

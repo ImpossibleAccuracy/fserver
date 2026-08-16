@@ -125,11 +125,12 @@ internal class NearbyConnectionsRepository internal constructor(
     /**
      * What this device calls itself when it dials out. Advertising replaces it with the full
      * advertisement, so a peer we dial learns as much about us as one that found us.
+     * Null until the first [startAdvertising]; dialling before then falls back to the minimum.
      */
     @Volatile
-    private var localEndpointInfo: ByteArray = NearbyEndpointInfo.encode(defaultAttributes())
+    private var localEndpointInfo: ByteArray? = null
 
-    fun startAdvertising(
+    suspend fun startAdvertising(
         essential: Map<String, String>,
         optional: Map<String, String>,
     ): Flow<NCAdvertiserEvent> {
@@ -163,8 +164,11 @@ internal class NearbyConnectionsRepository internal constructor(
             val peer = awaitEndpoint(
                 endpointId = endpointId,
                 track = {
+                    val info = localEndpointInfo
+                        ?: NearbyEndpointInfo.encode(defaultAttributes())
+
                     connectionsClient
-                        .requestConnection(localEndpointInfo, endpointId, lifecycleCallback)
+                        .requestConnection(info, endpointId, lifecycleCallback)
                         .awaitCompletion()
                     requested = true
                 },
@@ -300,8 +304,8 @@ internal class NearbyConnectionsRepository internal constructor(
     }
 
     /** The least a peer needs to tell this device from another, before `:net` adds the rest. */
-    private fun defaultAttributes(): Map<String, String> {
-        val local = identityStore.local
+    private suspend fun defaultAttributes(): Map<String, String> {
+        val local = identityStore.local()
         return mapOf(
             PeerAttributes.DEVICE_ID to local.deviceId,
             PeerAttributes.DISPLAY_NAME to local.displayName,
