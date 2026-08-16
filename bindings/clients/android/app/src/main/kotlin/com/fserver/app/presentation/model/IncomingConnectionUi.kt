@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
-import com.fserver.core.domain.model.connection.IncomingConnection
-import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.network.device.IncomingConnection
+import com.fserver.core.network.info.DetectionMethod
 
 
 /**

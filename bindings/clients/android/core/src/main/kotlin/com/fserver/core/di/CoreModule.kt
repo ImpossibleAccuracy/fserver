@@ -1,12 +1,22 @@
 package com.fserver.core.di
 
 import android.content.Context
-import com.fserver.core.data.di.BackgroundScope
-import com.fserver.core.data.di.dataSourceModule
-import com.fserver.core.data.di.repositoryModule
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.network.device.impl.DevicesRepositoryImpl
+import com.fserver.core.network.device.impl.JsonQrCodeParser
+import com.fserver.core.network.info.NetworkInfoRepository
+import com.fserver.core.network.info.impl.NetworkInfoRepositoryImpl
+import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.core.requirement.impl.RequirementsCheckerImpl
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.bind
 import org.koin.dsl.module
+
+/** Work that must outlive the screen. Bound from the host config. */
+internal typealias BackgroundScope = CoroutineScope
 
 /**
  * Wiring for the private container [com.fserver.core.FServerCore] owns.
@@ -22,5 +32,9 @@ internal fun coreModule(
     single { context }
     single<BackgroundScope> { backgroundScope }
 
-    includes(dataSourceModule, repositoryModule)
+    factoryOf(::JsonQrCodeParser)
+
+    singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
+    singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
+    singleOf(::RequirementsCheckerImpl) bind RequirementsChecker::class
 }

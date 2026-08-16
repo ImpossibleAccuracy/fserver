@@ -36,7 +36,7 @@ import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.network.info.DetectionMethod
 
 /**
  * Screen 03 — one method and what it is still waiting on.

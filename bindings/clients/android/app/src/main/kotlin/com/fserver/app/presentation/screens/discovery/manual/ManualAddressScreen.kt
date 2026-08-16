@@ -24,8 +24,8 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
-import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.network.info.model.PeerLocator
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

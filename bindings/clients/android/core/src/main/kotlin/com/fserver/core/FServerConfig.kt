@@ -1,8 +1,8 @@
 package com.fserver.core
 
 import android.content.Context
-import com.fserver.core.domain.store.AuthSettingsStore
-import com.fserver.core.domain.store.LocalIdentityStore
+import com.fserver.core.store.AuthSettingsStore
+import com.fserver.core.store.LocalIdentityStore
 import kotlinx.coroutines.CoroutineScope
 
 /**

@@ -31,8 +31,8 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.NetworkCardUi
-import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.screens.discovery.hub.model.ConnectHubState
+import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 

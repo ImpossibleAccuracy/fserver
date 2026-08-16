@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
-import com.fserver.core.domain.model.network.DetectionMethod
-import com.fserver.core.domain.model.connection.device.DeviceKind
+import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.info.DetectionMethod
 
 @Immutable
 data class DeviceDiscoveryState(

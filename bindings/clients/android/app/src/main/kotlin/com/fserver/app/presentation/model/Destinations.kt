@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.core.domain.model.network.PeerLocator
+import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.serialization.Serializable
 
 sealed interface UnauthenticatedDestinations

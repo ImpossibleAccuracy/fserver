@@ -1,7 +1,7 @@
 package com.fserver.app.data
 
-import com.fserver.core.domain.model.connection.auth.OfferedAuthMethod
-import com.fserver.core.domain.store.AuthSettingsStore
+import com.fserver.core.network.auth.OfferedAuthMethod
+import com.fserver.core.store.AuthSettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

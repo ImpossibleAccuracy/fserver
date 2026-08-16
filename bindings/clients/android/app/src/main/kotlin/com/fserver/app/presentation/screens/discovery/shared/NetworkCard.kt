@@ -44,7 +44,7 @@ fun NetworkCard(
 
     val live = network != null && network != NetworkCardUi.Offline
     val complete = network is NetworkCardUi.Wifi && network.name != null ||
-        network is NetworkCardUi.Mobile
+            network is NetworkCardUi.Mobile
 
     val title = when (network) {
         null, NetworkCardUi.Offline -> stringResource(R.string.network_offline)

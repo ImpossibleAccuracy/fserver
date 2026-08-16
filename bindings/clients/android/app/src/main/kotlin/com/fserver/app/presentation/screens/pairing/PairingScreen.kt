@@ -46,8 +46,8 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.connection.auth.AuthMethod
-import com.fserver.core.domain.model.connection.device.DeviceKind
+import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.DeviceKind
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 

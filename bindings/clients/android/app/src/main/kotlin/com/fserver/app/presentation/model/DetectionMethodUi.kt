@@ -2,7 +2,7 @@ package com.fserver.app.presentation.model
 
 import androidx.annotation.StringRes
 import com.fserver.app.R
-import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.network.info.DetectionMethod
 
 /**
  * How a detection method is named and explained to the user.

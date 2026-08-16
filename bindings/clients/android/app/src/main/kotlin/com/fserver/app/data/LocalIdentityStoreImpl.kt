@@ -5,9 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.fserver.core.domain.model.connection.device.DeviceKind
-import com.fserver.core.domain.model.connection.device.LocalDevice
-import com.fserver.core.domain.store.LocalIdentityStore
+import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.device.model.LocalDevice
+import com.fserver.core.store.LocalIdentityStore
 import java.security.KeyPair
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid

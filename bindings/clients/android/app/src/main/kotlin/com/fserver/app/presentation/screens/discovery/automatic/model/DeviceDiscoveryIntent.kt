@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.screens.discovery.automatic.model
 
-import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.network.info.DetectionMethod
 
 sealed interface DeviceDiscoveryIntent {
     data class MethodToggled(val method: DetectionMethod) : DeviceDiscoveryIntent

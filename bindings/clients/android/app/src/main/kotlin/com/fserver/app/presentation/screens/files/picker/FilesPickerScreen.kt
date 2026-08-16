@@ -11,7 +11,6 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkCaption
@@ -91,6 +91,7 @@ fun FilesPickerScreen(
                         mediaPermissionLauncher.launch(missing.toTypedArray())
                     }
                 }
+
                 PickerSource.FullAccess -> {
                     @SuppressLint("NewApi")
                     if (Environment.isExternalStorageManager()) {

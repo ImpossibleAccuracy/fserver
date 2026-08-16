@@ -32,8 +32,8 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
-import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.network.info.model.PeerLocator
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

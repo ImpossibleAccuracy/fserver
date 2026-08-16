@@ -22,7 +22,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.model.IncomingConnectionUi
 import com.fserver.app.presentation.model.localizedName
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.network.info.DetectionMethod
 
 /**
  * Another device is knocking, and its handshake is parked on this answer.

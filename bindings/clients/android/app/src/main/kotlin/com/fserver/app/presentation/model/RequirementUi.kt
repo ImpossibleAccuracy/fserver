@@ -6,8 +6,8 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
 import com.fserver.app.presentation.permission.RequirementAction
-import com.fserver.core.domain.model.network.NetworkCapability
-import com.fserver.core.domain.model.requirement.Requirement
+import com.fserver.core.network.info.model.NetworkCapability
+import com.fserver.core.requirement.Requirement
 
 /** One line of "what is still in the way", as the permissions sheet renders it. */
 @Immutable

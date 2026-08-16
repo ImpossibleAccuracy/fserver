@@ -9,7 +9,7 @@ import androidx.compose.runtime.Immutable
 sealed interface RequirementAction {
 
     /**
-     * Ask for permissions in one launch, matching how [com.fserver.core.domain.model.requirement.Requirement.RuntimePermission]
+     * Ask for permissions in one launch, matching how [com.fserver.core.requirement.Requirement.RuntimePermission]
      * groups them: a partial grant is answered by checking again, not by asking for the rest.
      */
     data class RequestPermissions(val permissions: List<String>) : RequirementAction

@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.toCardUi
 import com.fserver.app.presentation.screens.discovery.hub.model.ConnectHubState
-import com.fserver.core.domain.repository.NetworkInfoRepository
-import com.fserver.core.domain.repository.RequirementsChecker
+import com.fserver.core.network.info.NetworkInfoRepository
+import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map

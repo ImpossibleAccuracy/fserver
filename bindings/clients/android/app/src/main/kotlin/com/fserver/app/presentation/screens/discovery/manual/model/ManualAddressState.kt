@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.manual.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.network.PeerLocator
+import com.fserver.core.network.info.model.PeerLocator
 
 @Immutable
 data class ManualAddressState(

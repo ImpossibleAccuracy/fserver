@@ -27,9 +27,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 import kotlin.uuid.Uuid
-import timber.log.Timber
 
 /** Newest media first, capped — the selection list renders every row eagerly. */
 private const val MEDIA_SCAN_LIMIT = 500

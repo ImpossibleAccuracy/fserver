@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.connection.auth.AuthMethod
-import com.fserver.core.domain.model.connection.device.DeviceKind
+import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
 data class PairingState(

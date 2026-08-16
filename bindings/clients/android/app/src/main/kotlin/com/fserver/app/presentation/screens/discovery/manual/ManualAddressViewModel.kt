@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
-import com.fserver.core.domain.model.network.PeerLocator
-import com.fserver.core.domain.Constants
-import com.fserver.core.domain.repository.DevicesRepository
+import com.fserver.core.Constants
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
