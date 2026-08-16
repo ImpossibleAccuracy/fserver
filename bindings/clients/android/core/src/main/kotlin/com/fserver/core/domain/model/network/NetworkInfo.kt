@@ -1,5 +1,6 @@
-package com.fserver.core.domain.model
+package com.fserver.core.domain.model.network
 
+/** A network the device is currently on. */
 sealed interface NetworkInfo {
     val id: String
     val name: String

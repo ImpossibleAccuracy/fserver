@@ -1,7 +1,6 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.connection.PeerRef
-import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.spi.DiscoveredEndpoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +34,7 @@ internal class PeerRegistry {
             advertised = AdvertisedPeer(
                 deviceId = deviceId,
                 displayName = attributes[PeerAttributes.DISPLAY_NAME] ?: endpoint.advertisedName,
-                kind = attributes[PeerAttributes.KIND]?.let(::parseKind),
+                kind = attributes[PeerAttributes.KIND]?.ifBlank { null },
                 protocolVersions = versionRange(attributes),
                 methods = parseMethods(attributes[PeerAttributes.AUTH_METHODS]),
             ),
@@ -95,8 +94,4 @@ internal class PeerRegistry {
         ?.filter(String::isNotEmpty)
         ?.map(::AuthMethodId)
         .orEmpty()
-
-    /** By name, unlike [com.fserver.net.peer.PeerDescriptorCodec], which goes by ordinal. */
-    private fun parseKind(raw: String): PeerDescriptor.Kind? =
-        PeerDescriptor.Kind.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
 }

@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.core.domain.model.ConnectionArguments
+import com.fserver.core.domain.model.network.PeerLocator
 import kotlinx.serialization.Serializable
 
 sealed interface UnauthenticatedDestinations
@@ -59,7 +59,7 @@ sealed interface Destination : NavKey {
      */
     @Serializable
     data class Pairing(
-        val connectionArguments: ConnectionArguments,
+        val peerLocator: PeerLocator,
     ) : Destination
 
     @Serializable

@@ -1,6 +1,6 @@
 package com.fserver.core.domain.repository
 
-import com.fserver.core.domain.model.NetworkInfo
+import com.fserver.core.domain.model.network.NetworkInfo
 import kotlinx.coroutines.flow.Flow
 
 interface NetworkInfoRepository {

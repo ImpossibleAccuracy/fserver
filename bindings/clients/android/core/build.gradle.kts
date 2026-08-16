@@ -35,7 +35,10 @@ kotlin {
 }
 
 dependencies {
-    api(projects.net) // TODO: core shouldnt expose net
+    // All three are `implementation`, never `api`: `:net` is an implementation detail of `:core`,
+    // and every `:net` entity a consumer needs has a `:core` model mirroring it. Promoting any of
+    // these to `api` puts the protocol types back on the host's compile classpath.
+    implementation(projects.net)
     implementation(projects.net.security)
     implementation(projects.net.transport.android)
 

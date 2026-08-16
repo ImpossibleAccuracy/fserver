@@ -2,9 +2,9 @@ package com.fserver.core.data.requirement
 
 import android.Manifest
 import android.annotation.SuppressLint
-import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.NetworkCapability
-import com.fserver.core.domain.model.NetworkInfo
+import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.domain.model.network.NetworkCapability
+import com.fserver.core.domain.model.network.NetworkInfo
 import com.fserver.core.domain.model.requirement.Requirement
 
 /**

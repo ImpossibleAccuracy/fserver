@@ -46,8 +46,8 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.auth.AuthMethod
-import com.fserver.net.peer.PeerDescriptor
+import com.fserver.core.domain.model.connection.auth.AuthMethod
+import com.fserver.core.domain.model.connection.device.DeviceKind
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -356,7 +356,7 @@ private fun PairingScreenMultiMethodPreview() {
                 device = PairingState.SampleDevice.copy(
                     identity = PairingState.DeviceUi.IdentityUi(
                         name = "HOME-NAS",
-                        kind = PeerDescriptor.Kind.Nas,
+                        kind = DeviceKind.Nas,
                     ),
                     address = "192.168.1.42:8384",
                     offeredMethods = listOf(AuthMethod.ConfirmFingerprint, AuthMethod.NearbySas),

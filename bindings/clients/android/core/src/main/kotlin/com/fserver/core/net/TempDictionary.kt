@@ -3,7 +3,7 @@ package com.fserver.core.net
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
 
-class TempDictionary : MessageDictionary<TempMessages> {
+internal class TempDictionary : MessageDictionary<TempMessages> {
     override val descriptor: MessageDictionary.Descriptor = MessageDictionary.Descriptor(
         id = "HelloWorld",
         version = 1,

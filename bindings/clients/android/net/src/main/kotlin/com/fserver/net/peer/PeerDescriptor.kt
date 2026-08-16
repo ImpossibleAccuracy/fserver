@@ -17,7 +17,7 @@ import com.fserver.net.dictionary.MessageDictionary
 data class PeerDescriptor(
     val deviceId: String,
     val displayName: String,
-    val kind: Kind?,
+    val kind: String?,
     val dictionary: MessageDictionary.Descriptor,
     /**
      * The largest frame this peer will take. Negotiated here rather than in the public hello:
@@ -25,6 +25,4 @@ data class PeerDescriptor(
      * a stranger cannot move it.
      */
     val maxFrameSize: Int,
-) {
-    enum class Kind { Desktop, Laptop, Phone, Tablet, Nas }
-}
+)

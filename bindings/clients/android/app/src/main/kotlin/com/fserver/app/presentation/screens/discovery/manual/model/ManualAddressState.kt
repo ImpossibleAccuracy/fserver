@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.manual.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.ConnectionArguments
+import com.fserver.core.domain.model.network.PeerLocator
 
 @Immutable
 data class ManualAddressState(
@@ -11,7 +11,7 @@ data class ManualAddressState(
     val isChecking: Boolean = false,
     val error: Error? = null,
     /** Set once the address answered; the sheet navigates on and clears it. */
-    val found: ConnectionArguments? = null,
+    val found: PeerLocator? = null,
 ) {
     val canConnect: Boolean
         get() = host.isNotBlank() && !isChecking

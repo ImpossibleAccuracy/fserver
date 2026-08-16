@@ -20,7 +20,7 @@ fun EntryProviderScope<Destination>.manualAddressEntry(
                 navigator.navigateUp()
                 navigator.navigate(
                     Destination.Pairing(
-                        connectionArguments = target
+                        peerLocator = target
                     )
                 )
             },

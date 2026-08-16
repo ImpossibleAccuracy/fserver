@@ -60,7 +60,7 @@ import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDisc
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.network.DetectionMethod
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

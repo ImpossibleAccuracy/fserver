@@ -12,7 +12,7 @@ import java.security.Signature
 import java.security.interfaces.ECPublicKey
 import java.util.UUID
 
-class TempAuthStore(context: Context) : IdentityStore {
+internal class TempAuthStore(context: Context) : IdentityStore {
     private val keyPair: KeyPair = KeyPairStore(context).getOrCreateAndroidKeyPair(KEY_ALIAS)
 
     override val local: LocalIdentity = LocalIdentity(

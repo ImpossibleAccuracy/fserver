@@ -8,8 +8,8 @@ import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
-import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.NetworkInfo
+import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.domain.model.network.NetworkInfo
 import com.fserver.core.domain.model.requirement.Requirement
 import com.fserver.core.domain.model.requirement.RequirementReport
 import com.fserver.core.domain.repository.NetworkInfoRepository

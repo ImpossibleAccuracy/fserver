@@ -7,8 +7,8 @@ import com.fserver.app.presentation.model.toCardUi
 import com.fserver.app.presentation.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
-import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.ForeignDevice
+import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.domain.model.connection.device.ForeignDevice
 import com.fserver.core.domain.model.requirement.RequirementReport
 import com.fserver.core.domain.repository.DevicesRepository
 import com.fserver.core.domain.repository.NetworkInfoRepository
@@ -241,6 +241,6 @@ private fun ForeignDevice.toUi() = DeviceDiscoveryState.DeviceUi(
     id = deviceId,
     name = displayName,
     kind = kind,
-    address = routes.first().endpoint.address,
+    address = routes.first().address,
     isPaired = hasSession,
 )

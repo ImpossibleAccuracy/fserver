@@ -19,7 +19,7 @@ import com.fserver.net.security.auth.AuthMethodId
 data class AdvertisedPeer(
     val deviceId: String,
     val displayName: String,
-    val kind: PeerDescriptor.Kind? = null,
+    val kind: String? = null,
     val protocolVersions: IntRange? = null,
     val methods: List<AuthMethodId> = emptyList(),
 )

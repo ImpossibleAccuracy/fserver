@@ -10,7 +10,7 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
-val repositoryModule = module {
+internal val repositoryModule = module {
     singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
     singleOf(::RequirementsCheckerImpl) bind RequirementsChecker::class

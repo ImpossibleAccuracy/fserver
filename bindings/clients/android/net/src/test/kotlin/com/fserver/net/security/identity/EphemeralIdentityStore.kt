@@ -1,6 +1,5 @@
 package com.fserver.net.security.identity
 
-import com.fserver.net.peer.PeerDescriptor
 import java.security.KeyPairGenerator
 import java.security.Signature
 import java.security.interfaces.ECPublicKey
@@ -17,7 +16,7 @@ import java.util.UUID
 class EphemeralIdentityStore(
     deviceId: String = UUID.randomUUID().toString(),
     displayName: String = "unnamed device",
-    kind: PeerDescriptor.Kind? = null,
+    kind: String? = null,
 ) : IdentityStore {
     private val keys = KeyPairGenerator.getInstance("EC")
         .apply { initialize(ECGenParameterSpec("secp256r1")) }

@@ -86,12 +86,17 @@
     <!-- Detection methods, named for what they buy the user rather than for their transport -->
     <string name="method_mdns_title">By name on the network</string>
     <string name="method_mdns_description">Asks the network for servers announcing themselves. The fastest way, but some routers filter it out.</string>
+    <string name="method_mdns_localized_name">mDNS</string>
     <string name="method_nearby_title">Nearby devices</string>
     <string name="method_nearby_description">Finds your computer even when you are on different networks or the router blocks multicast. Slower than the rest.</string>
+    <string name="method_nearby_localized_name">nearby devices</string>
     <string name="method_subnet_title">Subnet scan</string>
     <string name="method_subnet_description">Tries every address on your local network in turn. Thorough, slow, and loud on the network.</string>
+    <string name="method_subnet_localized_name">subnet scan</string>
     <string name="method_manual_title">Enter address manually</string>
     <string name="method_manual_description">If you know the server\'s IP address and port.</string>
+    <string name="method_manual_localized_name">IP</string>
+    <string name="incoming_connection_unknown_transport">unknown transport</string>
 
     <!-- The per-method permission sheet -->
     <string name="method_requirements_label">Required permissions</string>

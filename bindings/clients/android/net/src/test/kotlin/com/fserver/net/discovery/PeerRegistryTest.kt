@@ -78,14 +78,12 @@ class PeerRegistryTest {
             endpoint(
                 address = "192.168.0.2",
                 attributes = DEVICE + mapOf(
-                    PeerAttributes.KIND to "toaster",
                     PeerAttributes.PROTOCOL_MIN to "1", // no max: an incomplete range is no range
                     PeerAttributes.AUTH_METHODS to " , ,",
                 ),
             )
         )
 
-        assertNull(peer.advertised.kind)
         assertNull(peer.advertised.protocolVersions)
         assertEquals(emptyList<AuthMethodId>(), peer.advertised.methods)
     }

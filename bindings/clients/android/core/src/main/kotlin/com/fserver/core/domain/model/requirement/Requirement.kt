@@ -2,7 +2,7 @@ package com.fserver.core.domain.model.requirement
 
 import android.content.pm.PackageManager
 import android.provider.Settings
-import com.fserver.core.domain.model.NetworkCapability
+import com.fserver.core.domain.model.network.NetworkCapability
 
 /**
  * One thing standing between any action and a chance of succeeding.

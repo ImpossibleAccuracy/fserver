@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.model
 
-import com.fserver.net.connection.IncomingConnectionsManager
+import com.fserver.core.domain.model.connection.IncomingConnection
+import com.fserver.core.domain.model.network.DetectionMethod
 
 
 /**
@@ -11,13 +12,13 @@ import com.fserver.net.connection.IncomingConnectionsManager
  */
 data class IncomingConnectionUi(
     val deviceName: String,
-    val via: String,
+    val via: DetectionMethod?,
     val isUnsecured: Boolean,
 )
 
-fun IncomingConnectionsManager.IncomingRequest.toUi(): IncomingConnectionUi = IncomingConnectionUi(
-    deviceName = peer.advertisedName,
-    via = transport.value,
+fun IncomingConnection.toUi(): IncomingConnectionUi = IncomingConnectionUi(
+    deviceName = deviceName,
+    via = transport,
     // Neither a fingerprint nor digits: nothing here proves which device this is.
-    isUnsecured = confirmationCode != null,
+    isUnsecured = !isSecured,
 )

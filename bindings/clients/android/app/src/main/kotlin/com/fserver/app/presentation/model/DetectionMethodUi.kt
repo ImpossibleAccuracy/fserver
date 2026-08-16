@@ -2,7 +2,7 @@ package com.fserver.app.presentation.model
 
 import androidx.annotation.StringRes
 import com.fserver.app.R
-import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.network.DetectionMethod
 
 /**
  * How a detection method is named and explained to the user.
@@ -26,6 +26,15 @@ val DetectionMethod.descriptionRes: Int
         DetectionMethod.Automatic.NearbyConnections -> R.string.method_nearby_description
         DetectionMethod.OnDemand.SubnetScan -> R.string.method_subnet_description
         DetectionMethod.OnDemand.ManualAddress -> R.string.method_manual_description
+    }
+
+@get:StringRes
+val DetectionMethod.localizedName: Int
+    get() = when (this) {
+        DetectionMethod.Automatic.MulticastDns -> R.string.method_mdns_localized_name
+        DetectionMethod.Automatic.NearbyConnections -> R.string.method_nearby_localized_name
+        DetectionMethod.OnDemand.SubnetScan -> R.string.method_subnet_localized_name
+        DetectionMethod.OnDemand.ManualAddress -> R.string.method_manual_localized_name
     }
 
 /**

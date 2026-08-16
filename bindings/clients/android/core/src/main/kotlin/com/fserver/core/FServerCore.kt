@@ -69,7 +69,12 @@ data class FServerConfig(
  */
 class FServerCore private constructor(
     private val koin: Koin,
-    private val net: NetworkNode<TempMessages>,
+    /**
+     * Shuts the network node down. A lambda rather than the node itself: `:net` is an
+     * `implementation` dependency, so no `:net` type may appear in this class's signature - not
+     * even on a private member.
+     */
+    private val closeNet: () -> Unit,
     /** Non-null only when the core created the scope, and so is the one allowed to cancel it. */
     private val ownedScope: CoroutineScope?,
 ) : AutoCloseable {
@@ -91,7 +96,7 @@ class FServerCore private constructor(
      * build a new one rather than reusing it.
      */
     override fun close() {
-        net.close()
+        closeNet()
         koin.close()
         ownedScope?.cancel()
     }
@@ -118,7 +123,7 @@ class FServerCore private constructor(
 
             return FServerCore(
                 koin = koin,
-                net = net,
+                closeNet = net::close,
                 ownedScope = scope.takeIf { config.backgroundScope == null },
             )
         }

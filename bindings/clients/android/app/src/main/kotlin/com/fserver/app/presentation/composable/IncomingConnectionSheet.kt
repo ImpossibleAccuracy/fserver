@@ -20,7 +20,9 @@ import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.model.IncomingConnectionUi
+import com.fserver.app.presentation.model.localizedName
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.domain.model.network.DetectionMethod
 
 /**
  * Another device is knocking, and its handshake is parked on this answer.
@@ -61,7 +63,8 @@ fun IncomingConnectionSheet(
                 text = stringResource(
                     R.string.incoming_connection_from,
                     request.deviceName,
-                    request.via,
+                    request.via?.localizedName?.let { stringResource(it) }
+                        ?: stringResource(R.string.incoming_connection_unknown_transport),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -93,7 +96,7 @@ private fun IncomingConnectionSheetPreview() {
         IncomingConnectionSheet(
             request = IncomingConnectionUi(
                 deviceName = "Alice's laptop",
-                via = "multicast-dns",
+                via = DetectionMethod.Automatic.MulticastDns,
                 isUnsecured = false,
             ),
             onAccept = {},

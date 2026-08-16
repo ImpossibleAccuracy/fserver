@@ -1,4 +1,4 @@
-package com.fserver.core.domain.model
+package com.fserver.core.domain.model.connection
 
 /**
  * A peer mid-handshake, waiting on this device's answer to an out-of-band code comparison.

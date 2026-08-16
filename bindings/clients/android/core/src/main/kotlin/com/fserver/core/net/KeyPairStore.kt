@@ -12,7 +12,7 @@ import java.security.spec.ECGenParameterSpec
  * Android KeyStore-backed identity key. P-256 (`secp256r1`) + SHA-256, matching
  * [com.fserver.net.security.crypto.IdentitySignature] - the private key never leaves hardware.
  */
-class KeyPairStore(val context: Context) {
+internal class KeyPairStore(val context: Context) {
 
     fun generateAndroidKeyPair(alias: String): KeyPair {
         val kpg = KeyPairGenerator.getInstance(

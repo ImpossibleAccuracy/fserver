@@ -9,8 +9,7 @@ import com.fserver.app.presentation.model.toUi
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
 import com.fserver.core.domain.repository.DevicesRepository
-import com.fserver.net.connection.IncomingConnectionsManager
-import com.fserver.net.session.CloseReason
+import com.fserver.core.domain.model.connection.IncomingConnection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -42,7 +41,7 @@ class AppViewModel(
     // Queued rather than replaced: two devices can knock at once, and dropping one silently
     // leaves its user watching a spinner that will only every time out.
     private val pending =
-        MutableStateFlow<List<IncomingConnectionsManager.IncomingRequest>>(emptyList())
+        MutableStateFlow<List<IncomingConnection>>(emptyList())
 
     val state = combine(
         startDestination,
@@ -63,7 +62,7 @@ class AppViewModel(
     init {
         viewModelScope.launch {
             devicesRepository.incoming.collect { request ->
-                Timber.i("Incoming connection request from ${request.peer.advertisedName} via ${request.transport}")
+                Timber.i("Incoming connection request from ${request.deviceName} via ${request.transport}")
                 pending.update { it + request }
             }
         }
@@ -75,7 +74,7 @@ class AppViewModel(
                 answer { it.accept() }
 
             is AppRootIntent.RejectIncomingConnection ->
-                answer { it.reject(CloseReason.RejectedByUser) }
+                answer { it.reject() }
 
             is AppRootIntent.AcceptPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = true)
@@ -93,13 +92,13 @@ class AppViewModel(
      * Takes the request off the queue first: accepting is a network round trip, and leaving it on
      * screen until that returns invites a second tap on a decision already made.
      */
-    private fun answer(verdict: suspend (IncomingConnectionsManager.IncomingRequest) -> Unit) {
+    private fun answer(verdict: suspend (IncomingConnection) -> Unit) {
         val request = pending.value.firstOrNull() ?: return
         pending.update { it.drop(1) }
 
         viewModelScope.launch {
             runCatching { verdict(request) }
-                .onFailure { Timber.w(it, "could not answer ${request.peer.advertisedName}") }
+                .onFailure { Timber.w(it, "could not answer ${request.deviceName}") }
         }
     }
 

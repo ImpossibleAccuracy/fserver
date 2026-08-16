@@ -6,15 +6,12 @@ import com.fserver.net.wire.ByteWriter
 
 /**
  * Wire form of [PeerDescriptor] - the payload of `DESCRIPTOR`.
- *
- * [PeerDescriptor.Kind] goes over the wire as an **ordinal**, while discovery parses the same enum
- * by **name**. Reordering the constants is therefore a silent wire break on one side only.
  */
 internal object PeerDescriptorCodec {
     fun encode(descriptor: PeerDescriptor): ByteArray = ByteWriter(128)
         .string(descriptor.deviceId)
         .string(descriptor.displayName)
-        .i32(descriptor.kind?.ordinal ?: NONE)
+        .string(descriptor.kind ?: "")
         .string(descriptor.dictionary.id)
         .i32(descriptor.dictionary.version)
         .i32(descriptor.dictionary.supported.first)
@@ -27,7 +24,7 @@ internal object PeerDescriptorCodec {
         // Read into locals: field order is the wire format, not an argument-evaluation detail.
         val deviceId = reader.string()
         val displayName = reader.string()
-        val kind = PeerDescriptor.Kind.entries.getOrNull(reader.i32())
+        val kind = reader.string().ifBlank { null }
         val dictionaryId = reader.string()
         val dictionaryVersion = reader.i32()
         val supportedFrom = reader.i32()
@@ -46,6 +43,4 @@ internal object PeerDescriptorCodec {
             maxFrameSize = maxFrameSize,
         )
     }
-
-    private const val NONE = -1
 }

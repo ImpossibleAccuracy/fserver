@@ -12,7 +12,7 @@ fun EntryProviderScope<Destination>.qrScanEntry(
             navigateToPairing = { target ->
                 navigator.navigate(
                     Destination.Pairing(
-                        connectionArguments = target
+                        peerLocator = target
                     )
                 )
             },

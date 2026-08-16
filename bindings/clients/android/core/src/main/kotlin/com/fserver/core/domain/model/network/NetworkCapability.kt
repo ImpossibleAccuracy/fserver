@@ -1,4 +1,4 @@
-package com.fserver.core.domain.model
+package com.fserver.core.domain.model.network
 
 /**
  * What a transport can physically do.

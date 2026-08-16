@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
-import com.fserver.core.domain.model.ConnectionArguments
+import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.core.domain.Constants
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +48,7 @@ class ManualAddressViewModel(
             return
         }
 
-        val arguments = ConnectionArguments.Ip(host = current.host, port = port)
+        val arguments = PeerLocator.Ip(host = current.host, port = port)
 
         viewModelScope.launch {
             _state.update { it.copy(isChecking = true, error = null) }

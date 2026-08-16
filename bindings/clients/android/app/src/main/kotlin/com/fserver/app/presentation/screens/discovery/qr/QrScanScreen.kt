@@ -32,14 +32,14 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
-import com.fserver.core.domain.model.ConnectionArguments
+import com.fserver.core.domain.model.network.PeerLocator
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun QrScanScreen(
     viewModel: QrScanViewModel = koinViewModel(),
-    navigateToPairing: (target: ConnectionArguments) -> Unit,
+    navigateToPairing: (target: PeerLocator) -> Unit,
     navigateToManualAddress: () -> Unit,
     navigateUp: () -> Unit,
 ) {

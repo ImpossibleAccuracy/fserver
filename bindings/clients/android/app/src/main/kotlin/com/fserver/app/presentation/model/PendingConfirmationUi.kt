@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.model
 
-import com.fserver.core.domain.model.PendingConfirmation
+import com.fserver.core.domain.model.connection.PendingConfirmation
 
 /**
  * A peer mid-handshake, waiting on this device's answer to a code comparison.

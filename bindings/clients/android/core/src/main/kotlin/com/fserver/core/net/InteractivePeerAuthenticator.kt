@@ -1,6 +1,6 @@
 package com.fserver.core.net
 
-import com.fserver.core.domain.model.PendingConfirmation
+import com.fserver.core.domain.model.connection.PendingConfirmation
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.identity.PeerIdentity
 import kotlinx.coroutines.CompletableDeferred
@@ -18,7 +18,7 @@ import kotlinx.coroutines.sync.withLock
  * One comparison in flight at a time: a second peer knocking mid-comparison queues behind [lock]
  * rather than clobbering [pending].
  */
-class InteractivePeerAuthenticator : PeerAuthenticator {
+internal class InteractivePeerAuthenticator : PeerAuthenticator {
     private val lock = Mutex()
     private val _pending = MutableStateFlow<PendingConfirmation?>(null)
     val pending: StateFlow<PendingConfirmation?> = _pending

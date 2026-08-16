@@ -1,14 +1,14 @@
 package com.fserver.core.domain.repository
 
-import com.fserver.core.domain.model.auth.AuthMethod
-import com.fserver.core.domain.model.ConnectionArguments
-import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.core.domain.model.ForeignDevice
-import com.fserver.core.domain.model.Greeting
-import com.fserver.core.domain.model.PendingConfirmation
+import com.fserver.core.domain.model.connection.auth.AuthMethod
+import com.fserver.core.domain.model.network.PeerLocator
+import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.domain.model.connection.device.ForeignDevice
+import com.fserver.core.domain.model.connection.auth.Greeting
+import com.fserver.core.domain.model.connection.IncomingConnection
+import com.fserver.core.domain.model.connection.PendingConfirmation
 import com.fserver.core.domain.model.exception.DetectionFailedException
 import com.fserver.core.domain.model.exception.MalformedQrException
-import com.fserver.net.connection.IncomingConnectionsManager
 import kotlinx.coroutines.flow.Flow
 
 interface DevicesRepository {
@@ -27,7 +27,7 @@ interface DevicesRepository {
     /**
      * Incoming connection requests, updated as they arrive and are accepted or rejected.
      */
-    val incoming: Flow<IncomingConnectionsManager.IncomingRequest>
+    val incoming: Flow<IncomingConnection>
 
     /**
      * The peer currently waiting on this device to compare its code, or null. Both [probe]/[connect]
@@ -54,20 +54,20 @@ interface DevicesRepository {
      * nothing trusted yet. Costs no user interaction; safe to call to fill in a UI before the
      * user commits to anything.
      *
-     * @throws MalformedQrException if [arguments] is a [ConnectionArguments.QrPayload] that is
+     * @throws MalformedQrException if [arguments] is a [PeerLocator.QrPayload] that is
      * not a valid QR code for a device.
      */
-    suspend fun probe(arguments: ConnectionArguments): Result<Greeting>
+    suspend fun probe(arguments: PeerLocator): Result<Greeting>
 
     /**
      * Runs the full handshake for the device behind [arguments], ending in a session.
      *
      * @param method which offered method to authenticate with. Null takes whatever the two sides
      * have in common; set it when the user picked one off a [Greeting] shown earlier.
-     * @throws MalformedQrException if [arguments] is a [ConnectionArguments.QrPayload] that is
+     * @throws MalformedQrException if [arguments] is a [PeerLocator.QrPayload] that is
      * not a valid QR code for a device.
      */
-    suspend fun connect(arguments: ConnectionArguments, method: AuthMethod? = null, password: String? = null): Result<Unit>
+    suspend fun connect(arguments: PeerLocator, method: AuthMethod? = null, password: String? = null): Result<Unit>
 
     /** Create lease for advertising service */
     fun advertisingServiceLease(): ServiceLease

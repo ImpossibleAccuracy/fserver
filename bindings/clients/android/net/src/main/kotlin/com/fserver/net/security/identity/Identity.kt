@@ -26,7 +26,7 @@ data class LocalIdentity(
     val deviceId: String,
     val displayName: String,
     val publicKey: ByteArray,
-    val kind: PeerDescriptor.Kind? = null,
+    val kind: String? = null,
 ) {
     val fingerprint: Fingerprint = Fingerprint.of(publicKey)
 

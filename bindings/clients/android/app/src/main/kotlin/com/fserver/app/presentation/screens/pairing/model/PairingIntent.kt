@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.screens.pairing.model
 
-import com.fserver.core.domain.model.auth.AuthMethod
+import com.fserver.core.domain.model.connection.auth.AuthMethod
 
 sealed interface PairingIntent {
     data object Connect : PairingIntent

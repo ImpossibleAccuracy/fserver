@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.NetworkInfo
+import com.fserver.core.domain.model.network.NetworkInfo
 
 /**
  * The transport as the connection and search screens draw it.

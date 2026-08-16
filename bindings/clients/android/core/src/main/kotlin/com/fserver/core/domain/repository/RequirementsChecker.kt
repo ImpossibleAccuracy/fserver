@@ -1,6 +1,6 @@
 package com.fserver.core.domain.repository
 
-import com.fserver.core.domain.model.DetectionMethod
+import com.fserver.core.domain.model.network.DetectionMethod
 import com.fserver.core.domain.model.requirement.RequirementReport
 
 /**

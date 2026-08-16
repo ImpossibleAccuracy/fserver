@@ -7,10 +7,10 @@ import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
 import com.fserver.core.domain.Constants
-import com.fserver.core.domain.model.ConnectionArguments
-import com.fserver.core.domain.model.ForeignDevice
-import com.fserver.core.domain.model.Greeting
-import com.fserver.core.domain.model.auth.AuthMethod
+import com.fserver.core.domain.model.network.PeerLocator
+import com.fserver.core.domain.model.connection.device.ForeignDevice
+import com.fserver.core.domain.model.connection.auth.Greeting
+import com.fserver.core.domain.model.connection.auth.AuthMethod
 import com.fserver.core.domain.repository.DevicesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -36,9 +36,9 @@ class PairingViewModel(
     private val key: Destination.Pairing,
     private val devicesRepository: DevicesRepository,
 ) : ViewModel() {
-    /** Only a [ConnectionArguments.DiscoveredDevice] has one before a session exists. */
+    /** Only a [PeerLocator.DiscoveredDevice] has one before a session exists. */
     private val knownDeviceId: String? =
-        (key.connectionArguments as? ConnectionArguments.DiscoveredDevice)?.id
+        (key.peerLocator as? PeerLocator.DiscoveredDevice)?.id
 
     private val effects = Channel<PairingUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -107,7 +107,7 @@ class PairingViewModel(
     }
 
     private suspend fun connect(): Boolean = devicesRepository
-        .connect(key.connectionArguments, selectedMethod.value, editable.value.password)
+        .connect(key.peerLocator, selectedMethod.value, editable.value.password)
         .onFailure { t -> editable.update { it.copy(error = t.localizedMessage) } }
         .isSuccess
 
@@ -119,7 +119,7 @@ class PairingViewModel(
         viewModelScope.launch {
             editable.update { it.copy(error = null) }
 
-            devicesRepository.probe(key.connectionArguments).fold(
+            devicesRepository.probe(key.peerLocator).fold(
                 onSuccess = { result ->
                     greeting.value = result
                     // Nothing picked yet: default to the one method the device offered, so the
@@ -146,8 +146,8 @@ class PairingViewModel(
             PairingState.DeviceUi.IdentityUi(name = it.displayName, kind = it.kind)
         }
 
-        val address = device?.routes?.firstOrNull()?.endpoint?.address
-            ?: (key.connectionArguments as? ConnectionArguments.Ip)?.let {
+        val address = device?.routes?.firstOrNull()?.address
+            ?: (key.peerLocator as? PeerLocator.Ip)?.let {
                 "${it.host}:${it.port ?: Constants.DEFAULT_PORT}"
             }
 
@@ -158,7 +158,7 @@ class PairingViewModel(
             offeredMethods = greeting?.methods.orEmpty(),
             selectedMethod = selectedMethod,
             // The greeting proves nothing; only a real session's identity is worth comparing.
-            fingerprintGroups = device?.handshake?.identity?.fingerprint?.value
+            fingerprintGroups = device?.handshake?.fingerprint
                 ?.split(" ")
                 .orEmpty(),
         )

@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
-import com.fserver.core.domain.model.DetectionMethod
-import com.fserver.net.peer.PeerDescriptor
+import com.fserver.core.domain.model.network.DetectionMethod
+import com.fserver.core.domain.model.connection.device.DeviceKind
 
 @Immutable
 data class DeviceDiscoveryState(
@@ -68,7 +68,7 @@ data class DeviceDiscoveryState(
     data class DeviceUi(
         val id: String,
         val name: String,
-        val kind: PeerDescriptor.Kind?,
+        val kind: DeviceKind?,
         val address: String,
         val isPaired: Boolean,
     )
@@ -78,14 +78,14 @@ data class DeviceDiscoveryState(
             DeviceUi(
                 id = "macbook",
                 name = "MacBook-Pro.local",
-                kind = PeerDescriptor.Kind.Laptop,
+                kind = DeviceKind.Laptop,
                 address = "192.168.1.14:8384",
                 isPaired = false,
             ),
             DeviceUi(
                 id = "nas",
                 name = "HOME-NAS",
-                kind = PeerDescriptor.Kind.Nas,
+                kind = DeviceKind.Nas,
                 address = "nas.local:8384",
                 isPaired = false,
             ),

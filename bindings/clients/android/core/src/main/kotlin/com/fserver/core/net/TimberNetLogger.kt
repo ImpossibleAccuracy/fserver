@@ -3,7 +3,7 @@ package com.fserver.core.net
 import com.fserver.net.NetLogger
 import timber.log.Timber
 
-object TimberNetLogger : NetLogger {
+internal object TimberNetLogger : NetLogger {
     override fun debug(message: String) {
         Timber.tag("NetCore").d(message)
     }

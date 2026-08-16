@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.domain.model.auth.AuthMethod
-import com.fserver.net.peer.PeerDescriptor
+import com.fserver.core.domain.model.connection.auth.AuthMethod
+import com.fserver.core.domain.model.connection.device.DeviceKind
 
 @Immutable
 data class PairingState(
@@ -34,7 +34,7 @@ data class PairingState(
         @Immutable
         data class IdentityUi(
             val name: String,
-            val kind: PeerDescriptor.Kind?,
+            val kind: DeviceKind?,
         )
     }
 
@@ -50,7 +50,7 @@ data class PairingState(
         val SampleDevice = DeviceUi(
             identity = DeviceUi.IdentityUi(
                 name = "MacBook-Pro.local",
-                kind = PeerDescriptor.Kind.Laptop,
+                kind = DeviceKind.Laptop,
             ),
             address = "192.168.1.14:8384",
             protocolLine = "protocol v1",
