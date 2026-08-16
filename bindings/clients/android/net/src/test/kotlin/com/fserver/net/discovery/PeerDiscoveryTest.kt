@@ -1,9 +1,16 @@
 package com.fserver.net.discovery
 
 import com.fserver.net.NetLogger
-import com.fserver.net.security.identity.EphemeralIdentityStore
-import com.fserver.net.config.AdvertisementPolicy
+import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
+import com.fserver.net.connection.AdvertisementPolicy
+import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.security.auth.AuthContext
+import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.HandshakeIo
+import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.DiscoveryProvider
@@ -244,13 +251,18 @@ class PeerDiscoveryTest {
         advertisedAttributes: Map<String, String> = emptyMap(),
         advertisement: AdvertisementPolicy = AdvertisementPolicy(),
     ) = PeerDiscoveryImpl(
-        providers = providers,
-        advertisers = advertisers,
-        identityStore = identityStore,
-        policy = advertisement,
-        authMethods = listOf(AuthMethodId("confirm-dh")),
-        advertisedAttributes = advertisedAttributes,
-        logger = NetLogger.None,
+        configHolder = NetworkConfigHolder(
+            NetworkConfig(
+                dictionary = TestDictionary(),
+                identityStore = identityStore,
+                policy = ConnectionPolicy(advertisement = advertisement),
+                discoveryProviders = providers,
+                advertisers = advertisers,
+                advertisedAttributes = advertisedAttributes,
+                authMethods = listOf(FakeAuthMethod),
+                logger = NetLogger.None,
+            )
+        ),
         scope = scope,
     )
 
@@ -308,6 +320,14 @@ class PeerDiscoveryTest {
             while (payloads.isEmpty()) delay(10)
             return payloads.first()
         }
+    }
+
+    /** Advertised unconditionally: id matches what the advertisement assertions expect. */
+    private object FakeAuthMethod : AuthMethod {
+        override val id: AuthMethodId = AuthMethodId("confirm-dh")
+
+        override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome =
+            error("not exercised by discovery tests")
     }
 
     private companion object {

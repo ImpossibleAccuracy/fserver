@@ -2,11 +2,13 @@ package com.fserver.net.security.crypto
 
 import com.fserver.net.NetworkException
 import org.bouncycastle.asn1.sec.SECNamedCurves
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.params.ECDomainParameters
 import org.bouncycastle.crypto.params.ECPublicKeyParameters
 import org.bouncycastle.crypto.signers.DSADigestSigner
 import org.bouncycastle.crypto.signers.ECDSASigner
+import java.security.PublicKey
 
 /**
  * Verifies identity signatures: ECDSA P-256 + SHA-256, the strongest primitive Android KeyStore
@@ -42,5 +44,19 @@ object IdentitySignature {
         if (!valid) {
             throw NetworkException.AuthenticationRejected("identity proof failed")
         }
+    }
+
+    /**
+     * Raw SEC1 point for any JCA [PublicKey], regardless of concrete provider class. Parses the
+     * key's standard X.509 encoding rather than casting to `java.security.interfaces.ECPublicKey`
+     * - AndroidKeyStore, BouncyCastle, and other EC providers all emit that encoding, but not all
+     * implement that interface.
+     */
+    fun encodePublicKey(publicKey: PublicKey): ByteArray {
+        val point = SubjectPublicKeyInfo.getInstance(publicKey.encoded).publicKeyData.bytes
+        require(point.size == PUBLIC_KEY_SIZE && point[0].toInt() == 0x04) {
+            "unsupported identity key: expected an uncompressed secp256r1 point"
+        }
+        return point
     }
 }

@@ -28,11 +28,17 @@ interface PeerDiscovery {
      */
     suspend fun scan(params: DiscoveryProvider.ScanParams): Result<List<DiscoveredPeer>>
 
+    /** Stop scan [id] if it is running, otherwise do nothing. */
     fun stopScan(id: SpiId)
 
+    /**
+     * Puts this device on the air and keeps it there across config reloads: a reload that changes
+     * what would be advertised re-announces, one that changes nothing leaves the advertisers alone.
+     */
     suspend fun startAdvertising(): Result<Unit>
 
-    fun stopAdvertising()
+    /** Returns once the advertisers are actually off the air, not merely told to stop. */
+    suspend fun stopAdvertising()
 
     /** Listen for changes to the peer with the given [deviceId] */
     fun peer(deviceId: String): Flow<DiscoveredPeer?>

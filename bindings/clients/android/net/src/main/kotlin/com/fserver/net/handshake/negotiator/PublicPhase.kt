@@ -2,6 +2,7 @@ package com.fserver.net.handshake.negotiator
 
 import com.fserver.net.NetworkException
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.handshake.PublicHello
 import com.fserver.net.peer.PublicGreeting
@@ -24,9 +25,11 @@ internal class PublicHalfResult(
  * `HELLO` / `HELLO_ACK`: version negotiation and the auth-method claim, in the clear.
  */
 internal class PublicPhase(
-    private val config: NetworkConfig<*>,
+    private val configHolder: NetworkConfigHolder<*>,
     private val authPhase: AuthPhase,
 ) {
+    private val config: NetworkConfig<*> get() = configHolder.current
+
     /** Initiate: send `HELLO`, get `HELLO_ACK`, and check the version is acceptable. */
     suspend fun initiate(
         wire: Wire,

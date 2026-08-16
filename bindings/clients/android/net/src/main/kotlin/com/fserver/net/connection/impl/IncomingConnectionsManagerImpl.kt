@@ -1,7 +1,9 @@
 package com.fserver.net.connection.impl
 
 import com.fserver.net.NetworkException
+import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.throttle.HandshakeSource
@@ -14,61 +16,99 @@ import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.utils.netRunCatching
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class IncomingConnectionsManagerImpl<M : Any>(
-    private val config: NetworkConfig<M>,
+    private val configHolder: NetworkConfigHolder<M>,
     private val negotiator: HandshakeNegotiator,
     private val connectionsHolder: ConnectionsHolder<M>,
     private val scope: CoroutineScope,
-) : IncomingConnectionsManager<M> {
+) : IncomingConnectionsManager<M>, ConfigAware {
+    private val config: NetworkConfig<M> get() = configHolder.current
 
-    private val throttle = HandshakeThrottle(config.policy)
+    // Throttle doesn't care about config reload.
+    private val throttle = HandshakeThrottle(configHolder.current.policy)
 
     override val sessions: StateFlow<List<PeerSession<M>>> = connectionsHolder.sessions
         .map { it.values.toList() }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    override val incoming: Flow<IncomingConnectionsManager.IncomingRequest> = config.transports
-        .mapNotNull { transport -> transport.listener?.listen()?.map { transport to it } }
-        .merge()
-        .let { connections ->
-            channelFlow {
-                connections.collect { (transport, connection) ->
-                    // One coroutine each: a peer that says hello and goes quiet must not hold up
-                    // next one, and the greeting can take as long as its deadline allows.
-                    launch {
-                        admit(
-                            owner = transport,
-                            connection = connection
-                        )?.let { send(it) }
-                    }
-                }
-            }
-        }
-        .shareIn(
-            scope = scope,
-            started = SharingStarted.Eagerly,
-            replay = 0,
-        )
+    private val requests = MutableSharedFlow<IncomingConnectionsManager.IncomingRequest>()
+    override val incoming: Flow<IncomingConnectionsManager.IncomingRequest> =
+        requests.asSharedFlow()
+
+    // One job per listening transport, keyed so a reload only disturbs the transports that
+    // actually changed. Re-listening wholesale would unbind and rebind sockets that were working,
+    // dropping whatever was mid-accept on them.
+    private val listeners = ConcurrentHashMap<SpiId, Job>()
+
+    init {
+        startListeners(configHolder.current.transports)
+    }
 
     override fun session(deviceId: String): PeerSession<M>? =
         connectionsHolder.sessionFor(deviceId)
 
+    /**
+     * Takes this node off the transports the new config dropped and onto the ones it added. The
+     * transports that stayed keep the listener they already had.
+     */
+    override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
+        stopListeners(keep = new.transports.mapTo(mutableSetOf()) { it.id })
+        startListeners(new.transports)
+    }
+
     suspend fun shutdown() {
+        stopListeners(keep = emptySet())
         connectionsHolder.sessions.value.values
             .forEach { it.close(CloseReason.Local("node closed")) }
+    }
+
+    private fun startListeners(transports: List<Transport>) {
+        transports.forEach { transport ->
+            val listener = transport.listener ?: return@forEach
+            listeners.compute(transport.id) { _, existing ->
+                existing?.takeIf { it.isActive }
+                    ?: listen(transport, listener)
+            }
+        }
+    }
+
+    private suspend fun stopListeners(keep: Set<SpiId>) {
+        listeners.keys
+            .filterNot { it in keep }
+            .forEach { listeners.remove(it)?.cancelAndJoin() }
+    }
+
+    private fun listen(transport: Transport, listener: Transport.Listener): Job = scope.launch {
+        try {
+            listener.listen().collect { connection ->
+                // One coroutine each per connection
+                launch {
+                    admit(owner = transport, connection = connection)?.let { requests.emit(it) }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // One listener dying is that transport going deaf, not the node: the others keep
+            // answering, and a reload can put working transport in its place.
+            config.logger.error("listener for ${transport.id.value} stopped", e)
+        }
     }
 
     /**

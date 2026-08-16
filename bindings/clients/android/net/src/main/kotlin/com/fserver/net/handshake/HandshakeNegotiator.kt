@@ -1,6 +1,7 @@
 package com.fserver.net.handshake
 
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.handshake.negotiator.AuthPhase
 import com.fserver.net.handshake.negotiator.PublicHalfResult
@@ -47,11 +48,13 @@ import com.fserver.net.wire.FrameKind
  * `:net` calls.
  */
 internal class HandshakeNegotiator(
-    private val config: NetworkConfig<*>,
+    private val configHolder: NetworkConfigHolder<*>,
 ) {
-    private val authPhase = AuthPhase(config)
-    private val publicPhase = PublicPhase(config, authPhase)
-    private val sealedPhase = SealedPhase(config)
+    private val config: NetworkConfig<*> get() = configHolder.current
+
+    private val authPhase = AuthPhase(configHolder)
+    private val publicPhase = PublicPhase(configHolder, authPhase)
+    private val sealedPhase = SealedPhase(configHolder)
 
     /**
      * The public half alone. Asks nothing of the user on either end, leaves no state behind, and
@@ -148,7 +151,10 @@ internal class HandshakeNegotiator(
         capabilities: TransportCapabilities,
         policy: ConnectionPolicy,
     ): SessionLink {
+        val identity = config.identityStore.local
+
         val outcome = authPhase.run(
+            identity = identity,
             wire = wire,
             method = method,
             role = role,
@@ -169,8 +175,16 @@ internal class HandshakeNegotiator(
         val sealed = Wire(secure::send, secure::next)
 
         // Nothing below this line is visible to anyone who merely reached the address.
-        val peerDescriptor = sealedPhase.exchangeDescriptors(sealed, capabilities, policy)
-        val dictionaryVersion = sealedPhase.negotiateDictionary(sealed, peerDescriptor.dictionary)
+        val peerDescriptor = sealedPhase.exchangeDescriptors(
+            identity = identity,
+            wire = sealed,
+            capabilities = capabilities,
+            policy = policy
+        )
+        val dictionaryVersion = sealedPhase.negotiateDictionary(
+            wire = sealed,
+            remote = peerDescriptor.dictionary
+        )
         sealedPhase.confirmReady(sealed, role, policy)
 
         return SessionLink(
@@ -182,6 +196,7 @@ internal class HandshakeNegotiator(
                 maxFrameSize = minOf(capabilities.maxFrameSize, peerDescriptor.maxFrameSize),
                 peer = outcome.peer,
                 peerDescriptor = peerDescriptor,
+                authMethodId = method.id,
             ),
         )
     }

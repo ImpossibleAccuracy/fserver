@@ -32,6 +32,6 @@ include(":core")
 include(
     ":net",
     ":net:security",
-    ":net:transport:android", ":net:transport:ip",
+    ":net:transport:android"
 )
 include(":app")

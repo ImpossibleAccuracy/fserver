@@ -15,6 +15,7 @@ data class ConnectionPolicy(
     val reconnect: ReconnectPolicy? = ReconnectPolicy.ExponentialBackoff(),
     val sessionConfig: SessionConfig = SessionConfig(),
     val throttleConfig: ThrottleConfig = ThrottleConfig(),
+    val advertisement: AdvertisementPolicy = AdvertisementPolicy(),
 )
 
 data class AuthConfig(
@@ -72,3 +73,14 @@ sealed interface ReconnectPolicy {
         override val maxAttempts: Int = 5,
     ) : ReconnectPolicy
 }
+
+/**
+ * What this device puts on the air about itself.
+ *
+ * @property enabled false stops the device announcing itself at all.
+ * @property publishName false trades the device list showing a name for saying even less.
+ */
+data class AdvertisementPolicy(
+    val enabled: Boolean = true,
+    val publishName: Boolean = true,
+)

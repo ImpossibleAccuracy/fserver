@@ -1,6 +1,7 @@
 package com.fserver.net.support
 
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.AuthConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.TimeoutsConfig
@@ -44,15 +45,17 @@ internal fun negotiator(
     identityStore: EphemeralIdentityStore = EphemeralIdentityStore(displayName = name),
     crypto: CryptoProvider = PassthroughCryptoProvider,
 ): HandshakeNegotiator = HandshakeNegotiator(
-    config = NetworkConfig(
-        dictionary = dictionary,
-        identityStore = identityStore,
-        authMethods = authMethods?.plus(TestingAuthMethod(crypto, authenticator)) ?: listOf(
-            TransportConfirmationAuthMethod(authenticator),
-            TestingAuthMethod(crypto, authenticator),
+    configHolder = NetworkConfigHolder(
+        NetworkConfig(
+            dictionary = dictionary,
+            identityStore = identityStore,
+            authMethods = authMethods?.plus(TestingAuthMethod(crypto, authenticator)) ?: listOf(
+                TransportConfirmationAuthMethod(authenticator),
+                TestingAuthMethod(crypto, authenticator),
+            ),
+            crypto = crypto,
+            protocolVersions = versions,
         ),
-        crypto = crypto,
-        protocolVersions = versions,
     ),
 )
 

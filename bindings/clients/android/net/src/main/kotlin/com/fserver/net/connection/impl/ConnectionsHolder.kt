@@ -1,26 +1,32 @@
 package com.fserver.net.connection.impl
 
-import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
+import com.fserver.net.config.ConfigAware
+import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.HandshakeProfile
 import com.fserver.net.connection.PeerRef
-import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.security.auth.permits
+import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.session.PeerSessionImpl
 import com.fserver.net.session.SessionLink
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 internal class ConnectionsHolder<M : Any>(
-    private val dictionary: MessageDictionary<M>,
-    private val logger: NetLogger,
+    private val configHolder: NetworkConfigHolder<M>,
     private val scope: CoroutineScope,
-) {
+) : ConfigAware {
+    private val config: NetworkConfig<M> get() = configHolder.current
+
     // One session per deviceId, whatever route it came in on.
     private val registry = MutableStateFlow<Map<String, PeerSessionImpl<M>>>(emptyMap())
     val sessions get() = registry.asStateFlow()
@@ -32,6 +38,28 @@ internal class ConnectionsHolder<M : Any>(
 
     fun sessionFor(deviceId: String): PeerSession<M>? = registry.value[deviceId]
 
+    /**
+     * A session outlives the config it was built under only for as long as that config would still
+     * admit it: its transport dropping out, or the method that authenticated it, ends it.
+     * Anything still permitted is left alone - a reload is not a reason to interrupt a working session.
+     *
+     * Sessions between links count too. One re-establishing itself would re-handshake under the
+     * new config and fail there, but only after burning its whole reconnect budget first.
+     */
+    override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
+        val barred = registry.value.values.filterNot {
+            new.permits(it.route.transport, it.authMethodId)
+        }
+
+        // At once, not one after another: each close flushes a CLOSE frame on its own deadline,
+        // and a reload should not wait for those end to end.
+        coroutineScope {
+            barred.forEach { session ->
+                launch { session.close(CloseReason.Local("no longer permitted by config")) }
+            }
+        }
+    }
+
     /** Register a new session, or return an existing one if it raced in first. */
     suspend fun register(
         route: PeerRef,
@@ -40,6 +68,16 @@ internal class ConnectionsHolder<M : Any>(
         relink: (suspend () -> SessionLink)?,
     ): PeerSession<M> = registryLock.withLock {
         val deviceId = link.negotiated.peer.deviceId
+
+        // Double-check that the config still permits this session
+        val method = link.negotiated.authMethodId
+        if (!config.permits(route.transport, method)) {
+            link.secure.close()
+            throw NetworkException.Transport(
+                "$method over ${route.transport.value} is no longer permitted by config"
+            )
+        }
+
         // Only what this side dialed: an inbound socket's remote address is not a route back.
         if (relink != null) rememberProfile(route, link)
 
@@ -63,9 +101,9 @@ internal class ConnectionsHolder<M : Any>(
         val session = PeerSessionImpl(
             route = route,
             negotiated = link.negotiated,
-            codec = dictionary.codec,
+            codec = config.dictionary.codec,
             policy = policy,
-            logger = logger,
+            logger = config.logger,
             parentScope = scope,
             relink = relink,
             onTerminated = { finished -> forgetDevice(finished.negotiated.peer.deviceId) },

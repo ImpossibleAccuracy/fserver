@@ -1,10 +1,10 @@
 package com.fserver.net.discovery
 
-import com.fserver.net.NetLogger
 import com.fserver.net.NetworkException
-import com.fserver.net.config.AdvertisementPolicy
-import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.identity.IdentityStore
+import com.fserver.net.config.ConfigAware
+import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
+import com.fserver.net.security.auth.advertisableMethods
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.SpiId
@@ -12,6 +12,7 @@ import com.fserver.net.utils.netRunCatching
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,18 +23,18 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+@OptIn(ExperimentalAtomicApi::class)
 internal class PeerDiscoveryImpl(
-    private val providers: List<DiscoveryProvider>,
-    private val advertisers: List<Advertiser>,
-    private val identityStore: IdentityStore,
-    private val policy: AdvertisementPolicy,
-    private val authMethods: List<AuthMethodId>,
-    private val advertisedAttributes: Map<String, String>,
-    private val logger: NetLogger,
+    private val configHolder: NetworkConfigHolder<*>,
     private val scope: CoroutineScope,
-) : PeerDiscovery {
+) : PeerDiscovery, ConfigAware {
+    private val config: NetworkConfig<*> get() = configHolder.current
 
     private val registry = PeerRegistry()
 
@@ -45,12 +46,17 @@ internal class PeerDiscoveryImpl(
     override val activeScans: StateFlow<Set<SpiId>> = running.asStateFlow()
 
     private val scanJobs = ConcurrentHashMap<SpiId, Job>()
+
+    private val advertisingLock = Mutex()
     private var advertisingJobs: List<Job> = emptyList()
+    private val advertisementState = AtomicBoolean(false)
 
     override suspend fun scan(
         params: DiscoveryProvider.ScanParams
     ): Result<List<DiscoveredPeer>> = netRunCatching {
-        val provider = providers.firstOrNull { it.accepts(params) }
+        val identity = config.identityStore.local
+
+        val provider = config.discoveryProviders.firstOrNull { it.accepts(params) }
             ?: throw NetworkException.Transport("no discovery provider handles $params")
 
         if (provider.id in running.value) return@netRunCatching emptyList()
@@ -65,7 +71,7 @@ internal class PeerDiscoveryImpl(
                     provider.scan(params).collect { event ->
                         when (event) {
                             is DiscoveryProvider.Event.Appeared -> {
-                                if (event.peer.attributes[PeerAttributes.DEVICE_ID] == identityStore.local.deviceId) {
+                                if (event.peer.attributes[PeerAttributes.DEVICE_ID] == identity.deviceId) {
                                     // Discovery provider found its own device, ignore it
                                     return@collect
                                 }
@@ -77,7 +83,7 @@ internal class PeerDiscoveryImpl(
                             is DiscoveryProvider.Event.Disappeared ->
                                 registry.forgetRoute(event.endpointAddress)
 
-                            is DiscoveryProvider.Event.Failed -> logger.warn(
+                            is DiscoveryProvider.Event.Failed -> config.logger.warn(
                                 "discovery ${provider.id.value} failed",
                                 event.cause
                             )
@@ -102,60 +108,108 @@ internal class PeerDiscoveryImpl(
     }
 
     override suspend fun startAdvertising(): Result<Unit> = netRunCatching {
-        if (!policy.enabled) {
-            logger.debug("advertising is off; this device will not announce itself")
-            return@netRunCatching
-        }
-
-        // An advertiser that gave up leaves a finished job behind;
-        // keeping it would make every later call a no-op and device would stay invisible.
-        advertisingJobs = advertisingJobs.filter(Job::isActive)
-        if (advertisingJobs.isNotEmpty()) return@netRunCatching
-
-        logger.debug("starting advertising with ${advertisers.joinToString { it.id.value }}")
-
-        val payload = advertisement()
-        advertisingJobs = advertisers.map { advertiser ->
-            scope.launch {
-                advertiser.advertise(payload).collect { event ->
-                    if (event is Advertiser.Event.Failed) {
-                        logger.warn("advertiser ${advertiser.id.value} failed", event.cause)
-                    }
-                }
-            }
+        advertisingLock.withLock {
+            if (!advertisementState.compareAndSet(false, true)) return@withLock
+            launchAdvertisers(config)
         }
     }
 
-    override fun stopAdvertising() {
-        advertisingJobs.forEach(Job::cancel)
-        advertisingJobs = emptyList()
+    override suspend fun stopAdvertising() {
+        advertisingLock.withLock {
+            if (!advertisementState.compareAndSet(true, false)) return@withLock
+            haltAdvertisers()
+        }
+        config.logger.debug("advertising stopped")
+    }
 
-        logger.debug("advertising stopped")
+    /**
+     * Reconciles what the previous config started. Scans on a provider that dropped out are
+     * stopped, and the advertisers are restarted only if this device is on the air *and* what it
+     * would say - or who would say it - actually changed. A reload is not a request to advertise:
+     * a node the host deliberately kept silent stays silent.
+     */
+    override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
+        val installed = new.discoveryProviders.mapTo(mutableSetOf()) { it.id }
+        scanJobs.keys.filterNot { it in installed }.forEach(::stopScan)
+
+        advertisingLock.withLock {
+            if (!advertisementState.load()) return@withLock
+
+            val unchanged = old.advertisers == new.advertisers &&
+                    old.policy.advertisement == new.policy.advertisement &&
+                    advertisement(old) == advertisement(new)
+            if (unchanged) return@withLock
+
+            haltAdvertisers()
+            launchAdvertisers(new)
+        }
     }
 
     override fun peer(deviceId: String): Flow<DiscoveredPeer?> = registry.peers
         .map { it[deviceId] }
         .distinctUntilChanged()
 
+    /** Caller holds [advertisingLock]. */
+    private fun launchAdvertisers(config: NetworkConfig<*>) {
+        if (!config.policy.advertisement.enabled) {
+            config.logger.debug("advertising is off; this device will not announce itself")
+            return
+        }
+
+        // An advertiser that gave up leaves a finished job behind;
+        // keeping it would make every later call a no-op and device would stay invisible.
+        advertisingJobs = advertisingJobs.filter(Job::isActive)
+        if (advertisingJobs.isNotEmpty()) return
+
+        config.logger.debug("starting advertising with ${config.advertisers.joinToString { it.id.value }}")
+
+        val payload = advertisement(config)
+        advertisingJobs = config.advertisers
+            .map { advertiser ->
+                scope.launch {
+                    advertiser.advertise(payload).collect { event ->
+                        if (event is Advertiser.Event.Failed) {
+                            config.logger.warn(
+                                "advertiser ${advertiser.id.value} failed",
+                                event.cause
+                            )
+                        }
+                    }
+                }
+            }
+            .onEach { job ->
+                // When an advertiser stops, check if any are still running
+                job.invokeOnCompletion {
+                    advertisingJobs = advertisingJobs.filter { it.isActive }
+                    val isAnyActive = advertisingJobs.isNotEmpty()
+                    if (!isAnyActive) {
+                        config.logger.debug("All advertisers have stopped; this device is no longer discoverable")
+                        advertisementState.store(false) // Clear lock, so new advertising can be started
+                    }
+                }
+            }
+    }
+
     /**
-     * What this device puts on the air about itself: the public greeting, plus a name to pick it
-     * out of a list. Descriptive only - never a claim of access.
-     *
-     * Deliberately absent: the key fingerprint, which would let a passive listener follow this
-     * device between networks, and the dictionary, which a connection reports better. Which of
-     * the rest goes out is [policy]'s call, not this class's.
-     *
-     * Essential is what a peer needs to tell one device from another and know how to approach it;
-     * the rest is decoration a transport short of room may leave off.
+     * Waits for the advertisers to be gone rather than merely told to go.
+     * Caller should hold [advertisingLock].
      */
-    private fun advertisement(): Advertiser.Payload {
-        val local = identityStore.local
+    private suspend fun haltAdvertisers() {
+        val running = advertisingJobs
+        advertisingJobs = emptyList()
+        running.forEach { it.cancelAndJoin() }
+    }
+
+    /** Compute payload for advertisers */
+    private fun advertisement(config: NetworkConfig<*>): Advertiser.Payload {
+        val identity = config.identityStore.local
         return Advertiser.Payload(
-            identity = local,
+            identity = identity,
             essential = buildMap {
-                put(PeerAttributes.DEVICE_ID, local.deviceId)
+                put(PeerAttributes.DEVICE_ID, identity.deviceId)
                 put(PeerAttributes.PROTOCOL_MIN, ProtocolVersions.SUPPORTED.first.toString())
                 put(PeerAttributes.PROTOCOL_MAX, ProtocolVersions.SUPPORTED.last.toString())
+                val authMethods = config.advertisableMethods()
                 if (authMethods.isNotEmpty()) {
                     put(
                         PeerAttributes.AUTH_METHODS,
@@ -165,10 +219,13 @@ internal class PeerDiscoveryImpl(
                 // Essential when published at all: telling one device from another in a list is
                 // exactly what a name is for, and a transport short of room should not drop it
                 // ahead of the decoration.
-                if (policy.publishName) put(PeerAttributes.DISPLAY_NAME, local.displayName)
+                if (config.policy.advertisement.publishName) put(
+                    PeerAttributes.DISPLAY_NAME,
+                    identity.displayName
+                )
             },
             optional = buildMap {
-                putAll(advertisedAttributes)
+                putAll(config.advertisedAttributes)
             },
         )
     }

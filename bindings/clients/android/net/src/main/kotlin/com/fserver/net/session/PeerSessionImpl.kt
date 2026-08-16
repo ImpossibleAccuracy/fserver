@@ -8,6 +8,7 @@ import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.NegotiatedParameters
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.session.PeerSession.Inbound
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.wire.Envelope
@@ -70,6 +71,13 @@ internal class PeerSessionImpl<M : Any>(
     private val _state = MutableStateFlow<State>(State.Connecting)
     override val descriptor: PeerDescriptor = negotiated.peerDescriptor
     override val state: StateFlow<State> = _state.asStateFlow()
+
+    /**
+     * What authenticated the link now in place, or the last one there was - a reconnecting session
+     * is still a session that got in on that method, so a config reload judges it on that.
+     */
+    val authMethodId: AuthMethodId
+        get() = ((_state.value as? State.Ready)?.negotiated ?: negotiated).authMethodId
 
     private val incomingMessages =
         Channel<Inbound<M>>(capacity = policy.sessionConfig.incomingQueueCapacity)

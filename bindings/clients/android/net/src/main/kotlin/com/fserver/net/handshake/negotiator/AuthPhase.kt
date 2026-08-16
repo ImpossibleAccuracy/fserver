@@ -2,6 +2,7 @@ package com.fserver.net.handshake.negotiator
 
 import com.fserver.net.NetworkException
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
@@ -9,32 +10,22 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
+import com.fserver.net.security.auth.offeredMethods
 import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteWriter
 import com.fserver.net.wire.FrameKind
 import kotlin.time.Duration
 
-/**
- * Method selection and the `AUTH` round trip.
- *
- * [offered] is the security property, not a convenience: a method that leans on the transport's
- * own protection is offered only where the transport declares it, and transport with such
- * protection offers nothing weaker beside it. Both roles go through here, so a peer naming a
- * transport-backed method on a plain socket is refused on either end.
- */
+/** Method selection and the `AUTH` round trip. */
 internal class AuthPhase(
-    private val config: NetworkConfig<*>,
+    private val configHolder: NetworkConfigHolder<*>,
 ) {
+    private val config: NetworkConfig<*> get() = configHolder.current
+
     fun offered(capabilities: TransportCapabilities): List<AuthMethod> =
-        config.authMethods
-            .filter { it.isEnabled }
-            .let { methods ->
-                when (val security = capabilities.security) {
-                    null -> methods.filterNot { it.requiresChannelSecurity }
-                    else -> methods.filter { it.id == security }
-                }
-            }
+        config.offeredMethods(capabilities)
 
     fun assertLocallyOffered(id: AuthMethodId, capabilities: TransportCapabilities): AuthMethod =
         offered(capabilities).firstOrNull { it.id == id }
@@ -64,6 +55,7 @@ internal class AuthPhase(
     }
 
     suspend fun run(
+        identity: LocalIdentity,
         wire: Wire,
         method: AuthMethod,
         role: CryptoProvider.Role,
@@ -86,7 +78,7 @@ internal class AuthPhase(
             request = request,
             prologue = prologue,
             confirmationCode = confirmationCode,
-            local = config.identityStore.local,
+            local = identity,
             sign = config.identityStore::sign,
         )
         return wire.guarded { method.run(io, context) }

@@ -1,7 +1,9 @@
 package com.fserver.net.connection.impl
 
 import com.fserver.net.NetworkException
+import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
+import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.HandshakeProfile
 import com.fserver.net.connection.PeerRef
@@ -23,15 +25,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal class RequestManagerImpl<M : Any>(
-    private val config: NetworkConfig<M>,
+    private val configHolder: NetworkConfigHolder<M>,
     private val negotiator: HandshakeNegotiator,
     private val connectionsHolder: ConnectionsHolder<M>,
     private val scope: CoroutineScope,
-) : RequestManager<M> {
-    private val selector = TransportSelector(config.transports)
+) : RequestManager<M>, ConfigAware {
+    private val config: NetworkConfig<M> get() = configHolder.current
 
-    override val profiles: StateFlow<Map<String, HandshakeProfile>> =
-        connectionsHolder.profiles
+    private val selector = TransportSelector(configHolder)
+
+    override val profiles: StateFlow<Map<String, HandshakeProfile>> = connectionsHolder.profiles
 
     override suspend fun probe(
         peer: PeerRef,
@@ -149,9 +152,26 @@ internal class RequestManagerImpl<M : Any>(
         connectionsHolder.forgetDevice(deviceId)
     }
 
+    /** Shuts down the transports the new config dropped. */
+    override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
+        val kept = new.transports.map { it.id }
+        old.transports
+            .filterNot { it.id in kept }
+            .forEach { shutdownTransport(it) }
+    }
+
     suspend fun shutdown() {
         connectionsHolder.reset()
-        config.transports.forEach { runCatching { it.shutdown() } }
+        config.transports.forEach { shutdownTransport(it) }
+    }
+
+    private suspend fun shutdownTransport(transport: Transport) {
+        netRunCatching { transport.shutdown() }.onFailure {
+            config.logger.warn(
+                "dropped transport ${transport.id.value} would not shut down",
+                it
+            )
+        }
     }
 
     // ------------------------------------------------------------------ internals

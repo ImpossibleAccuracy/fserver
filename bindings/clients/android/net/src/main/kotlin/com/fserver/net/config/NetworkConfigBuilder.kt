@@ -24,7 +24,6 @@ class NetworkConfigBuilder<T : Any>(
     var authenticator: PeerAuthenticator? = null
     var crypto: CryptoProvider = PassthroughCryptoProvider
     var policy: ConnectionPolicy = ConnectionPolicy()
-    var advertisement: AdvertisementPolicy = AdvertisementPolicy()
     var logger: NetLogger = NetLogger.None
     var scope: CoroutineScope? = null
 
@@ -90,7 +89,6 @@ class NetworkConfigBuilder<T : Any>(
             authMethods = authMethods,
             crypto = crypto,
             policy = policy,
-            advertisement = advertisement,
             advertisedAttributes = containers.fold(emptyMap<String, String>()) { acc, container ->
                 acc + container.advertisedAttributes
             } + attributes,

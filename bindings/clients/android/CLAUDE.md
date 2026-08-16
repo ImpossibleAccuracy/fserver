@@ -97,4 +97,4 @@ Always pass `--no-daemon`.
 - Don't document obvious things/implementatin details into CLAUDE.md. Always ask user if they want
   to add something to CLAUDE.md before doing so.
 - Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2
-  sentences.
+  lines.
