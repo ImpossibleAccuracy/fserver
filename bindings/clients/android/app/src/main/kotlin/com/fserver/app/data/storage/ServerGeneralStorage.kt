@@ -7,6 +7,9 @@ import com.fserver.core.store.AuthSettingsStore
 import com.fserver.core.store.DeviceIdentityStore
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.TrustedDevicesStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 
 /**
@@ -18,12 +21,15 @@ internal class ServerGeneralStorage(
     private val dataStore: DataStore<Preferences>,
     private val database: FServerDatabase,
 ) : FServerStorage {
+    /** Storage is built once per process and never torn down, so it owns its own scope. */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override val identity: DeviceIdentityStore by lazy {
         DeviceIdentityStoreImpl(dataStore)
     }
 
     override val auth: AuthSettingsStore by lazy {
-        AuthSettingsStoreImpl()
+        AuthSettingsStoreImpl(dataStore, scope)
     }
 
     override val trust: TrustedDevicesStore by lazy {

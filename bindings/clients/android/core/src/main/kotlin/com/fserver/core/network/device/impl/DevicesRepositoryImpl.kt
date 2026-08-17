@@ -28,6 +28,7 @@ import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.session.CloseReason
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -127,6 +128,10 @@ internal class DevicesRepositoryImpl(
 
     override fun device(id: String): Flow<ForeignDevice?> = onlineDevices.map { list ->
         list.find { it.deviceId == id }
+    }
+
+    override suspend fun disconnect(deviceId: String): Result<Unit> = runCatching {
+        network.incomingConnections.session(deviceId)?.close(CloseReason.Normal)
     }
 
     override suspend fun startDetection(request: DetectionMethod): Result<Unit> = runBackgroundJob {

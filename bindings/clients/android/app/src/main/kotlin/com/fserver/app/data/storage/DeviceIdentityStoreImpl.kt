@@ -38,6 +38,11 @@ internal class DeviceIdentityStoreImpl(
         )
     }
 
+    override suspend fun setDisplayName(name: String) {
+        dataStore.edit { prefs -> prefs[DEVICE_NAME] = name }
+        localDevice.invalidate()
+    }
+
 
     private companion object {
         const val KEY_ALIAS = "fserver.identity"

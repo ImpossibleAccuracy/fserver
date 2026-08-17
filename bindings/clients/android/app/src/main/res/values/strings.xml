@@ -269,20 +269,87 @@
     <string name="incoming_from">From %1$s · %2$s</string>
     <string name="incoming_save_to">Save to: %1$s</string>
 
-    <!-- Settings -->
+    <!-- Settings root: four rows, each a way further in. No toggle lives here. -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_connection">Connection</string>
-    <string name="settings_devices">Devices</string>
-    <string name="settings_wifi_only">Transfer over Wi-Fi only</string>
-    <string name="settings_compress">Compress on the fly</string>
-    <string name="settings_section_security">Security</string>
-    <string name="settings_storage_encryption">Storage encryption</string>
-    <string name="settings_storage_encryption_desc">On. The keys are held by the server — protection against a stolen drive, not against the server.</string>
-    <string name="settings_value_on">On</string>
-    <string name="settings_trusted_fingerprints">Trusted key fingerprints</string>
     <string name="settings_section_other">Other</string>
-    <string name="settings_download_folder">Download folder</string>
+    <string name="settings_devices">Devices</string>
+    <string name="settings_devices_desc">Connections and trusted computers</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_security_desc">Connection confirmation and visibility</string>
     <string name="settings_diagnostics">Connection diagnostics</string>
+    <string name="settings_diagnostics_desc">Network, permission and protocol checks</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_desc">Version, protocol and licences</string>
+
+    <!-- Devices — trust is a property of a device, not a separate list of keys -->
+    <string name="devices_title">Devices</string>
+    <string name="devices_section_connected">Connected now</string>
+    <string name="devices_section_trusted">Trusted</string>
+    <string name="devices_disconnect">Disconnect</string>
+    <string name="devices_connect_new">Connect a new device</string>
+    <string name="devices_empty">No device is connected or remembered yet.</string>
+
+    <!-- One device: what it proved, and the only way to take that back -->
+    <string name="device_details_connected">Connected</string>
+    <string name="device_details_offline">Not connected</string>
+    <string name="device_details_fingerprint">Key fingerprint</string>
+    <string name="device_details_fingerprint_missing">Shown once the device is connected.</string>
+    <string name="device_details_section_details">Details</string>
+    <string name="device_details_last_seen">Last seen</string>
+    <string name="device_details_method">Confirmed by</string>
+    <string name="device_details_protocol">Protocol version</string>
+    <string name="device_details_forget">Forget device</string>
+    <string name="device_details_forget_hint">A forgotten device asks for a code comparison again the next time it connects. This is the only way to withdraw trust.</string>
+    <string name="device_details_unknown">—</string>
+
+    <string name="auth_method_confirm_fingerprint">Code comparison</string>
+    <string name="auth_method_password">Server password</string>
+    <string name="auth_method_nearby_sas">Nearby confirmation</string>
+
+    <!-- Security -->
+    <string name="security_title">Security</string>
+    <string name="security_section_visibility">Network visibility</string>
+    <string name="security_section_methods">Confirmation methods</string>
+    <string name="security_discoverable">Discoverable on the network</string>
+    <string name="security_discoverable_desc">Trusted computers can see this phone</string>
+    <string name="security_device_name">Name on the network</string>
+    <string name="security_device_name_desc">The name this phone is seen under</string>
+    <string name="security_method_sas_desc">The fingerprint on both screens</string>
+    <string name="security_method_password_desc">Asked for by this phone</string>
+    <string name="security_method_pin">App PIN</string>
+    <string name="security_method_pin_desc">Asked for at launch</string>
+    <string name="security_method_biometric">Fingerprint</string>
+    <string name="security_method_biometric_desc">Instead of the PIN</string>
+    <string name="security_method_qr">Connect by QR code</string>
+    <string name="security_method_qr_desc">The code replaces comparison and password</string>
+    <string name="security_action_change">Change</string>
+    <string name="security_last_method_warning">One confirmation method has to stay on, or no device could ever connect.</string>
+    <string name="security_rename_title">Name on the network</string>
+    <string name="security_password_title">Server password</string>
+    <string name="security_password_hint">Peers prove they know this. Changing it disconnects nothing, but every device has to be given the new one.</string>
+    <string name="action_save">Save</string>
+
+    <!-- App PIN — its own keypad, so the digits never reach the Android clipboard or suggestions -->
+    <string name="pin_title">App PIN</string>
+    <string name="pin_step_new">Choose a new PIN</string>
+    <string name="pin_step_new_desc">Six digits. The old PIN was confirmed on the previous step.</string>
+    <string name="pin_step_repeat">Repeat the PIN</string>
+    <string name="pin_step_repeat_desc">Enter the same six digits once more.</string>
+    <string name="pin_mismatch">Those did not match. Start again.</string>
+    <string name="pin_delete">Delete a digit</string>
+
+    <!-- About — a static page; every row below is a placeholder -->
+    <string name="about_title">About</string>
+    <string name="about_logo">logo</string>
+    <string name="about_version">%1$s (%2$d) · protocol v1</string>
+    <string name="about_check_updates">Check for updates</string>
+    <string name="about_source">Source code</string>
+    <string name="about_report">Report a problem</string>
+    <string name="about_licenses">Open source licences</string>
+    <string name="about_privacy">Privacy policy</string>
+    <string name="about_footer">Files never leave your network. There is no account and no telemetry.</string>
+    <string name="about_placeholder">Not wired up yet.</string>
 
     <!-- Diagnostics -->
     <string name="diagnostics_title">Diagnostics</string>

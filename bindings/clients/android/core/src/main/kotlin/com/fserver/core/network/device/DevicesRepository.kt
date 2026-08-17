@@ -43,6 +43,12 @@ interface DevicesRepository {
     fun device(id: String): Flow<ForeignDevice?>
 
     /**
+     * Closes the session with [deviceId]. Trust survives it — the device stays known and can be
+     * reconnected without another code comparison. Succeeds when there was no session to close.
+     */
+    suspend fun disconnect(deviceId: String): Result<Unit>
+
+    /**
      * Runs [request] until it completes, publishing anything it finds through [onlineDevices].
      * May be long-running and/or never complete, depending on the request.
      */

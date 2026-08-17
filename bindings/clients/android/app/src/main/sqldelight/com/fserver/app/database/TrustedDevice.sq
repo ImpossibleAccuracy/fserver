@@ -12,6 +12,11 @@ CREATE TABLE trustedDevice (
 
 CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
 
+selectAll:
+SELECT *
+FROM trustedDevice
+ORDER BY lastSeenEpochMs DESC;
+
 findByKey:
 SELECT *
 FROM trustedDevice

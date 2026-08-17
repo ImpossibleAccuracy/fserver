@@ -3,6 +3,7 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
@@ -39,8 +40,12 @@ class AppViewModel(
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
     private val transferRepository: TransferRepository,
+    private val appSettings: AppSettingsStore,
 ) : ViewModel() {
     private val advertisingService = devicesRepository.advertisingServiceLease()
+
+    /** True while the app is in front of an authenticated user — advertising's other precondition. */
+    private val isAppVisible = MutableStateFlow(false)
 
     private val startDestination = MutableStateFlow<Destination?>(null)
 
@@ -87,6 +92,16 @@ class AppViewModel(
                 }
         }
 
+        // One collector for both halves, so flipping the switch takes effect immediately rather
+        // than at the next foreground transition.
+        viewModelScope.launch {
+            combine(isAppVisible, appSettings.discoverable) { visible, discoverable ->
+                visible && discoverable
+            }.collect { shouldAdvertise ->
+                if (shouldAdvertise) advertisingService.start() else advertisingService.stop()
+            }
+        }
+
         transferRepository.listenForTransfers()
     }
 
@@ -110,9 +125,7 @@ class AppViewModel(
             is AppRootIntent.RejectPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = false)
 
-            is AppRootIntent.ForegroundStateChanged -> viewModelScope.launch {
-                handleForegroundState(intent)
-            }
+            is AppRootIntent.ForegroundStateChanged -> handleForegroundState(intent)
         }
     }
 
@@ -140,17 +153,13 @@ class AppViewModel(
         }
     }
 
-    private suspend fun handleForegroundState(intent: AppRootIntent.ForegroundStateChanged) {
+    /** Reports the precondition; the collector in `init` decides what to do with it. */
+    private fun handleForegroundState(intent: AppRootIntent.ForegroundStateChanged) {
         val isLifecycleForeground = intent.lifecycle.isAtLeast(Lifecycle.State.STARTED)
         val isAfterAuth = intent.destination != null &&
                 intent.destination !is UnauthenticatedDestinations
 
-        // app should provide ability to enable/disable advertising
-        if (isLifecycleForeground && isAfterAuth) {
-            advertisingService.start()
-        } else {
-            advertisingService.stop()
-        }
+        isAppVisible.value = isLifecycleForeground && isAfterAuth
     }
 
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =

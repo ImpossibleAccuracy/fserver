@@ -46,8 +46,30 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Transfers : Destination
 
+    /**
+     * Settings root. It holds no state of its own — every row leads into one of the screens
+     * nested here, which is what keeps the root readable as the map of the section.
+     */
     @Serializable
-    data object Settings : Destination
+    data object Settings : Destination {
+
+        /** Sessions open right now, and the keys trusted to open one without asking again. */
+        @Serializable
+        data object Devices : Destination
+
+        @Serializable
+        data class DeviceDetails(val deviceId: String) : Destination
+
+        /** What this phone accepts from peers, and whether it can be found at all. */
+        @Serializable
+        data object Security : Destination
+
+        @Serializable
+        data object PinChange : Destination
+
+        @Serializable
+        data object About : Destination
+    }
 
     /**
      * The fork: every way of reaching a server starts here. Nothing is scanned or requested

@@ -39,6 +39,11 @@ import com.fserver.app.presentation.screens.files.picker.filesPickerEntry
 import com.fserver.app.presentation.screens.files.send.sendTargetEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
+import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
+import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
+import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
+import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
+import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.transfers.transfersEntry
 import kotlinx.coroutines.flow.combine
@@ -186,6 +191,11 @@ private fun NavHostGraph(navigator: AppNavigator) {
             pairingEntry(navigator)
             transfersEntry()
             settingsEntry(navigator)
+            settingsDevicesEntry(navigator)
+            settingsDeviceDetailsEntry(navigator)
+            settingsSecurityEntry(navigator)
+            settingsPinChangeEntry(navigator)
+            settingsAboutEntry(navigator)
             diagnosticEntry(navigator)
 
             filesListEntry(navigator)

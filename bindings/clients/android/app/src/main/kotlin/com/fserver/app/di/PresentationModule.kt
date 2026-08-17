@@ -13,7 +13,10 @@ import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
 import com.fserver.app.presentation.screens.files.send.SendTargetViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
-import com.fserver.app.presentation.screens.settings.SettingsViewModel
+import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewModel
+import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
+import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
+import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
 import com.fserver.app.presentation.screens.transfers.TransfersViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -39,6 +42,11 @@ val presentationModule = module {
     viewModelOf(::FilesPickerViewModel)
     viewModelOf(::SendTargetViewModel)
     viewModelOf(::TransfersViewModel)
-    viewModelOf(::SettingsViewModel)
     viewModelOf(::DiagnosticsViewModel)
+
+    // Settings subtree; the root itself is stateless and has no ViewModel.
+    viewModelOf(::DevicesViewModel)
+    viewModelOf(::DeviceDetailsViewModel)
+    viewModelOf(::SecurityViewModel)
+    viewModelOf(::PinChangeViewModel)
 }

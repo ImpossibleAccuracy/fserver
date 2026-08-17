@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.dp
 /**
  * Settings rows. All three share one skeleton — title, optional supporting line,
  * trailing control — so a group reads as a single column no matter what it mixes.
+ *
+ * The screen gutter is inside the row, as in [DkListRow]: the row spans the full width so its
+ * click target and ripple reach the screen edges, and only the content is inset. Callers therefore
+ * put rows in an ungutter'd column and pad the surrounding blocks themselves.
  */
 @Composable
 fun DkSettingsRow(
@@ -37,7 +41,7 @@ fun DkSettingsRow(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = DkSpacing.md),
+            .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.md),
         verticalAlignment = if (supportingText == null) Alignment.CenterVertically else Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
@@ -64,6 +68,33 @@ fun DkSettingsRow(
     }
 }
 
+/**
+ * The kit's switch. Split out of [DkSwitchRow] because the settings deck also puts one next to a
+ * "Change" action, and a second copy of these colours would drift from this one.
+ */
+@Composable
+fun DkSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        enabled = enabled,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            checkedTrackColor = MaterialTheme.colorScheme.primary,
+            checkedBorderColor = Color.Transparent,
+            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            uncheckedBorderColor = Color.Transparent,
+        ),
+    )
+}
+
 /** Row whose trailing slot is a switch; the whole row toggles it. */
 @Composable
 fun DkSwitchRow(
@@ -72,6 +103,7 @@ fun DkSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     supportingText: String? = null,
+    enabled: Boolean = true,
 ) {
     DkSettingsRow(
         title = title,
@@ -79,17 +111,10 @@ fun DkSwitchRow(
         supportingText = supportingText,
         onClick = { onCheckedChange(!checked) },
         trailing = {
-            Switch(
+            DkSwitch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    checkedBorderColor = Color.Transparent,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    uncheckedBorderColor = Color.Transparent,
-                ),
+                enabled = enabled,
             )
         },
     )
