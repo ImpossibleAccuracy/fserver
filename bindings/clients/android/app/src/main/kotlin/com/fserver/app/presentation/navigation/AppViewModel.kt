@@ -3,6 +3,7 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.model.toUi
@@ -12,6 +13,7 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -33,21 +35,24 @@ import timber.log.Timber
  */
 class AppViewModel(
     private val devicesRepository: DevicesRepository,
+    private val authManager: AuthManager,
 ) : ViewModel() {
     private val advertisingService = devicesRepository.advertisingServiceLease()
 
-    private val startDestination = MutableStateFlow(Destination.Connect)
+    private val startDestination = MutableStateFlow<Destination?>(null)
 
     // Queued rather than replaced: two devices can knock at once, and dropping one silently
     // leaves its user watching a spinner that will only every time out.
     private val pending =
         MutableStateFlow<List<IncomingConnection>>(emptyList())
 
-    val state = combine(
+    val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
         devicesRepository.pendingConfirmation,
     ) { destination, pending, pendingConfirmation ->
+        destination ?: return@combine null
+
         AppRootState(
             startDestination = destination,
             incomingConnection = pending.firstOrNull()?.toUi(),
@@ -65,6 +70,16 @@ class AppViewModel(
                 Timber.i("Incoming connection request from ${request.deviceName} via ${request.transport}")
                 pending.update { it + request }
             }
+        }
+
+        viewModelScope.launch {
+            authManager.profile
+                .collect { profile ->
+                    val destination = computeStartDestination(profile)
+                    if (!startDestination.compareAndSet(null, destination)) {
+                        // TODO: manually navigate to computed destination
+                    }
+                }
         }
     }
 
@@ -114,6 +129,12 @@ class AppViewModel(
             advertisingService.stop()
         }
     }
+
+    private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
+        when (profile) {
+            null -> Destination.Onboarding
+            else -> Destination.Files.List
+        }
 
     override fun onCleared() {
         runBlocking { advertisingService.stop() }

@@ -9,6 +9,7 @@ fun EntryProviderScope<Destination>.connectHubEntry(
 ) {
     entry<Destination.Connect> {
         ConnectHubScreen(
+            navigateFiles = { navigator.navigate(Destination.Files.List) },
             navigateToNetworkSearch = { navigator.navigate(Destination.DeviceDiscovery) },
             navigateToQrScan = { navigator.navigate(Destination.QrScan) },
             navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },

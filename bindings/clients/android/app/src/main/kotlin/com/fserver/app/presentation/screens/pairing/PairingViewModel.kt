@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
@@ -36,6 +37,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class PairingViewModel(
     private val key: Destination.Pairing,
     private val devicesRepository: DevicesRepository,
+    private val authManager: AuthManager,
 ) : ViewModel() {
     /** Only a [PeerLocator.DiscoveredDevice] has one before a session exists. */
     private val knownDeviceId: String? =
@@ -81,6 +83,7 @@ class PairingViewModel(
         knownDeviceId?.let { id ->
             viewModelScope.launch {
                 devicesRepository.device(id).filterNotNull().first { it.hasSession }
+                ensureLoggedIn()
                 effects.send(PairingUiEffect.NavigateFiles)
             }
         }
@@ -97,6 +100,7 @@ class PairingViewModel(
                 editable.update { it.copy(isConnecting = false) }
 
                 if (connected) {
+                    ensureLoggedIn()
                     effects.send(PairingUiEffect.NavigateFiles)
                 }
             }
@@ -117,6 +121,10 @@ class PairingViewModel(
         AuthMethod.NearbySas -> AuthCredentials.NearbySas
         AuthMethod.Password -> AuthCredentials.Password(editable.value.password.orEmpty())
         null -> null
+    }
+
+    private suspend fun ensureLoggedIn() {
+        authManager.ensureLoggedIn()
     }
 
     /**

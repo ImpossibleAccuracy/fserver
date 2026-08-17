@@ -21,7 +21,7 @@ val coreModule = module {
         FServerCore.create(
             FServerConfig(
                 context = androidContext(),
-                localIdentityStore = get(),
+                deviceIdentityStore = get(),
                 authSettingsStore = get(),
             )
         )

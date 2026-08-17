@@ -11,14 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
@@ -26,6 +23,7 @@ import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardTitle
+import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
@@ -39,6 +37,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun ConnectHubScreen(
     viewModel: ConnectHubViewModel = koinViewModel(),
+    navigateFiles: () -> Unit,
     navigateToNetworkSearch: () -> Unit,
     navigateToQrScan: () -> Unit,
     navigateToManualAddress: () -> Unit,
@@ -47,6 +46,10 @@ fun ConnectHubScreen(
 
     ConnectHubScreen(
         state = state,
+        navigateFiles = {
+            viewModel.onSkip()
+            navigateFiles()
+        },
         navigateToNetworkSearch = navigateToNetworkSearch,
         navigateToQrScan = navigateToQrScan,
         navigateToManualAddress = navigateToManualAddress,
@@ -56,6 +59,7 @@ fun ConnectHubScreen(
 @Composable
 private fun ConnectHubScreen(
     state: ConnectHubState,
+    navigateFiles: () -> Unit,
     navigateToNetworkSearch: () -> Unit,
     navigateToQrScan: () -> Unit,
     navigateToManualAddress: () -> Unit,
@@ -95,12 +99,10 @@ private fun ConnectHubScreen(
 
             Spacer(Modifier.weight(1f))
 
-            Text(
+            DkGhostButton(
                 modifier = Modifier.fillMaxWidth(),
-                text = stringResource(R.string.connect_footer),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+                text = "Skip",
+                onClick = navigateFiles,
             )
         }
     }
@@ -137,6 +139,7 @@ private fun ConnectHubNamedPreview() {
     FServerTheme {
         ConnectHubScreen(
             state = ConnectHubState(network = NetworkCardUi.Wifi(SampleData.NETWORK_NAME)),
+            navigateFiles = {},
             navigateToNetworkSearch = {},
             navigateToQrScan = {},
             navigateToManualAddress = {},
@@ -150,6 +153,7 @@ private fun ConnectHubRedactedPreview() {
     FServerTheme {
         ConnectHubScreen(
             state = ConnectHubState(network = NetworkCardUi.Wifi(name = null)),
+            navigateFiles = {},
             navigateToNetworkSearch = {},
             navigateToQrScan = {},
             navigateToManualAddress = {},

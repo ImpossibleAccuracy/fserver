@@ -95,7 +95,7 @@ class FServerCore private constructor(
                 modules(
                     coreModule(config.context, scope),
                     module {
-                        single { config.localIdentityStore }
+                        single { config.deviceIdentityStore }
                         single { config.authSettingsStore }
                         single { network }
                         single { authenticator }

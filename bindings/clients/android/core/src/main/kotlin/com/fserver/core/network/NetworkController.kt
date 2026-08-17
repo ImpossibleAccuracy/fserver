@@ -106,7 +106,7 @@ internal class NetworkController(
 
     private fun buildBaseConfig(): NetworkConfig<TempMessages> =
         networkConfig(dictionary = TempDictionary()) {
-            identityStore = IdentityStoreAdapter(config.localIdentityStore)
+            identityStore = IdentityStoreAdapter(config.deviceIdentityStore)
             authenticator = this@NetworkController.authenticator
             crypto = this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope
