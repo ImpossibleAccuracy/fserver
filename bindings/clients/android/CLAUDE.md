@@ -98,3 +98,4 @@ Always pass `--no-daemon`.
   to add something to CLAUDE.md before doing so.
 - Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2
   lines.
+- There are TODOs list in docs directory. Anyone can add things to this doc.
