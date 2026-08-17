@@ -10,9 +10,14 @@ fun EntryProviderScope<Destination>.pairingEntry(
     entry<Destination.Pairing> { key ->
         PairingScreen(
             key = key,
-            // Connecting ends the onboarding flow: the pairing history behind it must not be
-            // reachable by back once the user is inside the server.
-            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files.List)) },
+            navigateNext = {
+                // Navigate to next screen in current flow
+                val returnedToSend = navigator.popTo { it is Destination.Files.SendTarget }
+                if (!returnedToSend) {
+                    // Not a sending flow, navigate to the file list
+                    navigator.navigateByBackstack(listOf(Destination.Files.List))
+                }
+            },
             navigateUp = { navigator.navigateUp() },
         )
     }

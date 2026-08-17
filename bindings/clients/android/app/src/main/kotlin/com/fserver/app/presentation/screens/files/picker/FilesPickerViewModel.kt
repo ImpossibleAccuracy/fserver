@@ -13,16 +13,21 @@ import androidx.annotation.RequiresApi
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.data.SelectedEntry
+import com.fserver.app.data.SendSelectionStore
 import com.fserver.app.presentation.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerIntent
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.MediaGrouping
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.PickerSource
+import com.fserver.app.presentation.screens.files.picker.model.FilesPickerUiEffect
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,7 +41,11 @@ private const val MEDIA_SCAN_LIMIT = 500
 
 class FilesPickerViewModel(
     @SuppressLint("StaticFieldLeak") private val context: Context,
+    private val selectionStore: SendSelectionStore,
 ) : ViewModel() {
+    private val effects = Channel<FilesPickerUiEffect>(Channel.BUFFERED)
+    val uiEffects = effects.receiveAsFlow()
+
     private val editable = MutableStateFlow(Editable())
 
     val state: StateFlow<FilesPickerState> = editable
@@ -98,6 +107,13 @@ class FilesPickerViewModel(
 
             FilesPickerIntent.SourceClosed ->
                 editable.update { it.copy(activeSource = null) }
+
+            FilesPickerIntent.DoneClicked -> {
+                val id = selectionStore.put(editable.value.toSelection())
+                viewModelScope.launch {
+                    effects.send(FilesPickerUiEffect.SelectionReady(id))
+                }
+            }
 
             is FilesPickerIntent.DirectoryExpansionToggled -> toggleDirectory(intent.id)
 
@@ -303,6 +319,16 @@ private fun <T : Editable.Entry> List<T>.mergedWith(new: List<T>): List<T> {
     return this + new.filterNot { it.path in known }
 }
 
+private fun Editable.Entry.toSelectedEntry(): SelectedEntry {
+    val ui = toPresentation()
+    return SelectedEntry(
+        id = ui.id,
+        name = ui.name,
+        source = ui.path,
+        isDirectory = ui.isDirectory,
+    )
+}
+
 private fun <T> Set<T>.toggled(value: T): Set<T> =
     if (value in this) this - value else this + value
 
@@ -362,6 +388,28 @@ private data class Editable(
         // other two sources contribute only what the user ticked.
         selectedCount = documents.size + selectedDirs.size + selectedMedia.size,
     )
+
+    /**
+     * The three sources flattened into one list, in the order they are shown: what the system
+     * picker handed over, the ticked directories, then the ticked media.
+     */
+    fun toSelection(): List<SelectedEntry> = buildList {
+        documents.forEach { add(it.toSelectedEntry()) }
+
+        val dirsByPath = (treeRoots + treeChildren.values.flatten()).associateBy { it.path }
+        selectedDirs.forEach { path ->
+            add(
+                SelectedEntry(
+                    id = path,
+                    name = dirsByPath[path]?.name ?: path,
+                    source = path,
+                    isDirectory = true,
+                )
+            )
+        }
+
+        media.filter { it.id in selectedMedia }.forEach { add(it.toSelectedEntry()) }
+    }
 
     /** Depth-first walk of the loaded tree, stopping at every collapsed branch. */
     private fun flattenTree(): List<FilesPickerState.TreeNodeUi> = buildList {

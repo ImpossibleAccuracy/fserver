@@ -18,6 +18,12 @@ fun EntryProviderScope<Destination>.filesPickerEntry(
         )
     ) {
         FilesPickerScreen(
+            // The sheet is dismissed before the push, so back from the target list lands on the
+            // file list rather than on a picker holding a selection already committed.
+            navigateToSendTarget = { selectionId ->
+                navigator.navigateUp()
+                navigator.navigate(Destination.Files.SendTarget(selectionId))
+            },
             navigateUp = { navigator.navigateUp() },
         )
     }

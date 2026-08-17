@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.fserver.app.data.AuthManagerImpl
+import com.fserver.app.data.SendSelectionStore
 import com.fserver.app.data.storage.ServerGeneralStorage
 import com.fserver.app.domain.AuthManager
 import org.koin.android.ext.koin.androidContext
@@ -16,6 +17,7 @@ internal val dataModule = module {
     single { androidContext().dataStore }
 
     singleOf(::ServerGeneralStorage)
+    singleOf(::SendSelectionStore)
     singleOf(::AuthManagerImpl) bind AuthManager::class
 }
 

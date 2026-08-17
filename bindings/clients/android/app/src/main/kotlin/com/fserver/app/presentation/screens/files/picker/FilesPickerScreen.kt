@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,15 +40,25 @@ import com.fserver.app.presentation.screens.files.picker.composable.PickerSource
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerIntent
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.PickerSource
+import com.fserver.app.presentation.screens.files.picker.model.FilesPickerUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun FilesPickerScreen(
     viewModel: FilesPickerViewModel = koinViewModel(),
+    navigateToSendTarget: (selectionId: String) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                is FilesPickerUiEffect.SelectionReady -> navigateToSendTarget(effect.selectionId)
+            }
+        }
+    }
 
     val context = LocalContext.current
     val fileTreeLauncher = rememberLauncherForActivityResult(
@@ -107,8 +118,7 @@ fun FilesPickerScreen(
                 }
             }
         },
-        // TODO: hand the assembled selection to :core instead of only closing the sheet.
-        onDone = navigateUp,
+        onDone = { viewModel.onIntent(FilesPickerIntent.DoneClicked) },
         navigateUp = navigateUp,
     )
 }

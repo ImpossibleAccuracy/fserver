@@ -2,18 +2,14 @@ package com.fserver.app.presentation.screens.discovery.hub
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,15 +17,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.designkit.DkCaption
-import com.fserver.app.presentation.designkit.DkCard
-import com.fserver.app.presentation.designkit.DkCardTitle
 import com.fserver.app.presentation.designkit.DkGhostButton
-import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.NetworkCardUi
 import com.fserver.app.presentation.screens.discovery.hub.model.ConnectHubState
+import com.fserver.app.presentation.screens.discovery.shared.ConnectRouteCard
 import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
@@ -81,17 +75,17 @@ private fun ConnectHubScreen(
 
             NetworkCard(network = state.network)
 
-            RouteCard(
+            ConnectRouteCard(
                 title = stringResource(R.string.connect_find_title),
                 description = stringResource(R.string.connect_find_description),
                 onClick = navigateToNetworkSearch,
             )
-            RouteCard(
+            ConnectRouteCard(
                 title = stringResource(R.string.action_scan_qr),
                 description = stringResource(R.string.connect_scan_description),
                 onClick = navigateToQrScan,
             )
-            RouteCard(
+            ConnectRouteCard(
                 title = stringResource(R.string.action_enter_address),
                 description = stringResource(R.string.connect_manual_description),
                 onClick = navigateToManualAddress,
@@ -103,31 +97,6 @@ private fun ConnectHubScreen(
                 modifier = Modifier.fillMaxWidth(),
                 text = "Skip",
                 onClick = navigateFiles,
-            )
-        }
-    }
-}
-
-/** One way of reaching a server. The three are peers — none is drawn as the lesser path. */
-@Composable
-private fun RouteCard(
-    title: String,
-    description: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    DkCard(modifier = modifier, onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(DkSpacing.xxs),
-            ) {
-                DkCardTitle(text = title)
-                DkCaption(text = description)
-            }
-            DkIcon(
-                modifier = Modifier.padding(start = DkSpacing.sm),
-                icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             )
         }
     }

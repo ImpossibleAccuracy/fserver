@@ -15,6 +15,7 @@
     <string name="action_clear">Clear</string>
     <string name="action_accept">Accept</string>
     <string name="action_done">Done</string>
+    <string name="action_send">Send</string>
     <string name="action_decline">Decline</string>
 
     <!-- Onboarding -->
@@ -233,6 +234,19 @@
     <string name="picker_media_empty">Nothing to show</string>
     <string name="picker_entry_selected">Selected</string>
     <string name="picker_entries_title">Selected entries (%1$d)</string>
+
+    <!-- Send target -->
+    <string name="send_target_title">Send to</string>
+    <string name="send_target_devices_label">Connected devices</string>
+    <string name="send_target_empty_title">No connected devices</string>
+    <string name="send_target_empty_hint">Connect one to send the selection to it</string>
+    <string name="send_target_routes_label">Connect a device</string>
+    <string name="send_target_selection_lost">The selection is no longer available. Pick the files again.</string>
+    <plurals name="send_confirm_title">
+        <item quantity="one">Send %1$d file?</item>
+        <item quantity="other">Send %1$d files?</item>
+    </plurals>
+    <string name="send_confirm_body">They will be sent to %1$s.</string>
 
     <!-- Transfers -->
     <string name="transfers_title">Transfers</string>

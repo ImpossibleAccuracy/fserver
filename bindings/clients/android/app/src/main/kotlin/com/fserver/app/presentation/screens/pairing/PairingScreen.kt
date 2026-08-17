@@ -55,7 +55,7 @@ import org.koin.core.parameter.parametersOf
 fun PairingScreen(
     key: Destination.Pairing,
     viewModel: PairingViewModel = koinViewModel { parametersOf(key) },
-    navigateToFiles: () -> Unit,
+    navigateNext: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -63,7 +63,7 @@ fun PairingScreen(
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
-                is PairingUiEffect.NavigateFiles -> navigateToFiles()
+                is PairingUiEffect.NavigateNext -> navigateNext()
             }
         }
     }

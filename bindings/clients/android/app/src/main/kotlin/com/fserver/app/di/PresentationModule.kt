@@ -10,6 +10,7 @@ import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewMo
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
 import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
+import com.fserver.app.presentation.screens.files.send.SendTargetViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
 import com.fserver.app.presentation.screens.settings.SettingsViewModel
@@ -36,6 +37,7 @@ val presentationModule = module {
     viewModelOf(::PairingViewModel)
     viewModelOf(::FilesViewModel)
     viewModelOf(::FilesPickerViewModel)
+    viewModelOf(::SendTargetViewModel)
     viewModelOf(::TransfersViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::DiagnosticsViewModel)

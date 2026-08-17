@@ -34,6 +34,13 @@ sealed interface Destination : NavKey {
 
         @Serializable
         data object Picker : Overlay
+
+        /**
+         * Where the picked files are sent. [selectionId] names the selection held by
+         * `SendSelectionStore`; the entries themselves are unbounded and never travel in the key.
+         */
+        @Serializable
+        data class SendTarget(val selectionId: String) : Destination
     }
 
     @Serializable

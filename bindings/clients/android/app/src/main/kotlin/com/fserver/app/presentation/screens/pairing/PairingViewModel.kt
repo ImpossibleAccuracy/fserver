@@ -84,7 +84,7 @@ class PairingViewModel(
             viewModelScope.launch {
                 devicesRepository.device(id).filterNotNull().first { it.hasSession }
                 ensureLoggedIn()
-                effects.send(PairingUiEffect.NavigateFiles)
+                effects.send(PairingUiEffect.NavigateNext)
             }
         }
     }
@@ -101,7 +101,7 @@ class PairingViewModel(
 
                 if (connected) {
                     ensureLoggedIn()
-                    effects.send(PairingUiEffect.NavigateFiles)
+                    effects.send(PairingUiEffect.NavigateNext)
                 }
             }
 

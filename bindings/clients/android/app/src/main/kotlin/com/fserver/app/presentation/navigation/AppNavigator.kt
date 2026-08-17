@@ -111,6 +111,26 @@ class AppNavigator internal constructor(
         return true
     }
 
+    /**
+     * Pops the active section back to the last entry matching [predicate], keeping that entry on
+     * screen. Nothing is touched if it is already on top.
+     *
+     * Lets a flow return to the screen that started it without every screen in between having to
+     * carry where it came from.
+     *
+     * @return false if no entry in the active section matches — the stack is left as it was.
+     */
+    fun popTo(predicate: (Destination) -> Boolean): Boolean {
+        val stack = stackOf(activeSection)
+        val target = stack.indexOfLast { predicate(it as Destination) }
+        if (target < 0) return false
+
+        while (stack.lastIndex > target) {
+            stack.removeAt(stack.lastIndex)
+        }
+        return true
+    }
+
     private fun pop(): Boolean {
         val stack = stackOf(activeSection)
         if (stack.size > 1) {
