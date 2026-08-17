@@ -12,6 +12,16 @@ CREATE TABLE trustedDevice (
 
 CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
 
+-- Stands in for ON DELETE CASCADE, which knownRoute cannot declare: it is keyed by deviceId and
+-- that is not unique here. Forgetting the last key for a device must take its route with it, or
+-- the device stays dialable from a screen that says it was forgotten.
+CREATE TRIGGER trustedDevice_dropOrphanedRoute
+AFTER DELETE ON trustedDevice
+WHEN NOT EXISTS (SELECT 1 FROM trustedDevice WHERE deviceId = old.deviceId)
+BEGIN
+    DELETE FROM knownRoute WHERE deviceId = old.deviceId;
+END;
+
 selectAll:
 SELECT *
 FROM trustedDevice

@@ -68,9 +68,6 @@ sealed interface DetectionMethod {
     }
 }
 
-val DetectionMethod.requiresArguments: Boolean
-    get() = this is DetectionMethod.OnDemand.ManualAddress
-
 /**
  * Detection methods usable on this transport.
  */

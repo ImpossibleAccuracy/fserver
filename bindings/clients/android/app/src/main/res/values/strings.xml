@@ -299,6 +299,7 @@
     <string name="device_details_last_seen">Last seen</string>
     <string name="device_details_method">Confirmed by</string>
     <string name="device_details_protocol">Protocol version</string>
+    <string name="device_details_reconnect">Try reconnect</string>
     <string name="device_details_forget">Forget device</string>
     <string name="device_details_forget_hint">A forgotten device asks for a code comparison again the next time it connects. This is the only way to withdraw trust.</string>
     <string name="device_details_unknown">—</string>

@@ -1,7 +1,6 @@
 package com.fserver.net.connection
 
 import com.fserver.net.discovery.DiscoveredPeer
-import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
@@ -28,10 +27,10 @@ interface RequestManager<M : Any> {
      * **The result is advisory.** Use it to decide which prompt to show, never to decide anything
      * that matters: [connect] re-runs the greeting on its own link, so a lie told here fails there.
      */
-    suspend fun probe(peer: PeerRef, policy: ConnectionPolicy? = null): Result<PublicGreeting>
+    suspend fun probe(peer: PeerRef, policy: ConnectionPolicy? = null): Result<ProbeResult>
 
     /** Tries the peer's routes in policy order and returns the first greeting that comes back. */
-    suspend fun probe(peer: DiscoveredPeer, policy: ConnectionPolicy? = null): Result<PublicGreeting>
+    suspend fun probe(peer: DiscoveredPeer, policy: ConnectionPolicy? = null): Result<ProbeResult>
 
     /**
      * Opens (or reuses) a session over one specific route.

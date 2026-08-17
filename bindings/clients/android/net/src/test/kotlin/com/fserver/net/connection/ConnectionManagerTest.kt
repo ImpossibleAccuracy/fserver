@@ -125,13 +125,14 @@ class ConnectionManagerTest {
         val seen = Channel<String>(Channel.UNLIMITED)
         collectIncoming(bob) { request -> seen.send(request.peer.advertisedName) }
 
-        val greeting = withTimeout(TIMEOUT) {
-            alice.requestsManager.probe(PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob")))
-                .getOrThrow()
+        val route = PeerRef("peer-bob", LOOPBACK, LoopbackEndpoint("bob"))
+        val probed = withTimeout(TIMEOUT) {
+            alice.requestsManager.probe(route).getOrThrow()
         }
 
-        assertEquals(listOf(TestingAuthMethod.ID), greeting.methods)
-        assertEquals(1..1, greeting.protocolVersions)
+        assertEquals(route, probed.route)
+        assertEquals(listOf(TestingAuthMethod.ID), probed.greeting.methods)
+        assertEquals(1..1, probed.greeting.protocolVersions)
         // Nothing was created, on either side, and bob was never asked about it.
         assertTrue(alice.incoming.sessions.value.isEmpty())
         assertTrue(alice.requestsManager.profiles.value.isEmpty())

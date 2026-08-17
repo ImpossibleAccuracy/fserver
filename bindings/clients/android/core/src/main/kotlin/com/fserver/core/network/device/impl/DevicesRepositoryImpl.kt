@@ -6,6 +6,7 @@ import com.fserver.core.network.NetworkController
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.ServiceLease
 import com.fserver.core.network.auth.AuthCredentials
+import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.DevicesRepository
@@ -14,6 +15,7 @@ import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.ForeignDevice.Handshake
 import com.fserver.core.network.device.model.PendingConfirmation
+import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.ServiceLifecycleController
 import com.fserver.core.network.impl.SpiRegistry
 import com.fserver.core.network.impl.asDetectionMethod
@@ -21,18 +23,24 @@ import com.fserver.core.network.impl.spiId
 import com.fserver.core.network.info.DetectionMethod
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.core.store.FServerStorage
 import com.fserver.core.utils.chainWith
 import com.fserver.core.utils.runBackgroundJob
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.session.CloseReason
+import com.fserver.net.session.PeerSession
+import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import java.time.Instant
 
 internal class DevicesRepositoryImpl(
@@ -40,6 +48,7 @@ internal class DevicesRepositoryImpl(
     private val requirementsChecker: RequirementsChecker,
     private val jsonQrCodeParser: JsonQrCodeParser,
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
+    private val storage: FServerStorage,
 ) : DevicesRepository {
     private val advertisingController = ServiceLifecycleController(
         startService = { network.peerDiscovery.startAdvertising() },
@@ -126,6 +135,9 @@ internal class DevicesRepositoryImpl(
     override fun resolvePendingConfirmation(accept: Boolean) =
         interactiveAuthenticator.resolve(accept)
 
+    override fun advertisingServiceLease(): ServiceLease =
+        advertisingController.newLease()
+
     override fun device(id: String): Flow<ForeignDevice?> = onlineDevices.map { list ->
         list.find { it.deviceId == id }
     }
@@ -149,8 +161,8 @@ internal class DevicesRepositoryImpl(
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
         when (arguments) {
             is PeerLocator.DiscoveredDevice -> {
-                val device =
-                    network.peerDiscovery.peers.value.find { it.advertised.deviceId == arguments.id }
+                val device = network.peerDiscovery.peer(arguments.id).firstOrNull()
+
                 if (device == null) {
                     Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
                 } else {
@@ -163,7 +175,13 @@ internal class DevicesRepositoryImpl(
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
                 ?.let { network.requestManager.probe(it) }
                 ?: Result.failure(MalformedQrException())
-        }.map { Greeting.fromNetworkGreeting(it) }
+        }
+            .onSuccess { probed ->
+                if (probed.route.deviceId != PeerRef.UNKNOWN_DEVICE_ID) {
+                    rememberRoute(probed.route.deviceId, probed.route.endpoint)
+                }
+            }
+            .map { it.greeting.toDomain() }
 
     override suspend fun connect(
         arguments: PeerLocator,
@@ -177,23 +195,39 @@ internal class DevicesRepositoryImpl(
             }
         )
 
-        return when (arguments) {
-            is PeerLocator.DiscoveredDevice -> connectKnown(arguments.id, request)
-            is PeerLocator.Ip -> network.requestManager.connect(
-                arguments.toPeerRef(),
+        val result = when (arguments) {
+            is PeerLocator.DiscoveredDevice -> connectKnown(
+                deviceId = arguments.id,
                 request = request
-            ).map { }
+            )
+
+            is PeerLocator.Ip -> network.requestManager.connect(
+                peer = arguments.toPeerRef(),
+                request = request
+            )
 
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-                ?.let { network.requestManager.connect(it, request = request).map { } }
+                ?.let { network.requestManager.connect(peer = it, request = request) }
                 ?: Result.failure(MalformedQrException())
         }
+
+        return result
+            .onSuccess { session ->
+                rememberRoute(
+                    deviceId = session.identity.deviceId,
+                    endpoint = session.route.endpoint
+                )
+            }
+            .map { }
     }
 
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
-    private suspend fun connectKnown(deviceId: String, request: AuthRequest): Result<Unit> {
-        if (network.incomingConnections.sessions.value.any { it.identity.deviceId == deviceId }) {
-            return Result.success(Unit)
+    private suspend fun connectKnown(
+        deviceId: String,
+        request: AuthRequest
+    ): Result<PeerSession<FileServerMessages>> {
+        network.incomingConnections.session(deviceId)?.let {
+            return Result.success(it)
         }
 
         return network.peerDiscovery.peers.value
@@ -207,13 +241,26 @@ internal class DevicesRepositoryImpl(
             .chainWith {
                 // Fallback to previously probed route, if any.
                 network.requestManager.profile(deviceId)
-                    ?.let { network.requestManager.connect(it.route, request = request).map { } }
+                    ?.let {
+                        network.requestManager.connect(it.route, request = request)
+                    }
             }
-            ?.map { }
             ?: Result.failure(
                 // Device not found anywhere, abort
                 IllegalArgumentException("Device $deviceId not found")
             )
+    }
+
+    /**
+     * Writes down how [deviceId] was reached.
+     * Best-effort on purpose: remembering a route is convenience,
+     * and a storage failure must not turn an operation that succeeded into a failure.
+     */
+    private suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
+        val route = endpoint.toKnownRoute() ?: return
+
+        runCatching { storage.trust.recordKnownRoute(deviceId, route) }
+            .onFailure { Timber.w(it, "could not remember route for $deviceId") }
     }
 
     private fun PeerLocator.Ip.toPeerRef(): PeerRef = PeerRef.build(
@@ -224,10 +271,12 @@ internal class DevicesRepositoryImpl(
         jsonQrCodeParser.parse(payload)?.let {
             PeerRef.build(DirectIpEndpoint(host = it.ip, port = it.port ?: Constants.DEFAULT_PORT))
         }
-
-    override fun advertisingServiceLease(): ServiceLease =
-        advertisingController.newLease()
 }
+
+internal fun PublicGreeting.toDomain() = Greeting(
+    protocolVersions = protocolVersions,
+    methods = methods.mapNotNull { AuthMethod.fromId(it) },
+)
 
 private fun PeerRef.toDomain() = ForeignDevice.DeviceRoute(
     address = endpoint.address,

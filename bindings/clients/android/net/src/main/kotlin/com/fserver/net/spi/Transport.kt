@@ -92,4 +92,11 @@ interface TransportEndpoint {
     /** Host part of address, used for strong equality checks. */
     val hostAddress: String
         get() = address
+
+    /**
+     * False when the endpoint cannot be opened again - an endpoint built from an accepted socket
+     * carries the peer's ephemeral source port, not the one it listens on.
+     */
+    val isDialable: Boolean
+        get() = true
 }

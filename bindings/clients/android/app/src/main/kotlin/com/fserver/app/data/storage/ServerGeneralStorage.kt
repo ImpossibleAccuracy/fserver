@@ -2,7 +2,7 @@ package com.fserver.app.data.storage
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import com.fserver.app.database.FServerDatabase
+import com.fserver.app.domain.SavedDevicesRepository
 import com.fserver.core.store.AuthSettingsStore
 import com.fserver.core.store.DeviceIdentityStore
 import com.fserver.core.store.FServerStorage
@@ -19,7 +19,7 @@ import kotlinx.coroutines.SupervisorJob
  */
 internal class ServerGeneralStorage(
     private val dataStore: DataStore<Preferences>,
-    private val database: FServerDatabase,
+    private val savedDevicesRepository: SavedDevicesRepository,
 ) : FServerStorage {
     /** Storage is built once per process and never torn down, so it owns its own scope. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -32,7 +32,5 @@ internal class ServerGeneralStorage(
         AuthSettingsStoreImpl(dataStore, scope)
     }
 
-    override val trust: TrustedDevicesStore by lazy {
-        TrustedDevicesStoreImpl(database)
-    }
+    override val trust: TrustedDevicesStore = savedDevicesRepository
 }

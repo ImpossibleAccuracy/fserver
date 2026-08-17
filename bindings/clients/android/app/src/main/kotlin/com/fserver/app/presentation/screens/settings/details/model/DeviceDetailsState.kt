@@ -13,4 +13,6 @@ data class DeviceDetailsState(
     val protocolVersion: Int? = null,
     /** False once the record is gone — the screen then has nothing left to forget. */
     val isTrusted: Boolean = false,
+    /** True while a route recorded by an earlier connection is still on disk to reconnect through. */
+    val isRouteKnown: Boolean = false,
 )

@@ -7,6 +7,7 @@ import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.HandshakeProfile
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.ProbeResult
 import com.fserver.net.connection.RequestManager
 import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.handshake.FramePump
@@ -39,7 +40,7 @@ internal class RequestManagerImpl<M : Any>(
     override suspend fun probe(
         peer: PeerRef,
         policy: ConnectionPolicy?
-    ): Result<PublicGreeting> = netRunCatching {
+    ): Result<ProbeResult> = netRunCatching {
         val policy = policy ?: config.policy
         val transport = selector.forEndpoint(peer.endpoint)
             ?: throw NetworkException.NoRoute("no transport carries ${peer.endpoint.address}")
@@ -64,33 +65,40 @@ internal class RequestManagerImpl<M : Any>(
         )
 
         val pump = FramePump(scope = scope, channel = channel)
-        pump.use { pump ->
+        val greeting = pump.use { pump ->
             negotiator.greet(
                 pump = pump,
                 capabilities = transport.capabilities,
                 policy = policy
             )
         }
+
+        ProbeResult(route = peer, greeting = greeting)
     }
 
     override suspend fun probe(
         peer: DiscoveredPeer,
         policy: ConnectionPolicy?
-    ): Result<PublicGreeting> = netRunCatching {
+    ): Result<ProbeResult> = netRunCatching {
         val policy = policy ?: config.policy
 
         // Transport that cannot hold an anonymous conversation answers for itself
         // and costs no connection at all.
         peer.routes
-            .firstNotNullOfOrNull { selector.forEndpoint(it.endpoint)?.capabilities }
-            ?.takeIf { it.greeting == GreetingSource.Transport }
-            ?.let { capabilities ->
-                return@netRunCatching PublicGreeting(
-                    // Versions are the peer's claim, from the air.
-                    protocolVersions = peer.advertised.protocolVersions ?: IntRange.EMPTY,
-                    // The method is not: such transport fixes it, and this side reads that
-                    // off its own declaration rather than believing a broadcast.
-                    methods = listOfNotNull(capabilities.security),
+            .firstNotNullOfOrNull { route ->
+                selector.forEndpoint(route.endpoint)?.capabilities?.let { route to it }
+            }
+            ?.takeIf { (_, capabilities) -> capabilities.greeting == GreetingSource.Transport }
+            ?.let { (route, capabilities) ->
+                return@netRunCatching ProbeResult(
+                    route = route,
+                    greeting = PublicGreeting(
+                        // Versions are the peer's claim, from the air.
+                        protocolVersions = peer.advertised.protocolVersions ?: IntRange.EMPTY,
+                        // The method is not: such transport fixes it, and this side reads that
+                        // off its own declaration rather than believing a broadcast.
+                        methods = listOfNotNull(capabilities.security),
+                    ),
                 )
             }
 

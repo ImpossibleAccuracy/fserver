@@ -1,0 +1,23 @@
+-- How a device was last reached, so it can be dialled again without waiting for discovery.
+-- Columns are typed rather than one packed string: an address is not round-trippable through
+-- split(":") once the host is IPv6.
+--
+-- Keyed by deviceId, while trustedDevice is keyed by public key and holds several rows per device,
+-- so this cannot be a real foreign key. The trigger in TrustedDevice.sq stands in for the cascade.
+CREATE TABLE knownRoute (
+    deviceId    TEXT        NOT NULL PRIMARY KEY,
+    kind        TEXT        NOT NULL,
+    isDialable  INTEGER     NOT NULL,
+    transport   TEXT        NOT NULL,
+    line1       TEXT        NOT NULL,
+    line2       TEXT
+);
+
+selectByDeviceId:
+SELECT *
+FROM knownRoute
+WHERE deviceId = ?;
+
+upsert:
+INSERT OR REPLACE INTO knownRoute(deviceId, kind, isDialable, transport, line1, line2)
+VALUES (?, ?, ?, ?, ?, ?);

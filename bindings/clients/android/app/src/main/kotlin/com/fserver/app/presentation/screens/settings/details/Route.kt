@@ -10,6 +10,7 @@ fun EntryProviderScope<Destination>.settingsDeviceDetailsEntry(
     entry<Destination.Settings.DeviceDetails> { key ->
         DeviceDetailsScreen(
             key = key,
+            navigatePairing = { navigator.navigate(Destination.Pairing(it)) },
             navigateUp = navigator::navigateUp,
         )
     }

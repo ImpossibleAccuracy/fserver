@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardMeta
@@ -41,6 +42,7 @@ import com.fserver.app.presentation.screens.settings.details.model.DeviceDetails
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.network.info.model.PeerLocator
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -48,14 +50,18 @@ import org.koin.core.parameter.parametersOf
 fun DeviceDetailsScreen(
     key: Destination.Settings.DeviceDetails,
     viewModel: DeviceDetailsViewModel = koinViewModel { parametersOf(key) },
+    navigatePairing: (PeerLocator) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbar = LocalSnackbarController.current
 
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
                 DeviceDetailsUiEffect.NavigateBack -> navigateUp()
+                is DeviceDetailsUiEffect.NavigatePairing -> navigatePairing(effect.peer)
+                is DeviceDetailsUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
             }
         }
     }
@@ -88,19 +94,42 @@ private fun DeviceDetailsScreen(
             )
         },
         bottomBar = {
-            if (state.isTrusted) {
-                Column(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(DkSpacing.screenPadding),
-                    verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-                ) {
-                    DkCaption(text = stringResource(R.string.device_details_forget_hint))
-                    DkSecondaryButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = stringResource(R.string.device_details_forget),
-                        onClick = { onIntent(DeviceDetailsIntent.ForgetClicked) },
-                    )
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(DkSpacing.screenPadding),
+                verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+            ) {
+                when {
+                    state.isConnected -> {
+                        DkSecondaryButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.devices_disconnect),
+                            onClick = { onIntent(DeviceDetailsIntent.DisconnectClicked) },
+                        )
+                    }
+
+                    state.isTrusted -> {
+                        DkCaption(text = stringResource(R.string.device_details_forget_hint))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+                        ) {
+                            if (state.isRouteKnown) {
+                                DkSecondaryButton(
+                                    modifier = Modifier.weight(1f),
+                                    text = stringResource(R.string.device_details_reconnect),
+                                    onClick = { onIntent(DeviceDetailsIntent.Reconnect) },
+                                )
+                            }
+
+                            DkSecondaryButton(
+                                modifier = Modifier.weight(1f),
+                                text = stringResource(R.string.device_details_forget),
+                                onClick = { onIntent(DeviceDetailsIntent.ForgetClicked) },
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -159,9 +188,9 @@ private fun DeviceDetailsScreen(
 
 @Composable
 private fun StatusCard(
+    modifier: Modifier = Modifier,
     state: DeviceDetailsState,
     onIntent: (DeviceDetailsIntent) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     DkCard(modifier = modifier, outlined = state.isConnected) {
         Row(
@@ -191,18 +220,6 @@ private fun StatusCard(
                     ),
                 )
                 if (state.address != null) DkCardMeta(text = state.address)
-            }
-        }
-
-        if (state.isConnected) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                DkSecondaryButton(
-                    text = stringResource(R.string.devices_disconnect),
-                    onClick = { onIntent(DeviceDetailsIntent.DisconnectClicked) },
-                )
             }
         }
     }
