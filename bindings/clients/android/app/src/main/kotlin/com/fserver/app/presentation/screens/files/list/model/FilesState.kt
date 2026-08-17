@@ -1,9 +1,8 @@
 package com.fserver.app.presentation.screens.files.list.model
 
-import com.fserver.app.presentation.model.FileUi
-import com.fserver.app.presentation.model.FilesViewModeUi
-import com.fserver.app.presentation.model.IncomingRequestUi
-import com.fserver.app.presentation.model.TreeNodeUi
+import com.fserver.app.presentation.composable.shared.FileUi
+import com.fserver.app.presentation.composable.shared.FilesViewModeUi
+import com.fserver.app.presentation.composable.shared.TreeNodeUi
 
 data class FilesState(
     val serverName: String = "",
@@ -13,6 +12,4 @@ data class FilesState(
     val tree: List<TreeNodeUi> = emptyList(),
     val itemCount: Int = 0,
     val viewMode: FilesViewModeUi = FilesViewModeUi.List,
-    /** A transfer offered to the user; non-null while the receive sheet is up. */
-    val incomingRequest: IncomingRequestUi? = null,
 )

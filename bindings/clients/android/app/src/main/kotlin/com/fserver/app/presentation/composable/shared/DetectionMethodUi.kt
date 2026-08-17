@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.model
+package com.fserver.app.presentation.composable.shared
 
 import androidx.annotation.StringRes
 import com.fserver.app.R

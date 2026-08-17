@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -41,7 +42,7 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.model.icon
+import com.fserver.app.presentation.composable.shared.icon
 import com.fserver.app.presentation.screens.discovery.shared.ConnectRouteCard
 import com.fserver.app.presentation.screens.files.send.model.SendTargetIntent
 import com.fserver.app.presentation.screens.files.send.model.SendTargetState
@@ -60,12 +61,16 @@ fun SendTargetScreen(
     navigateToFiles: () -> Unit,
     navigateUp: () -> Unit,
 ) {
+    val snackbar = LocalSnackbarController.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
-                SendTargetUiEffect.SendStarted -> navigateToFiles()
+                SendTargetUiEffect.NavigateFinished -> navigateToFiles()
+                is SendTargetUiEffect.ShowMessage -> {
+                    snackbar.showSnackbar(effect.message)
+                }
             }
         }
     }

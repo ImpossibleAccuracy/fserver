@@ -19,10 +19,24 @@ import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.model.IncomingConnectionUi
-import com.fserver.app.presentation.model.localizedName
+import com.fserver.app.presentation.composable.shared.localizedName
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.network.device.IncomingConnection
 import com.fserver.core.network.info.DetectionMethod
+
+
+data class IncomingConnectionUi(
+    val deviceName: String,
+    val via: DetectionMethod?,
+    val isUnsecured: Boolean,
+)
+
+fun IncomingConnection.toUi(): IncomingConnectionUi = IncomingConnectionUi(
+    deviceName = deviceName,
+    via = transport,
+    // Neither a fingerprint nor digits: nothing here proves which device this is.
+    isUnsecured = !isSecured,
+)
 
 /**
  * Another device is knocking, and its handshake is parked on this answer.

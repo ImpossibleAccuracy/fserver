@@ -3,7 +3,7 @@ package com.fserver.app.presentation.screens.discovery.hub
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.domain.AuthManager
-import com.fserver.app.presentation.model.toCardUi
+import com.fserver.app.presentation.composable.shared.toCardUi
 import com.fserver.app.presentation.screens.discovery.hub.model.ConnectHubState
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker

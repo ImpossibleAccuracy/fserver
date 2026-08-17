@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.model.FileKindUi
+import com.fserver.app.presentation.composable.shared.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 
 @Composable

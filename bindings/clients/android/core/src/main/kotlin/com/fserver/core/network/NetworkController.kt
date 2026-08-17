@@ -4,11 +4,11 @@ import com.fserver.core.FServerConfig
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
+import com.fserver.core.network.dictionary.FileServerDictionary
+import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.IdentityStoreAdapter
 import com.fserver.core.network.impl.TimberNetLogger
 import com.fserver.core.network.impl.TrustStoreAdapter
-import com.fserver.core.network.temp.TempDictionary
-import com.fserver.core.network.temp.TempMessages
 import com.fserver.core.store.AuthSettingsStore
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.NetworkConfig
@@ -40,8 +40,8 @@ internal class NetworkController(
 ) {
     private val crypto = X25519CryptoProvider
 
-    private val baseConfig: NetworkConfig<TempMessages> = buildBaseConfig()
-    private val node: NetworkNode<TempMessages>
+    private val baseConfig: NetworkConfig<FileServerMessages> = buildBaseConfig()
+    private val node: NetworkNode<FileServerMessages>
 
     private val hotSwapLock = Mutex()
     private var settingsWatcherJob: Job? = null
@@ -103,8 +103,8 @@ internal class NetworkController(
         }
     }
 
-    private fun buildBaseConfig(): NetworkConfig<TempMessages> =
-        networkConfig(dictionary = TempDictionary()) {
+    private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
+        networkConfig(dictionary = FileServerDictionary()) {
             identityStore = IdentityStoreAdapter(config.storage.identity)
             trustStore = TrustStoreAdapter(config.storage.trust)
             authenticator = this@NetworkController.authenticator

@@ -20,8 +20,20 @@ import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.model.PendingConfirmationUi
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.network.device.model.PendingConfirmation
+
+
+data class PendingConfirmationUi(
+    val deviceId: String,
+    val codeGroups: List<String>,
+)
+
+fun PendingConfirmation.toUi(): PendingConfirmationUi = PendingConfirmationUi(
+    deviceId = deviceId,
+    codeGroups = codeGroups,
+)
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

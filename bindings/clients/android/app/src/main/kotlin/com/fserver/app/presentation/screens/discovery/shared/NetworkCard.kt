@@ -25,7 +25,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSurfacePreview
 import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.dkDashedBorder
-import com.fserver.app.presentation.model.NetworkCardUi
+import com.fserver.app.presentation.composable.shared.NetworkCardUi
 import com.fserver.app.presentation.theme.FServerTheme
 
 /**

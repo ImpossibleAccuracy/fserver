@@ -7,6 +7,7 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.send.model.SendTargetIntent
 import com.fserver.app.presentation.screens.files.send.model.SendTargetState
 import com.fserver.app.presentation.screens.files.send.model.SendTargetUiEffect
+import com.fserver.core.files.transfer.TransferRepository
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import kotlinx.coroutines.channels.Channel
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
 class SendTargetViewModel(
     private val key: Destination.Files.SendTarget,
     private val selectionStore: SendSelectionStore,
+    private val transferRepository: TransferRepository,
     devicesRepository: DevicesRepository,
 ) : ViewModel() {
     private val selection = selectionStore.selection(key.selectionId)
@@ -92,11 +95,9 @@ class SendTargetViewModel(
                 awaitedFrom.value = null
             }
 
-            // TODO: hand the selection and the target to :core once transfers exist.
             SendTargetIntent.SendConfirmed -> {
-                confirmingDeviceId.value = null
-                selectionStore.clear(key.selectionId)
-                viewModelScope.launch { effects.send(SendTargetUiEffect.SendStarted) }
+                val deviceId = confirmingDeviceId.getAndUpdate { null } ?: return
+                viewModelScope.launch { send(deviceId) }
             }
         }
     }
@@ -110,6 +111,40 @@ class SendTargetViewModel(
 
         awaitedFrom.value = null
         confirmingDeviceId.value = fresh.deviceId
+    }
+
+    private suspend fun send(deviceId: String) {
+        val files = selectionStore.selection(key.selectionId)
+
+        transferRepository
+            .sendFiles(
+                deviceId = deviceId,
+                filesCount = files?.size ?: Int.MAX_VALUE,
+            )
+            .fold(
+                onSuccess = { isAcceptedByDevice ->
+                    if (isAcceptedByDevice) {
+                        selectionStore.clear(key.selectionId)
+                        effects.send(
+                            SendTargetUiEffect.ShowMessage(
+                                "Transfer completed!"
+                            )
+                        )
+                        effects.send(SendTargetUiEffect.NavigateFinished)
+                    } else {
+                        effects.send(
+                            SendTargetUiEffect.ShowMessage("The device rejected the transfer.")
+                        )
+                    }
+                },
+                onFailure = {
+                    effects.send(
+                        SendTargetUiEffect.ShowMessage(
+                            "Failed to send files: ${it.localizedMessage ?: it::class.simpleName}"
+                        )
+                    )
+                }
+            )
     }
 }
 

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.model
+package com.fserver.app.presentation.composable.shared
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
@@ -87,20 +87,6 @@ sealed interface TransferUi {
         override val fileName: String,
     ) : TransferUi
 }
-
-@Immutable
-data class IncomingFileUi(
-    val name: String,
-    val sizeLabel: String,
-)
-
-@Immutable
-data class IncomingRequestUi(
-    val fromDeviceName: String,
-    val totalSizeLabel: String,
-    val files: List<IncomingFileUi>,
-    val destinationLabel: String,
-)
 
 /**
  * One connection check. Title and detail are resource ids because the detail line is

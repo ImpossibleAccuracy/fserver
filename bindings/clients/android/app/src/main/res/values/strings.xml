@@ -268,7 +268,6 @@
     </plurals>
     <string name="incoming_from">From %1$s · %2$s</string>
     <string name="incoming_save_to">Save to: %1$s</string>
-    <string name="incoming_demo_trigger">Show an incoming transfer request</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

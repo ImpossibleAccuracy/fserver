@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.discovery.automatic.composable
 
+import android.Manifest
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,9 +30,9 @@ import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSurfacePreview
-import com.fserver.app.presentation.model.RequirementRowUi
-import com.fserver.app.presentation.model.descriptionRes
-import com.fserver.app.presentation.model.titleRes
+import com.fserver.app.presentation.composable.shared.RequirementRowUi
+import com.fserver.app.presentation.composable.shared.descriptionRes
+import com.fserver.app.presentation.composable.shared.titleRes
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
@@ -175,7 +176,7 @@ private fun DetectionMethodSheetPreview() {
                             R.string.requirement_permission_nearby_devices_title,
                             R.string.requirement_permission_nearby_devices_description,
                             RequirementAction.RequestPermissions(
-                                listOf(android.Manifest.permission.BLUETOOTH_SCAN)
+                                listOf(Manifest.permission.BLUETOOTH_SCAN)
                             ),
                         ),
                     ),

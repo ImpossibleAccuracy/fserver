@@ -40,12 +40,6 @@ class FilesViewModel(
             // will descend. The system picker and search are not built yet either.
             is FilesIntent.FileClicked -> Unit
             FilesIntent.SearchClicked -> Unit
-
-            FilesIntent.IncomingDemoRequested ->
-                _state.value = _state.value.copy(incomingRequest = content.incomingRequest())
-
-            FilesIntent.IncomingRequestDismissed ->
-                _state.value = _state.value.copy(incomingRequest = null)
         }
     }
 }

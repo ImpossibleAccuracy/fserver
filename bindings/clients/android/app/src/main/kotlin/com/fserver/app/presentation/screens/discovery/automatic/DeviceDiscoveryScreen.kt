@@ -50,9 +50,9 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
-import com.fserver.app.presentation.model.NetworkCardUi
-import com.fserver.app.presentation.model.icon
-import com.fserver.app.presentation.model.titleRes
+import com.fserver.app.presentation.composable.shared.NetworkCardUi
+import com.fserver.app.presentation.composable.shared.icon
+import com.fserver.app.presentation.composable.shared.titleRes
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.permission.rememberRequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.composable.DetectionMethodSheet

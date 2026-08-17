@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.MoveToInbox
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -53,12 +52,11 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkTreeRow
-import com.fserver.app.presentation.model.FileAvailabilityUi
-import com.fserver.app.presentation.model.FileKindUi
-import com.fserver.app.presentation.model.FileUi
-import com.fserver.app.presentation.model.FilesViewModeUi
-import com.fserver.app.presentation.model.TreeNodeUi
-import com.fserver.app.presentation.screens.files.list.composable.IncomingFilesSheet
+import com.fserver.app.presentation.composable.shared.FileAvailabilityUi
+import com.fserver.app.presentation.composable.shared.FileKindUi
+import com.fserver.app.presentation.composable.shared.FileUi
+import com.fserver.app.presentation.composable.shared.FilesViewModeUi
+import com.fserver.app.presentation.composable.shared.TreeNodeUi
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -67,7 +65,6 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun FilesScreen(
     viewModel: FilesViewModel = koinViewModel(),
-    navigateToTransfers: () -> Unit,
     navigateToPicker: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -75,7 +72,6 @@ fun FilesScreen(
     FilesScreenContent(
         state = state,
         onIntent = viewModel::onIntent,
-        navigateToTransfers = navigateToTransfers,
         navigateToPicker = navigateToPicker,
     )
 }
@@ -90,7 +86,6 @@ fun FilesScreen(
 private fun FilesScreenContent(
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
-    navigateToTransfers: () -> Unit,
     navigateToPicker: () -> Unit,
 ) {
     DkScaffold(
@@ -103,14 +98,6 @@ private fun FilesScreenContent(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = stringResource(R.string.action_search),
-                        )
-                    }
-                    // Stand-in trigger: until :core pushes real incoming requests, this is
-                    // how the receive sheet can be reached.
-                    IconButton(onClick = { onIntent(FilesIntent.IncomingDemoRequested) }) {
-                        Icon(
-                            imageVector = Icons.Default.MoveToInbox,
-                            contentDescription = stringResource(R.string.incoming_demo_trigger),
                         )
                     }
                 },
@@ -177,20 +164,6 @@ private fun FilesScreenContent(
 
                 FilesViewModeUi.Tree -> FilesTreeView(nodes = state.tree)
             }
-        }
-
-        // The receive sheet is offered over the file list: accepting moves the user to the
-        // queue, where the transfer it just started is visible.
-        state.incomingRequest?.let { request ->
-            IncomingFilesSheet(
-                request = request,
-                onAccept = {
-                    onIntent(FilesIntent.IncomingRequestDismissed)
-                    navigateToTransfers()
-                },
-                onDecline = { onIntent(FilesIntent.IncomingRequestDismissed) },
-                onDismiss = { onIntent(FilesIntent.IncomingRequestDismissed) },
-            )
         }
     }
 }
@@ -341,7 +314,6 @@ private fun FilesScreenPreview() {
                 itemCount = SampleData.GRID_ITEM_COUNT,
             ),
             onIntent = {},
-            navigateToTransfers = {},
             navigateToPicker = {},
         )
     }

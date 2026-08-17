@@ -2,9 +2,9 @@ package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.model.searchableDetectionMethods
-import com.fserver.app.presentation.model.toCardUi
-import com.fserver.app.presentation.model.toRows
+import com.fserver.app.presentation.composable.shared.searchableDetectionMethods
+import com.fserver.app.presentation.composable.shared.toCardUi
+import com.fserver.app.presentation.composable.shared.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.network.device.DevicesRepository

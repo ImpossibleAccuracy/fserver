@@ -1,10 +1,9 @@
 package com.fserver.app.data
 
-import com.fserver.app.presentation.model.DiagnosticCheckUi
-import com.fserver.app.presentation.model.FileUi
-import com.fserver.app.presentation.model.IncomingRequestUi
-import com.fserver.app.presentation.model.TransferUi
-import com.fserver.app.presentation.model.TreeNodeUi
+import com.fserver.app.presentation.composable.shared.DiagnosticCheckUi
+import com.fserver.app.presentation.composable.shared.FileUi
+import com.fserver.app.presentation.composable.shared.TransferUi
+import com.fserver.app.presentation.composable.shared.TreeNodeUi
 
 /**
  * Where the screens get their content until `:core` exists.
@@ -24,7 +23,6 @@ interface DemoContentSource {
     fun tree(): List<TreeNodeUi>
     fun itemCount(): Int
     fun transfers(): List<TransferUi>
-    fun incomingRequest(): IncomingRequestUi
     fun downloadFolder(): String
     fun diagnosticChecks(): List<DiagnosticCheckUi>
 }
@@ -38,7 +36,6 @@ class SampleContentSource : DemoContentSource {
     override fun tree(): List<TreeNodeUi> = SampleData.tree
     override fun itemCount(): Int = SampleData.GRID_ITEM_COUNT
     override fun transfers(): List<TransferUi> = SampleData.transfers
-    override fun incomingRequest(): IncomingRequestUi = SampleData.incomingRequest
     override fun downloadFolder(): String = SampleData.DOWNLOAD_FOLDER
     override fun diagnosticChecks(): List<DiagnosticCheckUi> = SampleData.diagnosticChecks
 }

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.model
+package com.fserver.app.presentation.composable.shared
 
 import androidx.compose.runtime.Immutable
 import com.fserver.core.network.info.model.NetworkInfo

@@ -7,6 +7,9 @@ sealed interface AppRootIntent {
     data object AcceptIncomingConnection : AppRootIntent
     data object RejectIncomingConnection : AppRootIntent
 
+    data object AcceptIncomingTransfer : AppRootIntent
+    data object RejectIncomingTransfer : AppRootIntent
+
     data object AcceptPendingConfirmation : AppRootIntent
     data object RejectPendingConfirmation : AppRootIntent
 

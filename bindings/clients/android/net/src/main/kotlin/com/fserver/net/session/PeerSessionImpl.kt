@@ -147,9 +147,19 @@ internal class PeerSessionImpl<M : Any>(
         _state.value = finalState
         controlQueue.close()
         appQueue.close()
+        failQueued(controlQueue)
+        failQueued(appQueue)
         incomingMessages.close()
         onTerminated(this)
         scope.cancel()
+    }
+
+    /** Frames that never made it onto the wire; their senders are still holding the ack. */
+    private fun failQueued(queue: Channel<OutgoingFrame>) {
+        while (true) {
+            val frame = queue.tryReceive().getOrNull() ?: return
+            frame.ack?.complete(Result.failure(NetworkException.SessionClosed()))
+        }
     }
 
     // ------------------------------------------------------------------ public API
@@ -205,15 +215,20 @@ internal class PeerSessionImpl<M : Any>(
                 return
             }
 
-            // A frame taken while the link is down waits for the next one rather than being lost.
-            val current = link.filterNotNull().first()
-            val result = runCatching {
-                current.secure.send(Envelope.Codec.encode(frame.envelope)).getOrThrow()
-            }
+            try {
+                // A frame taken while the link is down waits for the next one rather than being lost.
+                val current = link.filterNotNull().first()
+                val result = runCatching {
+                    current.secure.send(Envelope.Codec.encode(frame.envelope)).getOrThrow()
+                }
 
-            frame.ack?.complete(result)
-            if (result.isFailure) {
-                logger.warn("failed to write ${frame.envelope.kind}", result.exceptionOrNull())
+                frame.ack?.complete(result)
+                if (result.isFailure) {
+                    logger.warn("failed to write ${frame.envelope.kind}", result.exceptionOrNull())
+                }
+            } catch (e: Throwable) {
+                frame.ack?.complete(Result.failure(NetworkException.SessionClosed()))
+                throw e
             }
         }
     }
@@ -251,7 +266,11 @@ internal class PeerSessionImpl<M : Any>(
         onLinkLost(failure)
     }
 
-    private suspend fun dispatch(envelope: Envelope) {
+    /**
+     * Never suspends: the reader is the only thing that can complete a pending request or answer a
+     * keep-alive, so it must not be parked behind whoever consumes [incoming].
+     */
+    private fun dispatch(envelope: Envelope) {
         when (envelope.kind) {
             FrameKind.PING -> enqueueControl(
                 control(
@@ -280,7 +299,7 @@ internal class PeerSessionImpl<M : Any>(
         }
     }
 
-    private suspend fun deliver(envelope: Envelope) {
+    private fun deliver(envelope: Envelope) {
         val message = runCatching { codec.decode(envelope.payload) }.getOrElse { error ->
             logger.error("dictionary could not decode an incoming payload", error)
             if (envelope.kind == FrameKind.REQUEST) {
@@ -314,7 +333,20 @@ internal class PeerSessionImpl<M : Any>(
             null
         }
 
-        incomingMessages.send(Inbound(message, negotiated.peer, reply))
+        if (incomingMessages.trySend(Inbound(message, reply)).isSuccess) return
+
+        // The queue is full, so the host is not draining `incoming`.
+        // Refusing the frame keeps the session honest.
+        logger.warn("inbound queue full - refusing ${envelope.kind} from ${negotiated.peer.deviceId}")
+        if (envelope.kind == FrameKind.REQUEST) {
+            enqueueControl(
+                control(
+                    FrameKind.ERROR,
+                    payload = "receiver busy".encodeToByteArray(),
+                    correlationId = envelope.messageId,
+                )
+            )
+        }
     }
 
     private fun completeRequest(envelope: Envelope) {

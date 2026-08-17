@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
-import com.fserver.app.presentation.model.toUi
+import com.fserver.app.presentation.composable.toUi
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
+import com.fserver.core.files.transfer.IncomingTransfer
+import com.fserver.core.files.transfer.TransferRepository
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,7 @@ import timber.log.Timber
 class AppViewModel(
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
+    private val transferRepository: TransferRepository,
 ) : ViewModel() {
     private val advertisingService = devicesRepository.advertisingServiceLease()
 
@@ -49,14 +52,16 @@ class AppViewModel(
     val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
+        transferRepository.incomingTransfer,
         devicesRepository.pendingConfirmation,
-    ) { destination, pending, pendingConfirmation ->
+    ) { destination, pending, incomingTransfer, pendingConfirmation ->
         destination ?: return@combine null
 
         AppRootState(
             startDestination = destination,
             incomingConnection = pending.firstOrNull()?.toUi(),
             pendingConfirmation = pendingConfirmation?.toUi(),
+            incomingTransfer = incomingTransfer?.toUi(),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -81,6 +86,8 @@ class AppViewModel(
                     }
                 }
         }
+
+        transferRepository.listenForTransfers()
     }
 
     fun onIntent(intent: AppRootIntent) {
@@ -90,6 +97,12 @@ class AppViewModel(
 
             is AppRootIntent.RejectIncomingConnection ->
                 answer { it.reject() }
+
+            is AppRootIntent.AcceptIncomingTransfer ->
+                answerTransfer { it.accept() }
+
+            is AppRootIntent.RejectIncomingTransfer ->
+                answerTransfer { it.reject() }
 
             is AppRootIntent.AcceptPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = true)
@@ -114,6 +127,16 @@ class AppViewModel(
         viewModelScope.launch {
             runCatching { verdict(request) }
                 .onFailure { Timber.w(it, "could not answer ${request.deviceName}") }
+        }
+    }
+
+    /** The offer itself lives in :core, so answering it is all this has to do. */
+    private fun answerTransfer(verdict: suspend (IncomingTransfer) -> Unit) {
+        val transfer = transferRepository.incomingTransfer.value ?: return
+
+        viewModelScope.launch {
+            runCatching { verdict(transfer) }
+                .onFailure { Timber.w(it, "could not answer incoming transfer") }
         }
     }
 

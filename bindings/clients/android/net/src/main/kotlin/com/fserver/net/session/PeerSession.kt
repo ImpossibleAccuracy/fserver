@@ -49,7 +49,6 @@ interface PeerSession<M : Any> {
      */
     data class Inbound<T : Any>(
         val message: T,
-        val from: PeerIdentity,
         val reply: (suspend (T) -> Result<Unit>)?,
     )
 

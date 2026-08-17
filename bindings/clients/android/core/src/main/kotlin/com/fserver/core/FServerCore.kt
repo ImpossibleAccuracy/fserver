@@ -1,6 +1,8 @@
 package com.fserver.core
 
 import com.fserver.core.di.coreModule
+import com.fserver.core.files.transfer.TransferRepository
+import com.fserver.core.files.transfer.impl.TransferRepositoryImpl
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.DevicesRepository
@@ -12,6 +14,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
+import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.bind
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
@@ -60,6 +64,8 @@ class FServerCore private constructor(
      */
     val requirements: RequirementsChecker by lazy { koin.get() }
 
+    val transferRepository: TransferRepository by lazy { koin.get() }
+
     /**
      * Tears down the internal graph and stops background work. After this the instance is dead -
      * build a new one rather than reusing it.
@@ -98,6 +104,7 @@ class FServerCore private constructor(
                         single { config.storage }
                         single { network }
                         single { authenticator }
+                        singleOf(::TransferRepositoryImpl) bind TransferRepository::class
                     }
                 )
             }.koin

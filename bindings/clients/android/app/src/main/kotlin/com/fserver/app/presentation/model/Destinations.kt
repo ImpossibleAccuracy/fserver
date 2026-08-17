@@ -54,11 +54,11 @@ sealed interface Destination : NavKey {
      * until the user picks one of them.
      */
     @Serializable
-    data object Connect : Destination, UnauthenticatedDestinations
+    data object Connect : Destination
 
     /** Search on the local network — picking methods, granting what they need, and scanning. */
     @Serializable
-    data object DeviceDiscovery : Destination, UnauthenticatedDestinations
+    data object DeviceDiscovery : Destination
 
     /**
      * Confirm and connect. Every way of finding a device ends here — the list, the scanner,

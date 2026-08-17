@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.model
+package com.fserver.app.presentation.composable.shared
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -23,7 +23,7 @@ data class RequirementRowUi(
 /**
  * Expands one [Requirement] into the rows the user sees.
  *
- * [Requirement.RuntimePermission] arrives as a single entry holding every missing permission,
+ * [RuntimePermission] arrives as a single entry holding every missing permission,
  * because the host requests them in one launch. The user thinks in capabilities rather than in
  * Android permission strings, so they are regrouped here — "Nearby devices" instead of
  * `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE` and `BLUETOOTH_CONNECT` as three rows.

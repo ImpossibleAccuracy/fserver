@@ -22,6 +22,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.fserver.app.presentation.composable.AppStyling
 import com.fserver.app.presentation.composable.IncomingConnectionSheet
+import com.fserver.app.presentation.composable.IncomingFilesSheet
 import com.fserver.app.presentation.composable.PendingConfirmationDialog
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
@@ -93,6 +94,24 @@ fun FServerApp(
                 },
                 onDecline = {
                     viewModel.onIntent(AppRootIntent.RejectIncomingConnection)
+                },
+            )
+        }
+
+        // A transfer offer is not tied to the file list either: it arrives over whatever
+        // screen is open, so it is answered here.
+        state.incomingTransfer?.let { request ->
+            IncomingFilesSheet(
+                request = request,
+                onAccept = {
+                    viewModel.onIntent(AppRootIntent.AcceptIncomingTransfer)
+                },
+                onDecline = {
+                    viewModel.onIntent(AppRootIntent.RejectIncomingTransfer)
+                },
+                // Dismissing decides nothing, so it declines: the sender is waiting on an answer.
+                onDismiss = {
+                    viewModel.onIntent(AppRootIntent.RejectIncomingTransfer)
                 },
             )
         }

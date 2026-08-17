@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files.list.composable
+package com.fserver.app.presentation.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,6 +11,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -26,8 +27,36 @@ import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.model.IncomingRequestUi
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.files.transfer.IncomingTransfer
+
+@Immutable
+data class IncomingFileUi(
+    val name: String,
+    val sizeLabel: String,
+)
+
+@Immutable
+data class IncomingRequestUi(
+    val fromDeviceName: String,
+    val totalSizeLabel: String,
+    val files: List<IncomingFileUi>,
+    val destinationLabel: String,
+)
+
+/**
+ * The protocol currently carries only a file count, so everything else on the sheet is mocked.
+ * Replace once [IncomingTransfer] carries the manifest and the sender.
+ */
+fun IncomingTransfer.toUi(): IncomingRequestUi = IncomingRequestUi(
+    fromDeviceName = "Unknown device",
+    totalSizeLabel = "${filesCount * 12} MB",
+    files = List(filesCount) { index ->
+        IncomingFileUi(name = "file_${index + 1}.bin", sizeLabel = "12 MB")
+    },
+    destinationLabel = "Downloads/FServer",
+)
+
 
 /**
  * Incoming transfer, offered over whatever screen the user is on.

@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.hub.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.model.NetworkCardUi
+import com.fserver.app.presentation.composable.shared.NetworkCardUi
 
 @Immutable
 data class ConnectHubState(

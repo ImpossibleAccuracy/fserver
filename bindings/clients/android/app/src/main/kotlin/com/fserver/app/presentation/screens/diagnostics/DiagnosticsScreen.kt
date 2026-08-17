@@ -28,7 +28,7 @@ import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkStatusRow
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.model.DiagnosticCheckUi
+import com.fserver.app.presentation.composable.shared.DiagnosticCheckUi
 import com.fserver.app.presentation.screens.diagnostics.model.DiagnosticsIntent
 import com.fserver.app.presentation.screens.diagnostics.model.DiagnosticsState
 import com.fserver.app.presentation.theme.FServerTheme
