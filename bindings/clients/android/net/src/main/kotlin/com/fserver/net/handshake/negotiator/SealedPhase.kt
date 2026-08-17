@@ -57,7 +57,6 @@ internal class SealedPhase(
         identity: LocalIdentity,
         capabilities: TransportCapabilities,
     ): PeerDescriptor = PeerDescriptor(
-        deviceId = identity.deviceId,
         displayName = identity.displayName,
         kind = identity.kind,
         dictionary = config.dictionary.descriptor,

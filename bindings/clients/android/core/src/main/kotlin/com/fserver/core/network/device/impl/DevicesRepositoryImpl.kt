@@ -56,11 +56,11 @@ internal class DevicesRepositoryImpl(
         val peersByIds = peers.associateByTo(mutableMapOf()) { it.advertised.deviceId }
 
         sessions.mapTo(result) { session ->
-            val peer = peersByIds.remove(session.descriptor.deviceId)
-            val handshake = profiles.remove(session.descriptor.deviceId)
+            val peer = peersByIds.remove(session.identity.deviceId)
+            val handshake = profiles.remove(session.identity.deviceId)
 
             ForeignDevice(
-                deviceId = session.descriptor.deviceId,
+                deviceId = session.identity.deviceId,
                 displayName = session.descriptor.displayName,
                 kind = DeviceKind.fromSerialized(session.descriptor.kind),
                 routes = listOf(session.route)
@@ -75,11 +75,11 @@ internal class DevicesRepositoryImpl(
         }
 
         profiles.mapTo(result) { (_, profile) ->
-            val peer = peersByIds.remove(profile.negotiated.peerDescriptor.deviceId)
+            val peer = peersByIds.remove(profile.identity.deviceId)
             val foundBy = peer?.routes?.first()?.transport
 
             ForeignDevice(
-                deviceId = profile.negotiated.peerDescriptor.deviceId,
+                deviceId = profile.identity.deviceId,
                 displayName = profile.negotiated.peerDescriptor.displayName,
                 kind = DeviceKind.fromSerialized(profile.negotiated.peerDescriptor.kind),
                 routes = listOf(profile.route.toDomain()),
@@ -187,7 +187,7 @@ internal class DevicesRepositoryImpl(
 
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
     private suspend fun connectKnown(deviceId: String, request: AuthRequest): Result<Unit> {
-        if (network.incomingConnections.sessions.value.any { it.descriptor.deviceId == deviceId }) {
+        if (network.incomingConnections.sessions.value.any { it.identity.deviceId == deviceId }) {
             return Result.success(Unit)
         }
 

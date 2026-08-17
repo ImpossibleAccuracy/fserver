@@ -22,6 +22,9 @@ import kotlin.time.Duration
 interface PeerSession<M : Any> {
     val route: PeerRef
 
+    /** Who the peer proved to be. Descriptor data is a claim; this is not. */
+    val identity: PeerIdentity
+
     val descriptor: PeerDescriptor
 
     val state: StateFlow<State>

@@ -9,6 +9,7 @@ import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.NegotiatedParameters
 import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.session.PeerSession.Inbound
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.wire.Envelope
@@ -69,6 +70,7 @@ internal class PeerSessionImpl<M : Any>(
     )
 
     private val _state = MutableStateFlow<State>(State.Connecting)
+    override val identity: PeerIdentity = negotiated.peer
     override val descriptor: PeerDescriptor = negotiated.peerDescriptor
     override val state: StateFlow<State> = _state.asStateFlow()
 

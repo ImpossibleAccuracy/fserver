@@ -112,12 +112,6 @@ internal class TrustGate(
             val config = configHolder.current
             val store = config.trustStore ?: return
 
-            if (descriptor.deviceId != peer.deviceId) {
-                config.logger.warn(
-                    "descriptor claims device ${descriptor.deviceId} but auth proved ${peer.deviceId} - pinning the proven one"
-                )
-            }
-
             val previous = pinned
             val best = previous?.takeIf { it.strength > method.strength }
 

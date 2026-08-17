@@ -11,12 +11,11 @@ import com.fserver.net.dictionary.MessageDictionary
  * scan produces is [com.fserver.net.discovery.AdvertisedPeer], and the two are deliberately
  * different types so "claimed" can never be mistaken for "proven".
  *
- * The peer's public key is not here: it is proven by the handshake itself, and restating a proven
- * fact as a claim is how the two drift apart.
+ * Neither the peer's public key nor its device id is here: both are proven by the auth method and
+ * carried in [com.fserver.net.security.identity.PeerIdentity], and restating a proven fact as a
+ * claim is how the two drift apart.
  */
 data class PeerDescriptor(
-    @Deprecated("use auth-proven identity instead")
-    val deviceId: String,
     val displayName: String,
     val kind: String?,
     val dictionary: MessageDictionary.Descriptor,

@@ -9,7 +9,6 @@ import com.fserver.net.wire.ByteWriter
  */
 internal object PeerDescriptorCodec {
     fun encode(descriptor: PeerDescriptor): ByteArray = ByteWriter(128)
-        .string(descriptor.deviceId)
         .string(descriptor.displayName)
         .string(descriptor.kind ?: "")
         .string(descriptor.dictionary.id)
@@ -22,7 +21,6 @@ internal object PeerDescriptorCodec {
     fun decode(payload: ByteArray): PeerDescriptor {
         val reader = ByteReader(payload)
         // Read into locals: field order is the wire format, not an argument-evaluation detail.
-        val deviceId = reader.string()
         val displayName = reader.string()
         val kind = reader.string().ifBlank { null }
         val dictionaryId = reader.string()
@@ -32,7 +30,6 @@ internal object PeerDescriptorCodec {
         val maxFrameSize = reader.i32()
 
         return PeerDescriptor(
-            deviceId = deviceId,
             displayName = displayName,
             kind = kind,
             dictionary = MessageDictionary.Descriptor(
