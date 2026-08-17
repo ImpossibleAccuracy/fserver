@@ -1,0 +1,32 @@
+-- What a completed handshake leaves behind, so the same peer does not have to be re-verified.
+-- Keyed by public key: one device may rotate keys or present several, and the key is what the
+-- handshake actually proves possession of.
+CREATE TABLE trustedDevice (
+    publicKey       BLOB    NOT NULL PRIMARY KEY,
+    deviceId        TEXT    NOT NULL,
+    displayName     TEXT    NOT NULL,
+    method          TEXT    NOT NULL,
+    strength        TEXT    NOT NULL,
+    lastSeenEpochMs INTEGER NOT NULL
+);
+
+CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
+
+findByKey:
+SELECT *
+FROM trustedDevice
+WHERE publicKey = ?;
+
+findByDeviceId:
+SELECT *
+FROM trustedDevice
+WHERE deviceId = ?
+ORDER BY lastSeenEpochMs DESC;
+
+upsert:
+INSERT OR REPLACE INTO trustedDevice(publicKey, deviceId, displayName, method, strength, lastSeenEpochMs)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteByKey:
+DELETE FROM trustedDevice
+WHERE publicKey = ?;

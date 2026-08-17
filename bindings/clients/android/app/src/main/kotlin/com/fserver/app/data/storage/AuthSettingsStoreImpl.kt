@@ -1,4 +1,4 @@
-package com.fserver.app.data
+package com.fserver.app.data.storage
 
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.store.AuthSettingsStore

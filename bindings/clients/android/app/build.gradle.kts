@@ -4,6 +4,15 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("FServerDatabase") {
+            packageName.set("com.fserver.app.database")
+        }
+    }
 }
 
 android {
@@ -111,6 +120,9 @@ dependencies {
 
     // Data storage
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.sqldelight.android.driver)
+    implementation(libs.sqldelight.coroutines.extensions)
+    implementation(libs.sqldelight.primitive.adapters)
 
     // IO
     implementation(libs.androidx.documentfile)

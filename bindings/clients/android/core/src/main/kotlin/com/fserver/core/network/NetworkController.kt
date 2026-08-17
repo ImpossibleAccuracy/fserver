@@ -6,6 +6,7 @@ import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.impl.IdentityStoreAdapter
 import com.fserver.core.network.impl.TimberNetLogger
+import com.fserver.core.network.impl.TrustStoreAdapter
 import com.fserver.core.network.temp.TempDictionary
 import com.fserver.core.network.temp.TempMessages
 import com.fserver.core.store.AuthSettingsStore
@@ -53,7 +54,7 @@ internal class NetworkController(
     val requestManager get() = node.requestsManager
 
     init {
-        val offered = config.authSettingsStore.offeredMethods.value
+        val offered = config.storage.auth.offeredMethods.value
         lastOfferedMethods = offered
         node = NetworkNode.create(baseConfig.copy(authMethods = netAuthMethods(offered)))
 
@@ -67,7 +68,7 @@ internal class NetworkController(
 
     /** Swaps the node's auth methods whenever [AuthSettingsStore] reports a different set. */
     private suspend fun watchAuthSettings() {
-        config.authSettingsStore.offeredMethods.collectLatest { offered ->
+        config.storage.auth.offeredMethods.collectLatest { offered ->
             hotSwapLock.withLock {
                 if (lastOfferedMethods == offered) return@withLock
                 lastOfferedMethods = offered
@@ -104,7 +105,8 @@ internal class NetworkController(
 
     private fun buildBaseConfig(): NetworkConfig<TempMessages> =
         networkConfig(dictionary = TempDictionary()) {
-            identityStore = IdentityStoreAdapter(config.deviceIdentityStore)
+            identityStore = IdentityStoreAdapter(config.storage.identity)
+            trustStore = TrustStoreAdapter(config.storage.trust)
             authenticator = this@NetworkController.authenticator
             crypto = this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope

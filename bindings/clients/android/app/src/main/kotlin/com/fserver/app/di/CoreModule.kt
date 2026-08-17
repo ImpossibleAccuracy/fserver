@@ -1,5 +1,6 @@
 package com.fserver.app.di
 
+import com.fserver.app.data.storage.ServerGeneralStorage
 import com.fserver.core.FServerConfig
 import com.fserver.core.FServerCore
 import org.koin.android.ext.koin.androidContext
@@ -21,8 +22,7 @@ val coreModule = module {
         FServerCore.create(
             FServerConfig(
                 context = androidContext(),
-                deviceIdentityStore = get(),
-                authSettingsStore = get(),
+                storage = get<ServerGeneralStorage>(),
             )
         )
     }

@@ -1,10 +1,11 @@
-package com.fserver.app.data
+package com.fserver.app.data.storage
 
 import android.os.Build
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.fserver.app.data.AndroidKeyPairStore
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.LocalDevice
 import com.fserver.core.store.DeviceIdentityStore
