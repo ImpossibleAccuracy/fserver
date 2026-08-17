@@ -30,9 +30,9 @@ import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSurfacePreview
-import com.fserver.app.presentation.composable.shared.RequirementRowUi
-import com.fserver.app.presentation.composable.shared.descriptionRes
-import com.fserver.app.presentation.composable.shared.titleRes
+import com.fserver.app.presentation.composable.model.RequirementRowUi
+import com.fserver.app.presentation.composable.model.descriptionRes
+import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState

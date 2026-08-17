@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.discovery.automatic.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.composable.shared.NetworkCardUi
-import com.fserver.app.presentation.composable.shared.RequirementRowUi
+import com.fserver.app.presentation.composable.model.NetworkCardUi
+import com.fserver.app.presentation.composable.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.info.DetectionMethod

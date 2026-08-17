@@ -2,14 +2,14 @@ package com.fserver.app.data
 
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkCheckState
-import com.fserver.app.presentation.composable.shared.DiagnosticCheckUi
-import com.fserver.app.presentation.composable.shared.FileAvailabilityUi
-import com.fserver.app.presentation.composable.shared.FileKindUi
-import com.fserver.app.presentation.composable.shared.FileUi
+import com.fserver.app.presentation.composable.model.DiagnosticCheckUi
+import com.fserver.app.presentation.composable.model.FileAvailabilityUi
+import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.composable.model.FileUi
 import com.fserver.app.presentation.composable.IncomingFileUi
 import com.fserver.app.presentation.composable.IncomingRequestUi
-import com.fserver.app.presentation.composable.shared.TransferUi
-import com.fserver.app.presentation.composable.shared.TreeNodeUi
+import com.fserver.app.presentation.composable.model.TransferUi
+import com.fserver.app.presentation.composable.model.TreeNodeUi
 
 /**
  * Fixtures the MVP screens render until `:core` is wired up. Kept in one place so the

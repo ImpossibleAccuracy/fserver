@@ -2,7 +2,7 @@ package com.fserver.app.presentation.screens.transfers
 
 import androidx.lifecycle.ViewModel
 import com.fserver.app.data.DemoContentSource
-import com.fserver.app.presentation.composable.shared.TransferUi
+import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.transfers.model.TransfersIntent
 import com.fserver.app.presentation.screens.transfers.model.TransfersState
 import kotlinx.coroutines.flow.MutableStateFlow

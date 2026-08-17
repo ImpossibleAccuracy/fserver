@@ -52,11 +52,11 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkTreeRow
-import com.fserver.app.presentation.composable.shared.FileAvailabilityUi
-import com.fserver.app.presentation.composable.shared.FileKindUi
-import com.fserver.app.presentation.composable.shared.FileUi
-import com.fserver.app.presentation.composable.shared.FilesViewModeUi
-import com.fserver.app.presentation.composable.shared.TreeNodeUi
+import com.fserver.app.presentation.composable.model.FileAvailabilityUi
+import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.composable.model.FileUi
+import com.fserver.app.presentation.composable.model.FilesViewModeUi
+import com.fserver.app.presentation.composable.model.TreeNodeUi
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.theme.FServerTheme

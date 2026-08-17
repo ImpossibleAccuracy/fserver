@@ -15,7 +15,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.SelectedEntry
 import com.fserver.app.data.SendSelectionStore
-import com.fserver.app.presentation.composable.shared.FileKindUi
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerIntent
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.MediaGrouping

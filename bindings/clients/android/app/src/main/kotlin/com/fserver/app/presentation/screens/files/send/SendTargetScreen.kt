@@ -42,7 +42,7 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.composable.shared.icon
+import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.screens.discovery.shared.ConnectRouteCard
 import com.fserver.app.presentation.screens.files.send.model.SendTargetIntent
 import com.fserver.app.presentation.screens.files.send.model.SendTargetState

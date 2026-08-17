@@ -19,7 +19,7 @@ import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.composable.shared.localizedName
+import com.fserver.app.presentation.composable.model.localizedName
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.device.IncomingConnection
 import com.fserver.core.network.info.DetectionMethod

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.composable.shared
+package com.fserver.app.presentation.composable.model
 
 import android.Manifest
 import android.annotation.SuppressLint

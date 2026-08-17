@@ -48,7 +48,7 @@ import com.fserver.app.presentation.designkit.DkSegmentedControl
 import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.composable.shared.FileKindUi
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.MediaGrouping
 import com.fserver.app.presentation.screens.files.picker.model.FilesPickerState.MediaItemUi

@@ -1,9 +1,9 @@
 package com.fserver.app.data
 
-import com.fserver.app.presentation.composable.shared.DiagnosticCheckUi
-import com.fserver.app.presentation.composable.shared.FileUi
-import com.fserver.app.presentation.composable.shared.TransferUi
-import com.fserver.app.presentation.composable.shared.TreeNodeUi
+import com.fserver.app.presentation.composable.model.DiagnosticCheckUi
+import com.fserver.app.presentation.composable.model.FileUi
+import com.fserver.app.presentation.composable.model.TransferUi
+import com.fserver.app.presentation.composable.model.TreeNodeUi
 
 /**
  * Where the screens get their content until `:core` exists.

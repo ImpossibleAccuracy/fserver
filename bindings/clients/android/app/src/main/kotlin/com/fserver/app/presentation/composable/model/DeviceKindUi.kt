@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.composable.shared
+package com.fserver.app.presentation.composable.model
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer

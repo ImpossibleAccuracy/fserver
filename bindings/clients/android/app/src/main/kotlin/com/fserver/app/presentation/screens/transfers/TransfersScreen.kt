@@ -34,7 +34,7 @@ import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.composable.shared.TransferUi
+import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.transfers.model.TransfersIntent
 import com.fserver.app.presentation.screens.transfers.model.TransfersState
 import com.fserver.app.presentation.theme.FServerTheme

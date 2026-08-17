@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.files.picker.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.composable.shared.FileKindUi
+import com.fserver.app.presentation.composable.model.FileKindUi
 
 /**
  * The picker is one screen with two stages: a source chooser, and — once a source has been
