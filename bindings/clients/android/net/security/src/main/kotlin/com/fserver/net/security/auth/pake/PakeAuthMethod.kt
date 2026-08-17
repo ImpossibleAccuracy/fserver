@@ -1,7 +1,6 @@
 package com.fserver.net.security.auth.pake
 
 import com.fserver.net.NetworkException
-import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
@@ -10,6 +9,7 @@ import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.shared.AuthHelper
 import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.wire.ByteWriter
 
 /**
@@ -25,16 +25,11 @@ import com.fserver.net.wire.ByteWriter
  */
 class PakeAuthMethod(
     private val crypto: CryptoProvider,
-    private val authenticator: PeerAuthenticator?,
     private val loadSavedPassword: suspend () -> String,
 ) : AuthMethod {
     override val id: AuthMethodId = ID
 
-    init {
-        requireNotNull(authenticator) {
-            "PakeAuthMethod requires a PeerAuthenticator"
-        }
-    }
+    override val strength: AuthStrength = AuthStrength.SharedSecret
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
         val rawPassword = when (context.role) {
@@ -61,10 +56,9 @@ class PakeAuthMethod(
 
         val peer = AuthHelper.receivePeerIdentity(context, context.prologue, io, aead)
 
-        val decision = authenticator!!.verify(peer, null)
-        if (decision is PeerAuthenticator.Decision.Reject) {
-            throw NetworkException.AuthenticationRejected(decision.reason)
-        }
+        // Holding the password is not the same as being trusted: a first contact still surfaces,
+        // and a peer already pinned goes through without a prompt.
+        context.trust.check(peer, null)
 
         return AuthOutcome(
             sharedSecret = AuthHelper.deriveKey(

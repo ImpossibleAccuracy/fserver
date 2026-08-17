@@ -15,6 +15,7 @@ import com.fserver.net.dictionary.MessageDictionary
  * fact as a claim is how the two drift apart.
  */
 data class PeerDescriptor(
+    @Deprecated("use auth-proven identity instead")
     val deviceId: String,
     val displayName: String,
     val kind: String?,

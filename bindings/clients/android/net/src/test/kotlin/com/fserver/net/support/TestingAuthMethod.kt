@@ -1,7 +1,5 @@
 package com.fserver.net.support
 
-import com.fserver.net.NetworkException
-import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
@@ -11,13 +9,16 @@ import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.Fingerprint
 import com.fserver.net.security.identity.PeerIdentityCodec
+import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 
 class TestingAuthMethod(
     private val crypto: CryptoProvider = PassthroughCryptoProvider,
-    private val authenticator: PeerAuthenticator? = null,
+    override val strength: AuthStrength = AuthStrength.UserCompared,
+    override val id: AuthMethodId = ID,
+    /** Plays a method that forgets the gate, so the handshake's own check is visible. */
+    private val skipTrust: Boolean = false,
 ) : AuthMethod {
-    override val id: AuthMethodId = ID
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
         val exchange = crypto.newKeyExchange()
@@ -31,11 +32,7 @@ class TestingAuthMethod(
 
         val code = pairFingerprint(context.local.publicKey, peer.publicKey)
 
-        val verdict = authenticator?.verify(peer, code)
-            ?: PeerAuthenticator.Decision.Trust
-        if (verdict is PeerAuthenticator.Decision.Reject) {
-            throw NetworkException.AuthenticationRejected(verdict.reason)
-        }
+        if (!skipTrust) context.trust.check(peer, code)
 
         io.exchange(ACCEPTED)
 

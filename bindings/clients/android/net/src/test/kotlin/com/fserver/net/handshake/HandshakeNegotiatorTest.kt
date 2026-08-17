@@ -8,6 +8,7 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
@@ -129,7 +130,7 @@ class HandshakeNegotiatorTest {
         val (initiator, responder) = scope.handshake(
             responder = negotiator(
                 "bob",
-                authenticator = { _, _ -> PeerAuthenticator.Decision.Reject("not paired") },
+                authenticator = { PeerAuthenticator.Decision.Reject("not paired") },
             ),
         )
 
@@ -150,9 +151,9 @@ class HandshakeNegotiatorTest {
 
             scope.handshake(
                 initiator = negotiator("alice", identityStore = alice),
-                responder = negotiator("bob", authenticator = { candidate, code ->
-                    seenDeviceId = candidate.deviceId
-                    seenCode = code
+                responder = negotiator("bob", authenticator = { prompt ->
+                    seenDeviceId = prompt.candidate.deviceId
+                    seenCode = prompt.confirmationCode
                     PeerAuthenticator.Decision.Trust
                 }),
                 responderConfirmationCode = "4821",
@@ -234,7 +235,7 @@ class HandshakeNegotiatorTest {
         // Someone reading a dialog is not a stalled network: the decision sits between two auth
         // frames, so it is the auth deadline that applies and the connection survives.
         val (initiator, responder) = scope.handshake(
-            responder = negotiator("bob", authenticator = { _, _ ->
+            responder = negotiator("bob", authenticator = {
                 delay(600)
                 PeerAuthenticator.Decision.Trust
             }),
@@ -358,6 +359,7 @@ class HandshakeNegotiatorTest {
     /** Never stops talking, which is what the round limit exists for. */
     private object Endless : AuthMethod {
         override val id = AuthMethodId("endless")
+        override val strength = AuthStrength.UserCompared
 
         override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
             while (true) io.exchange(ByteArray(1))

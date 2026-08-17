@@ -10,6 +10,7 @@ import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
+import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveredEndpoint
@@ -325,6 +326,7 @@ class PeerDiscoveryTest {
     /** Advertised unconditionally: id matches what the advertisement assertions expect. */
     private object FakeAuthMethod : AuthMethod {
         override val id: AuthMethodId = AuthMethodId("confirm-dh")
+        override val strength = AuthStrength.UserCompared
 
         override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome =
             error("not exercised by discovery tests")

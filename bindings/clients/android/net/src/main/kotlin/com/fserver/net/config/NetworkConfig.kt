@@ -8,6 +8,7 @@ import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.IdentityStore
+import com.fserver.net.security.trust.PeerTrustStore
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.Transport
@@ -31,6 +32,8 @@ data class NetworkConfig<T : Any>(
 
     // security section
     val authenticator: PeerAuthenticator? = null,
+    /** Peers pinned by earlier handshakes. Absent means nothing is remembered between them. */
+    val trustStore: PeerTrustStore? = null,
     val authMethods: List<AuthMethod> = emptyList(),
     val crypto: CryptoProvider = PassthroughCryptoProvider,
 

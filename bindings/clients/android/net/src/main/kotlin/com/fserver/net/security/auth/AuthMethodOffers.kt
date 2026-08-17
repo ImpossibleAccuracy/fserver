@@ -9,14 +9,12 @@ import com.fserver.net.spi.TransportCapabilities
  */
 internal fun NetworkConfig<*>.offeredMethods(
     capabilities: TransportCapabilities,
-): List<AuthMethod> = authMethods
-    .filter { it.isEnabled }
-    .let { methods ->
-        when (val security = capabilities.security) {
-            null -> methods.filterNot { it.requiresChannelSecurity }
-            else -> methods.filter { it.id == security }
-        }
+): List<AuthMethod> = authMethods.let { methods ->
+    when (val security = capabilities.security) {
+        null -> methods.filterNot { it.requiresChannelSecurity }
+        else -> methods.filter { it.id == security }
     }
+}
 
 /**
  * Whether a session carried by [transport] and authenticated with [method] is one this config would still admit.
@@ -35,6 +33,6 @@ internal fun NetworkConfig<*>.permits(transport: SpiId, method: AuthMethodId): B
 internal fun NetworkConfig<*>.advertisableMethods(): List<AuthMethodId> {
     val backed = transports.mapNotNullTo(mutableSetOf()) { it.capabilities.security }
     return authMethods
-        .filter { it.isEnabled && (!it.requiresChannelSecurity || it.id in backed) }
+        .filter { !it.requiresChannelSecurity || it.id in backed }
         .map { it.id }
 }

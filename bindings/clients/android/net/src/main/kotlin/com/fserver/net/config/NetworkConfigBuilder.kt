@@ -8,6 +8,7 @@ import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.IdentityStore
+import com.fserver.net.security.trust.PeerTrustStore
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -22,6 +23,7 @@ class NetworkConfigBuilder<T : Any>(
     /** No default is possible - a node with no identity has nothing to advertise or authenticate. */
     var identityStore: IdentityStore? = null
     var authenticator: PeerAuthenticator? = null
+    var trustStore: PeerTrustStore? = null
     var crypto: CryptoProvider = PassthroughCryptoProvider
     var policy: ConnectionPolicy = ConnectionPolicy()
     var logger: NetLogger = NetLogger.None
@@ -86,6 +88,7 @@ class NetworkConfigBuilder<T : Any>(
             discoveryProviders = containers.mapNotNull { it.discoveryProvider },
             advertisers = containers.mapNotNull { it.advertiser },
             authenticator = authenticator,
+            trustStore = trustStore,
             authMethods = authMethods,
             crypto = crypto,
             policy = policy,

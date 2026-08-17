@@ -6,6 +6,7 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 
 /**
@@ -14,6 +15,7 @@ import java.security.MessageDigest
  */
 class PrologueBound(private val tampered: Boolean = false) : AuthMethod {
     override val id = AuthMethodId("prologue-bound")
+    override val strength = AuthStrength.UserCompared
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
         io.exchange(ByteArray(0))

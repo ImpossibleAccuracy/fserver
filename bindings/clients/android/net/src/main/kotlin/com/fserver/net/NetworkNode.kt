@@ -11,7 +11,7 @@ import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.discovery.PeerDiscoveryImpl
 import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.auth.TransportConfirmationAuthMethod
+import com.fserver.net.security.impl.TransportConfirmationAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,6 +62,9 @@ class NetworkNode<M : Any> private constructor(
         }
         require(old.crypto === new.crypto) {
             "crypto provider cannot change at runtime - close() this node and create() a new one"
+        }
+        require(old.trustStore === new.trustStore) {
+            "trustStore cannot change at runtime - close() this node and create() a new one"
         }
 
         configHolder.reload(fillConfig(new))
@@ -147,13 +150,17 @@ private fun <M : Any> fillConfig(config: NetworkConfig<M>): NetworkConfig<M> {
         config.logger.warn("NetworkNode built without a PeerAuthenticator - every peer will be trusted")
     }
 
+    if (config.trustStore == null) {
+        config.logger.warn("NetworkNode built without a PeerTrustStore - every connection asks the user again")
+    }
+
     if (!config.crypto.suite.isEncrypting) {
         config.logger.warn("crypto suite '${config.crypto.suite.name}' does not encrypt - frames go out in the clear")
     }
 
     val authMethods = config.authMethods
         .filterNot { it.id == AuthMethodId.TransportConfirmation }
-        .plus(TransportConfirmationAuthMethod(config.authenticator))
+        .plus(TransportConfirmationAuthMethod())
 
     return config.copy(authMethods = authMethods)
 }

@@ -1,8 +1,13 @@
-package com.fserver.net.security.auth
+package com.fserver.net.security.impl
 
 import com.fserver.net.NetworkException
-import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.AuthContext
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.identity.PeerIdentityCodec
+import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 
 /**
@@ -10,10 +15,11 @@ import java.security.MessageDigest
  * derived a short string from that key exchange (e.g. Nearby's digits).
  */
 class TransportConfirmationAuthMethod(
-    private val authenticator: PeerAuthenticator?,
     override val id: AuthMethodId = AuthMethodId.TransportConfirmation,
 ) : AuthMethod {
     override val requiresChannelSecurity: Boolean = true
+
+    override val strength: AuthStrength = AuthStrength.ChannelBound
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
         val code = context.confirmationCode
@@ -23,10 +29,7 @@ class TransportConfirmationAuthMethod(
             io.exchange(PeerIdentityCodec.encode(context.local))
         )
 
-        val verdict = authenticator?.verify(peer, code) ?: PeerAuthenticator.Decision.Trust
-        if (verdict is PeerAuthenticator.Decision.Reject) {
-            throw NetworkException.AuthenticationRejected(verdict.reason)
-        }
+        context.trust.check(peer, code)
 
         // Comparing digits is a person's work, so it happens between two auth frames - the peer
         // waits on the auth deadline, not the much shorter handshake one.

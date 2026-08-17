@@ -140,7 +140,7 @@ class SessionTest {
         val alice = node("alice")
         val bob = node(
             "bob",
-            authenticator = { _, _ -> PeerAuthenticator.Decision.Reject("unknown device") })
+            authenticator = { PeerAuthenticator.Decision.Reject("unknown device") })
 
         acceptEverything(bob)
 
@@ -202,7 +202,7 @@ class SessionTest {
             identityStore = EphemeralIdentityStore(displayName = name),
             transports = listOf(network.transport(name)),
             authenticator = authenticator,
-            authMethods = listOf(TestingAuthMethod(authenticator = authenticator)),
+            authMethods = listOf(TestingAuthMethod()),
             policy = policy,
             scope = scope,
         )

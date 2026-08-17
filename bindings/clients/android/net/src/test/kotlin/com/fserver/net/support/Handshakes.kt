@@ -12,10 +12,11 @@ import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.auth.TransportConfirmationAuthMethod
+import com.fserver.net.security.impl.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
+import com.fserver.net.security.trust.PeerTrustStore
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
@@ -44,15 +45,18 @@ internal fun negotiator(
     authMethods: List<AuthMethod>? = null,
     identityStore: EphemeralIdentityStore = EphemeralIdentityStore(displayName = name),
     crypto: CryptoProvider = PassthroughCryptoProvider,
+    trustStore: PeerTrustStore? = null,
 ): HandshakeNegotiator = HandshakeNegotiator(
     configHolder = NetworkConfigHolder(
         NetworkConfig(
             dictionary = dictionary,
             identityStore = identityStore,
-            authMethods = authMethods?.plus(TestingAuthMethod(crypto, authenticator)) ?: listOf(
-                TransportConfirmationAuthMethod(authenticator),
-                TestingAuthMethod(crypto, authenticator),
+            authMethods = authMethods?.plus(TestingAuthMethod(crypto)) ?: listOf(
+                TransportConfirmationAuthMethod(),
+                TestingAuthMethod(crypto),
             ),
+            authenticator = authenticator,
+            trustStore = trustStore,
             crypto = crypto,
             protocolVersions = versions,
         ),

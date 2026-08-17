@@ -1,7 +1,6 @@
 package com.fserver.net.security.auth.sas
 
 import com.fserver.net.NetworkException
-import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
@@ -9,6 +8,7 @@ import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.shared.AuthHelper
 import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.ByteWriter
 import dev.whyoleg.cryptography.BinarySize.Companion.bytes
@@ -28,16 +28,13 @@ import java.security.SecureRandom
  */
 class SasAuthMethod(
     private val crypto: CryptoProvider,
-    private val authenticator: PeerAuthenticator?,
     private val confirmationCodeLength: Int = 8,
 ) : AuthMethod {
     override val id: AuthMethodId = ID
 
-    init {
-        requireNotNull(authenticator) {
-            "SAS authentication requires a PeerAuthenticator to verify the short code. Disable SAS or provide a PeerAuthenticator to use this method."
-        }
+    override val strength: AuthStrength = AuthStrength.UserCompared
 
+    init {
         require(confirmationCodeLength in 4..16) {
             "confirmationCodeLength must be between 4 and 16, inclusive"
         }
@@ -93,15 +90,14 @@ class SasAuthMethod(
             transcript = transcript,
         )
 
-        val verdict = authenticator!!.verify(peer, sas)
-        if (verdict is PeerAuthenticator.Decision.Reject) {
-            throw NetworkException.AuthenticationRejected(verdict.reason)
-        }
+        // Confirm that both sides saw the same SAS code
+        context.trust.check(peer, sas)
 
         if (!aead.open(io.exchange(aead.seal(CONFIRMED))).contentEquals(CONFIRMED)) {
             throw NetworkException.AuthenticationRejected("peer did not confirm SAS")
         }
 
+        // Everything OK - return findings
         return AuthOutcome(
             sharedSecret = AuthHelper.deriveKey(
                 secretWithPrologue,

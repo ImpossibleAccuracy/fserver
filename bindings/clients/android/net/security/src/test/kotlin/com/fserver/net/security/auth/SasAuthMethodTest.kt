@@ -1,7 +1,7 @@
 package com.fserver.net.security.auth
 
 import com.fserver.net.NetworkException
-import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.trust.TrustCheck
 import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
@@ -29,7 +29,7 @@ import java.security.spec.ECGenParameterSpec
 
 class SasAuthMethodTest {
 
-    private val trustAll = PeerAuthenticator { _, _ -> PeerAuthenticator.Decision.Trust }
+    private val trustAll = TrustCheck { _, _ -> }
 
     @Test
     fun `both sides derive the same session key and resolve each other's identity`() = runTest {
@@ -39,14 +39,14 @@ class SasAuthMethodTest {
         val bob = TestPeer("bob")
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = alice
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -72,19 +72,16 @@ class SasAuthMethodTest {
         var bobSas: String? = null
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(
-                X25519CryptoProvider,
-                { _, code -> aliceSas = code; PeerAuthenticator.Decision.Trust }
-            ),
+            method = SasAuthMethod(X25519CryptoProvider),
+            trust = { _, code -> aliceSas = code },
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(
-                X25519CryptoProvider,
-                { _, code -> bobSas = code; PeerAuthenticator.Decision.Trust }),
+            method = SasAuthMethod(X25519CryptoProvider),
+            trust = { _, code -> bobSas = code },
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -106,18 +103,15 @@ class SasAuthMethodTest {
         var aliceSas: String? = null
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(
-                X25519CryptoProvider,
-                { _, code -> aliceSas = code; PeerAuthenticator.Decision.Trust },
-                confirmationCodeLength = 6,
-            ),
+            method = SasAuthMethod(X25519CryptoProvider, confirmationCodeLength = 6),
+            trust = { _, code -> aliceSas = code },
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll, confirmationCodeLength = 6),
+            method = SasAuthMethod(X25519CryptoProvider, confirmationCodeLength = 6),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -138,7 +132,7 @@ class SasAuthMethodTest {
         val adversary = launch { keySubstitutingAdversary(adversaryIo, prologue) }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
@@ -193,7 +187,7 @@ class SasAuthMethodTest {
         val events = mutableListOf<String>()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = object : HandshakeIo {
                 override suspend fun send(payload: ByteArray) {
                     events += "send"
@@ -210,7 +204,7 @@ class SasAuthMethodTest {
             peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -238,14 +232,14 @@ class SasAuthMethodTest {
         val mallory = TestPeer("mallory")
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = alice,
         )
         val malloryTowardAlice = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = malloryTowardAliceIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -253,7 +247,7 @@ class SasAuthMethodTest {
             claimed = bob.identity, // Mallory claiming to be Bob, signing with her own key
         )
         val malloryTowardBob = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = malloryTowardBobIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
@@ -261,7 +255,7 @@ class SasAuthMethodTest {
             claimed = alice.identity, // Mallory claiming to be Alice
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -297,33 +291,30 @@ class SasAuthMethodTest {
         var bobSas: String? = null
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(
-                X25519CryptoProvider,
-                { _, code -> aliceSas = code; PeerAuthenticator.Decision.Trust }),
+            method = SasAuthMethod(X25519CryptoProvider),
+            trust = { _, code -> aliceSas = code },
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = TestPeer("alice"),
         )
         val malloryTowardAlice = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = malloryTowardAliceIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
             peer = mallory,
         )
         val malloryTowardBob = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = malloryTowardBobIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = mallory,
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(
-                crypto = X25519CryptoProvider,
-                authenticator = { _, code -> bobSas = code; PeerAuthenticator.Decision.Trust }
-            ),
+            method = SasAuthMethod(crypto = X25519CryptoProvider),
+            trust = { _, code -> bobSas = code },
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -349,7 +340,7 @@ class SasAuthMethodTest {
         val bob = TestPeer("bob")
 
         val imposter = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -358,7 +349,7 @@ class SasAuthMethodTest {
         )
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
@@ -390,7 +381,7 @@ class SasAuthMethodTest {
         }
 
         val responderOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = RecordingIo(responderIo, responderSent),
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -404,21 +395,12 @@ class SasAuthMethodTest {
     }
 
     @Test
-    fun `construction fails without an authenticator`() {
-        assertTrue(
-            runCatching {
-                SasAuthMethod(X25519CryptoProvider, null)
-            }.exceptionOrNull() is IllegalArgumentException
-        )
-    }
-
-    @Test
     fun `construction fails on a degenerate confirmation code length`() {
         for (length in intArrayOf(-1, 0, 3, 17)) {
             assertTrue(
                 "length $length must be rejected",
                 runCatching {
-                    SasAuthMethod(X25519CryptoProvider, trustAll, confirmationCodeLength = length)
+                    SasAuthMethod(X25519CryptoProvider, confirmationCodeLength = length)
                 }.exceptionOrNull() is IllegalArgumentException
             )
         }
@@ -439,7 +421,7 @@ class SasAuthMethodTest {
         }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
@@ -456,14 +438,14 @@ class SasAuthMethodTest {
         val (aliceIo, bobIo) = pairedIo()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = "alice-saw-this".encodeToByteArray(),
             peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = "bob-saw-this".encodeToByteArray(),
@@ -484,7 +466,7 @@ class SasAuthMethodTest {
         // Bob trusts and then waits for a confirmation that never comes - cancelled at the end.
         val bobJob = launch {
             runCatching {
-                SasAuthMethod(X25519CryptoProvider, trustAll).run(
+                SasAuthMethod(X25519CryptoProvider).run(
                     io = bobIo,
                     context = AuthContext(
                         role = CryptoProvider.Role.Responder,
@@ -493,15 +475,15 @@ class SasAuthMethodTest {
                         confirmationCode = null,
                         local = bob.identity,
                         sign = { bob.sign(it) },
+                        trust = trustAll,
                     )
                 )
             }
         }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(
-                X25519CryptoProvider,
-                { _, _ -> PeerAuthenticator.Decision.Reject("codes did not match") }),
+            method = SasAuthMethod(X25519CryptoProvider),
+            trust = { _, _ -> throw NetworkException.AuthenticationRejected("codes did not match") },
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
@@ -524,14 +506,14 @@ class SasAuthMethodTest {
         val sent = mutableListOf<ByteArray>()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = RecordingIo(aliceIo, sent),
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = TestPeer(canary),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -558,14 +540,14 @@ class SasAuthMethodTest {
         val aliceSent = mutableListOf<ByteArray>()
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = RecordingIo(aliceIo, aliceSent),
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,
             peer = TestPeer("alice"),
         )
         val bobOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = bobIo,
             role = CryptoProvider.Role.Responder,
             prologue = prologue,
@@ -590,6 +572,7 @@ class SasAuthMethodTest {
         prologue: ByteArray,
         peer: TestPeer,
         claimed: LocalIdentity = peer.identity,
+        trust: TrustCheck = trustAll,
     ): Deferred<Result<AuthOutcome>> = async {
         runCatching {
             method.run(
@@ -601,6 +584,7 @@ class SasAuthMethodTest {
                     confirmationCode = null,
                     local = claimed,
                     sign = { peer.sign(it) },
+                    trust = trust,
                 )
             )
         }
@@ -640,7 +624,7 @@ class SasAuthMethodTest {
         }
 
         val aliceOutcome = runSide(
-            method = SasAuthMethod(X25519CryptoProvider, trustAll),
+            method = SasAuthMethod(X25519CryptoProvider),
             io = aliceIo,
             role = CryptoProvider.Role.Initiator,
             prologue = prologue,

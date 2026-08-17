@@ -1,6 +1,6 @@
 package com.fserver.net.security
 
-import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.security.trust.TrustPrompt
 
 /**
  * The trust gate. Only the host can run it - it is the one holding a screen on which a user can
@@ -10,7 +10,7 @@ import com.fserver.net.security.identity.PeerIdentity
  * which is fine for a test rig and wrong for a shipping client.
  */
 fun interface PeerAuthenticator {
-    suspend fun verify(candidate: PeerIdentity, confirmationCode: String?): Decision
+    suspend fun verify(prompt: TrustPrompt): Decision
 
     sealed interface Decision {
         data object Trust : Decision

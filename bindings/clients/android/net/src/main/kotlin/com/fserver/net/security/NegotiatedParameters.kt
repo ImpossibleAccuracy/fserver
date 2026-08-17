@@ -15,4 +15,6 @@ data class NegotiatedParameters(
     val peerDescriptor: PeerDescriptor,
     /** Which method authenticated this session. */
     val authMethodId: AuthMethodId,
+    /** Whether [peer]'s key was already pinned, so the user was not asked about it again. */
+    val peerWasKnown: Boolean = false,
 )

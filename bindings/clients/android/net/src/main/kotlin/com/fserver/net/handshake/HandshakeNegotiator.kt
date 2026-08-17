@@ -15,6 +15,7 @@ import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.crypto.CryptoProvider
+import com.fserver.net.security.trust.TrustGate
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteReader
@@ -55,6 +56,7 @@ internal class HandshakeNegotiator(
     private val authPhase = AuthPhase(configHolder)
     private val publicPhase = PublicPhase(configHolder, authPhase)
     private val sealedPhase = SealedPhase(configHolder)
+    private val trustGate = TrustGate(configHolder)
 
     /**
      * The public half alone. Asks nothing of the user on either end, leaves no state behind, and
@@ -152,6 +154,7 @@ internal class HandshakeNegotiator(
         policy: ConnectionPolicy,
     ): SessionLink {
         val identity = config.identityStore.local()
+        val trust = trustGate.open(method)
 
         val outcome = authPhase.run(
             identity = identity,
@@ -163,6 +166,7 @@ internal class HandshakeNegotiator(
             confirmationCode = confirmationCode,
             policy = policy,
             firstIncoming = firstAuthPayload,
+            trust = trust,
         )
 
         val secure = SecureChannel(
@@ -187,6 +191,9 @@ internal class HandshakeNegotiator(
         )
         sealedPhase.confirmReady(sealed, role, policy)
 
+        // Commit only after dictionary confirmation
+        trust.commit(peerDescriptor)
+
         return SessionLink(
             secure = secure,
             negotiated = NegotiatedParameters(
@@ -197,6 +204,7 @@ internal class HandshakeNegotiator(
                 peer = outcome.peer,
                 peerDescriptor = peerDescriptor,
                 authMethodId = method.id,
+                peerWasKnown = trust.wasKnown,
             ),
         )
     }

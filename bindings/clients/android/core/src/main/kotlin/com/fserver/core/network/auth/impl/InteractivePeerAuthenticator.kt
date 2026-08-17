@@ -2,8 +2,7 @@ package com.fserver.core.network.auth.impl
 
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.net.security.PeerAuthenticator
-import com.fserver.net.security.PeerAuthenticator.Decision
-import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.security.trust.TrustPrompt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,13 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Э9 scaffold: gates every peer on an explicit user comparison instead of trusting on sight.
- * No real PAKE yet - the code compared is whatever the [AuthMethod][com.fserver.net.security.auth.AuthMethod]
- * derived (a fingerprint for confirm-dh, digits for Nearby's SAS) - but this is the first thing
- * that actually asks, rather than defaulting every verdict to [Decision.Trust].
- *
- * One comparison in flight at a time: a second peer knocking mid-comparison queues behind [lock]
- * rather than clobbering [pending].
+ * Implementation of [PeerAuthenticator] that requires user interaction to verify a peer.
  */
 internal class InteractivePeerAuthenticator : PeerAuthenticator {
     private val lock = Mutex()
@@ -27,14 +20,13 @@ internal class InteractivePeerAuthenticator : PeerAuthenticator {
     private var answer: CompletableDeferred<Boolean>? = null
 
     override suspend fun verify(
-        candidate: PeerIdentity,
-        confirmationCode: String?,
+        prompt: TrustPrompt,
     ): PeerAuthenticator.Decision = lock.withLock {
         val deferred = CompletableDeferred<Boolean>()
         answer = deferred
         _pending.value = PendingConfirmation(
-            deviceId = candidate.deviceId,
-            codeGroups = confirmationCode?.let {
+            deviceId = prompt.candidate.deviceId,
+            codeGroups = prompt.confirmationCode?.let {
                 val trimmed = it.trim().replace(" ", "")
                 if (trimmed.length < GroupSize * 2) listOf(trimmed)
                 else trimmed.chunked(GroupSize)

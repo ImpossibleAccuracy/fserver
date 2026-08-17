@@ -7,6 +7,7 @@ import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.discovery.PeerAttributes
 import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.Advertiser
@@ -289,7 +290,7 @@ class ConfigReloadTest {
 
     /** Installed but switched off - what the handshake checks and a reload has to check too. */
     private class Disabled(private val delegate: AuthMethod) : AuthMethod by delegate {
-        override val isEnabled: Boolean = false
+        override val id: AuthMethodId = AuthMethodId("disabled-${delegate.id.value}")
     }
 
     /** Counts what a reload does to a transport, and otherwise is the transport. */

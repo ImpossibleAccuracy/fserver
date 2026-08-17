@@ -92,13 +92,11 @@ internal class NetworkController(
         when (method) {
             OfferedAuthMethod.ConfirmFingerprint -> SasAuthMethod(
                 crypto = crypto,
-                authenticator = authenticator,
                 confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
             )
 
             is OfferedAuthMethod.Password -> PakeAuthMethod(
                 crypto = crypto,
-                authenticator = authenticator,
                 loadSavedPassword = { method.password },
             )
         }

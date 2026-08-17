@@ -13,6 +13,7 @@ import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.offeredMethods
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
+import com.fserver.net.security.trust.TrustGate
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteWriter
 import com.fserver.net.wire.FrameKind
@@ -64,6 +65,7 @@ internal class AuthPhase(
         confirmationCode: String?,
         policy: ConnectionPolicy,
         firstIncoming: ByteArray?,
+        trust: TrustGate.Session,
     ): AuthOutcome {
         val io = AuthIo(
             wire = wire,
@@ -80,8 +82,14 @@ internal class AuthPhase(
             confirmationCode = confirmationCode,
             local = identity,
             sign = config.identityStore::sign,
+            trust = trust,
         )
-        return wire.guarded { method.run(io, context) }
+        return wire.guarded {
+            val outcome = method.run(io, context)
+            // Confirm auth called `check` on returned peer
+            trust.ensureChecked(outcome.peer)
+            outcome
+        }
     }
 
     /** Carries `AUTH` payloads for one method run, and stops it running forever. */

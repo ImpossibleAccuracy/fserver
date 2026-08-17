@@ -3,6 +3,8 @@ package com.fserver.net.security.auth
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.security.trust.AuthStrength
+import com.fserver.net.security.trust.TrustCheck
 
 /**
  * One way of proving who is on the other end. The handshake owns the frames; a method owns the
@@ -15,7 +17,11 @@ import com.fserver.net.security.identity.PeerIdentity
 interface AuthMethod {
     val id: AuthMethodId
 
-    val isEnabled: Boolean get() = true
+    /**
+     * What clearing this method is worth. Pinned with the peer, so a later connection offering
+     * less is a downgrade the user gets told about rather than a quiet choice (§6.4).
+     */
+    val strength: AuthStrength
 
     /**
      * True when this method leans on protection the transport provides and means nothing without it.
@@ -48,6 +54,7 @@ interface HandshakeIo {
 }
 
 class AuthContext(
+    /** Current device role, initiator or responder. */
     val role: CryptoProvider.Role,
 
     /** The request the caller made, if any. */
@@ -72,6 +79,12 @@ class AuthContext(
 
     /** Signs with [local]'s identity key; a method uses it to prove possession of the claimed key. */
     val sign: suspend (ByteArray) -> ByteArray,
+
+    /**
+     * Where a proven peer is turned into a yes or a no.
+     * Call it once the peer's key is proven and before acting on it.
+     */
+    val trust: TrustCheck,
 )
 
 class AuthOutcome(
