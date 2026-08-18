@@ -7,29 +7,29 @@ import com.fserver.app.presentation.screens.settings.security.model.SecurityInte
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
-import com.fserver.core.store.AuthSettingsStore
-import com.fserver.core.store.DeviceIdentityStore
+import com.fserver.core.storage.AuthSettingsRepository
+import com.fserver.core.storage.DeviceIdentityRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * Visibility and confirmation methods.
  *
- * The peer-facing methods live in [AuthSettingsStore], which `:core` watches, so a toggle here
+ * The peer-facing methods live in [AuthSettingsRepository], which `:core` watches, so a toggle here
  * reaches the running node without a restart. Everything else is a local preference — see
  * [AppSettingsStore] for what is still only remembered.
  */
 class SecurityViewModel(
     private val appSettings: AppSettingsStore,
-    private val authSettings: AuthSettingsStore,
-    private val identityStore: DeviceIdentityStore,
+    private val authSettings: AuthSettingsRepository,
+    private val identity: DeviceIdentityRepository,
 ) : ViewModel() {
 
-    private val deviceName = MutableStateFlow("")
     private val lastMethodWarning = MutableStateFlow(false)
 
     val state: StateFlow<SecurityState> = combine(
@@ -41,7 +41,7 @@ class SecurityViewModel(
             appSettings.qrConnect,
             ::Triple,
         ),
-        deviceName,
+        identity.localDevice.map { it.displayName },
         lastMethodWarning,
     ) { offered, discoverable, (pin, biometric, qr), name, warning ->
         SecurityState(
@@ -59,10 +59,6 @@ class SecurityViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = SecurityState(),
     )
-
-    init {
-        viewModelScope.launch { deviceName.value = identityStore.localDevice.load().displayName }
-    }
 
     fun onIntent(intent: SecurityIntent) {
         when (intent) {
@@ -91,10 +87,7 @@ class SecurityViewModel(
                 authSettings.setEnabled(AuthMethod.Password, enabled = true)
             }
 
-            is SecurityIntent.DeviceRenamed -> launchUpdate {
-                identityStore.setDisplayName(intent.name)
-                deviceName.value = identityStore.localDevice.load().displayName
-            }
+            is SecurityIntent.DeviceRenamed -> launchUpdate { identity.setDisplayName(intent.name) }
 
             SecurityIntent.WarningDismissed -> lastMethodWarning.value = false
         }

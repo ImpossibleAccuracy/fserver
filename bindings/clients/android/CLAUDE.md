@@ -26,19 +26,34 @@ when doing code review).
 ## Module boundary (the one rule that matters)
 
 ```
-:app  (Android, Compose UI)  ──depends on──>  :core  (sync engine, protocol, crypto, local index)
+:app           ──depends on──>  :core          (sync engine, protocol, crypto, local index)
+:app           ──depends on──>  :core:storage  (default persistence backend)
+:core:storage  ──depends on──>  :core          (implements its store SPI; :core never depends back)
 ```
 
 - **`:core`** — Rust adapter module. Transport, discovery, sync/offload engine, crypto,local index.
-  **Ships as standalone library**; other UIs (other platforms) consume it.
+  **Ships as standalone library**; other UIs (other platforms) consume it. Touches no disk itself.
+- **`:core:storage`** — default persistence backend. Owns its own DataStore + SQLite, and the
+  schema in them. Separate artifact, so a host that must control where the bytes live can drop it.
 - **`:app`** — official Android client. UI + Android platform glue. Business logic belong in
   `:core`; urge to put sync/protocol logic in `:app` = signal `:core` interface missing something.
 
-**`:core` public surface = `FServerCore` + `FServerConfig` only.** Everything else `internal`. Core
-wires itself with Koin in a *private* `koinApplication` container — never the global `startKoin`
-context, and `coreModule` is not published. New capability = new property on `FServerCore`, not a
-new exported class or Koin definition. Host re-publishes what it needs (`app/di/CoreModule.kt`),
-so a UI on Hilt or hand-wiring works unchanged.
+**`:core` public surface = `FServerCore` + `FServerConfig` + the storage SPI under `store/`.**
+Everything else `internal`. Core wires itself with Koin in a *private* `koinApplication` container
+— never the global `startKoin` context, and `coreModule` is not published. New capability = new
+property on `FServerCore`, not a new exported class or Koin definition. Host re-publishes what it
+needs (`app/di/CoreModule.kt`), so a UI on Hilt or hand-wiring works unchanged.
+
+### Store ≠ repository
+
+A **store** (`core/store/`) is the SPI: the narrowest set of calls the engine itself makes, shaped
+for the engine. A **repository** (`:core:storage`) is UI-shaped and wider. They are deliberately
+disjoint types — the engine never lists trusted devices, the UI never upserts one.
+
+`:app` **never implements a store.** `@SubclassOptInRequired(FServerStorageApi::class)` on all four
+turns that into a compile error; `:core:storage` is the one module that opts in, module-wide. If
+you reach for `@OptIn` anywhere else, the repository you actually wanted is missing — add it to
+`:core:storage`. A screen that needs engine state injects a repository, never a `store/` type.
 
 Spec design constraints to keep in mind while writing `:core`:
 

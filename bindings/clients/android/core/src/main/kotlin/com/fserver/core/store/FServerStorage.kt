@@ -1,6 +1,12 @@
 package com.fserver.core.store
 
-/** The storage for the FServer host. */
+/**
+ * Everything the engine persists, handed in by the host.
+ *
+ * Deliberately assembly-only: it hands out the three stores and nothing else. Use
+ * `:core:storage` unless you are writing a storage backend - see [FServerStorageApi].
+ */
+@SubclassOptInRequired(FServerStorageApi::class)
 interface FServerStorage {
     val identity: DeviceIdentityStore
 

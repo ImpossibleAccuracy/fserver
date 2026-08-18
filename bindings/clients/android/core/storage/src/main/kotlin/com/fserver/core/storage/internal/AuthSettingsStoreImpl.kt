@@ -1,4 +1,4 @@
-package com.fserver.app.data.storage
+package com.fserver.core.storage.internal
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
+import com.fserver.core.storage.AuthSettingsRepository
 import com.fserver.core.store.AuthSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +19,7 @@ import kotlinx.coroutines.flow.stateIn
  * The offered set, persisted so a restart does not silently re-open a method the user closed.
  *
  * `NetworkController` reads `offeredMethods.value` while building the node, which is before the
- * first `DataStore` read lands — so the node starts on [DEFAULT_METHODS] and hot-swaps to the
+ * first `DataStore` read lands - so the node starts on [DEFAULT_METHODS] and hot-swaps to the
  * stored set on the first emission. That swap is the same one a settings toggle triggers.
  *
  * TODO: the server password is this device's long-lived secret and sits in plain preferences.
@@ -27,7 +28,7 @@ import kotlinx.coroutines.flow.stateIn
 internal class AuthSettingsStoreImpl(
     private val dataStore: DataStore<Preferences>,
     scope: CoroutineScope,
-) : AuthSettingsStore {
+) : AuthSettingsStore, AuthSettingsRepository {
 
     override val offeredMethods: StateFlow<List<OfferedAuthMethod>> = dataStore.data
         .map { it.toOfferedMethods() }
@@ -51,7 +52,7 @@ internal class AuthSettingsStoreImpl(
         val ENABLED = stringSetPreferencesKey("auth_offered_methods")
         val PASSWORD = stringPreferencesKey("auth_server_password")
 
-        // TODO: development only — a first run should ask for a password rather than ship one.
+        // TODO: development only - a first run should ask for a password rather than ship one.
         const val DEFAULT_PASSWORD = "ABCD"
         val DEFAULT_METHODS = setOf(AuthMethod.ConfirmFingerprint.name, AuthMethod.Password.name)
     }

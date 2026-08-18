@@ -1,0 +1,98 @@
+package com.fserver.core.storage
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
+import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.fserver.core.FServerConfig
+import com.fserver.core.storage.database.FServerStorageDatabase
+import com.fserver.core.storage.internal.AuthSettingsStoreImpl
+import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
+import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
+import com.fserver.core.store.AuthSettingsStore
+import com.fserver.core.store.DeviceIdentityStore
+import com.fserver.core.store.FServerStorage
+import com.fserver.core.store.TrustedDevicesStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+
+/**
+ * The default persistence backend for `:core`, and the only thing a host has to touch.
+ *
+ * Build one per process. It owns the files it writes - a preferences file and a SQLite database,
+ * both namespaced so they cannot collide with the host's own. Hand [coreConfig] to
+ * `FServerCore.create`, inject the three repositories into screens, and never name a
+ * `com.fserver.core.store` type: that package is the SPI a backend implements, not an API a UI
+ * calls. See `FServerStorageApi`.
+ *
+ * A host that must control where the bytes live implements [FServerStorage] itself instead of
+ * using this class - that is what the SPI is for.
+ */
+class FServerStorageProvider private constructor(
+    private val context: Context,
+    private val scope: CoroutineScope,
+) {
+    private val dataStore: DataStore<Preferences> by lazy {
+        PreferenceDataStoreFactory.create(scope = scope) {
+            context.preferencesDataStoreFile(PREFERENCES_NAME)
+        }
+    }
+
+    private val database: FServerStorageDatabase by lazy {
+        FServerStorageDatabase(
+            AndroidSqliteDriver(
+                schema = FServerStorageDatabase.Schema,
+                context = context,
+                name = DATABASE_NAME,
+            )
+        )
+    }
+
+    private val identityStore by lazy { DeviceIdentityStoreImpl(dataStore) }
+    private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
+    private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
+
+    val identity: DeviceIdentityRepository get() = identityStore
+
+    val auth: AuthSettingsRepository get() = authStore
+
+    val trustedDevices: TrustedDevicesRepository get() = trustStore
+
+    /**
+     * The `:core` config backed by this storage.
+     *
+     * @param backgroundScope forwarded to `FServerCore`; `null` lets the core own its own.
+     */
+    fun coreConfig(backgroundScope: CoroutineScope? = null) = FServerConfig(
+        context = context,
+        backgroundScope = backgroundScope,
+        storage = Storage(),
+    )
+
+    private inner class Storage : FServerStorage {
+        override val identity: DeviceIdentityStore get() = identityStore
+        override val auth: AuthSettingsStore get() = authStore
+        override val trust: TrustedDevicesStore get() = trustStore
+    }
+
+    companion object {
+        private const val PREFERENCES_NAME = "fserver_core"
+        private const val DATABASE_NAME = "fserver_core.db"
+
+        /**
+         * @param scope where `DataStore` and the settings `StateFlow` run. Lives as long as the
+         * provider does, so `null` means one is created and never cancelled - which is right for
+         * the usual process-wide singleton, and wrong for a test.
+         */
+        fun create(
+            context: Context,
+            scope: CoroutineScope? = null,
+        ) = FServerStorageProvider(
+            context = context.applicationContext,
+            scope = scope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        )
+    }
+}

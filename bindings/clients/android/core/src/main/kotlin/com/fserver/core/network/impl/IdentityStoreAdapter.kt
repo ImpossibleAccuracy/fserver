@@ -17,7 +17,7 @@ internal class IdentityStoreAdapter(
     private val publicKey by lazy { IdentitySignature.encodePublicKey(keys.public) }
 
     override suspend fun local(): LocalIdentity =
-        deviceIdentityStore.localDevice.load().toIdentity(publicKey)
+        deviceIdentityStore.localDevice().toIdentity(publicKey)
 
     override suspend fun sign(data: ByteArray): ByteArray = withContext(Dispatchers.IO) {
         Signature.getInstance("SHA256withECDSA").run {

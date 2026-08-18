@@ -6,7 +6,7 @@ import com.fserver.app.presentation.screens.settings.devices.model.DevicesState
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.TrustedDevice
-import com.fserver.core.store.TrustedDevicesStore
+import com.fserver.core.storage.TrustedDevicesRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -24,12 +24,12 @@ import kotlinx.coroutines.flow.stateIn
  */
 class DevicesViewModel(
     devicesRepository: DevicesRepository,
-    trustedDevicesStore: TrustedDevicesStore,
+    trustedDevices: TrustedDevicesRepository,
 ) : ViewModel() {
 
     val state: StateFlow<DevicesState> = combine(
         devicesRepository.onlineDevices,
-        trustedDevicesStore.devices,
+        trustedDevices.devices,
     ) { online, trusted ->
         val connected = online.filter(ForeignDevice::hasSession)
         val connectedIds = connected.mapTo(mutableSetOf()) { it.deviceId }

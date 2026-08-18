@@ -45,3 +45,9 @@ VALUES (?, ?, ?, ?, ?, ?);
 deleteByKey:
 DELETE FROM trustedDevice
 WHERE publicKey = ?;
+
+-- Forgetting a device means dropping every key it ever presented; leaving one behind would let it
+-- reconnect without a prompt. The trigger above takes its route with them.
+deleteByDeviceId:
+DELETE FROM trustedDevice
+WHERE deviceId = ?;

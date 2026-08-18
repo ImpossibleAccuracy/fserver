@@ -4,7 +4,7 @@ import com.fserver.net.dictionary.MessageCodec
 import com.fserver.net.dictionary.MessageDictionary
 import kotlinx.serialization.json.Json
 
-class FileServerDictionary : MessageDictionary<FileServerMessages> {
+internal class FileServerDictionary : MessageDictionary<FileServerMessages> {
     override val descriptor: MessageDictionary.Descriptor = MessageDictionary.Descriptor(
         id = "FServer",
         version = 1,

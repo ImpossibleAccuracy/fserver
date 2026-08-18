@@ -3,7 +3,7 @@ package com.fserver.core.network.dictionary
 import kotlinx.serialization.Serializable
 
 @Serializable
-sealed interface FileServerMessages {
+internal sealed interface FileServerMessages {
     sealed interface Request : FileServerMessages {
         @Serializable
         data class TransferRequest(

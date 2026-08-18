@@ -2,7 +2,7 @@ package com.fserver.app.presentation.screens.settings.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.SavedDevicesRepository
+import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.app.presentation.composable.model.labelRes
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
@@ -34,18 +34,18 @@ import java.time.Instant as JavaInstant
 class DeviceDetailsViewModel(
     private val key: Destination.Settings.DeviceDetails,
     private val devicesRepository: DevicesRepository,
-    private val savedDevicesRepository: SavedDevicesRepository,
+    private val trustedDevices: TrustedDevicesRepository,
 ) : ViewModel() {
 
     private val effects = Channel<DeviceDetailsUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
-    private val trustedKeys = savedDevicesRepository.devices
+    private val trustedKeys = trustedDevices.devices
         .map { records -> records.filter { it.deviceId == key.deviceId } }
 
     val state: StateFlow<DeviceDetailsState> = combine(
         devicesRepository.device(key.deviceId),
-        savedDevicesRepository.findKnownRoute(key.deviceId),
+        trustedDevices.findKnownRoute(key.deviceId),
         trustedKeys,
     ) { device, knownRoute, trusted ->
         val record = trusted.maxByOrNull { it.lastSeen }
@@ -75,7 +75,7 @@ class DeviceDetailsViewModel(
             }
 
             DeviceDetailsIntent.Reconnect -> viewModelScope.launch {
-                val route = savedDevicesRepository.findKnownRoute(key.deviceId).firstOrNull()
+                val route = trustedDevices.findKnownRoute(key.deviceId).firstOrNull()
                     ?: return@launch
 
                 val peer = route.asPeerLocator()
@@ -108,9 +108,7 @@ class DeviceDetailsViewModel(
 
     /** Trust first, then the session: a live link would otherwise re-record the key it just lost. */
     private suspend fun forget() {
-        savedDevicesRepository.findByDeviceId(key.deviceId).forEach { record ->
-            savedDevicesRepository.delete(record.publicKey)
-        }
+        trustedDevices.forget(key.deviceId)
         devicesRepository.disconnect(key.deviceId)
             .onFailure { Timber.w(it, "forgot ${key.deviceId} but could not close its session") }
 

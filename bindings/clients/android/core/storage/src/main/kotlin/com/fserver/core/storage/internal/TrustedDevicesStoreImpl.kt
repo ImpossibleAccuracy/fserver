@@ -1,24 +1,25 @@
-package com.fserver.app.data
+package com.fserver.core.storage.internal
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
-import com.fserver.app.database.FServerDatabase
-import com.fserver.app.domain.SavedDevicesRepository
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
-import com.fserver.core.network.TransportKind
+import com.fserver.core.storage.TrustedDevicesRepository
+import com.fserver.core.storage.database.FServerStorageDatabase
+import com.fserver.core.store.TrustedDevicesStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
-import com.fserver.app.database.KnownRoute as DBKnownRoute
-import com.fserver.app.database.TrustedDevice as DBTrustedDevice
+import com.fserver.core.storage.database.KnownRoute as DBKnownRoute
+import com.fserver.core.storage.database.TrustedDevice as DBTrustedDevice
 
-internal class SavedDevicesRepositoryImpl(
-    database: FServerDatabase,
-) : SavedDevicesRepository {
+internal class TrustedDevicesStoreImpl(
+    database: FServerStorageDatabase,
+) : TrustedDevicesStore, TrustedDevicesRepository {
     private val dao = database.trustedDeviceQueries
     private val routeDao = database.knownRouteQueries
 
@@ -74,8 +75,8 @@ internal class SavedDevicesRepositoryImpl(
             .map { it?.toDomainModel() }
 
     /** The trigger on `trustedDevice` drops the route once the device has no keys left. */
-    override suspend fun delete(publicKey: ByteArray) {
-        dao.deleteByKey(publicKey)
+    override suspend fun forget(deviceId: String) {
+        dao.deleteByDeviceId(deviceId)
     }
 }
 

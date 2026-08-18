@@ -28,7 +28,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "FServer"
 
-include(":core")
+include(
+    ":core",
+    ":core:storage",
+)
 include(
     ":net",
     ":net:security",

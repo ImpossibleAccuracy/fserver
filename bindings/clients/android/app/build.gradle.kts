@@ -4,15 +4,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.sqldelight)
-}
-
-sqldelight {
-    databases {
-        create("FServerDatabase") {
-            packageName.set("com.fserver.app.database")
-        }
-    }
 }
 
 android {
@@ -82,6 +73,10 @@ kotlin {
 dependencies {
     implementation(projects.core)
 
+    // Default persistence backend for `:core`. Swapping it out means implementing `FServerStorage`
+    // instead of depending on this - see `FServerStorageApi`.
+    implementation(projects.core.storage)
+
     // Android core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -118,11 +113,8 @@ dependencies {
     // Serialization — nav keys
     implementation(libs.kotlinx.serialization.json)
 
-    // Data storage
+    // Data storage - app-owned preferences only; engine state lives in `:core:storage`.
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.sqldelight.android.driver)
-    implementation(libs.sqldelight.coroutines.extensions)
-    implementation(libs.sqldelight.primitive.adapters)
 
     // IO
     implementation(libs.androidx.documentfile)

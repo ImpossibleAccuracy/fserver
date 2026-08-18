@@ -1,4 +1,4 @@
-package com.fserver.app.data
+package com.fserver.core.storage.internal
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties

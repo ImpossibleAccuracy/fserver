@@ -22,8 +22,11 @@ import org.koin.dsl.module
 /**
  * Entry point to `:core`. Build one per process, keep it, [close] it when the host dies.
  *
- * This is the module's whole public surface: every consumer - this app, another Android UI,
+ * This is the module's whole runtime surface: every consumer - this app, another Android UI,
  * instrumentation test - reaches the engine through here and never touches an implementation class.
+ * The only other thing `:core` publishes is the storage SPI under `store/`, which a backend
+ * implements and a UI never calls - see [com.fserver.core.store.FServerStorageApi].
+ *
  * `:core` wires itself with Koin, but in a **private** [Koin] instance created by
  * [koinApplication], not the global `startKoin` context.
  *

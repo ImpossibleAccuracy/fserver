@@ -9,7 +9,7 @@ import com.fserver.net.security.trust.TrustRecord
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-class TrustStoreAdapter(
+internal class TrustStoreAdapter(
     private val trustedDevicesStore: TrustedDevicesStore,
 ) : PeerTrustStore {
     override suspend fun find(publicKey: ByteArray): TrustRecord? =

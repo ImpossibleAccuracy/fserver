@@ -15,7 +15,6 @@
 - This module is a complete piece of crap, too many useless classes, too much trivial
   mappings/proxying. Need to find a way to relieve it, at least partially;
 - It is necessary to decide on a spot where all incoming connections will be processed;
-- Current store/storage interfaces are uncomfortable to use, need investigate;
 - Add actual network info collector;
 
 ## Net

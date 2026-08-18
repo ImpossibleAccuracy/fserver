@@ -3,7 +3,7 @@ package com.fserver.app.presentation.di
 import android.content.Context
 import com.fserver.app.di.coreModule
 import com.fserver.app.di.dataModule
-import com.fserver.app.di.databaseModule
+import com.fserver.app.di.domainModule
 import com.fserver.app.di.presentationModule
 import com.fserver.app.presentation.model.Destination
 import org.junit.Test
@@ -23,9 +23,6 @@ class PresentationModuleTest {
      * That is the app's own bridge module: `:core` wires itself in a private container, so its
      * internals are not part of this graph and nothing here can check them.
      *
-     * `databaseModule` is in because `dataModule`'s storage is built on the database; without it
-     * the check stops at that seam instead of reaching the ViewModels it is here for.
-     *
      * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
      * `androidContext()` at start-up, and the `Destination` keys are the nav keys their ViewModels
      * take from `parametersOf`.
@@ -34,7 +31,7 @@ class PresentationModuleTest {
     @Test
     fun `every screen's dependencies can be resolved`() {
         module {
-            includes(dataModule, databaseModule, presentationModule, coreModule)
+            includes(dataModule, domainModule, presentationModule, coreModule)
         }.verify(
             extraTypes = listOf(
                 String::class,

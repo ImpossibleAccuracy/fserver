@@ -79,8 +79,18 @@
       Google's sample caps these at API 28 / 31. Not capped here: BLE scanning stops needing them,
       but reading the network's name (SSID/BSSID) stays location-gated on every API level - see
       networkInfoRequirementRules.
+
+      `tools:remove` is what makes that stick. :net:transport:android declares the same two with
+      maxSdkVersion 28 / 32 - right for Nearby, which is all that module does - and the merger
+      copies an attribute onto a node that does not carry one. Left alone, COARSE would silently
+      stop being requested above API 28, which on API 31+ also breaks FINE: the platform grants it
+      only alongside COARSE.
     -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:remove="android:maxSdkVersion" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        tools:remove="android:maxSdkVersion" />
 
 </manifest>
