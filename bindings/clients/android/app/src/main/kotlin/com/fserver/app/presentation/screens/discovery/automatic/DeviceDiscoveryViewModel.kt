@@ -2,14 +2,14 @@ package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.composable.model.searchableDetectionMethods
+import com.fserver.app.presentation.composable.model.searchableTransportKinds
 import com.fserver.app.presentation.composable.model.toCardUi
 import com.fserver.app.presentation.composable.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
@@ -40,9 +40,9 @@ class DeviceDiscoveryViewModel(
     private val devicesRepository: DevicesRepository,
     private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
-    private val selected = MutableStateFlow<Set<DetectionMethod>>(emptySet())
-    private val openSetup = MutableStateFlow<DetectionMethod?>(null)
-    private val reports = MutableStateFlow<Map<DetectionMethod, RequirementReport>>(emptyMap())
+    private val selected = MutableStateFlow<Set<TransportKind>>(emptySet())
+    private val openSetup = MutableStateFlow<TransportKind?>(null)
+    private val reports = MutableStateFlow<Map<TransportKind, RequirementReport>>(emptyMap())
     private val networkNamed = MutableStateFlow(false)
 
     /**
@@ -55,10 +55,10 @@ class DeviceDiscoveryViewModel(
     private val searchStarted = MutableStateFlow(false)
 
     /** Methods started at least once in this search — the ones offered a retry when they end. */
-    private val startedMethods = MutableStateFlow<Set<DetectionMethod>>(emptySet())
+    private val startedMethods = MutableStateFlow<Set<TransportKind>>(emptySet())
 
     /** One job per running method, so a single method can be stopped or restarted on its own. */
-    private val scanJobs = mutableMapOf<DetectionMethod, Job>()
+    private val scanJobs = mutableMapOf<TransportKind, Job>()
 
     private val networkCard = combine(
         networkInfoRepository.networkInfo,
@@ -83,7 +83,7 @@ class DeviceDiscoveryViewModel(
     ) { devices, running, (selectedMethods, started), reportByMethod ->
         val foundByMethod = devices.groupingBy { it.foundBy }.eachCount()
 
-        searchableDetectionMethods.map { method ->
+        searchableTransportKinds.map { method ->
             val report = reportByMethod[method]
             DeviceDiscoveryState.MethodUi(
                 method = method,
@@ -167,7 +167,7 @@ class DeviceDiscoveryViewModel(
         }
     }
 
-    private fun toggle(method: DetectionMethod) {
+    private fun toggle(method: TransportKind) {
         val nowSelected = method !in selected.value
         selected.update { if (nowSelected) it + method else it - method }
 
@@ -182,7 +182,7 @@ class DeviceDiscoveryViewModel(
     private fun checkRequirements() {
         viewModelScope.launch {
             val next =
-                searchableDetectionMethods.associateWith { requirementsChecker.forDetection(it) }
+                searchableTransportKinds.associateWith { requirementsChecker.forTransport(it) }
             val wasReady = reports.value.filterValues { it.isSatisfied }.keys
             val isReady = next.filterValues { it.isSatisfied }.keys
 
@@ -199,7 +199,7 @@ class DeviceDiscoveryViewModel(
         }
     }
 
-    private fun startSearch(methods: Set<DetectionMethod>) {
+    private fun startSearch(methods: Set<TransportKind>) {
         methods.forEach { method ->
             if (scanJobs[method]?.isActive == true) return@forEach
 

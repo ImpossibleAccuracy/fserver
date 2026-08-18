@@ -37,7 +37,7 @@ import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 
 /**
  * Screen 03 — one method and what it is still waiting on.
@@ -46,7 +46,7 @@ import com.fserver.core.network.info.DetectionMethod
  * already granted would be reassurance rather than information.
  */
 @Composable
-fun DetectionMethodSheet(
+fun TransportKindSheet(
     modifier: Modifier = Modifier,
     setup: DeviceDiscoveryState.MethodSetupUi,
     resolver: RequirementResolver?,
@@ -165,12 +165,12 @@ private fun RequirementRow(
 @SuppressLint("InlinedApi")
 @Preview(showBackground = true, widthDp = 360)
 @Composable
-private fun DetectionMethodSheetPreview() {
+private fun TransportKindSheetPreview() {
     FServerTheme {
         DkSurfacePreview {
-            DetectionMethodSheet(
+            TransportKindSheet(
                 setup = DeviceDiscoveryState.MethodSetupUi(
-                    method = DetectionMethod.Automatic.NearbyConnections,
+                    method = TransportKind.NearbyConnections,
                     solvable = listOf(
                         RequirementRowUi(
                             R.string.requirement_permission_nearby_devices_title,
@@ -190,12 +190,12 @@ private fun DetectionMethodSheetPreview() {
 
 @Preview(name = "Blocked", showBackground = true, widthDp = 360)
 @Composable
-private fun DetectionMethodSheetBlockedPreview() {
+private fun TransportKindSheetBlockedPreview() {
     FServerTheme {
         DkSurfacePreview {
-            DetectionMethodSheet(
+            TransportKindSheet(
                 setup = DeviceDiscoveryState.MethodSetupUi(
-                    method = DetectionMethod.Automatic.MulticastDns,
+                    method = TransportKind.MulticastDns,
                     solvable = emptyList(),
                     blockers = listOf(
                         RequirementRowUi(

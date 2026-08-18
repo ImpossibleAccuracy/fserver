@@ -6,7 +6,7 @@ import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.PendingConfirmation
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.coroutines.flow.Flow
 
@@ -21,10 +21,10 @@ interface DevicesRepository {
      * once, they finish at wildly different times, and the UI has to say which one the
      * user is still waiting on.
      */
-    val runningScanningMethods: Flow<Set<DetectionMethod>>
+    val runningScanningMethods: Flow<Set<TransportKind>>
 
     /** Methods this device is currently announcing itself over. */
-    val advertisingMethods: Flow<Set<DetectionMethod.Automatic>>
+    val advertisingMethods: Flow<Set<TransportKind.Automatic>>
 
     /**
      * Incoming connection requests, updated as they arrive and are accepted or rejected.
@@ -55,7 +55,7 @@ interface DevicesRepository {
      * May be long-running and/or never complete, depending on the request.
      */
     @Throws(DetectionFailedException::class)
-    suspend fun startDetection(request: DetectionMethod): Result<Unit>
+    suspend fun startDetection(request: TransportKind): Result<Unit>
 
     /**
      * The public greeting for the device behind [arguments] - versions and offered methods,
@@ -86,10 +86,10 @@ interface DevicesRepository {
      * everything installed would fail on whatever the user was never asked about.
      */
     @Throws(DetectionFailedException::class)
-    suspend fun startAdvertising(method: DetectionMethod.Automatic): Result<Unit>
+    suspend fun startAdvertising(method: TransportKind.Automatic): Result<Unit>
 
     /** Takes [method] off the air. Returns once it is actually stopped. */
-    suspend fun stopAdvertising(method: DetectionMethod.Automatic)
+    suspend fun stopAdvertising(method: TransportKind.Automatic)
 
     /** Takes every method off the air. */
     suspend fun stopAdvertising()

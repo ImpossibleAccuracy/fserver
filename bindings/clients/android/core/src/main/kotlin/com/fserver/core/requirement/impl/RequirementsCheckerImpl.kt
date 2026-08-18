@@ -8,7 +8,7 @@ import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.requirement.Requirement
@@ -32,13 +32,13 @@ internal class RequirementsCheckerImpl(
 ) : RequirementsChecker {
     private val context: Context = context.applicationContext
 
-    override suspend fun forDetection(method: DetectionMethod): RequirementReport {
+    override suspend fun forTransport(method: TransportKind): RequirementReport {
         val rules = detectionRequirementRules(method, Build.VERSION.SDK_INT)
 
-        val network = if (rules.networkCapabilities.isEmpty()) {
-            NetworkSnapshot.Unknown
-        } else {
+        val network = if (rules.needsNetwork) {
             NetworkSnapshot.Known(readNetwork())
+        } else {
+            NetworkSnapshot.Unknown
         }
 
         return resolve(rules = rules, network = network)
@@ -95,7 +95,7 @@ internal class RequirementsCheckerImpl(
         }
 
         // Is the transport sufficient to satisfy the rules?
-        val transportSuffices = rules.networkCapabilities.isNotEmpty() &&
+        val transportSuffices = rules.needsNetwork &&
                 network is NetworkSnapshot.Known &&
                 network.value != null &&
                 missingNetworkRequirements.isEmpty()

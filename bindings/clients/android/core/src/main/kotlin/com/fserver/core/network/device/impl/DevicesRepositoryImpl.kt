@@ -16,9 +16,9 @@ import com.fserver.core.network.device.model.ForeignDevice.Handshake
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.SpiRegistry
-import com.fserver.core.network.impl.asDetectionMethod
+import com.fserver.core.network.impl.asTransportKind
 import com.fserver.core.network.impl.spiId
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
@@ -70,7 +70,7 @@ internal class DevicesRepositoryImpl(
                     .plus(peer?.routes ?: emptyList())
                     .distinctBy { it.transport }
                     .map { it.toDomain() },
-                foundBy = session.route.transport.asDetectionMethod(),
+                foundBy = session.route.transport.asTransportKind(),
                 lastSeen = Instant.now(),
                 handshake = handshake?.let { it.identity.toDomain(it.negotiated) },
                 hasSession = true,
@@ -86,7 +86,7 @@ internal class DevicesRepositoryImpl(
                 displayName = profile.negotiated.peerDescriptor.displayName,
                 kind = DeviceKind.fromSerialized(profile.negotiated.peerDescriptor.kind),
                 routes = listOf(profile.route.toDomain()),
-                foundBy = foundBy.asDetectionMethod(),
+                foundBy = foundBy.asTransportKind(),
                 lastSeen = Instant.now(),
                 handshake = profile.identity.toDomain(profile.negotiated),
                 hasSession = false,
@@ -99,7 +99,7 @@ internal class DevicesRepositoryImpl(
                 displayName = peer.advertised.displayName,
                 kind = DeviceKind.fromSerialized(peer.advertised.kind),
                 routes = peer.routes.map { it.toDomain() },
-                foundBy = peer.routes.first().transport.asDetectionMethod(),
+                foundBy = peer.routes.first().transport.asTransportKind(),
                 lastSeen = peer.lastSeen,
                 handshake = null,
                 hasSession = false,
@@ -109,20 +109,20 @@ internal class DevicesRepositoryImpl(
         result
     }
 
-    override val runningScanningMethods: Flow<Set<DetectionMethod>> =
+    override val runningScanningMethods: Flow<Set<TransportKind>> =
         network.peerDiscovery.activeScans.map { spiId ->
             spiId
                 .mapNotNull { id ->
-                    DetectionMethod.entries
-                        .filterIsInstance<DetectionMethod.Automatic>()
+                    TransportKind.entries
+                        .filterIsInstance<TransportKind.Automatic>()
                         .find { it.spiId == id }
                 }
                 .toSet()
         }
 
-    override val advertisingMethods: Flow<Set<DetectionMethod.Automatic>> =
+    override val advertisingMethods: Flow<Set<TransportKind.Automatic>> =
         network.peerDiscovery.activeAdvertisers.map { ids ->
-            ids.mapNotNullTo(mutableSetOf()) { it.asDetectionMethod() as? DetectionMethod.Automatic }
+            ids.mapNotNullTo(mutableSetOf()) { it.asTransportKind() as? TransportKind.Automatic }
         }
     override val incoming: Flow<IncomingConnection>
         get() = network.incomingConnections.incoming.map { IncomingConnectionWrapper(it) }
@@ -141,9 +141,9 @@ internal class DevicesRepositoryImpl(
         network.incomingConnections.session(deviceId)?.close(CloseReason.Normal)
     }
 
-    override suspend fun startDetection(request: DetectionMethod): Result<Unit> = runBackgroundJob {
+    override suspend fun startDetection(request: TransportKind): Result<Unit> = runBackgroundJob {
         // Check before the scanning
-        val requirements = requirementsChecker.forDetection(request)
+        val requirements = requirementsChecker.forTransport(request)
         if (!requirements.isSatisfied) {
             throw RequirementsNotMetException(requirements)
         }
@@ -154,11 +154,11 @@ internal class DevicesRepositoryImpl(
     }
 
     override suspend fun startAdvertising(
-        method: DetectionMethod.Automatic
+        method: TransportKind.Automatic
     ): Result<Unit> = runBackgroundJob {
         // Same gate as detection: the radios an advertiser drives are the ones a scan listens on,
         // so it is the same permissions that decide whether it can start at all.
-        val requirements = requirementsChecker.forDetection(method)
+        val requirements = requirementsChecker.forTransport(method)
         if (!requirements.isSatisfied) {
             throw RequirementsNotMetException(requirements)
         }
@@ -166,7 +166,7 @@ internal class DevicesRepositoryImpl(
         network.peerDiscovery.startAdvertising(method.spiId).getOrThrow()
     }
 
-    override suspend fun stopAdvertising(method: DetectionMethod.Automatic) =
+    override suspend fun stopAdvertising(method: TransportKind.Automatic) =
         network.peerDiscovery.stopAdvertising(method.spiId)
 
     override suspend fun stopAdvertising() = network.peerDiscovery.stopAdvertising()
@@ -293,7 +293,7 @@ internal fun PublicGreeting.toDomain() = Greeting(
 
 private fun PeerRef.toDomain() = ForeignDevice.DeviceRoute(
     address = endpoint.address,
-    foundBy = transport.asDetectionMethod(),
+    foundBy = transport.asTransportKind(),
 )
 
 private fun PeerIdentity.toDomain(negotiated: NegotiatedParameters): Handshake = Handshake(

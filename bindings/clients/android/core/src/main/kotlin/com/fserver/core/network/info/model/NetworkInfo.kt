@@ -15,7 +15,6 @@ sealed interface NetworkInfo {
         override val capabilities: Set<NetworkCapability> = setOf(
             NetworkCapability.LOCAL_SUBNET,
             NetworkCapability.MULTICAST,
-            NetworkCapability.IP_ROUTING,
         )
     }
 
@@ -27,10 +26,10 @@ sealed interface NetworkInfo {
         override val name: String = networkType
 
         /**
-         * No [NetworkCapability.LOCAL_SUBNET]: carrier NAT puts every subscriber behind a
-         * shared address and blocks peer-to-peer traffic inside the block, so sweeping or
-         * multicasting it finds nothing while still costing the user data and battery.
+         * Nothing beyond a route: carrier NAT puts every subscriber behind a shared address and
+         * blocks peer-to-peer traffic inside the block, so sweeping or multicasting it finds
+         * nothing while still costing the user data and battery.
          */
-        override val capabilities: Set<NetworkCapability> = setOf(NetworkCapability.IP_ROUTING)
+        override val capabilities: Set<NetworkCapability> = emptySet()
     }
 }

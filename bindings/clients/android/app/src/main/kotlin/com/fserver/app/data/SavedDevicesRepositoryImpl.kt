@@ -8,7 +8,7 @@ import com.fserver.app.domain.SavedDevicesRepository
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -44,7 +44,7 @@ internal class SavedDevicesRepositoryImpl(
         )
     }
 
-    // TODO: this solution needs full rewrite, starting from usage DetectionMethod as transport, and finishing multiple upsert calls
+    // TODO: this solution needs full rewrite, starting from usage TransportKind as transport, and finishing multiple upsert calls
     override suspend fun recordKnownRoute(deviceId: String, route: KnownRoute) {
         when (route) {
             is KnownRoute.Ip -> routeDao.upsert(
@@ -90,18 +90,18 @@ private fun DBTrustedDevice.toDomainModel() = TrustedDevice(
 
 private enum class KnownRouteKind { Ip, Nearby }
 
-private val DetectionMethod.dbName: String
+private val TransportKind.dbName: String
     get() = when (this) {
-        DetectionMethod.Automatic.MulticastDns -> "mdns"
-        DetectionMethod.Automatic.NearbyConnections -> "nearby"
-        DetectionMethod.OnDemand.ManualAddress -> "ip"
-        DetectionMethod.OnDemand.SubnetScan -> "subnetscan"
+        TransportKind.MulticastDns -> "mdns"
+        TransportKind.NearbyConnections -> "nearby"
+        TransportKind.ManualAddress -> "ip"
+        TransportKind.SubnetScan -> "subnetscan"
     }
 
 /** null for a kind written by a newer build - an unusable route reads the same as none at all. */
 private fun DBKnownRoute.toDomainModel(): KnownRoute? = when (KnownRouteKind.valueOf(kind)) {
     KnownRouteKind.Ip -> KnownRoute.Ip(
-        transport = DetectionMethod.entries.first { it.dbName == transport },
+        transport = TransportKind.entries.first { it.dbName == transport },
         host = line1,
         port = line2?.toInt(),
         isDialable = isDialable == 1L,

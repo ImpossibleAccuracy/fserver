@@ -1,6 +1,6 @@
 package com.fserver.core.requirement
 
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 
 /**
  * Answers "what is still in the way?" for the operations `:core` cannot perform on its own
@@ -22,7 +22,7 @@ interface RequirementsChecker {
      * Keyed on the method, not a whole request: what the OS gates is the transport, and the
      * arguments a request carries - an address, a scanned payload - change nothing about it.
      */
-    suspend fun forDetection(method: DetectionMethod): RequirementReport
+    suspend fun forTransport(method: TransportKind): RequirementReport
 
     /**
      * What is missing before [NetworkInfoRepository.networkInfo] can name the network rather than

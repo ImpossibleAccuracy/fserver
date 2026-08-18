@@ -129,7 +129,6 @@
     <string name="requirement_network_title">Not available on this network</string>
     <string name="requirement_network_subnet_description">This network puts every device behind a shared address, so its neighbours cannot be listed.</string>
     <string name="requirement_network_multicast_description">This network does not carry multicast, which this method announces itself over.</string>
-    <string name="requirement_network_routing_description">This network carries no IP route to the server.</string>
     <string name="requirement_no_connectivity_title">No network</string>
     <string name="requirement_no_connectivity_description">Join a Wi-Fi network to search it.</string>
 

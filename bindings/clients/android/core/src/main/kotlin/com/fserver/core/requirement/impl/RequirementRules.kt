@@ -2,7 +2,7 @@ package com.fserver.core.requirement.impl
 
 import android.Manifest
 import android.annotation.SuppressLint
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.requirement.Requirement
@@ -19,8 +19,13 @@ internal data class RequirementRules(
     val toggles: List<Requirement.SystemToggle.Kind> = emptyList(),
     val hardware: List<Requirement.MissingHardware.Feature> = emptyList(),
     val requiresPlayServices: Boolean = false,
+    /** Any network at all will do - every one of them carries IP. */
+    val requiresConnectivity: Boolean = false,
     val networkCapabilities: Set<NetworkCapability> = emptySet(),
 ) {
+    /** Whether the transport that is currently up has any say in these rules. */
+    val needsNetwork: Boolean get() = requiresConnectivity || networkCapabilities.isNotEmpty()
+
     /**
      * The network side of these rules, measured against the transport that is currently up.
      *
@@ -28,7 +33,7 @@ internal data class RequirementRules(
      * different one does.
      */
     fun missingNetworkRequirements(network: NetworkInfo?): Set<Requirement> = when {
-        networkCapabilities.isEmpty() -> emptySet()
+        !needsNetwork -> emptySet()
         network == null -> setOf(Requirement.NoConnectivity)
         else -> (networkCapabilities - network.capabilities).mapTo(mutableSetOf()) {
             Requirement.MissingNetworkCapability(it)
@@ -38,10 +43,10 @@ internal data class RequirementRules(
 
 /** Requirements of [method] on a device running [sdkInt]. */
 internal fun detectionRequirementRules(
-    method: DetectionMethod,
+    method: TransportKind,
     sdkInt: Int,
 ): RequirementRules = when (method) {
-    DetectionMethod.Automatic.NearbyConnections -> RequirementRules(
+    TransportKind.NearbyConnections -> RequirementRules(
         permissions = nearbyPermissions(sdkInt),
         // Nearby drives all three radios itself; any one of them switched off silently narrows
         // what it can reach, so all three are reported rather than guessing which it will pick.
@@ -57,22 +62,28 @@ internal fun detectionRequirementRules(
         hardware = listOf(Requirement.MissingHardware.Feature.BLUETOOTH_LE),
         // Nearby Connections ships inside Play services, not in the platform.
         requiresPlayServices = true,
-        networkCapabilities = method.requires,
+        // Its own radios carry it, so nothing is asked of the IP network.
     )
 
-    DetectionMethod.Automatic.MulticastDns,
-    DetectionMethod.OnDemand.SubnetScan -> RequirementRules(
-        // NsdManager and raw sockets are unpermissioned below API 37; both need a LAN to be on.
+    TransportKind.MulticastDns -> RequirementRules(
+        // NsdManager is unpermissioned below API 37; it still needs a LAN to be on.
         permissions = localNetworkPermissions(sdkInt),
         toggles = listOf(Requirement.SystemToggle.Kind.WIFI),
-        networkCapabilities = method.requires,
+        networkCapabilities = setOf(NetworkCapability.LOCAL_SUBNET, NetworkCapability.MULTICAST),
+    )
+
+    TransportKind.SubnetScan -> RequirementRules(
+        // Raw sockets are unpermissioned below API 37; the sweep still needs a LAN to be on.
+        permissions = localNetworkPermissions(sdkInt),
+        toggles = listOf(Requirement.SystemToggle.Kind.WIFI),
+        networkCapabilities = setOf(NetworkCapability.LOCAL_SUBNET),
     )
 
     // Any route will do - including mobile data, so not even Wi-Fi is asked for. The local network
     // permission is still asked for, because the address the user types is usually a LAN one.
-    DetectionMethod.OnDemand.ManualAddress -> RequirementRules(
+    TransportKind.ManualAddress -> RequirementRules(
         permissions = localNetworkPermissions(sdkInt),
-        networkCapabilities = method.requires,
+        requiresConnectivity = true,
     )
 }
 

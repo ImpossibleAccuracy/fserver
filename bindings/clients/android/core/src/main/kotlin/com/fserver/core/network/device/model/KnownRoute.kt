@@ -1,6 +1,6 @@
 package com.fserver.core.network.device.model
 
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.PeerLocator
 
 /**
@@ -16,7 +16,7 @@ import com.fserver.core.network.info.model.PeerLocator
  */
 sealed interface KnownRoute {
     /** The detection method this route belongs to, and the key it is stored under with the device. */
-    val transport: DetectionMethod
+    val transport: TransportKind
 
     /**
      * False when this exact route cannot be opened a second time - an endpoint read off an
@@ -31,7 +31,7 @@ sealed interface KnownRoute {
     fun asPeerLocator(): PeerLocator?
 
     data class Ip(
-        override val transport: DetectionMethod,
+        override val transport: TransportKind,
         val host: String,
         val port: Int?,
         override val isDialable: Boolean,
@@ -55,7 +55,7 @@ sealed interface KnownRoute {
     data class Nearby(
         val endpointId: String,
     ) : KnownRoute {
-        override val transport: DetectionMethod = DetectionMethod.Automatic.NearbyConnections
+        override val transport: TransportKind = TransportKind.NearbyConnections
         override val isDialable: Boolean = false
         override val address: String get() = endpointId
 

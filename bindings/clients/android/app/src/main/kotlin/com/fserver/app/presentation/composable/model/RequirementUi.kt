@@ -82,7 +82,6 @@ fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
             detailRes = when (capability) {
                 NetworkCapability.LOCAL_SUBNET -> R.string.requirement_network_subnet_description
                 NetworkCapability.MULTICAST -> R.string.requirement_network_multicast_description
-                NetworkCapability.IP_ROUTING -> R.string.requirement_network_routing_description
             },
         )
     )

@@ -8,6 +8,7 @@
 - Files picker deserves better UI;
 - Find and localize raw strings (mostly in compose and VMs);
 - Check TODOs in code;
+- Needs a lot of UI/UX improvements;
 
 ## Core
 
@@ -16,8 +17,6 @@
 - It is necessary to decide on a spot where all incoming connections will be processed;
 - Current store/storage interfaces are uncomfortable to use, need investigate;
 - Add actual network info collector;
-- Try to remove/move to app `DetectionMethod` and `NetworkCapability` classes and related logic.
-  That's not something `:core` should worry about.
 
 ## Net
 

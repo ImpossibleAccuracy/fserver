@@ -1,6 +1,6 @@
 package com.fserver.core.network.device.model
 
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import java.time.Instant
 
 @ConsistentCopyVisibility
@@ -9,7 +9,7 @@ data class ForeignDevice internal constructor(
     val displayName: String,
     val kind: DeviceKind?,
     val routes: List<DeviceRoute>,
-    val foundBy: DetectionMethod?,
+    val foundBy: TransportKind?,
     val lastSeen: Instant,
     val handshake: Handshake?,
     val hasSession: Boolean,
@@ -25,6 +25,6 @@ data class ForeignDevice internal constructor(
     /** One way to reach the device, as discovered by the local machine. */
     data class DeviceRoute(
         val address: String,
-        val foundBy: DetectionMethod?,
+        val foundBy: TransportKind?,
     )
 }

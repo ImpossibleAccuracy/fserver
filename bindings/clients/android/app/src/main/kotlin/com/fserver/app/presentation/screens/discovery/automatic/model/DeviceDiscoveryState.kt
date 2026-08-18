@@ -5,7 +5,7 @@ import com.fserver.app.presentation.composable.model.NetworkCardUi
 import com.fserver.app.presentation.composable.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.network.device.model.DeviceKind
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 
 @Immutable
 data class DeviceDiscoveryState(
@@ -34,7 +34,7 @@ data class DeviceDiscoveryState(
      */
     @Immutable
     data class MethodUi(
-        val method: DetectionMethod,
+        val method: TransportKind,
         val selected: Boolean,
         val isScanning: Boolean,
         /**
@@ -54,7 +54,7 @@ data class DeviceDiscoveryState(
     /** Screen 03: what one method is still waiting on. */
     @Immutable
     data class MethodSetupUi(
-        val method: DetectionMethod,
+        val method: TransportKind,
         val solvable: List<RequirementRowUi>,
         val blockers: List<RequirementRowUi>,
     ) {

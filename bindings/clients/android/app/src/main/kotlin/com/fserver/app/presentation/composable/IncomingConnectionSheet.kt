@@ -22,12 +22,12 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.composable.model.localizedName
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.device.IncomingConnection
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 
 
 data class IncomingConnectionUi(
     val deviceName: String,
-    val via: DetectionMethod?,
+    val via: TransportKind?,
     val isUnsecured: Boolean,
 )
 
@@ -110,7 +110,7 @@ private fun IncomingConnectionSheetPreview() {
         IncomingConnectionSheet(
             request = IncomingConnectionUi(
                 deviceName = "Alice's laptop",
-                via = DetectionMethod.Automatic.MulticastDns,
+                via = TransportKind.MulticastDns,
                 isUnsecured = false,
             ),
             onAccept = {},

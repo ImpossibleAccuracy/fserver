@@ -1,7 +1,7 @@
 package com.fserver.core.requirement.impl
 
 import android.Manifest
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.requirement.Requirement
@@ -57,9 +57,9 @@ class RequirementRulesTest {
     @Test
     fun `nearby stops asking for location services once the gate is lifted`() {
         val gated =
-            detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt = 32)
+            detectionRequirementRules(TransportKind.NearbyConnections, sdkInt = 32)
         val ungated =
-            detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt = 33)
+            detectionRequirementRules(TransportKind.NearbyConnections, sdkInt = 33)
 
         assertTrue(Requirement.SystemToggle.Kind.LOCATION_SERVICES in gated.toggles)
         assertFalse(Requirement.SystemToggle.Kind.LOCATION_SERVICES in ungated.toggles)
@@ -67,7 +67,7 @@ class RequirementRulesTest {
 
     @Test
     fun `mdns over mobile data is missing multicast`() {
-        val rules = detectionRequirementRules(DetectionMethod.Automatic.MulticastDns, sdkInt = 34)
+        val rules = detectionRequirementRules(TransportKind.MulticastDns, sdkInt = 34)
 
         val missing = rules.missingNetworkRequirements(
             NetworkInfo.Mobile(carrierName = "Carrier", networkType = "LTE")
@@ -84,7 +84,7 @@ class RequirementRulesTest {
 
     @Test
     fun `mdns over wifi is missing nothing`() {
-        val rules = detectionRequirementRules(DetectionMethod.Automatic.MulticastDns, sdkInt = 34)
+        val rules = detectionRequirementRules(TransportKind.MulticastDns, sdkInt = 34)
 
         val missing = rules.missingNetworkRequirements(
             NetworkInfo.WiFi(ssid = "Home_5G", bssid = "00:11:22:33:44:55")
@@ -95,7 +95,7 @@ class RequirementRulesTest {
 
     @Test
     fun `no network at all reports connectivity, not a capability list`() {
-        val rules = detectionRequirementRules(DetectionMethod.OnDemand.SubnetScan, sdkInt = 34)
+        val rules = detectionRequirementRules(TransportKind.SubnetScan, sdkInt = 34)
 
         assertEquals(
             setOf(Requirement.NoConnectivity),
@@ -104,9 +104,25 @@ class RequirementRulesTest {
     }
 
     @Test
+    fun `a typed address needs a network, but is not fussy about which`() {
+        val rules = detectionRequirementRules(TransportKind.ManualAddress, sdkInt = 34)
+
+        assertEquals(
+            setOf(Requirement.NoConnectivity),
+            rules.missingNetworkRequirements(network = null),
+        )
+        assertEquals(
+            emptySet<Requirement>(),
+            rules.missingNetworkRequirements(
+                NetworkInfo.Mobile(carrierName = "Carrier", networkType = "LTE")
+            ),
+        )
+    }
+
+    @Test
     fun `nearby needs no network, so no network is not a requirement failure`() {
         val rules =
-            detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt = 34)
+            detectionRequirementRules(TransportKind.NearbyConnections, sdkInt = 34)
 
         assertEquals(emptySet<Requirement>(), rules.missingNetworkRequirements(network = null))
     }
@@ -155,7 +171,7 @@ class RequirementRulesTest {
     @Test
     fun `nearby survives a device with no wifi direct radio`() {
         val rules =
-            detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt = 34)
+            detectionRequirementRules(TransportKind.NearbyConnections, sdkInt = 34)
 
         // Discovery is BLE; classic and Wi-Fi Direct are bandwidth upgrades, and listing them as
         // hardware would turn a degraded medium into a permanent blocker.
@@ -164,8 +180,8 @@ class RequirementRulesTest {
 
     @Test
     fun `a lan method demands no wifi radio, so an ethernet dock is not blocked`() {
-        val mdns = detectionRequirementRules(DetectionMethod.Automatic.MulticastDns, sdkInt = 34)
-        val subnet = detectionRequirementRules(DetectionMethod.OnDemand.SubnetScan, sdkInt = 34)
+        val mdns = detectionRequirementRules(TransportKind.MulticastDns, sdkInt = 34)
+        val subnet = detectionRequirementRules(TransportKind.SubnetScan, sdkInt = 34)
 
         assertEquals(emptyList<Requirement.MissingHardware.Feature>(), mdns.hardware)
         assertEquals(emptyList<Requirement.MissingHardware.Feature>(), subnet.hardware)
@@ -201,11 +217,11 @@ class RequirementRulesTest {
     }
 
     private val lanMethods = listOf(
-        DetectionMethod.Automatic.MulticastDns,
-        DetectionMethod.OnDemand.SubnetScan,
-        DetectionMethod.OnDemand.ManualAddress,
+        TransportKind.MulticastDns,
+        TransportKind.SubnetScan,
+        TransportKind.ManualAddress,
     )
 
     private fun nearbyPermissionsAt(sdkInt: Int): List<String> =
-        detectionRequirementRules(DetectionMethod.Automatic.NearbyConnections, sdkInt).permissions
+        detectionRequirementRules(TransportKind.NearbyConnections, sdkInt).permissions
 }

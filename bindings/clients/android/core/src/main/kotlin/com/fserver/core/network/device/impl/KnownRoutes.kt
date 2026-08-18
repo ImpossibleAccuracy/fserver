@@ -1,7 +1,7 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.core.network.device.model.KnownRoute
-import com.fserver.core.network.impl.asDetectionMethod
+import com.fserver.core.network.impl.asTransportKind
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsTransportEndpoint
@@ -13,7 +13,7 @@ import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsT
  * open is still a record of where the device was last seen.
  */
 internal fun TransportEndpoint.toKnownRoute(): KnownRoute? {
-    val method = transport.asDetectionMethod() ?: return null
+    val method = transport.asTransportKind() ?: return null
 
     return when (this) {
         is DirectIpEndpoint -> KnownRoute.Ip(

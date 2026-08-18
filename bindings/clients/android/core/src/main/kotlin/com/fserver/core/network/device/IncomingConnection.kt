@@ -1,6 +1,6 @@
 package com.fserver.core.network.device
 
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 
 /**
  * A device asking to connect, parked on this device's answer.
@@ -14,7 +14,7 @@ interface IncomingConnection {
     val deviceName: String
 
     /** Transport kind used to establish the connection. */
-    val transport: DetectionMethod?
+    val transport: TransportKind?
 
     /** Whether the transport produced a secure channel. */
     val isSecured: Boolean

@@ -55,12 +55,12 @@ import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.permission.rememberRequirementResolver
-import com.fserver.app.presentation.screens.discovery.automatic.composable.DetectionMethodSheet
+import com.fserver.app.presentation.screens.discovery.automatic.composable.TransportKindSheet
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
 import com.fserver.app.presentation.screens.discovery.shared.NetworkCard
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -197,7 +197,7 @@ private fun DeviceDiscoveryScreen(
             containerColor = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            DetectionMethodSheet(
+            TransportKindSheet(
                 setup = state.methodSetup,
                 resolver = resolver,
             )
@@ -398,7 +398,7 @@ private fun CenteredCaption(text: String) {
 }
 
 private fun method(
-    method: DetectionMethod,
+    method: TransportKind,
     selected: Boolean = false,
     isScanning: Boolean = false,
     hasRun: Boolean = false,
@@ -416,15 +416,15 @@ private fun method(
 )
 
 private val NothingSelected = listOf(
-    method(DetectionMethod.Automatic.MulticastDns),
-    method(DetectionMethod.OnDemand.SubnetScan, unmetCount = 1),
-    method(DetectionMethod.Automatic.NearbyConnections, unmetCount = 2),
+    method(TransportKind.MulticastDns),
+    method(TransportKind.SubnetScan, unmetCount = 1),
+    method(TransportKind.NearbyConnections, unmetCount = 2),
 )
 
 private val TwoReady = listOf(
-    method(DetectionMethod.Automatic.MulticastDns, selected = true),
-    method(DetectionMethod.OnDemand.SubnetScan, unmetCount = 1),
-    method(DetectionMethod.Automatic.NearbyConnections, selected = true),
+    method(TransportKind.MulticastDns, selected = true),
+    method(TransportKind.SubnetScan, unmetCount = 1),
+    method(TransportKind.NearbyConnections, selected = true),
 )
 
 @Preview(name = "Nothing selected", showBackground = true, widthDp = 360, heightDp = 720)

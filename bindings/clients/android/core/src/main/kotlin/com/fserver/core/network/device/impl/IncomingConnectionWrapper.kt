@@ -1,8 +1,8 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.core.network.device.IncomingConnection
-import com.fserver.core.network.impl.asDetectionMethod
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.impl.asTransportKind
+import com.fserver.core.network.TransportKind
 import com.fserver.net.connection.IncomingConnectionsManager
 
 /**
@@ -12,7 +12,7 @@ import com.fserver.net.connection.IncomingConnectionsManager
 internal class IncomingConnectionWrapper(val net: IncomingConnectionsManager.IncomingRequest) :
     IncomingConnection {
     override val deviceName: String = net.peer.advertisedName
-    override val transport: DetectionMethod? = net.transport.asDetectionMethod()
+    override val transport: TransportKind? = net.transport.asTransportKind()
     override val isSecured: Boolean = transport != null && net.confirmationCode != null
 
     override suspend fun accept(): Result<Unit> = net.accept()

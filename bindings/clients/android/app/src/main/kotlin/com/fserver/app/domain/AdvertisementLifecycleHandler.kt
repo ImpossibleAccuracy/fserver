@@ -3,7 +3,7 @@ package com.fserver.app.domain
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AdvertisementLifecycleHandler.Companion.RECHECK_INTERVAL
 import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.network.info.DetectionMethod
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.requirement.RequirementsChecker
@@ -117,8 +117,8 @@ class AdvertisementLifecycleHandler(
             return
         }
 
-        DetectionMethod.entries.filterIsInstance<DetectionMethod.Automatic>().forEach { method ->
-            val isReady = requirementsChecker.forDetection(method).isSatisfied
+        TransportKind.entries.filterIsInstance<TransportKind.Automatic>().forEach { method ->
+            val isReady = requirementsChecker.forTransport(method).isSatisfied
 
             when {
                 isReady && method !in state.onAir ->
@@ -135,7 +135,7 @@ class AdvertisementLifecycleHandler(
     /** Everything the decision to advertise is made from, in one place. */
     private data class Advertisement(
         val wanted: Boolean,
-        val onAir: Set<DetectionMethod.Automatic>,
+        val onAir: Set<TransportKind.Automatic>,
         val network: NetworkInfo?,
     )
 
