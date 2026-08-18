@@ -50,7 +50,7 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
-import com.fserver.app.presentation.composable.model.NetworkCardUi
+import com.fserver.app.presentation.screens.discovery.shared.NetworkCardUi
 import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.permission.RequirementResolver
@@ -131,6 +131,9 @@ private fun DeviceDiscoveryScreen(
                 NetworkCard(
                     modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
                     network = state.network,
+                    onFixClick = state.networkAction?.let { action ->
+                        { resolver.resolve(action) }
+                    },
                 )
             }
 

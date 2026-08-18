@@ -2,8 +2,9 @@ package com.fserver.app.presentation.screens.discovery.automatic
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.composable.model.firstAction
 import com.fserver.app.presentation.composable.model.searchableTransportKinds
-import com.fserver.app.presentation.composable.model.toCardUi
+import com.fserver.app.presentation.screens.discovery.shared.toCardUi
 import com.fserver.app.presentation.composable.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
@@ -36,14 +37,16 @@ import kotlinx.coroutines.launch
  * advertising for as long as it happened to be open, which is not what anyone asked for.
  */
 class DeviceDiscoveryViewModel(
-    networkInfoRepository: NetworkInfoRepository,
+    private val networkInfoRepository: NetworkInfoRepository,
     private val devicesRepository: DevicesRepository,
     private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
     private val selected = MutableStateFlow<Set<TransportKind>>(emptySet())
     private val openSetup = MutableStateFlow<TransportKind?>(null)
     private val reports = MutableStateFlow<Map<TransportKind, RequirementReport>>(emptyMap())
-    private val networkNamed = MutableStateFlow(false)
+
+    /** What Android still wants before it will name the network. */
+    private val networkReport = MutableStateFlow(RequirementReport.Satisfied)
 
     /**
      * Whether the user has started a search here.
@@ -62,8 +65,8 @@ class DeviceDiscoveryViewModel(
 
     private val networkCard = combine(
         networkInfoRepository.networkInfo,
-        networkNamed,
-    ) { network, named -> network.toCardUi(named) }
+        networkReport,
+    ) { network, report -> network.toCardUi() to report.firstAction }
 
     private val participation = combine(selected, startedMethods, ::Pair)
 
@@ -113,9 +116,10 @@ class DeviceDiscoveryViewModel(
         methodsUi,
         setupUi,
         searchStarted,
-    ) { network, devices, methods, setup, searching ->
+    ) { (network, networkAction), devices, methods, setup, searching ->
         DeviceDiscoveryState(
             network = network,
+            networkAction = networkAction,
             devices = devices.map { it.toUi() },
             methods = methods,
             isSearching = searching,
@@ -139,6 +143,9 @@ class DeviceDiscoveryViewModel(
      * app, so it is re-read whenever the screen comes back to the foreground.
      */
     fun onResumed() {
+        // Granting location changes nothing the platform reports on its own, so the network name
+        // stays redacted until it is read again.
+        networkInfoRepository.refresh()
         checkRequirements()
     }
 
@@ -187,7 +194,7 @@ class DeviceDiscoveryViewModel(
             val isReady = next.filterValues { it.isSatisfied }.keys
 
             reports.value = next
-            networkNamed.value = requirementsChecker.forNetworkInfo().isSatisfied
+            networkReport.value = requirementsChecker.forNetworkInfo()
 
             // Granting the last thing a method was waiting on closes its sheet: there is nothing
             // left on it to read or press.

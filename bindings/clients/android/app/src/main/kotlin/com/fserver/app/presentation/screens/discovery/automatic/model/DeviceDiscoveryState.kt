@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.automatic.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.composable.model.NetworkCardUi
+import com.fserver.app.presentation.screens.discovery.shared.NetworkCardUi
 import com.fserver.app.presentation.composable.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.network.device.model.DeviceKind
@@ -10,6 +10,8 @@ import com.fserver.core.network.TransportKind
 @Immutable
 data class DeviceDiscoveryState(
     val network: NetworkCardUi? = null,
+    /** What clears the way to naming the network; null when nothing is in the way. */
+    val networkAction: RequirementAction? = null,
     val methods: List<MethodUi> = emptyList(),
     val devices: List<DeviceUi> = emptyList(),
     /**

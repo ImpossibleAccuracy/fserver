@@ -42,10 +42,14 @@
     <string name="network_wifi_connected">Wi-Fi connected</string>
     <string name="network_wifi_named">Wi-Fi «%1$s»</string>
     <string name="network_mobile">Mobile data «%1$s»</string>
+    <string name="network_mobile_unnamed">Mobile data</string>
+    <string name="network_connected">Connected</string>
     <string name="network_offline">No network</string>
     <string name="network_tag_hidden">name hidden</string>
     <string name="network_tag_private">Private network</string>
     <string name="network_redacted_hint">Android only reports network details with location access.</string>
+    <string name="network_redacted_hint_tappable">Android only reports network details with location access. Tap to grant it.</string>
+    <string name="network_redacted_action">Grant location access</string>
     <string name="discovery_network_hint_mobile">On mobile data only nearby devices and a manually entered address can be reached.</string>
     <string name="discovery_network_hint_offline">No network connection. Only nearby devices can be found.</string>
 

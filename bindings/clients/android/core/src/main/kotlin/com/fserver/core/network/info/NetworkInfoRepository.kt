@@ -1,6 +1,7 @@
 package com.fserver.core.network.info
 
 import com.fserver.core.network.info.model.NetworkInfo
+import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.flow.Flow
 
 interface NetworkInfoRepository {
@@ -11,4 +12,7 @@ interface NetworkInfoRepository {
      * [RequirementsChecker.forNetworkInfo] for what has to be granted before the name is real.
      */
     val networkInfo: Flow<NetworkInfo?>
+
+    /** Re-read the current network and re-emit it on [networkInfo]. */
+    fun refresh()
 }

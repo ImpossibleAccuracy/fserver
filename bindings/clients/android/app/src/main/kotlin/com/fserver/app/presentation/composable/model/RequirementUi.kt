@@ -8,6 +8,7 @@ import com.fserver.app.R
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.requirement.Requirement
+import com.fserver.core.requirement.RequirementReport
 
 /** One line of "what is still in the way", as the permissions sheet renders it. */
 @Immutable
@@ -96,6 +97,14 @@ fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
 
 /** Rows for a whole report half, in the order the sheet lists them. */
 fun List<Requirement>.toRows(): List<RequirementRowUi> = flatMap { it.toRows() }.distinct()
+
+/**
+ * The first fix the app can launch for this report, or null when nothing in it is the app's to
+ * start. Report order is meaningful — a permission comes before the toggle it gates — so the
+ * first one is also the one worth doing next.
+ */
+val RequirementReport.firstAction: RequirementAction?
+    get() = solvable.toRows().firstNotNullOfOrNull { it.action }
 
 @SuppressLint("InlinedApi")
 private fun List<String>.toPermissionRows(): List<RequirementRowUi> = buildList {
