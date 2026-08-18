@@ -4,7 +4,6 @@ import com.fserver.core.Constants
 import com.fserver.core.network.MalformedQrException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.RequirementsNotMetException
-import com.fserver.core.network.ServiceLease
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.Greeting
@@ -16,7 +15,6 @@ import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.ForeignDevice.Handshake
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.network.impl.ServiceLifecycleController
 import com.fserver.core.network.impl.SpiRegistry
 import com.fserver.core.network.impl.asDetectionMethod
 import com.fserver.core.network.impl.spiId
@@ -50,11 +48,6 @@ internal class DevicesRepositoryImpl(
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
     private val storage: FServerStorage,
 ) : DevicesRepository {
-    private val advertisingController = ServiceLifecycleController(
-        startService = { network.peerDiscovery.startAdvertising() },
-        stopService = { network.peerDiscovery.stopAdvertising() },
-    )
-
     override val onlineDevices: Flow<List<ForeignDevice>> = combine(
         network.peerDiscovery.peers,
         network.incomingConnections.sessions, // TODO: Filter out inactive sessions
@@ -126,6 +119,11 @@ internal class DevicesRepositoryImpl(
                 }
                 .toSet()
         }
+
+    override val advertisingMethods: Flow<Set<DetectionMethod.Automatic>> =
+        network.peerDiscovery.activeAdvertisers.map { ids ->
+            ids.mapNotNullTo(mutableSetOf()) { it.asDetectionMethod() as? DetectionMethod.Automatic }
+        }
     override val incoming: Flow<IncomingConnection>
         get() = network.incomingConnections.incoming.map { IncomingConnectionWrapper(it) }
 
@@ -134,9 +132,6 @@ internal class DevicesRepositoryImpl(
 
     override fun resolvePendingConfirmation(accept: Boolean) =
         interactiveAuthenticator.resolve(accept)
-
-    override fun advertisingServiceLease(): ServiceLease =
-        advertisingController.newLease()
 
     override fun device(id: String): Flow<ForeignDevice?> = onlineDevices.map { list ->
         list.find { it.deviceId == id }
@@ -157,6 +152,24 @@ internal class DevicesRepositoryImpl(
             ?: throw IllegalArgumentException("Cannot start detection for ${request.spiId}: no scan params found")
         network.peerDiscovery.scan(scanParams).getOrThrow()
     }
+
+    override suspend fun startAdvertising(
+        method: DetectionMethod.Automatic
+    ): Result<Unit> = runBackgroundJob {
+        // Same gate as detection: the radios an advertiser drives are the ones a scan listens on,
+        // so it is the same permissions that decide whether it can start at all.
+        val requirements = requirementsChecker.forDetection(method)
+        if (!requirements.isSatisfied) {
+            throw RequirementsNotMetException(requirements)
+        }
+
+        network.peerDiscovery.startAdvertising(method.spiId).getOrThrow()
+    }
+
+    override suspend fun stopAdvertising(method: DetectionMethod.Automatic) =
+        network.peerDiscovery.stopAdvertising(method.spiId)
+
+    override suspend fun stopAdvertising() = network.peerDiscovery.stopAdvertising()
 
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
         when (arguments) {

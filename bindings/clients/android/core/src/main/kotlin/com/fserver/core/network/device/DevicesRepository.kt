@@ -2,7 +2,6 @@ package com.fserver.core.network.device
 
 import com.fserver.core.network.DetectionFailedException
 import com.fserver.core.network.MalformedQrException
-import com.fserver.core.network.ServiceLease
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.device.model.ForeignDevice
@@ -23,6 +22,9 @@ interface DevicesRepository {
      * user is still waiting on.
      */
     val runningScanningMethods: Flow<Set<DetectionMethod>>
+
+    /** Methods this device is currently announcing itself over. */
+    val advertisingMethods: Flow<Set<DetectionMethod.Automatic>>
 
     /**
      * Incoming connection requests, updated as they arrive and are accepted or rejected.
@@ -75,6 +77,20 @@ interface DevicesRepository {
      */
     suspend fun connect(arguments: PeerLocator, credentials: AuthCredentials?): Result<Unit>
 
-    /** Create lease for advertising service */
-    fun advertisingServiceLease(): ServiceLease
+    /**
+     * Announces this device over [method], and keeps it announced until it is stopped. Starting a
+     * method already on the air does nothing.
+     *
+     * Per method rather than "advertise everywhere", for the same reason [startDetection] is:
+     * Android gates several of the radios behind runtime permissions, so announcing over
+     * everything installed would fail on whatever the user was never asked about.
+     */
+    @Throws(DetectionFailedException::class)
+    suspend fun startAdvertising(method: DetectionMethod.Automatic): Result<Unit>
+
+    /** Takes [method] off the air. Returns once it is actually stopped. */
+    suspend fun stopAdvertising(method: DetectionMethod.Automatic)
+
+    /** Takes every method off the air. */
+    suspend fun stopAdvertising()
 }

@@ -22,14 +22,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-@OptIn(ExperimentalAtomicApi::class)
 internal class PeerDiscoveryImpl(
     private val configHolder: NetworkConfigHolder<*>,
     private val scope: CoroutineScope,
@@ -43,13 +41,13 @@ internal class PeerDiscoveryImpl(
         .stateIn(scope, SharingStarted.Lazily, emptyList())
 
     private val running = MutableStateFlow<Set<SpiId>>(emptySet())
+    private val scanJobs = ConcurrentHashMap<SpiId, Job>()
     override val activeScans: StateFlow<Set<SpiId>> = running.asStateFlow()
 
-    private val scanJobs = ConcurrentHashMap<SpiId, Job>()
-
     private val advertisingLock = Mutex()
-    private var advertisingJobs: List<Job> = emptyList()
-    private val advertisementState = AtomicBoolean(false)
+    private val advertisingJobs = ConcurrentHashMap<SpiId, Job>()
+    private val advertising = MutableStateFlow<Set<SpiId>>(emptySet())
+    override val activeAdvertisers: StateFlow<Set<SpiId>> = advertising.asStateFlow()
 
     override suspend fun scan(
         params: DiscoveryProvider.ScanParams
@@ -61,7 +59,7 @@ internal class PeerDiscoveryImpl(
 
         if (provider.id in running.value) return@netRunCatching emptyList()
 
-        running.update(provider.id, add = true)
+        running.toggle(provider.id, add = true)
         val found = LinkedHashMap<String, DiscoveredPeer>()
 
         try {
@@ -96,7 +94,7 @@ internal class PeerDiscoveryImpl(
             }
         } finally {
             scanJobs.remove(provider.id)
-            running.update(provider.id, add = false)
+            running.toggle(provider.id, add = false)
         }
 
         found.values.toList()
@@ -104,44 +102,59 @@ internal class PeerDiscoveryImpl(
 
     override fun stopScan(id: SpiId) {
         scanJobs.remove(id)?.cancel()
-        running.update(id, add = false)
+        running.toggle(id, add = false)
     }
 
-    override suspend fun startAdvertising(): Result<Unit> = netRunCatching {
+    override suspend fun startAdvertising(id: SpiId): Result<Unit> = netRunCatching {
         advertisingLock.withLock {
-            if (!advertisementState.compareAndSet(false, true)) return@withLock
-            launchAdvertisers(config)
+            val config = config
+            val advertiser = config.advertisers.firstOrNull { it.id == id }
+                ?: throw NetworkException.Transport("no advertiser installed for ${id.value}")
+
+            // An advertiser that gave up leaves a finished job behind; treating that as "already
+            // advertising" would make every later call a no-op and the device would stay invisible.
+            if (advertisingJobs[id]?.isActive == true) return@withLock
+
+            launchAdvertiser(config, advertiser)
         }
+    }
+
+    override suspend fun stopAdvertising(id: SpiId) {
+        advertisingLock.withLock { haltAdvertisers(listOf(id)) }
     }
 
     override suspend fun stopAdvertising() {
-        advertisingLock.withLock {
-            if (!advertisementState.compareAndSet(true, false)) return@withLock
-            haltAdvertisers()
-        }
+        advertisingLock.withLock { haltAdvertisers(advertisingJobs.keys.toList()) }
         config.logger.debug("advertising stopped")
     }
 
     /**
-     * Reconciles what the previous config started. Scans on a provider that dropped out are
-     * stopped, and the advertisers are restarted only if this device is on the air *and* what it
+     * Reconciles what the previous config started. Scans and advertisers on an SPI that dropped
+     * out are stopped, and the advertisers still on the air are restarted only if what this device
      * would say - or who would say it - actually changed. A reload is not a request to advertise:
-     * a node the host deliberately kept silent stays silent.
+     * an advertiser the host never started stays off.
      */
     override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
         val installed = new.discoveryProviders.mapTo(mutableSetOf()) { it.id }
         scanJobs.keys.filterNot { it in installed }.forEach(::stopScan)
 
         advertisingLock.withLock {
-            if (!advertisementState.load()) return@withLock
+            val advertisers = new.advertisers.associateBy { it.id }
+            val onAir = advertisingJobs.keys.toList()
+
+            // An advertiser the new config no longer installs cannot be re-announced, only stopped.
+            haltAdvertisers(onAir.filterNot { it in advertisers })
+
+            val restartable = onAir.filter { it in advertisers }
+            if (restartable.isEmpty()) return@withLock
 
             val unchanged = old.advertisers == new.advertisers &&
                     old.policy.advertisement == new.policy.advertisement &&
                     advertisement(old) == advertisement(new)
             if (unchanged) return@withLock
 
-            haltAdvertisers()
-            launchAdvertisers(new)
+            haltAdvertisers(restartable)
+            restartable.forEach { launchAdvertiser(new, advertisers.getValue(it)) }
         }
     }
 
@@ -150,58 +163,48 @@ internal class PeerDiscoveryImpl(
         .distinctUntilChanged()
 
     /** Caller holds [advertisingLock]. */
-    private suspend fun launchAdvertisers(config: NetworkConfig<*>) {
+    private suspend fun launchAdvertiser(config: NetworkConfig<*>, advertiser: Advertiser) {
         if (!config.policy.advertisement.enabled) {
             config.logger.debug("advertising is off; this device will not announce itself")
             return
         }
 
-        // An advertiser that gave up leaves a finished job behind;
-        // keeping it would make every later call a no-op and device would stay invisible.
-        advertisingJobs = advertisingJobs.filter(Job::isActive)
-        if (advertisingJobs.isNotEmpty()) return
-
-        config.logger.debug("starting advertising with ${config.advertisers.joinToString { it.id.value }}")
+        config.logger.debug("starting advertising over ${advertiser.id.value}")
 
         val payload = advertisement(config)
-        advertisingJobs = config.advertisers
-            .map { advertiser ->
-                scope.launch {
-                    try {
-                        advertiser.advertise(payload).collect { event ->
-                            if (event is Advertiser.Event.Failed) {
-                                config.logger.warn(
-                                    "advertiser ${advertiser.id.value} failed",
-                                    event.cause
-                                )
-                            }
-                        }
-                    } catch (e: Exception) {
-                        config.logger.error("advertiser ${advertiser.id.value} failed", e)
+        val job = scope.launch {
+            try {
+                advertiser.advertise(payload).collect { event ->
+                    if (event is Advertiser.Event.Failed) {
+                        config.logger.warn("advertiser ${advertiser.id.value} failed", event.cause)
                     }
                 }
+            } catch (e: Exception) {
+                config.logger.error("advertiser ${advertiser.id.value} failed", e)
             }
-            .onEach { job ->
-                // When an advertiser stops, check if any are still running
-                job.invokeOnCompletion {
-                    advertisingJobs = advertisingJobs.filter { it.isActive }
-                    val isAnyActive = advertisingJobs.isNotEmpty()
-                    if (!isAnyActive) {
-                        config.logger.debug("All advertisers have stopped; this device is no longer discoverable")
-                        advertisementState.store(false) // Clear lock, so new advertising can be started
-                    }
-                }
-            }
+        }
+
+        advertisingJobs[advertiser.id] = job
+        advertising.toggle(advertiser.id, add = true)
+
+        // Registered last on purpose: an advertiser whose flow is already done runs this
+        // immediately, and it has to undo the two lines above rather than race them.
+        job.invokeOnCompletion {
+            advertisingJobs.remove(advertiser.id, job)
+            advertising.toggle(advertiser.id, add = false)
+            config.logger.debug("advertiser ${advertiser.id.value} is off the air")
+        }
     }
 
     /**
      * Waits for the advertisers to be gone rather than merely told to go.
      * Caller should hold [advertisingLock].
      */
-    private suspend fun haltAdvertisers() {
-        val running = advertisingJobs
-        advertisingJobs = emptyList()
-        running.forEach { it.cancelAndJoin() }
+    private suspend fun haltAdvertisers(ids: Collection<SpiId>) {
+        ids.forEach { id ->
+            advertisingJobs.remove(id)?.cancelAndJoin()
+            advertising.toggle(id, add = false)
+        }
     }
 
     /** Compute payload for advertisers */
@@ -234,10 +237,7 @@ internal class PeerDiscoveryImpl(
         )
     }
 
-    private fun MutableStateFlow<Set<SpiId>>.update(
-        id: SpiId,
-        add: Boolean
-    ) {
-        value = if (add) value + id else value - id
+    private fun MutableStateFlow<Set<SpiId>>.toggle(id: SpiId, add: Boolean) {
+        update { if (add) it + id else it - id }
     }
 }

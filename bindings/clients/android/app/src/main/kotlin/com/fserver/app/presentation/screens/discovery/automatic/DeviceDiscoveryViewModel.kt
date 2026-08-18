@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * Search is the user's to start.
@@ -31,14 +30,16 @@ import kotlinx.coroutines.runBlocking
  * when the button was pressed. Nothing here runs on its own — a method that quietly starts
  * itself turns a missing permission into "found nothing", which is the failure this whole flow
  * exists to avoid.
+ *
+ * Scanning only: whether this device is findable in return is the "discoverable" setting's call,
+ * and `AppViewModel` acts on it. A search screen that also put the device on the air would be
+ * advertising for as long as it happened to be open, which is not what anyone asked for.
  */
 class DeviceDiscoveryViewModel(
     networkInfoRepository: NetworkInfoRepository,
     private val devicesRepository: DevicesRepository,
     private val requirementsChecker: RequirementsChecker,
 ) : ViewModel() {
-    private val advertisingService = devicesRepository.advertisingServiceLease()
-
     private val selected = MutableStateFlow<Set<DetectionMethod>>(emptySet())
     private val openSetup = MutableStateFlow<DetectionMethod?>(null)
     private val reports = MutableStateFlow<Map<DetectionMethod, RequirementReport>>(emptyMap())
@@ -212,15 +213,6 @@ class DeviceDiscoveryViewModel(
                 }
             }
         }
-
-        viewModelScope.launch {
-            // TODO: need to restart service (after permissions changed)
-            advertisingService.start()
-        }
-    }
-
-    override fun onCleared() {
-        runBlocking { advertisingService.stop() }
     }
 
     /**

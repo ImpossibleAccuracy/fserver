@@ -20,11 +20,11 @@ internal val dataModule = module {
     single { androidContext().dataStore }
 
     singleOf(::SavedDevicesRepositoryImpl) bind SavedDevicesRepository::class
+    singleOf(::AuthManagerImpl) bind AuthManager::class
 
     singleOf(::ServerGeneralStorage)
     singleOf(::SendSelectionStore)
     singleOf(::AppSettingsStore)
-    singleOf(::AuthManagerImpl) bind AuthManager::class
 
     // The stores `:core` was handed, republished so a ViewModel can read what the engine reads
     // without learning that they came in through `FServerConfig`.

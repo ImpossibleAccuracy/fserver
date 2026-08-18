@@ -22,8 +22,6 @@
 ## Net
 
 - Module became extremely large in short time. Worth full-review;
-- Advertising should use approach as discovery: start only selected methods instead of all in
-  config. This is necessary because Android restrict some advertisers without runtime permissions;
 - Case: both devices keep trusted records for each other, but one of them forget another. Then, when
   connecting, only this device will have the SAS code;
 - Add support for auth versioning, e.g. same SAS/PAKE but with different versions;

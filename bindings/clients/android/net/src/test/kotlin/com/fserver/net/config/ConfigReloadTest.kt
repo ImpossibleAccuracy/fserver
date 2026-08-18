@@ -192,7 +192,7 @@ class ConfigReloadTest {
     fun `a reload that changes the advertisement re-announces it`() = runBlocking {
         val advertiser = FakeAdvertiser(SpiId("mdns"))
         val alice = node("alice", advertisers = listOf(advertiser))
-        alice.discovery.startAdvertising().getOrThrow()
+        alice.discovery.startAdvertising(SpiId("mdns")).getOrThrow()
         withTimeout(TIMEOUT) { advertiser.awaitPayloads(1) }
 
         alice.reloadConfig(
@@ -211,7 +211,7 @@ class ConfigReloadTest {
     fun `a reload that says nothing new leaves the advertisers alone`() = runBlocking {
         val advertiser = FakeAdvertiser(SpiId("mdns"))
         val alice = node("alice", advertisers = listOf(advertiser))
-        alice.discovery.startAdvertising().getOrThrow()
+        alice.discovery.startAdvertising(SpiId("mdns")).getOrThrow()
         withTimeout(TIMEOUT) { advertiser.awaitPayloads(1) }
 
         // Nothing here reaches the air, so re-announcing would be a gap in visibility for nothing.

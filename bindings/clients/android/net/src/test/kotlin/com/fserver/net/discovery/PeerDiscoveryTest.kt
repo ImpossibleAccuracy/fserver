@@ -147,7 +147,7 @@ class PeerDiscoveryTest {
             ),
         )
 
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
         val payload = withTimeout(TIMEOUT) { advertiser.awaitPayload() }
 
         assertEquals(identityStore.local(), payload.identity)
@@ -177,7 +177,7 @@ class PeerDiscoveryTest {
         )
 
         // Not a failure - being unfindable is the mode working, and the caller has nothing to fix.
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
 
         delay(SETTLE)
         assertNull(advertiser.payloadOrNull())
@@ -191,7 +191,7 @@ class PeerDiscoveryTest {
             advertisement = AdvertisementPolicy(publishName = false),
         )
 
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
         val payload = withTimeout(TIMEOUT) { advertiser.awaitPayload() }
 
         assertNull(payload.attributes[PeerAttributes.DISPLAY_NAME])
@@ -207,9 +207,9 @@ class PeerDiscoveryTest {
         val advertiser = FakeAdvertiser(Id("mdns"))
         val discovery = discovery(advertisers = listOf(advertiser))
 
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
         withTimeout(TIMEOUT) { advertiser.awaitPayload() }
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
 
         assertEquals(1, advertiser.payloads.size)
     }
@@ -224,10 +224,14 @@ class PeerDiscoveryTest {
             // rather than see a leftover job and decide it is already advertising.
             withTimeout(TIMEOUT) {
                 while (advertiser.payloads.size < 2) {
-                    discovery.startAdvertising().getOrThrow()
+                    discovery.startAdvertising(Id("mdns")).getOrThrow()
                     delay(20)
                 }
             }
+
+            // ... and it does not leave the id behind as still on the air.
+            withTimeout(TIMEOUT) { discovery.activeAdvertisers.first { it.isEmpty() } }
+            Unit
         }
 
     @Test
@@ -235,13 +239,52 @@ class PeerDiscoveryTest {
         val advertiser = FakeAdvertiser(Id("mdns"))
         val discovery = discovery(advertisers = listOf(advertiser))
 
-        discovery.startAdvertising().getOrThrow()
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
         withTimeout(TIMEOUT) { advertiser.awaitPayload() }
         discovery.stopAdvertising()
 
         withTimeout(TIMEOUT) {
             while (advertiser.cancellations.get() == 0) delay(10)
         }
+        assertTrue(discovery.activeAdvertisers.value.isEmpty())
+    }
+
+    @Test
+    fun `only the advertiser that was asked for goes on the air`() = runBlocking {
+        val asked = FakeAdvertiser(Id("mdns"))
+        val other = FakeAdvertiser(Id("nearby"))
+        val discovery = discovery(advertisers = listOf(asked, other))
+
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
+        withTimeout(TIMEOUT) { asked.awaitPayload() }
+
+        delay(SETTLE)
+        assertNull(other.payloadOrNull())
+        assertEquals(setOf(Id("mdns")), discovery.activeAdvertisers.value)
+    }
+
+    @Test
+    fun `an advertiser nothing installed fails instead of quietly staying silent`() = runBlocking {
+        val discovery = discovery(advertisers = listOf(FakeAdvertiser(Id("mdns"))))
+
+        assertTrue(discovery.startAdvertising(Id("nearby")).isFailure)
+    }
+
+    @Test
+    fun `stopping one advertiser leaves the others on the air`() = runBlocking {
+        val mdns = FakeAdvertiser(Id("mdns"))
+        val nearby = FakeAdvertiser(Id("nearby"))
+        val discovery = discovery(advertisers = listOf(mdns, nearby))
+
+        discovery.startAdvertising(Id("mdns")).getOrThrow()
+        discovery.startAdvertising(Id("nearby")).getOrThrow()
+        withTimeout(TIMEOUT) { nearby.awaitPayload() }
+
+        discovery.stopAdvertising(Id("nearby"))
+
+        assertEquals(1, nearby.cancellations.get())
+        assertEquals(0, mdns.cancellations.get())
+        assertEquals(setOf(Id("mdns")), discovery.activeAdvertisers.value)
     }
 
     // ------------------------------------------------------------------ helpers
