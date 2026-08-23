@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 
 /**
@@ -45,12 +46,17 @@ fun DkSectionLabel(
 
 /** Muted caption used under a title or above a list — the deck's `--color-neutral-600` voice. */
 @Composable
-fun DkCaption(modifier: Modifier = Modifier, text: String) {
+fun DkCaption(
+    modifier: Modifier = Modifier,
+    text: String,
+    textAlign: TextAlign? = null,
+) {
     Text(
         modifier = modifier,
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = textAlign,
     )
 }
 

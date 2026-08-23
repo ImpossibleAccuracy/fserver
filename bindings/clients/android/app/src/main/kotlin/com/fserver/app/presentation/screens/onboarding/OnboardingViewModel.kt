@@ -8,9 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Three steps: why the app exists, the network permission it needs, how to reach a
- * server. Skippable at every step — a user who already knows the product should reach
- * discovery in one tap.
+ * Three steps: why the app exists, where the bytes go, and the fork between opening someone
+ * else's files and sharing your own. Skippable at every step — a user who already knows the
+ * product should reach the file list in one tap.
  */
 class OnboardingViewModel : ViewModel() {
 

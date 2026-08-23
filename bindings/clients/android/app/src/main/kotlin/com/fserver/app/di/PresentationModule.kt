@@ -10,9 +10,14 @@ import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewMo
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
 import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
-import com.fserver.app.presentation.screens.files.send.SendTargetViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
+import com.fserver.app.presentation.screens.source.access.SourceAccessViewModel
+import com.fserver.app.presentation.screens.source.conditions.SourceConditionsViewModel
+import com.fserver.app.presentation.screens.source.done.SourceDoneViewModel
+import com.fserver.app.presentation.screens.source.mode.SourceModeViewModel
+import com.fserver.app.presentation.screens.source.pick.SourcePickViewModel
+import com.fserver.app.presentation.screens.target.TargetDeviceViewModel
 import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewModel
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
 import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
@@ -40,7 +45,14 @@ val presentationModule = module {
     viewModelOf(::PairingViewModel)
     viewModelOf(::FilesViewModel)
     viewModelOf(::FilesPickerViewModel)
-    viewModelOf(::SendTargetViewModel)
+    viewModelOf(::TargetDeviceViewModel)
+
+    // The send flow: one ViewModel per step, each fed by its destination key.
+    viewModelOf(::SourcePickViewModel)
+    viewModelOf(::SourceAccessViewModel)
+    viewModelOf(::SourceModeViewModel)
+    viewModelOf(::SourceConditionsViewModel)
+    viewModelOf(::SourceDoneViewModel)
     viewModelOf(::TransfersViewModel)
     viewModelOf(::DiagnosticsViewModel)
 

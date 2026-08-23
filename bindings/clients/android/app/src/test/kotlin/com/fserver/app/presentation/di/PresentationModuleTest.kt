@@ -24,8 +24,8 @@ class PresentationModuleTest {
      * internals are not part of this graph and nothing here can check them.
      *
      * Extra types are the ones Koin never sees a definition for: `Context` is supplied by
-     * `androidContext()` at start-up, and the `Destination` keys are the nav keys their ViewModels
-     * take from `parametersOf`.
+     * `androidContext()` at start-up, and the `Destination` keys are the nav keys their
+     * ViewModels take from `parametersOf`.
      */
     @OptIn(KoinExperimentalAPI::class)
     @Test
@@ -37,8 +37,12 @@ class PresentationModuleTest {
                 String::class,
                 Context::class,
                 Destination.Pairing::class,
-                Destination.Files.SendTarget::class,
                 Destination.Settings.DeviceDetails::class,
+                Destination.Source.Access::class,
+                Destination.Source.Mode::class,
+                Destination.Source.Conditions::class,
+                Destination.Source.Done::class,
+                Destination.TargetDevice::class,
             ),
         )
     }

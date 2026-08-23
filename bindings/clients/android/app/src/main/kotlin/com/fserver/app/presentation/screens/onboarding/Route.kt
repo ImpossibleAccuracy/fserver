@@ -9,10 +9,14 @@ fun EntryProviderScope<Destination>.onboardingEntry(
 ) {
     entry<Destination.Onboarding> {
         OnboardingScreen(
-            navigateToDiscovery = {
-                navigator.navigateByBackstack(
-                    listOf(Destination.Connect)
-                )
+            navigateToConnect = {
+                navigator.navigate(Destination.Connect)
+            },
+            navigateToSourcePick = {
+                navigator.navigate(Destination.Source.Pick)
+            },
+            navigateToFiles = {
+                navigator.navigate(Destination.Files.List)
             },
         )
     }

@@ -9,7 +9,9 @@ fun EntryProviderScope<Destination>.filesListEntry(
 ) {
     entry<Destination.Files.List> {
         FilesScreen(
-            navigateToPicker = { navigator.navigate(Destination.Files.Picker) },
+            navigateToActions = { navigator.navigate(Destination.Files.Actions) },
+            navigateToConnect = { navigator.navigate(Destination.Connect) },
+            navigateToSourcePick = { navigator.navigate(Destination.Source.Pick) },
         )
     }
 }

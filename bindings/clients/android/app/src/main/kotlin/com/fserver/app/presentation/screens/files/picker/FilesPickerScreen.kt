@@ -47,7 +47,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun FilesPickerScreen(
     viewModel: FilesPickerViewModel = koinViewModel(),
-    navigateToSendTarget: (selectionId: String) -> Unit,
+    navigateToTarget: (selectionId: String) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -55,7 +55,7 @@ fun FilesPickerScreen(
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
-                is FilesPickerUiEffect.SelectionReady -> navigateToSendTarget(effect.selectionId)
+                is FilesPickerUiEffect.SelectionReady -> navigateToTarget(effect.selectionId)
             }
         }
     }

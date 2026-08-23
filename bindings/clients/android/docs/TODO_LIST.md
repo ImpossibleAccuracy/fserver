@@ -33,6 +33,7 @@ Major:
 
 - Module became extremely large in short time. Worth full-review;
 - Need actual security checks (MITM, downgrade, etc.);
+- Extract peer identity fetch from auth methods to `AuthPhase.kt`;
 
 Minor:
 

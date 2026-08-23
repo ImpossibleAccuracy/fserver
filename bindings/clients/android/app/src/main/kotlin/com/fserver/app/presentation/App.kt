@@ -34,12 +34,18 @@ import com.fserver.app.presentation.screens.discovery.automatic.deviceDiscoveryE
 import com.fserver.app.presentation.screens.discovery.hub.connectHubEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
+import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.files.picker.filesPickerEntry
-import com.fserver.app.presentation.screens.files.send.sendTargetEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
+import com.fserver.app.presentation.screens.source.access.sourceAccessEntry
+import com.fserver.app.presentation.screens.source.conditions.sourceConditionsEntry
+import com.fserver.app.presentation.screens.source.done.sourceDoneEntry
+import com.fserver.app.presentation.screens.source.mode.sourceModeEntry
+import com.fserver.app.presentation.screens.source.pick.sourcePickEntry
+import com.fserver.app.presentation.screens.target.targetDeviceEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
@@ -199,8 +205,15 @@ private fun NavHostGraph(navigator: AppNavigator) {
             diagnosticEntry(navigator)
 
             filesListEntry(navigator)
+            filesActionsEntry(navigator)
             filesPickerEntry(navigator)
-            sendTargetEntry(navigator)
+            targetDeviceEntry(navigator)
+
+            sourcePickEntry(navigator)
+            sourceAccessEntry(navigator)
+            sourceModeEntry(navigator)
+            sourceConditionsEntry(navigator)
+            sourceDoneEntry(navigator)
         },
     )
 }

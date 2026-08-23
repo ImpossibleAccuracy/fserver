@@ -30,10 +30,11 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun DkSettingsRow(
-    title: String,
     modifier: Modifier = Modifier,
+    title: String,
     supportingText: String? = null,
     accented: Boolean = false,
+    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
     onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
@@ -42,7 +43,7 @@ fun DkSettingsRow(
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.md),
-        verticalAlignment = if (supportingText == null) Alignment.CenterVertically else Alignment.Top,
+        verticalAlignment = verticalAlignment,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -106,8 +107,8 @@ fun DkSwitchRow(
     enabled: Boolean = true,
 ) {
     DkSettingsRow(
-        title = title,
         modifier = modifier,
+        title = title,
         supportingText = supportingText,
         onClick = { onCheckedChange(!checked) },
         trailing = {
@@ -131,8 +132,8 @@ fun DkNavigationRow(
     accented: Boolean = false,
 ) {
     DkSettingsRow(
-        title = title,
         modifier = modifier,
+        title = title,
         supportingText = supportingText,
         accented = accented,
         onClick = onClick,
@@ -167,8 +168,8 @@ fun DkValueRow(
     modifier: Modifier = Modifier,
 ) {
     DkSettingsRow(
-        title = title,
         modifier = modifier,
+        title = title,
         trailing = {
             Text(
                 text = value,

@@ -1,12 +1,13 @@
-package com.fserver.app.presentation.screens.files.send
+package com.fserver.app.presentation.screens.target
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.SendSelectionStore
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.files.send.model.SendTargetIntent
-import com.fserver.app.presentation.screens.files.send.model.SendTargetState
-import com.fserver.app.presentation.screens.files.send.model.SendTargetUiEffect
+import com.fserver.app.presentation.model.TargetPurpose
+import com.fserver.app.presentation.screens.target.model.TargetDeviceIntent
+import com.fserver.app.presentation.screens.target.model.TargetDeviceState
+import com.fserver.app.presentation.screens.target.model.TargetDeviceUiEffect
 import com.fserver.core.files.transfer.TransferRepository
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
@@ -22,55 +23,64 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * The device half of the send flow: which connected device gets the selection the picker made.
+ * Which connected device receives the bytes — the picker's selection, or everything a source
+ * about to be configured will produce.
  *
- * The list is live, so a device paired through one of the connect routes appears here on its own
- * when the user comes back. That return is also when the confirmation is raised — see
- * [awaitedFrom].
+ * The list is live, so a device paired through "add a device" appears here on its own when the
+ * user comes back, already selected — see [awaitedFrom]. Only [TargetPurpose.SendFiles] does
+ * anything irreversible here; configuring a source hands the answer on to the conditions screen.
  */
-class SendTargetViewModel(
-    private val key: Destination.Files.SendTarget,
+class TargetDeviceViewModel(
+    key: Destination.TargetDevice,
     private val selectionStore: SendSelectionStore,
     private val transferRepository: TransferRepository,
     devicesRepository: DevicesRepository,
 ) : ViewModel() {
-    private val selection = selectionStore.selection(key.selectionId)
+    private val purpose = key.purpose
+    private val selectionId = (purpose as? TargetPurpose.SendFiles)?.selectionId
+    private val selection = selectionId?.let(selectionStore::selection)
 
-    private val effects = Channel<SendTargetUiEffect>(Channel.BUFFERED)
+    private val effects = Channel<TargetDeviceUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
     private val connected = MutableStateFlow<List<ForeignDevice>>(emptyList())
+    private val selectedDeviceId = MutableStateFlow<String?>(null)
     private val confirmingDeviceId = MutableStateFlow<String?>(null)
 
     /**
-     * Devices already connected when the user left for a connect route, or null when they did
-     * not. Anything outside that set arriving afterwards is what they went to connect, so it
-     * takes the confirmation without a second tap.
+     * Devices already connected when the user left to add one, or null when they did not.
+     * Anything outside that set arriving afterwards is what they went to connect.
      */
     private val awaitedFrom = MutableStateFlow<Set<String>?>(null)
 
-    val state: StateFlow<SendTargetState> = combine(
+    /** Configuring a source has no selection behind it, so it can never lose one. */
+    private val isSelectionLost = selectionId != null && selection == null
+
+    val state: StateFlow<TargetDeviceState> = combine(
         connected,
+        selectedDeviceId,
         confirmingDeviceId,
-    ) { devices, confirmingId ->
+    ) { devices, selectedId, confirmingId ->
         val deviceUi = devices.map { it.toUi() }
-        SendTargetState(
+        TargetDeviceState(
+            purpose = purpose,
             fileCount = selection?.size ?: 0,
             fileNames = selection?.map { it.name }.orEmpty(),
             devices = deviceUi,
+            selectedDeviceId = selectedId,
             confirmation = deviceUi.firstOrNull { it.id == confirmingId }?.let {
-                SendTargetState.ConfirmationUi(
+                TargetDeviceState.ConfirmationUi(
                     deviceId = it.id,
                     deviceName = it.name,
                     fileCount = selection?.size ?: 0,
                 )
             },
-            isSelectionLost = selection == null,
+            isSelectionLost = isSelectionLost,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = SendTargetState(isSelectionLost = selection == null),
+        initialValue = TargetDeviceState(purpose = purpose, isSelectionLost = isSelectionLost),
     )
 
     init {
@@ -81,24 +91,38 @@ class SendTargetViewModel(
         }
     }
 
-    fun onIntent(intent: SendTargetIntent) {
+    fun onIntent(intent: TargetDeviceIntent) {
         when (intent) {
-            is SendTargetIntent.DeviceSelected -> confirmingDeviceId.value = intent.deviceId
+            is TargetDeviceIntent.DeviceSelected -> selectedDeviceId.value = intent.deviceId
 
-            SendTargetIntent.ConnectRouteOpened ->
+            TargetDeviceIntent.ConnectRouteOpened ->
                 awaitedFrom.value = connected.value.mapTo(mutableSetOf()) { it.deviceId }
+
+            TargetDeviceIntent.ContinueClicked -> onContinue()
 
             // Saying no also ends the wait: the device that just connected was the answer,
             // whatever the user decided about it.
-            SendTargetIntent.SendCancelled -> {
+            TargetDeviceIntent.SendCancelled -> {
                 confirmingDeviceId.value = null
                 awaitedFrom.value = null
             }
 
-            SendTargetIntent.SendConfirmed -> {
+            TargetDeviceIntent.SendConfirmed -> {
                 val deviceId = confirmingDeviceId.getAndUpdate { null } ?: return
                 viewModelScope.launch { send(deviceId) }
             }
+        }
+    }
+
+    private fun onContinue() {
+        val deviceId = selectedDeviceId.value ?: return
+        when (purpose) {
+            is TargetPurpose.SendFiles -> confirmingDeviceId.value = deviceId
+
+            // TODO: the chosen device is dropped on the floor. Once a source is something
+            // `:core` stores, it travels with the rest of the answers to the conditions screen.
+            is TargetPurpose.ConfigureSource ->
+                viewModelScope.launch { effects.send(TargetDeviceUiEffect.NavigateToConditions) }
         }
     }
 
@@ -110,11 +134,11 @@ class SendTargetViewModel(
         val fresh = devices.firstOrNull { it.deviceId !in awaited } ?: return
 
         awaitedFrom.value = null
-        confirmingDeviceId.value = fresh.deviceId
+        selectedDeviceId.value = fresh.deviceId
     }
 
     private suspend fun send(deviceId: String) {
-        val files = selectionStore.selection(key.selectionId)
+        val files = selectionId?.let(selectionStore::selection)
 
         transferRepository
             .sendFiles(
@@ -124,22 +148,22 @@ class SendTargetViewModel(
             .fold(
                 onSuccess = { isAcceptedByDevice ->
                     if (isAcceptedByDevice) {
-                        selectionStore.clear(key.selectionId)
+                        selectionId?.let(selectionStore::clear)
                         effects.send(
-                            SendTargetUiEffect.ShowMessage(
+                            TargetDeviceUiEffect.ShowMessage(
                                 "Transfer completed!"
                             )
                         )
-                        effects.send(SendTargetUiEffect.NavigateFinished)
+                        effects.send(TargetDeviceUiEffect.NavigateFinished)
                     } else {
                         effects.send(
-                            SendTargetUiEffect.ShowMessage("The device rejected the transfer.")
+                            TargetDeviceUiEffect.ShowMessage("The device rejected the transfer.")
                         )
                     }
                 },
                 onFailure = {
                     effects.send(
-                        SendTargetUiEffect.ShowMessage(
+                        TargetDeviceUiEffect.ShowMessage(
                             "Failed to send files: ${it.localizedMessage ?: it::class.simpleName}"
                         )
                     )
@@ -148,7 +172,7 @@ class SendTargetViewModel(
     }
 }
 
-private fun ForeignDevice.toUi() = SendTargetState.DeviceUi(
+private fun ForeignDevice.toUi() = TargetDeviceState.DeviceUi(
     id = deviceId,
     name = displayName,
     kind = kind,

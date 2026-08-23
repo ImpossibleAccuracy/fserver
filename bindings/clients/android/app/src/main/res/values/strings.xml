@@ -5,7 +5,6 @@
     <!-- Common actions -->
     <string name="action_next">Next</string>
     <string name="action_skip">Skip</string>
-    <string name="action_start">Get started</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_scan_qr">Scan QR code</string>
     <string name="action_enter_address">Enter address manually</string>
@@ -17,17 +16,20 @@
     <string name="action_done">Done</string>
     <string name="action_send">Send</string>
     <string name="action_decline">Decline</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_connect">Connect</string>
 
     <!-- Onboarding -->
     <string name="onboarding_illustration_devices">illustration: two devices</string>
     <string name="onboarding_title_purpose">Your files on every device</string>
     <string name="onboarding_body_purpose">The app finds your computer on the same network and transfers files directly, without a cloud. The connection is always encrypted.</string>
-    <string name="onboarding_illustration_permissions">illustration: network permission</string>
-    <string name="onboarding_title_permissions">Access to the local network</string>
-    <string name="onboarding_body_permissions">Android asks for permission to see devices on your Wi-Fi. Without it the app cannot find your computer.</string>
-    <string name="onboarding_illustration_connect">illustration: code on the server screen</string>
-    <string name="onboarding_title_connect">Connect your computer</string>
-    <string name="onboarding_body_connect">Start the server on your PC or NAS and scan the code from its screen — or pick the device from the list the app has found.</string>
+    <string name="onboarding_illustration_privacy">illustration: phone to computer, a lock</string>
+    <string name="onboarding_title_privacy">Direct and encrypted</string>
+    <string name="onboarding_body_privacy">A file goes from the phone to the computer over your own network — no cloud, no one else\'s servers. You check the device key once; after that the connection is trusted.</string>
+    <string name="onboarding_illustration_fork">illustration: two arrows</string>
+    <string name="onboarding_title_fork">Where do we start?</string>
+    <string name="onboarding_body_fork">Permissions are asked for inside the path you pick — and explained there.</string>
 
     <!-- Connection — the fork every route to a server starts from -->
     <string name="connect_title">Connection</string>
@@ -189,6 +191,13 @@
     <string name="manual_error_port">The port must be a number between 1 and 65535.</string>
     <string name="manual_error_unreachable">Nothing answered at that address. Check the address and that the server is running.</string>
 
+    <!-- The fork every entry point offers: open someone else\'s files, or share your own -->
+    <string name="fork_connect_title">Connect to a computer</string>
+    <string name="fork_connect_subtitle">Find a device on the network and open its files</string>
+    <string name="fork_send_title">Send files from here</string>
+    <string name="fork_send_subtitle">Choose what the app can see on this phone</string>
+    <string name="fork_send_sheet_subtitle">Photos and videos, a folder, or the whole device</string>
+
     <!-- Bottom navigation -->
     <string name="tab_files">Files</string>
     <string name="tab_transfers">Transfers</string>
@@ -207,6 +216,11 @@
     <string name="files_view_tree">Tree</string>
     <string name="files_state_remote">On the server, tap to download</string>
     <string name="files_state_local">Already on this device</string>
+    <string name="files_title">Files</string>
+    <string name="files_actions">What next?</string>
+    <string name="files_empty_illustration">empty</string>
+    <string name="files_empty_title">Nothing here yet</string>
+    <string name="files_empty_body">Connect to a computer to see its files — or choose what to send from this phone.</string>
 
     <!-- Files picker -->
     <string name="picker_title">Selected items</string>
@@ -238,18 +252,21 @@
     <string name="picker_entry_selected">Selected</string>
     <string name="picker_entries_title">Selected entries (%1$d)</string>
 
-    <!-- Send target -->
-    <string name="send_target_title">Send to</string>
-    <string name="send_target_devices_label">Connected devices</string>
-    <string name="send_target_empty_title">No connected devices</string>
-    <string name="send_target_empty_hint">Connect one to send the selection to it</string>
-    <string name="send_target_routes_label">Connect a device</string>
-    <string name="send_target_selection_lost">The selection is no longer available. Pick the files again.</string>
+    <!-- Target device: who receives the selection, or a source's output -->
+    <string name="target_device_title">Send to</string>
+    <string name="target_device_devices_label">Connected devices</string>
+    <string name="target_device_empty_title">No connected devices</string>
+    <string name="target_device_empty_hint">Connect one to send the selection to it</string>
+    <string name="target_device_selection_lost">The selection is no longer available. Pick the files again.</string>
     <plurals name="send_confirm_title">
         <item quantity="one">Send %1$d file?</item>
         <item quantity="other">Send %1$d files?</item>
     </plurals>
     <string name="send_confirm_body">They will be sent to %1$s.</string>
+    <string name="target_device_source_title">Where to send?</string>
+    <string name="target_device_source_body">Files will go to the device you pick. You can change it in the source settings.</string>
+    <string name="target_device_add_device">Add a device</string>
+    <string name="target_device_offline">Offline right now — cannot be picked</string>
 
     <!-- Transfers -->
     <string name="transfers_title">Transfers</string>
@@ -370,4 +387,150 @@
     <string name="diagnostics_hint">Device not found automatically? Connect by address or by code — discovery is not needed for that.</string>
     <string name="diagnostics_recheck">Check again</string>
     <string name="diagnostics_copy_report">Copy report</string>
+
+    <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
+    <string name="source_pick_title">What to connect?</string>
+    <string name="source_pick_body">Choose what the app will see on this phone. You can add another source later.</string>
+    <string name="source_pick_footer">Until a source is picked, the app reads nothing.</string>
+    <string name="source_photos_title">Photos and videos</string>
+    <string name="source_photos_subtitle">Shots and clips from the phone gallery</string>
+    <string name="source_folder_title">Folder</string>
+    <string name="source_folder_subtitle">One folder and everything inside it</string>
+    <string name="source_device_title">Whole device</string>
+    <string name="source_device_subtitle">Full access to all files. Usually not needed.</string>
+
+    <!-- Send flow: the access step each branch explains for itself -->
+    <string name="source_access_photos_illustration">illustration: gallery and an access frame</string>
+    <string name="source_access_photos_heading">Gallery access is needed</string>
+    <string name="source_access_photos_body">To work with your shots the app has to see them. What happens to them next is up to you.</string>
+    <string name="source_access_photos_visible">Visible</string>
+    <string name="source_access_photos_visible_detail">Photos and videos from the gallery</string>
+    <string name="source_access_photos_hidden">Not visible</string>
+    <string name="source_access_photos_hidden_detail">Documents, downloads, chats and the rest of the device</string>
+    <string name="source_access_folder_illustration">illustration: one folder out of a tree</string>
+    <string name="source_access_folder_heading">One folder — one mode</string>
+    <string name="source_access_folder_body">The app gets access only to the folder you pick and everything inside it. The rest of the device stays out of reach.</string>
+    <string name="source_access_folder_note">You pick the folder in the Android system dialog — the app never browses your files on its own.</string>
+    <string name="source_access_folder_action">Pick a folder</string>
+    <string name="source_access_device_heading">Full access to all files</string>
+    <string name="source_access_device_body">The app will see everything on the device, including other apps\' files. Usually that is not needed: photos are covered by the photos branch, documents by a single folder.</string>
+    <string name="source_access_device_note">The permission is granted by hand in Android system settings and stays until you revoke it there.</string>
+    <string name="source_access_device_action">Continue anyway</string>
+
+    <!-- Send flow: what each branch says when access did not happen -->
+    <string name="source_error_photos_title">Photo access is required to continue</string>
+    <string name="source_error_photos_body">The app cannot work with shots it does not see. Grant access now, or pick a different source.</string>
+    <string name="source_error_folder_title">No folder picked</string>
+    <string name="source_error_folder_body">You closed the system dialog without confirming a folder. Without one there is nothing to configure.</string>
+    <string name="source_error_device_title">Access not granted</string>
+    <string name="source_error_device_body">The "All files access" toggle stayed off. It lives in the app\'s section of the system settings.</string>
+    <string name="source_error_open_settings">Open settings again</string>
+    <string name="source_error_back_to_sources">Back to source choice</string>
+
+    <!-- Send flow: scanning a picked folder before its mode can be chosen -->
+    <string name="source_scan_folder_title">Scanning the folder…</string>
+
+    <!-- Send flow: one mode per source -->
+    <string name="source_mode_photos_title">What to do with photos?</string>
+    <string name="source_mode_folder_title">What to do with the folder?</string>
+    <string name="source_mode_device_title">What to do?</string>
+    <string name="source_mode_hint">One mode per source. It can be changed in settings.</string>
+    <plurals name="source_mode_partial_title">
+        <item quantity="one">Access granted to %1$d item</item>
+        <item quantity="other">Access granted to %1$d items</item>
+    </plurals>
+    <string name="source_mode_partial_action">Change selection</string>
+    <plurals name="source_mode_partial_hint">
+        <item quantity="one">The mode will only work with this %1$d photo.</item>
+        <item quantity="other">The mode will only work with these %1$d photos.</item>
+    </plurals>
+    <string name="source_mode_recommended">recommended</string>
+    <string name="mode_autoupload_title">Auto-upload</string>
+    <string name="mode_autoupload_photos_subtitle">Copies go to the device you pick next. Originals stay on the phone.</string>
+    <string name="mode_autoupload_subtitle">Copies go to another device, originals stay here</string>
+    <string name="mode_offload_title">Offload</string>
+    <string name="mode_offload_photos_subtitle">Old photos move off the phone and disappear from the gallery. They stay visible here.</string>
+    <string name="mode_offload_subtitle">Free up space — files move to another device</string>
+    <string name="mode_sync_title">Sync</string>
+    <string name="mode_sync_subtitle">The same contents here and on another device</string>
+    <string name="mode_host_title">Share over the network (host)</string>
+    <string name="mode_host_subtitle">Files stay here, other devices reach them over the network</string>
+
+    <!-- Send flow: the conditions each mode asks for -->
+    <string name="conditions_autoupload_body">Copies go to %1$s. Originals stay on the phone.</string>
+    <string name="conditions_upload_scope_label">What to upload</string>
+    <string name="conditions_upload_new">New</string>
+    <string name="conditions_upload_all">All</string>
+    <string name="conditions_upload_scope_hint">Only shots taken after it is turned on. "All" adds %1$s older photos.</string>
+    <string name="conditions_when_label">When to upload</string>
+    <string name="conditions_wifi_only">Wi-Fi only</string>
+    <string name="conditions_wifi_only_hint">No mobile data is spent</string>
+    <string name="conditions_charging_only">Only while charging</string>
+    <string name="conditions_charging_only_hint">Slower, but does not drain the battery</string>
+    <string name="conditions_offload_body">Pick the rule by which files move to %1$s.</string>
+    <string name="conditions_criterion_age_title">Older than N days</string>
+    <string name="conditions_criterion_age_hint">Predictable: the age of a shot is visible in the gallery.</string>
+    <plurals name="conditions_criterion_age_value">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="conditions_criterion_lru_title">Not opened for a long time</string>
+    <string name="conditions_criterion_lru_hint">LRU: whatever you have not come back to the longest goes first.</string>
+    <string name="conditions_keep_pinned">Pinned files are never deleted</string>
+    <string name="conditions_keep_pinned_hint">Marked files stay on the phone under any rule</string>
+    <string name="conditions_sync_body">%1$s ↔ %2$s. The contents will be the same on both sides.</string>
+    <string name="conditions_sync_conflicts_label">Conflict resolution</string>
+    <string name="conditions_sync_conflicts_rule">Last version wins</string>
+    <string name="conditions_sync_conflicts_hint">If a file was changed on both sides, the one saved later survives.</string>
+    <string name="conditions_sync_losers_title">Losing versions go to the .conflicts folder</string>
+    <string name="conditions_sync_losers_hint">Nothing is deleted silently: the second version sits next to the original.</string>
+    <string name="conditions_host_body">Files stay on the phone. Trusted devices can open this folder while the app is running.</string>
+    <string name="conditions_host_rights_label">Rights</string>
+    <string name="conditions_host_read_title">Read only</string>
+    <string name="conditions_host_read_hint">Other devices download files but cannot change them</string>
+    <string name="conditions_host_write_title">Read and write</string>
+    <string name="conditions_host_write_hint">They will be able to add, overwrite and delete files in the folder</string>
+    <string name="conditions_host_note">Only devices from the trusted list get access. While the phone sleeps the folder is unreachable.</string>
+
+    <!-- Send flow: offload gets its own explainer, because it deletes originals -->
+    <string name="offload_explainer_title">How freeing up space works</string>
+    <string name="offload_explainer_body">Three steps, after which a photo stops taking up space on the phone.</string>
+    <string name="offload_explainer_illustration">ill. %1$d</string>
+    <string name="offload_explainer_step_copy_title">1 · The copy leaves</string>
+    <string name="offload_explainer_step_copy_body">The file is copied to %1$s in full and verified by hash.</string>
+    <string name="offload_explainer_step_remove_title">2 · It disappears from the gallery</string>
+    <string name="offload_explainer_step_remove_body">The original is deleted from the phone — the system gallery no longer has it.</string>
+    <string name="offload_explainer_step_keep_title">3 · It stays here</string>
+    <string name="offload_explainer_step_keep_body">In this app the file shows as a cloud item. A tap pulls it back down.</string>
+    <string name="offload_explainer_action">Got it, turn it on</string>
+
+    <!-- Send flow: the real work between "Done" and "on" -->
+    <string name="source_prepare_upload_title">Preparing files…</string>
+    <string name="source_prepare_upload_body">Checking what is already on %1$s, so nothing is uploaded twice.</string>
+    <string name="source_prepare_analyse_title">Analysing files…</string>
+    <string name="source_prepare_analyse_body">Counting what falls under the rule and how much space it frees.</string>
+
+    <!-- Send flow: what was just turned on -->
+    <string name="source_done_autoupload_title">Auto-upload is on</string>
+    <string name="source_done_autoupload_body">New files will travel to %1$s on their own. Originals stay on the phone.</string>
+    <string name="source_done_offload_title">Offload is on</string>
+    <string name="source_done_offload_body">Files will move to %1$s as they are ready. They disappear from the gallery and stay visible here.</string>
+    <string name="source_done_offload_freed">will be freed · %1$s under the rule</string>
+    <string name="source_done_sync_title">Sync is on</string>
+    <string name="source_done_sync_body">The first exchange is already running. After that the folders keep themselves level whenever both devices are online.</string>
+    <string name="source_done_host_title">The folder is shared over the network</string>
+    <string name="source_done_host_body">Trusted devices will see it as a folder on %1$s.</string>
+    <string name="source_summary_source">Source</string>
+    <string name="source_summary_target">Where</string>
+    <string name="source_summary_conditions">Conditions</string>
+    <string name="source_summary_queued">Queued now</string>
+    <string name="source_summary_rule">Rule</string>
+    <string name="source_summary_pinned">Pinned</string>
+    <string name="source_summary_folder">Folder</string>
+    <string name="source_summary_peer">With</string>
+    <string name="source_summary_contents">Now</string>
+    <string name="source_summary_rights">Rights</string>
+    <string name="source_summary_address">Address</string>
+    <string name="source_done_to_files">To files</string>
+    <string name="source_done_add_another">Add another source</string>
 </resources>

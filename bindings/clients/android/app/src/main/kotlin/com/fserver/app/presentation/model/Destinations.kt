@@ -1,6 +1,9 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
+import com.fserver.app.presentation.composable.model.SourceAccessUi
+import com.fserver.app.presentation.composable.model.SourceKindUi
+import com.fserver.app.presentation.composable.model.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.serialization.Serializable
 
@@ -36,11 +39,51 @@ sealed interface Destination : NavKey {
         data object Picker : Overlay
 
         /**
-         * Where the picked files are sent. [selectionId] names the selection held by
-         * `SendSelectionStore`; the entries themselves are unbounded and never travel in the key.
+         * The fork behind the "+" button: open someone else's files, or share your own. Both
+         * ways out are the same two the empty file list offers.
          */
         @Serializable
-        data class SendTarget(val selectionId: String) : Destination
+        data object Actions : Overlay
+    }
+
+    /**
+     * Which connected device receives what is about to move — the picker's selection, or
+     * everything a source being configured will produce. [purpose] says which, and what comes
+     * after.
+     */
+    @Serializable
+    data class TargetDevice(val purpose: TargetPurpose) : Destination
+
+    /**
+     * Setting up a source: what the app may see on this phone, what to do with it, and where it
+     * goes. Every screen carries the whole answer so far, so the flow has no state of its own
+     * between them.
+     */
+    @Serializable
+    data object Source {
+
+        /** Screen 0 — the one question the flow starts with. */
+        @Serializable
+        data object Pick : Destination
+
+        /** Explains the branch's access, asks the system for it, and reports the outcome. */
+        @Serializable
+        data class Access(val kind: SourceKindUi) : Destination
+
+        /** One mode per source, once access is in hand. */
+        @Serializable
+        data class Mode(
+            val kind: SourceKindUi,
+            val access: SourceAccessUi = SourceAccessUi.Full,
+        ) : Destination
+
+        /** Whatever the chosen mode still needs to know, then the work before it is on. */
+        @Serializable
+        data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
+
+        /** What was just turned on, in four lines. */
+        @Serializable
+        data class Done(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
     }
 
     @Serializable
