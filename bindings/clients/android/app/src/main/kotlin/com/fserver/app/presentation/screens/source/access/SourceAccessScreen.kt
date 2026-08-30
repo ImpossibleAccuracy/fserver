@@ -12,8 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -31,46 +29,35 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkStatusRow
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessState
-import com.fserver.app.presentation.screens.source.access.model.SourceAccessUiEffect
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
-import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.rememberSourceAccessRequester
-import com.fserver.app.presentation.screens.source.shared.titleRes
+import com.fserver.app.presentation.screens.source.shared.composable.SourceScanResult
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun SourceAccessScreen(
-    key: Destination.Source.Access,
-    viewModel: SourceAccessViewModel = koinViewModel { parametersOf(key) },
+    viewModel: SourceFlowViewModel,
     navigateToMode: (SourceAccessUi) -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state = viewModel.accessState.collectAsStateWithLifecycle().value ?: return
 
     val requester = rememberSourceAccessRequester { grant ->
-        viewModel.onIntent(SourceAccessIntent.AccessAnswered(grant))
-    }
-
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                is SourceAccessUiEffect.NavigateToMode -> navigateToMode(effect.access)
-            }
-        }
+        viewModel.onAccessIntent(SourceAccessIntent.AccessAnswered(grant))
     }
 
     SourceAccessScreenContent(
         state = state,
-        onIntent = viewModel::onIntent,
+        onIntent = viewModel::onAccessIntent,
         onRequestAccess = { requester.request(state.kind) },
+        onContinue = { navigateToMode(state.access) },
         navigateToSourcePick = navigateToSourcePick,
         navigateUp = navigateUp,
     )
@@ -81,6 +68,7 @@ private fun SourceAccessScreenContent(
     state: SourceAccessState,
     onIntent: (SourceAccessIntent) -> Unit,
     onRequestAccess: () -> Unit,
+    onContinue: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -100,6 +88,19 @@ private fun SourceAccessScreenContent(
                         text = stringResource(R.string.action_cancel),
                         onClick = { onIntent(SourceAccessIntent.ScanCancelled) },
                     )
+
+                    SourceAccessState.Phase.Scanned -> {
+                        DkPrimaryButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.action_continue),
+                            onClick = onContinue,
+                        )
+                        DkGhostButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.action_back),
+                            onClick = navigateUp,
+                        )
+                    }
 
                     SourceAccessState.Phase.Denied -> {
                         DkPrimaryButton(
@@ -136,8 +137,19 @@ private fun SourceAccessScreenContent(
             SourceAccessState.Phase.Scanning -> SourceProgressStep(
                 modifier = bodyModifier,
                 title = stringResource(R.string.source_scan_folder_title),
-                body = state.scanPath,
+                body = state.scanPath.ifEmpty { stringResource(state.kind.titleRes) },
                 progress = null,
+                detail = stringResource(
+                    R.string.source_scan_folder_summary,
+                    state.scannedFiles,
+                    Formatter.formatShortFileSize(LocalContext.current, state.scannedBytes),
+                ),
+            )
+
+            SourceAccessState.Phase.Scanned -> SourceScanResult(
+                modifier = bodyModifier,
+                title = stringResource(R.string.source_scan_done_title),
+                body = state.scanPath.ifEmpty { stringResource(state.kind.titleRes) },
                 detail = stringResource(
                     R.string.source_scan_folder_summary,
                     state.scannedFiles,
@@ -192,7 +204,7 @@ private fun AccessExplainer(
             )
         }
 
-        if (kind == SourceKindUi.Photos) {
+        if (kind == SourceKindUi.Media) {
             Column {
                 DkStatusRow(
                     title = stringResource(R.string.source_access_photos_visible),
@@ -215,7 +227,7 @@ private fun AccessExplainer(
 
 private val SourceKindUi.illustrationRes: Int?
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_access_photos_illustration
+        SourceKindUi.Media -> R.string.source_access_photos_illustration
         SourceKindUi.Folder -> R.string.source_access_folder_illustration
         // The dangerous branch gets no picture: nothing here should read as an invitation.
         SourceKindUi.WholeDevice -> null
@@ -223,49 +235,49 @@ private val SourceKindUi.illustrationRes: Int?
 
 private val SourceKindUi.headingRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_access_photos_heading
+        SourceKindUi.Media -> R.string.source_access_photos_heading
         SourceKindUi.Folder -> R.string.source_access_folder_heading
         SourceKindUi.WholeDevice -> R.string.source_access_device_heading
     }
 
 private val SourceKindUi.bodyRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_access_photos_body
+        SourceKindUi.Media -> R.string.source_access_photos_body
         SourceKindUi.Folder -> R.string.source_access_folder_body
         SourceKindUi.WholeDevice -> R.string.source_access_device_body
     }
 
 private val SourceKindUi.noteRes: Int?
     get() = when (this) {
-        SourceKindUi.Photos -> null
+        SourceKindUi.Media -> null
         SourceKindUi.Folder -> R.string.source_access_folder_note
         SourceKindUi.WholeDevice -> R.string.source_access_device_note
     }
 
 private val SourceKindUi.continueRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.action_continue
+        SourceKindUi.Media -> R.string.action_continue
         SourceKindUi.Folder -> R.string.source_access_folder_action
         SourceKindUi.WholeDevice -> R.string.source_access_device_action
     }
 
 private val SourceKindUi.errorTitleRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_error_photos_title
+        SourceKindUi.Media -> R.string.source_error_photos_title
         SourceKindUi.Folder -> R.string.source_error_folder_title
         SourceKindUi.WholeDevice -> R.string.source_error_device_title
     }
 
 private val SourceKindUi.errorBodyRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_error_photos_body
+        SourceKindUi.Media -> R.string.source_error_photos_body
         SourceKindUi.Folder -> R.string.source_error_folder_body
         SourceKindUi.WholeDevice -> R.string.source_error_device_body
     }
 
 private val SourceKindUi.retryRes: Int
     get() = when (this) {
-        SourceKindUi.Photos,
+        SourceKindUi.Media,
         SourceKindUi.Folder -> R.string.action_retry
 
         SourceKindUi.WholeDevice -> R.string.source_error_open_settings
@@ -276,9 +288,10 @@ private val SourceKindUi.retryRes: Int
 private fun SourceAccessPhotosPreview() {
     FServerTheme {
         SourceAccessScreenContent(
-            state = SourceAccessState(kind = SourceKindUi.Photos),
+            state = SourceAccessState(kind = SourceKindUi.Media),
             onIntent = {},
             onRequestAccess = {},
+            onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
@@ -293,6 +306,7 @@ private fun SourceAccessFolderPreview() {
             state = SourceAccessState(kind = SourceKindUi.Folder),
             onIntent = {},
             onRequestAccess = {},
+            onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
@@ -307,6 +321,7 @@ private fun SourceAccessDevicePreview() {
             state = SourceAccessState(kind = SourceKindUi.WholeDevice),
             onIntent = {},
             onRequestAccess = {},
+            onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
@@ -319,11 +334,12 @@ private fun SourceAccessDeniedPreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(
-                kind = SourceKindUi.Photos,
+                kind = SourceKindUi.Media,
                 phase = SourceAccessState.Phase.Denied,
             ),
             onIntent = {},
             onRequestAccess = {},
+            onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
@@ -344,6 +360,7 @@ private fun SourceAccessScanningPreview() {
             ),
             onIntent = {},
             onRequestAccess = {},
+            onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )

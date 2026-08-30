@@ -72,6 +72,24 @@ class AppNavigator internal constructor(
     }
 
     /**
+     * Pushes [screen] after removing every entry of the active section that [dropping] matches.
+     *
+     * The way a flow leaves a step behind: the answered screens go, so back from the new one
+     * skips them instead of offering to answer them again. The section root is never dropped.
+     */
+    fun navigate(screen: Destination, dropping: (Destination) -> Boolean) {
+        val stack = stackOf(activeSection)
+        if (stack.size > 1) {
+            stack.removeAll {
+                // Keep roots
+                it !== stack.first() &&
+                        dropping(it as Destination)
+            }
+        }
+        navigate(screen)
+    }
+
+    /**
      * Replaces the whole navigation state with [list], discarding every other section's history.
      *
      * Use it for one-way transitions — finishing onboarding, signing out — where the previous

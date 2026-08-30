@@ -1,9 +1,9 @@
 package com.fserver.app.presentation.screens.source.mode.model
 
-import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.modes
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.modes
 
 /**
  * One mode per source, picked once access is in hand.
@@ -20,7 +20,9 @@ data class SourceModeState(
     val grantedItemCount: Int = 0,
     /** What the branch got hold of: a folder path, or the device — blank for photos. */
     val sourceLabel: String = "",
-    val sourceDetail: String = "",
+    /** What the access step's scan counted. Zero until a branch actually walks something. */
+    val sourceFiles: Int = 0,
+    val sourceBytes: Long = 0,
 ) {
     val modes: List<SourceModeUi> = kind.modes
 

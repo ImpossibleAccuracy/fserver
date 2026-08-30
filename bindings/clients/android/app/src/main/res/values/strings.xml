@@ -430,6 +430,7 @@
     <!-- Send flow: scanning a picked folder before its mode can be chosen -->
     <string name="source_scan_folder_title">Scanning the folder…</string>
     <string name="source_scan_folder_summary">%1$d files · %2$s</string>
+    <string name="source_scan_done_title">Scan finished</string>
 
     <!-- Send flow: one mode per source -->
     <string name="source_mode_photos_title">What to do with photos?</string>

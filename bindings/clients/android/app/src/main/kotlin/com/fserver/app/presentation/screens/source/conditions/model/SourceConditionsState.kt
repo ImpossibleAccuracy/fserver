@@ -1,10 +1,10 @@
 package com.fserver.app.presentation.screens.source.conditions.model
 
-import com.fserver.app.presentation.screens.source.shared.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.shared.HostRightsUi
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.composable.EvictCriterionUi
+import com.fserver.app.presentation.screens.source.shared.composable.HostRightsUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.UploadScopeUi
 
 /**
  * Everything a mode still needs to know before it can be turned on, plus the work that runs

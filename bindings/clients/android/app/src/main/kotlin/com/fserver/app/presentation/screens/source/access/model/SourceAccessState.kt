@@ -1,7 +1,8 @@
 package com.fserver.app.presentation.screens.source.access.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
 
 /**
  * The access step of a branch: explain what is about to be asked for, ask the system, then
@@ -15,6 +16,7 @@ import com.fserver.app.presentation.screens.source.shared.SourceKindUi
 data class SourceAccessState(
     val kind: SourceKindUi,
     val phase: Phase = Phase.Explaining,
+    val access: SourceAccessUi = SourceAccessUi.Full,
     /** Only the folder branch scans before the mode question: the count has to be honest there. */
     val scanPath: String = "",
     val scannedFiles: Int = 0,
@@ -25,6 +27,9 @@ data class SourceAccessState(
 
         /** A folder was granted and is being walked, so the next screen can name a real size. */
         Scanning,
+
+        /** The walk finished. What it found is on screen, and continuing is the user's move. */
+        Scanned,
 
         /** Nothing was granted. Not an error the user made — see the copy. */
         Denied,

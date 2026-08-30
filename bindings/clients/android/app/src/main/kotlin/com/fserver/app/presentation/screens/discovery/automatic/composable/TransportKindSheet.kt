@@ -33,7 +33,6 @@ import com.fserver.app.presentation.designkit.DkSurfacePreview
 import com.fserver.app.presentation.composable.model.RequirementRowUi
 import com.fserver.app.presentation.composable.model.descriptionRes
 import com.fserver.app.presentation.composable.model.titleRes
-import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState

@@ -25,44 +25,37 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.icon
-import com.fserver.app.presentation.screens.source.shared.subtitleRes
-import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.source.shared.composable.SourceOptionCard
 import com.fserver.app.presentation.screens.source.pick.model.SourcePickIntent
 import com.fserver.app.presentation.screens.source.pick.model.SourcePickState
+import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceOptionCard
+import com.fserver.app.presentation.screens.source.shared.composable.icon
+import com.fserver.app.presentation.screens.source.shared.composable.subtitleRes
+import com.fserver.app.presentation.screens.source.shared.composable.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
-import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun SourcePickScreen(
-    viewModel: SourcePickViewModel = koinViewModel(),
+    viewModel: SourceFlowViewModel,
     navigateToAccess: (SourceKindUi) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.pickState.collectAsStateWithLifecycle()
 
     SourcePickScreenContent(
         state = state,
-        onIntent = viewModel::onIntent,
+        onIntent = viewModel::onPickIntent,
         navigateToAccess = navigateToAccess,
         navigateUp = navigateUp,
     )
 }
 
-/**
- * Screen 0 — "what to connect?".
- *
- * The flow opens with what the app may see, not with what it will do: the mode question only
- * makes sense once there is something to apply it to. No permission is requested here either —
- * each branch explains its own access before asking the system for it.
- */
 @Composable
 private fun SourcePickScreenContent(
     state: SourcePickState,
@@ -78,8 +71,6 @@ private fun SourcePickScreenContent(
                 onBack = navigateUp,
             )
         },
-        // The promise that nothing is being read yet holds for the whole screen, so it stays on
-        // screen while the list scrolls rather than waiting at the end of it.
         bottomBar = {
             DkCaption(
                 modifier = Modifier
@@ -93,8 +84,6 @@ private fun SourcePickScreenContent(
             )
         },
     ) { innerPadding ->
-        // The disclosure row runs edge to edge so its ripple reads as a row rather than as a
-        // stray box, which means the padding belongs to the blocks and not to this column.
         val blockPadding = Modifier.padding(horizontal = DkSpacing.screenPadding)
 
         Column(
@@ -126,6 +115,7 @@ private fun SourcePickScreenContent(
                 expanded = state.moreExpanded,
                 onClick = { onIntent(SourcePickIntent.MoreToggled) },
             )
+
             AnimatedVisibility(visible = state.moreExpanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.md)) {
                     state.behindMore.forEach { kind ->

@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.screens.source.pick.model
 
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
 
 /**
  * Screen 0 of the send flow.
@@ -11,7 +11,7 @@ import com.fserver.app.presentation.screens.source.shared.SourceKindUi
 data class SourcePickState(
     val moreExpanded: Boolean = false,
 ) {
-    val primary: List<SourceKindUi> = listOf(SourceKindUi.Photos, SourceKindUi.Folder)
+    val primary: List<SourceKindUi> = listOf(SourceKindUi.Media, SourceKindUi.Folder)
 
     val behindMore: List<SourceKindUi> = listOf(SourceKindUi.WholeDevice)
 }

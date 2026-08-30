@@ -1,9 +1,10 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceSummaryUi
 import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.serialization.Serializable
 
@@ -35,9 +36,6 @@ sealed interface Destination : NavKey {
         @Serializable
         data object List : Destination
 
-        @Serializable
-        data object Picker : Overlay
-
         /**
          * The fork behind the "+" button: open someone else's files, or share your own. Both
          * ways out are the same two the empty file list offers.
@@ -46,13 +44,9 @@ sealed interface Destination : NavKey {
         data object Actions : Overlay
     }
 
-    /**
-     * Which connected device receives what is about to move — the picker's selection, or
-     * everything a source being configured will produce. [purpose] says which, and what comes
-     * after.
-     */
+    /** Which connected device receives everything the source being configured will produce. */
     @Serializable
-    data class TargetDevice(val purpose: TargetPurpose) : Destination
+    data object TargetDevice : Destination
 
     /**
      * Setting up a source: what the app may see on this phone, what to do with it, and where it
@@ -81,9 +75,12 @@ sealed interface Destination : NavKey {
         @Serializable
         data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
 
-        /** What was just turned on, in four lines. */
+        /**
+         * What was just turned on, in four lines. It carries the whole summary because every
+         * screen of the flow is dropped on the way here, the shared ViewModel with them.
+         */
         @Serializable
-        data class Done(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
+        data class Done(val summary: SourceSummaryUi) : Destination
     }
 
     @Serializable

@@ -18,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -28,12 +27,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.screens.source.shared.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.shared.HostRightsUi
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.UploadScopeUi
-import com.fserver.app.presentation.screens.source.shared.titleRes
+import com.fserver.app.presentation.screens.source.shared.composable.EvictCriterionUi
+import com.fserver.app.presentation.screens.source.shared.composable.HostRightsUi
+import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
+import com.fserver.app.presentation.screens.source.shared.model.SourceSummaryUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.composable.titleRes
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -49,36 +50,32 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun SourceConditionsScreen(
-    key: Destination.Source.Conditions,
-    viewModel: SourceConditionsViewModel = koinViewModel { parametersOf(key) },
-    navigateToDone: () -> Unit,
+    viewModel: SourceFlowViewModel,
+    navigateToDone: (SourceSummaryUi) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state = viewModel.conditionsState.collectAsStateWithLifecycle().value ?: return
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
+    LaunchedEffect(viewModel.conditionsEffects) {
+        viewModel.conditionsEffects.collect { effect ->
             when (effect) {
-                SourceConditionsUiEffect.NavigateToDone -> navigateToDone()
+                is SourceConditionsUiEffect.NavigateToDone -> navigateToDone(effect.summary)
             }
         }
     }
 
     SourceConditionsScreenContent(
         state = state,
-        onIntent = viewModel::onIntent,
+        onIntent = viewModel::onConditionsIntent,
         navigateUp = navigateUp,
     )
 }
@@ -481,7 +478,7 @@ private fun ConditionsAutoUploadPreview() {
     FServerTheme {
         SourceConditionsScreenContent(
             state = SourceConditionsState(
-                kind = SourceKindUi.Photos,
+                kind = SourceKindUi.Media,
                 mode = SourceModeUi.AutoUpload,
                 targetName = "HOME-NAS",
                 backlogLabel = "3,402",
@@ -498,7 +495,7 @@ private fun ConditionsOffloadExplainerPreview() {
     FServerTheme {
         SourceConditionsScreenContent(
             state = SourceConditionsState(
-                kind = SourceKindUi.Photos,
+                kind = SourceKindUi.Media,
                 mode = SourceModeUi.Offload,
                 phase = SourceConditionsState.Phase.Explainer,
                 targetName = "HOME-NAS",

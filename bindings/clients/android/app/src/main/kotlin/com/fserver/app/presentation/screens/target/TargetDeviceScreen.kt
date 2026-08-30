@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -18,24 +17,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.composable.model.icon
-import com.fserver.app.presentation.screens.source.shared.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.icon
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
-import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkListRow
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSecondaryButton
@@ -45,35 +36,25 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
-import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.model.TargetPurpose
 import com.fserver.app.presentation.screens.target.model.TargetDeviceIntent
 import com.fserver.app.presentation.screens.target.model.TargetDeviceState
 import com.fserver.app.presentation.screens.target.model.TargetDeviceUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun TargetDeviceScreen(
-    key: Destination.TargetDevice,
-    viewModel: TargetDeviceViewModel = koinViewModel { parametersOf(key) },
+    viewModel: TargetDeviceViewModel = koinViewModel(),
     navigateToConnect: () -> Unit,
-    navigateToConditions: () -> Unit,
-    navigateToFiles: () -> Unit,
+    answer: (String) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val snackbar = LocalSnackbarController.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
-                TargetDeviceUiEffect.NavigateFinished -> navigateToFiles()
-                TargetDeviceUiEffect.NavigateToConditions -> navigateToConditions()
-                is TargetDeviceUiEffect.ShowMessage -> {
-                    snackbar.showSnackbar(effect.message)
-                }
+                is TargetDeviceUiEffect.AnswerDevice -> answer(effect.deviceId)
             }
         }
     }
@@ -92,7 +73,8 @@ fun TargetDeviceScreen(
 }
 
 /**
- * Screen 5d of the send flow, and the last step of the picker flow — the same question in both.
+ * The step where the target finally gets a name. It sits between the mode and that mode's
+ * conditions, for every branch.
  *
  * One list of connected devices, single choice, committed by an explicit continue. A known
  * device that is offline stays in the list, dimmed and unpickable: dropping it would read as
@@ -109,42 +91,26 @@ private fun TargetDeviceScreenContent(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
-                title = stringResource(
-                    if (state.isConfiguringSource) {
-                        R.string.target_device_source_title
-                    } else {
-                        R.string.target_device_title
-                    }
-                ),
+                title = stringResource(R.string.target_device_source_title),
                 onBack = navigateUp,
             )
         },
         bottomBar = {
-            if (!state.isSelectionLost) {
-                DkActionBar {
-                    DkPrimaryButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = stringResource(R.string.action_continue),
-                        enabled = state.canContinue,
-                        onClick = { onIntent(TargetDeviceIntent.ContinueClicked) },
-                    )
-                    DkSecondaryButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = stringResource(R.string.target_device_add_device),
-                        onClick = navigateToConnect,
-                    )
-                }
+            DkActionBar {
+                DkPrimaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.action_continue),
+                    enabled = state.canContinue,
+                    onClick = { onIntent(TargetDeviceIntent.ContinueClicked) },
+                )
+                DkSecondaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.target_device_add_device),
+                    onClick = navigateToConnect,
+                )
             }
         },
     ) { innerPadding ->
-        if (state.isSelectionLost) {
-            SelectionLost(
-                onBack = navigateUp,
-                modifier = Modifier.padding(innerPadding),
-            )
-            return@DkScaffold
-        }
-
         // Only the blocks outside the list get the screen padding: [DkListRow] brings its own,
         // so its touch target keeps running the full width.
         val blockPadding = Modifier.padding(horizontal = DkSpacing.screenPadding)
@@ -156,27 +122,10 @@ private fun TargetDeviceScreenContent(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = DkSpacing.screenPadding),
         ) {
-            if (state.isConfiguringSource) {
-                DkCaption(
-                    modifier = blockPadding,
-                    text = stringResource(R.string.target_device_source_body),
-                )
-            } else {
-                DkCaption(
-                    modifier = blockPadding,
-                    text = pluralStringResource(
-                        R.plurals.picker_selected_count,
-                        state.fileCount,
-                        state.fileCount,
-                    )
-                )
-                if (state.previewLine.isNotEmpty()) {
-                    DkMonoCaption(
-                        modifier = blockPadding.padding(top = DkSpacing.xxs),
-                        text = state.previewLine,
-                    )
-                }
-            }
+            DkCaption(
+                modifier = blockPadding,
+                text = stringResource(R.string.target_device_source_body),
+            )
 
             DkSectionLabel(
                 modifier = blockPadding,
@@ -198,14 +147,6 @@ private fun TargetDeviceScreenContent(
                     }
                 }
             }
-        }
-
-        state.confirmation?.let { confirmation ->
-            SendConfirmationDialog(
-                confirmation = confirmation,
-                onConfirm = { onIntent(TargetDeviceIntent.SendConfirmed) },
-                onCancel = { onIntent(TargetDeviceIntent.SendCancelled) },
-            )
         }
     }
 }
@@ -239,49 +180,6 @@ private fun DeviceRow(
     )
 }
 
-/** The last step before bytes move, so it names both the count and who receives them. */
-@Composable
-private fun SendConfirmationDialog(
-    confirmation: TargetDeviceState.ConfirmationUi,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        title = {
-            Text(
-                text = pluralStringResource(
-                    R.plurals.send_confirm_title,
-                    confirmation.fileCount,
-                    confirmation.fileCount,
-                )
-            )
-        },
-        text = {
-            Text(
-                text = stringResource(
-                    R.string.send_confirm_body,
-                    confirmation.deviceName,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        confirmButton = {
-            DkPrimaryButton(
-                text = stringResource(R.string.action_send),
-                onClick = onConfirm,
-            )
-        },
-        dismissButton = {
-            DkGhostButton(
-                text = stringResource(R.string.action_cancel),
-                onClick = onCancel,
-            )
-        },
-    )
-}
-
 /** Nothing is connected yet — "add a device" below is the way out, so this only says so. */
 @Composable
 private fun NoConnectedDevices(modifier: Modifier = Modifier) {
@@ -306,70 +204,14 @@ private fun NoConnectedDevices(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * The store is in memory, so a selection can outlive nothing but the process. Sending a
- * half-remembered list would be worse than asking for it again.
- */
-@Composable
-private fun SelectionLost(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(DkSpacing.screenPadding),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
-        ) {
-            Text(
-                text = stringResource(R.string.target_device_selection_lost),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            DkGhostButton(
-                text = stringResource(R.string.action_back),
-                onClick = onBack,
-            )
-        }
-    }
-}
-
-private val SendFilesPurpose = TargetPurpose.SendFiles(selectionId = "preview")
-
-private val ConfigureSourcePurpose = TargetPurpose.ConfigureSource(
-    kind = SourceKindUi.Photos,
-    mode = SourceModeUi.AutoUpload,
-)
-
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun TargetDeviceScreenPreview() {
     FServerTheme {
         TargetDeviceScreenContent(
             state = TargetDeviceState(
-                purpose = SendFilesPurpose,
-                fileCount = 4,
-                fileNames = listOf("Shoot", "IMG_4831.RAW", "interview_02.wav", "estimate.pdf"),
                 devices = TargetDeviceState.SampleDevices,
                 selectedDeviceId = "home-nas",
-            ),
-            onIntent = {},
-            navigateToConnect = {},
-            navigateUp = {},
-        )
-    }
-}
-
-@Preview(name = "Configuring a source", showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun TargetDeviceScreenSourcePreview() {
-    FServerTheme {
-        TargetDeviceScreenContent(
-            state = TargetDeviceState(
-                purpose = ConfigureSourcePurpose,
-                devices = TargetDeviceState.SampleDevices,
             ),
             onIntent = {},
             navigateToConnect = {},
@@ -383,35 +225,7 @@ private fun TargetDeviceScreenSourcePreview() {
 private fun TargetDeviceScreenEmptyPreview() {
     FServerTheme {
         TargetDeviceScreenContent(
-            state = TargetDeviceState(
-                purpose = SendFilesPurpose,
-                fileCount = 1,
-                fileNames = listOf("estimate_final.pdf"),
-            ),
-            onIntent = {},
-            navigateToConnect = {},
-            navigateUp = {},
-        )
-    }
-}
-
-@Preview(name = "Confirming", showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun TargetDeviceScreenConfirmPreview() {
-    FServerTheme {
-        TargetDeviceScreenContent(
-            state = TargetDeviceState(
-                purpose = SendFilesPurpose,
-                fileCount = 4,
-                fileNames = listOf("Shoot", "IMG_4831.RAW", "interview_02.wav", "estimate.pdf"),
-                devices = TargetDeviceState.SampleDevices,
-                selectedDeviceId = "home-nas",
-                confirmation = TargetDeviceState.ConfirmationUi(
-                    deviceId = "home-nas",
-                    deviceName = "HOME-NAS",
-                    fileCount = 4,
-                ),
-            ),
+            state = TargetDeviceState(),
             onIntent = {},
             navigateToConnect = {},
             navigateUp = {},

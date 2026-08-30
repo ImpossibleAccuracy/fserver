@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared
+package com.fserver.app.presentation.screens.source.shared.composable
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -9,22 +9,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.fserver.app.R
 import kotlinx.serialization.Serializable
 
-/**
- * The send flow, in presentation terms.
- *
- * Screen 0 asks a single question — what the app is allowed to see on this phone ([SourceKindUi]).
- * Only once access is actually granted does the branch ask what to do with it ([SourceModeUi]),
- * and only then where it goes. Nothing here reads or moves a byte; `:core` is not wired in yet.
- */
 @Serializable
-enum class SourceKindUi { Photos, Folder, WholeDevice }
+enum class SourceKindUi { Media, Folder, WholeDevice }
 
-/**
- * What happens to a source's files. One mode per source.
- *
- * [Offload] is the only one that removes originals from the phone, so it carries a warning
- * wherever it is listed and gets an explainer of its own before it can be turned on.
- */
+/** What happens to a source's files. One mode per source. */
 @Serializable
 enum class SourceModeUi { Sync, AutoUpload, Offload, Host }
 
@@ -49,7 +37,7 @@ enum class HostRightsUi { ReadOnly, ReadWrite }
 
 val SourceKindUi.icon: ImageVector
     get() = when (this) {
-        SourceKindUi.Photos -> Icons.Default.PhotoLibrary
+        SourceKindUi.Media -> Icons.Default.PhotoLibrary
         SourceKindUi.Folder -> Icons.Default.Folder
         SourceKindUi.WholeDevice -> Icons.Default.PhoneAndroid
     }
@@ -57,7 +45,7 @@ val SourceKindUi.icon: ImageVector
 @get:StringRes
 val SourceKindUi.titleRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_photos_title
+        SourceKindUi.Media -> R.string.source_photos_title
         SourceKindUi.Folder -> R.string.source_folder_title
         SourceKindUi.WholeDevice -> R.string.source_device_title
     }
@@ -65,7 +53,7 @@ val SourceKindUi.titleRes: Int
 @get:StringRes
 val SourceKindUi.subtitleRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_photos_subtitle
+        SourceKindUi.Media -> R.string.source_photos_subtitle
         SourceKindUi.Folder -> R.string.source_folder_subtitle
         SourceKindUi.WholeDevice -> R.string.source_device_subtitle
     }
@@ -74,7 +62,7 @@ val SourceKindUi.subtitleRes: Int
 @get:StringRes
 val SourceKindUi.modeTitleRes: Int
     get() = when (this) {
-        SourceKindUi.Photos -> R.string.source_mode_photos_title
+        SourceKindUi.Media -> R.string.source_mode_photos_title
         SourceKindUi.Folder -> R.string.source_mode_folder_title
         SourceKindUi.WholeDevice -> R.string.source_mode_device_title
     }
@@ -85,7 +73,7 @@ val SourceKindUi.modeTitleRes: Int
  */
 val SourceKindUi.modes: List<SourceModeUi>
     get() = when (this) {
-        SourceKindUi.Photos -> listOf(SourceModeUi.AutoUpload, SourceModeUi.Offload)
+        SourceKindUi.Media -> listOf(SourceModeUi.AutoUpload, SourceModeUi.Offload)
         SourceKindUi.Folder,
         SourceKindUi.WholeDevice -> listOf(
             SourceModeUi.Sync,

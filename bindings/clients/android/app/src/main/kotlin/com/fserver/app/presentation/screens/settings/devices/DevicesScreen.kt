@@ -17,7 +17,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.icon
-import com.fserver.app.presentation.screens.source.shared.icon
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkIcon

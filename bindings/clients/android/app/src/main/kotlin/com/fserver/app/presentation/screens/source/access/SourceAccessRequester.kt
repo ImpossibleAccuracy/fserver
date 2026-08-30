@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared
+package com.fserver.app.presentation.screens.source.access
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
 import timber.log.Timber
 
 /** What Android handed over for one source branch. */
@@ -105,14 +107,13 @@ class SourceAccessRequester internal constructor(
      */
     fun request(kind: SourceKindUi) {
         when (kind) {
-            SourceKindUi.Photos -> requestPhotos()
+            SourceKindUi.Media -> requestMedia()
             SourceKindUi.Folder -> requestTree()
             SourceKindUi.WholeDevice -> requestWholeDevice()
         }
     }
 
-    private fun requestPhotos() {
-        // A full grant is not re-asked; a partial one is, because that dialog is "select more".
+    private fun requestMedia() {
         if (context.mediaGrant() == SourceAccessGrant.Media(SourceAccessUi.Full)) {
             onGrant(SourceAccessGrant.Media(SourceAccessUi.Full))
         } else {

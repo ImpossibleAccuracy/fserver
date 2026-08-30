@@ -9,14 +9,9 @@ import com.fserver.app.presentation.screens.discovery.hub.ConnectHubViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
-import com.fserver.app.presentation.screens.files.picker.FilesPickerViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
-import com.fserver.app.presentation.screens.source.access.SourceAccessViewModel
-import com.fserver.app.presentation.screens.source.conditions.SourceConditionsViewModel
-import com.fserver.app.presentation.screens.source.done.SourceDoneViewModel
-import com.fserver.app.presentation.screens.source.mode.SourceModeViewModel
-import com.fserver.app.presentation.screens.source.pick.SourcePickViewModel
+import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
 import com.fserver.app.presentation.screens.target.TargetDeviceViewModel
 import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewModel
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
@@ -44,15 +39,11 @@ val presentationModule = module {
     viewModelOf(::ManualAddressViewModel)
     viewModelOf(::PairingViewModel)
     viewModelOf(::FilesViewModel)
-    viewModelOf(::FilesPickerViewModel)
     viewModelOf(::TargetDeviceViewModel)
 
-    // The send flow: one ViewModel per step, each fed by its destination key.
-    viewModelOf(::SourcePickViewModel)
-    viewModelOf(::SourceAccessViewModel)
-    viewModelOf(::SourceModeViewModel)
-    viewModelOf(::SourceConditionsViewModel)
-    viewModelOf(::SourceDoneViewModel)
+    // The send flow is one ViewModel across all five screens, scoped to the pick entry: the
+    // answers build up across them and no navigation key can carry a scan result.
+    viewModelOf(::SourceFlowViewModel)
     viewModelOf(::TransfersViewModel)
     viewModelOf(::DiagnosticsViewModel)
 

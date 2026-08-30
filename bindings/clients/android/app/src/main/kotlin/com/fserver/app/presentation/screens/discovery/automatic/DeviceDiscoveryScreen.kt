@@ -53,8 +53,6 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.screens.discovery.shared.NetworkCardUi
-import com.fserver.app.presentation.screens.source.shared.icon
-import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.permission.rememberRequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.composable.TransportKindSheet

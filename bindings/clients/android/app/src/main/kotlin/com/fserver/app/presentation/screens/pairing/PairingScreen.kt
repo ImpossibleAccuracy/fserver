@@ -42,7 +42,6 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.source.shared.icon
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect

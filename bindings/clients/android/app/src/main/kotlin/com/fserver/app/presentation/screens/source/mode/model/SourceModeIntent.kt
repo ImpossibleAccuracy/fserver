@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.screens.source.mode.model
 
-import com.fserver.app.presentation.screens.source.shared.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
 
 sealed interface SourceModeIntent {
     data class ModeSelected(val mode: SourceModeUi) : SourceModeIntent

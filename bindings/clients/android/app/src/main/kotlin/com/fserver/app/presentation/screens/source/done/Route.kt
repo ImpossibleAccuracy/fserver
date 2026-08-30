@@ -7,20 +7,14 @@ import com.fserver.app.presentation.navigation.AppNavigator
 fun EntryProviderScope<Destination>.sourceDoneEntry(
     navigator: AppNavigator,
 ) {
+    // Outside the flow's ViewModel scope on purpose: getting here drops every screen the store
+    // was tied to, so this one reads its summary out of the key.
     entry<Destination.Source.Done> { key ->
-        // The flow is answered: the screens behind this one would offer to configure a source
-        // that already exists, so neither way out returns into them.
-        val popToFiles = {
-            if (!navigator.popTo { it is Destination.Files.List }) {
-                navigator.navigateByBackstack(listOf(Destination.Files.List))
-            }
-        }
-
         SourceDoneScreen(
-            key = key,
-            navigateToFiles = { popToFiles() },
+            summary = key.summary,
+            navigateToFiles = { navigator.navigateUp() },
             navigateToSourcePick = {
-                popToFiles()
+                navigator.navigateUp()
                 navigator.navigate(Destination.Source.Pick)
             },
         )
