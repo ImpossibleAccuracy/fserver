@@ -1,9 +1,9 @@
 package com.fserver.app.presentation.screens.source.mode.model
 
-import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.composable.modes
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.modes
+import com.fserver.core.files.model.FileSize
 
 /**
  * One mode per source, picked once access is in hand.
@@ -14,19 +14,22 @@ import com.fserver.app.presentation.screens.source.shared.composable.modes
  */
 data class SourceModeState(
     val kind: SourceKindUi,
-    val access: SourceAccessUi = SourceAccessUi.Full,
     val selected: SourceModeUi? = null,
-    /** How many items a partial grant covers. Only the photos branch can be partial. */
-    val grantedItemCount: Int = 0,
-    /** What the branch got hold of: a folder path, or the device — blank for photos. */
-    val sourceLabel: String = "",
-    /** What the access step's scan counted. Zero until a branch actually walks something. */
-    val sourceFiles: Int = 0,
-    val sourceBytes: Long = 0,
+    val accessType: AccessType? = null,
 ) {
     val modes: List<SourceModeUi> = kind.modes
 
-    val isPartial: Boolean get() = access == SourceAccessUi.Partial
-
     val canContinue: Boolean get() = selected != null
+
+    sealed interface AccessType {
+        data class Partial(
+            val grantedItemCount: Int,
+        ) : AccessType
+
+        data class Full(
+            val label: String,
+            val files: Int,
+            val size: FileSize,
+        ) : AccessType
+    }
 }

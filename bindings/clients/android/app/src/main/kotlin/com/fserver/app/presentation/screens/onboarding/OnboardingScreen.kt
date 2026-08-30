@@ -226,7 +226,7 @@ private fun OnboardingFork(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun OnboardingScreenPreview() {
     FServerTheme {
@@ -239,7 +239,7 @@ private fun OnboardingScreenPreview() {
     }
 }
 
-@Preview(name = "Fork", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Fork", showBackground = true)
 @Composable
 private fun OnboardingForkPreview() {
     FServerTheme {

@@ -14,7 +14,7 @@ fun EntryProviderScope<Destination>.sourceAccessEntry(
         val flow = sourceFlowViewModel { navigator.popToSourcePick() } ?: return@entry
 
         SourceAccessScreen(
-            viewModel = flow,
+            handler = flow.access,
             // Access is answered once granted, and re-answering it means re-running the system
             // dialog from the pick — not stepping back into an explainer for a grant already held.
             navigateToMode = { access ->

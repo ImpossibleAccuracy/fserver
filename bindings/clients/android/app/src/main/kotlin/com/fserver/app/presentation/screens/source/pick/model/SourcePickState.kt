@@ -1,6 +1,6 @@
 package com.fserver.app.presentation.screens.source.pick.model
 
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 
 /**
  * Screen 0 of the send flow.

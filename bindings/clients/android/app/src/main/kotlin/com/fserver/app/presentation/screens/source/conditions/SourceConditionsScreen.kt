@@ -27,14 +27,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.screens.source.shared.composable.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.shared.composable.HostRightsUi
-import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
-import com.fserver.app.presentation.screens.source.shared.model.SourceSummaryUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.composable.UploadScopeUi
-import com.fserver.app.presentation.screens.source.shared.composable.titleRes
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -50,42 +42,42 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
-import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
+import com.fserver.app.presentation.screens.source.conditions.model.EvictCriterionUi
+import com.fserver.app.presentation.screens.source.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsUiEffect
+import com.fserver.app.presentation.screens.source.conditions.model.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
+import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
 fun SourceConditionsScreen(
-    viewModel: SourceFlowViewModel,
-    navigateToDone: (SourceSummaryUi) -> Unit,
+    handler: SourceConditionsHandler,
+    navigateToDone: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state = viewModel.conditionsState.collectAsStateWithLifecycle().value ?: return
+    val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
-    LaunchedEffect(viewModel.conditionsEffects) {
-        viewModel.conditionsEffects.collect { effect ->
+    LaunchedEffect(handler.effects) {
+        handler.effects.collect { effect ->
             when (effect) {
-                is SourceConditionsUiEffect.NavigateToDone -> navigateToDone(effect.summary)
+                is SourceConditionsUiEffect.NavigateToDone -> navigateToDone()
             }
         }
     }
 
     SourceConditionsScreenContent(
         state = state,
-        onIntent = viewModel::onConditionsIntent,
+        onIntent = handler::onIntent,
         navigateUp = navigateUp,
     )
 }
 
-/**
- * The last questions the chosen mode has, and the work that follows them.
- *
- * Two conditions are the ceiling for this step — anything finer (upload frequency, destination
- * folder) belongs in the source's settings later, once it exists at all.
- */
 @Composable
 private fun SourceConditionsScreenContent(
     state: SourceConditionsState,
@@ -215,9 +207,12 @@ private fun AutoUploadFields(
         onSelect = { onIntent(SourceConditionsIntent.UploadScopeSelected(it)) },
         modifier = Modifier.fillMaxWidth(),
     )
-    DkCaption(
-        text = stringResource(R.string.conditions_upload_scope_hint, state.backlogLabel),
-    )
+
+    if (state.backlogLabel != null) {
+        DkCaption(
+            text = stringResource(R.string.conditions_upload_scope_hint, state.backlogLabel),
+        )
+    }
 
     DkSectionLabel(text = stringResource(R.string.conditions_when_label))
     Column {
@@ -472,7 +467,7 @@ private val SourceConditionsState.prepareBodyRes: Int
         R.string.source_prepare_upload_body
     }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun ConditionsAutoUploadPreview() {
     FServerTheme {
@@ -489,7 +484,7 @@ private fun ConditionsAutoUploadPreview() {
     }
 }
 
-@Preview(name = "Offload explainer", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Offload explainer", showBackground = true)
 @Composable
 private fun ConditionsOffloadExplainerPreview() {
     FServerTheme {
@@ -506,7 +501,7 @@ private fun ConditionsOffloadExplainerPreview() {
     }
 }
 
-@Preview(name = "Offload rule", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Offload rule", showBackground = true)
 @Composable
 private fun ConditionsOffloadPreview() {
     FServerTheme {
@@ -523,7 +518,7 @@ private fun ConditionsOffloadPreview() {
     }
 }
 
-@Preview(name = "Sync", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Sync", showBackground = true)
 @Composable
 private fun ConditionsSyncPreview() {
     FServerTheme {
@@ -540,7 +535,7 @@ private fun ConditionsSyncPreview() {
     }
 }
 
-@Preview(name = "Host", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Host", showBackground = true)
 @Composable
 private fun ConditionsHostPreview() {
     FServerTheme {

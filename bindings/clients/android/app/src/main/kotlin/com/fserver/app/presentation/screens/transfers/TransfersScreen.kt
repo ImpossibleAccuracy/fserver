@@ -257,7 +257,7 @@ private fun TransferAction(text: String, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun TransfersScreenPreview() {
     FServerTheme {

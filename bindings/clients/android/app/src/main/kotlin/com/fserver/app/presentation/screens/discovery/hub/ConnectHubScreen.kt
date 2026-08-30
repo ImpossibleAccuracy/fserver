@@ -119,7 +119,7 @@ private fun ConnectHubScreen(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun ConnectHubNamedPreview() {
     FServerTheme {
@@ -134,7 +134,7 @@ private fun ConnectHubNamedPreview() {
     }
 }
 
-@Preview(name = "Network name withheld", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Network name withheld", showBackground = true)
 @Composable
 private fun ConnectHubRedactedPreview() {
     FServerTheme {

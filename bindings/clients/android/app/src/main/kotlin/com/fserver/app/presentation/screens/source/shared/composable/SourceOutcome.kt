@@ -65,7 +65,7 @@ fun SourceAccessFailure(
 fun SourceScanResult(
     title: String,
     body: String,
-    detail: String,
+    detail: String?,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -95,9 +95,12 @@ fun SourceScanResult(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        DkMonoCaption(
-            modifier = Modifier.padding(top = DkSpacing.md),
-            text = detail,
-        )
+
+        if (detail != null) {
+            DkMonoCaption(
+                modifier = Modifier.padding(top = DkSpacing.md),
+                text = detail,
+            )
+        }
     }
 }

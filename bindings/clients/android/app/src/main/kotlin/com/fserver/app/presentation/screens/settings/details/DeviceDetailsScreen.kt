@@ -225,7 +225,7 @@ private fun StatusCard(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun DeviceDetailsScreenPreview() {
     FServerTheme {

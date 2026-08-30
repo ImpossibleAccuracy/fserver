@@ -164,7 +164,7 @@ private fun ScanStatus(state: QrScanState) {
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun QrScanScreenPreview() {
     FServerTheme {
@@ -177,7 +177,7 @@ private fun QrScanScreenPreview() {
     }
 }
 
-@Preview(name = "Connecting", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Connecting", showBackground = true)
 @Composable
 private fun QrScanConnectingPreview() {
     FServerTheme {
@@ -190,7 +190,7 @@ private fun QrScanConnectingPreview() {
     }
 }
 
-@Preview(name = "Unreadable code", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Unreadable code", showBackground = true)
 @Composable
 private fun QrScanErrorPreview() {
     FServerTheme {

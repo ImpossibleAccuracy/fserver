@@ -22,22 +22,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import timber.log.Timber
 
 /** What Android handed over for one source branch. */
 sealed interface SourceAccessGrant {
+    val accessType: SourceAccessUi
+
     /** The gallery or any other media */
-    data class Media(val access: SourceAccessUi) : SourceAccessGrant
+    data class Media(val access: SourceAccessUi) : SourceAccessGrant {
+        override val accessType: SourceAccessUi
+            get() = access
+    }
 
     /** One SAF tree */
-    data class Tree(val uri: Uri, val label: String) : SourceAccessGrant
+    data class Tree(val uri: Uri, val label: String) : SourceAccessGrant {
+        override val accessType: SourceAccessUi
+            get() = SourceAccessUi.Full
+    }
 
     /** The whole device, or at least the parts Android lets the app see. */
-    data object AllFiles : SourceAccessGrant
+    data object AllFiles : SourceAccessGrant {
+        override val accessType: SourceAccessUi
+            get() = SourceAccessUi.Full
+    }
 
-    data object Denied : SourceAccessGrant
+    data object Denied : SourceAccessGrant {
+        override val accessType: SourceAccessUi
+            get() = SourceAccessUi.Full
+    }
 }
 
 /** Raises the system dialog a branch needs and reports what came back. */

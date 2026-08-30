@@ -430,7 +430,7 @@ private val TwoReady = listOf(
     method(TransportKind.NearbyConnections, selected = true),
 )
 
-@Preview(name = "Nothing selected", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Nothing selected", showBackground = true)
 @Composable
 private fun DeviceDiscoveryIdlePreview() {
     FServerTheme {
@@ -447,7 +447,7 @@ private fun DeviceDiscoveryIdlePreview() {
     }
 }
 
-@Preview(name = "Two ready", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Two ready", showBackground = true)
 @Composable
 private fun DeviceDiscoveryReadyPreview() {
     FServerTheme {
@@ -464,7 +464,7 @@ private fun DeviceDiscoveryReadyPreview() {
     }
 }
 
-@Preview(name = "Searching — empty", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Searching — empty", showBackground = true)
 @Composable
 private fun DeviceDiscoverySearchingPreview() {
     FServerTheme {
@@ -482,7 +482,7 @@ private fun DeviceDiscoverySearchingPreview() {
     }
 }
 
-@Preview(name = "Searching — results", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Searching — results", showBackground = true)
 @Composable
 private fun DeviceDiscoveryResultsPreview() {
     FServerTheme {
@@ -503,7 +503,7 @@ private fun DeviceDiscoveryResultsPreview() {
     }
 }
 
-@Preview(name = "Searching — finished", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Searching — finished", showBackground = true)
 @Composable
 private fun DeviceDiscoveryFinishedPreview() {
     FServerTheme {

@@ -137,7 +137,7 @@ private fun Context.versionLine(): String {
     )
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun AboutScreenPreview() {
     FServerTheme {

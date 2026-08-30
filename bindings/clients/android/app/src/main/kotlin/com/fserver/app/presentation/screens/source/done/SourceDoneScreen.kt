@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,9 +24,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
@@ -38,16 +36,17 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkValueRow
 import com.fserver.app.presentation.screens.source.done.model.SourceDoneState
-import com.fserver.app.presentation.screens.source.shared.model.SourceSummaryUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
 fun SourceDoneScreen(
-    summary: SourceSummaryUi,
+    handler: SourceDoneHandler,
     navigateToFiles: () -> Unit,
     navigateToSourcePick: () -> Unit,
 ) {
-    val state = remember(summary) { SourceDoneState.of(summary) }
+    val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     SourceDoneScreenContent(
         state = state,
@@ -56,12 +55,6 @@ fun SourceDoneScreen(
     )
 }
 
-/**
- * The end of every branch: what is on, what it will do next, and the two ways on from here.
- *
- * There is no back button — the flow behind this screen is answered, and returning into it
- * would offer to configure a source that already exists.
- */
 @Composable
 private fun SourceDoneScreenContent(
     state: SourceDoneState,
@@ -173,7 +166,7 @@ private val SourceModeUi.doneBodyRes: Int
         SourceModeUi.Host -> R.string.source_done_host_body
     }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun SourceDoneAutoUploadPreview() {
     FServerTheme {
@@ -204,7 +197,7 @@ private fun SourceDoneAutoUploadPreview() {
     }
 }
 
-@Preview(name = "Offload", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Offload", showBackground = true)
 @Composable
 private fun SourceDoneOffloadPreview() {
     FServerTheme {
@@ -232,7 +225,7 @@ private fun SourceDoneOffloadPreview() {
     }
 }
 
-@Preview(name = "Host", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Host", showBackground = true)
 @Composable
 private fun SourceDoneHostPreview() {
     FServerTheme {

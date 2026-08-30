@@ -335,7 +335,7 @@ private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun PairingScreenPreview() {
     FServerTheme {
@@ -347,7 +347,7 @@ private fun PairingScreenPreview() {
     }
 }
 
-@Preview(name = "Multiple methods offered", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Multiple methods offered", showBackground = true)
 @Composable
 private fun PairingScreenMultiMethodPreview() {
     FServerTheme {
@@ -370,7 +370,7 @@ private fun PairingScreenMultiMethodPreview() {
     }
 }
 
-@Preview(name = "Manual address, unresolved", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Manual address, unresolved", showBackground = true)
 @Composable
 private fun PairingScreenUnresolvedPreview() {
     FServerTheme {
@@ -391,7 +391,7 @@ private fun PairingScreenUnresolvedPreview() {
     }
 }
 
-@Preview(name = "Looking up", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Looking up", showBackground = true)
 @Composable
 private fun PairingScreenLoadingPreview() {
     FServerTheme {

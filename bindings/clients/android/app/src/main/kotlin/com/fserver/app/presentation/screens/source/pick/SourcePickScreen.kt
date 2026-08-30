@@ -32,25 +32,24 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.pick.model.SourcePickIntent
 import com.fserver.app.presentation.screens.source.pick.model.SourcePickState
-import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceOptionCard
-import com.fserver.app.presentation.screens.source.shared.composable.icon
-import com.fserver.app.presentation.screens.source.shared.composable.subtitleRes
-import com.fserver.app.presentation.screens.source.shared.composable.titleRes
+import com.fserver.app.presentation.screens.source.shared.model.icon
+import com.fserver.app.presentation.screens.source.shared.model.subtitleRes
+import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
 fun SourcePickScreen(
-    viewModel: SourceFlowViewModel,
+    handler: SourcePickHandler,
     navigateToAccess: (SourceKindUi) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state by viewModel.pickState.collectAsStateWithLifecycle()
+    val state by handler.state.collectAsStateWithLifecycle()
 
     SourcePickScreenContent(
         state = state,
-        onIntent = viewModel::onPickIntent,
+        onIntent = handler::onIntent,
         navigateToAccess = navigateToAccess,
         navigateUp = navigateUp,
     )
@@ -159,7 +158,7 @@ private fun MoreDisclosure(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun SourcePickScreenPreview() {
     FServerTheme {
@@ -172,7 +171,7 @@ private fun SourcePickScreenPreview() {
     }
 }
 
-@Preview(name = "More expanded", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "More expanded", showBackground = true)
 @Composable
 private fun SourcePickScreenExpandedPreview() {
     FServerTheme {

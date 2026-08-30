@@ -204,7 +204,7 @@ private fun NoConnectedDevices(modifier: Modifier = Modifier) {
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun TargetDeviceScreenPreview() {
     FServerTheme {
@@ -220,7 +220,7 @@ private fun TargetDeviceScreenPreview() {
     }
 }
 
-@Preview(name = "Nothing connected", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Nothing connected", showBackground = true)
 @Composable
 private fun TargetDeviceScreenEmptyPreview() {
     FServerTheme {

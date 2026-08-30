@@ -379,7 +379,7 @@ private fun FileKindUi.icon(): ImageVector = when (this) {
     FileKindUi.Other -> Icons.AutoMirrored.Filled.InsertDriveFile
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun FilesScreenPreview() {
     FServerTheme {
@@ -400,7 +400,7 @@ private fun FilesScreenPreview() {
     }
 }
 
-@Preview(name = "Nothing connected", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Nothing connected", showBackground = true)
 @Composable
 private fun FilesScreenEmptyPreview() {
     FServerTheme {

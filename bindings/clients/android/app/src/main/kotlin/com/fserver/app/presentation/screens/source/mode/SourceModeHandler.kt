@@ -1,0 +1,69 @@
+package com.fserver.app.presentation.screens.source.mode
+
+import com.fserver.app.presentation.screens.source.mode.model.SourceModeIntent
+import com.fserver.app.presentation.screens.source.mode.model.SourceModeState
+import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceFlowState
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.modes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+
+class SourceModeHandler(
+    private val flow: MutableStateFlow<SourceFlowState>,
+    scope: CoroutineScope,
+) {
+    private val editable = MutableStateFlow(Editable())
+
+    val state: StateFlow<SourceModeState?> = combine(flow, editable) { shared, local ->
+        val kind = shared.kind ?: return@combine null
+        val source = shared.source ?: return@combine null
+
+        SourceModeState(
+            kind = kind,
+            selected = local.selected ?: shared.mode ?: kind.modes.firstOrNull(),
+            accessType = when (shared.kind) {
+                SourceKindUi.Media ->
+                    if (shared.access == SourceAccessUi.Partial)
+                        SourceModeState.AccessType.Partial(source.files)
+                    else null
+
+                SourceKindUi.Folder,
+                SourceKindUi.WholeDevice ->
+                    SourceModeState.AccessType.Full(
+                        label = source.label,
+                        files = source.files,
+                        size = source.bytes,
+                    )
+            },
+        )
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun onIntent(intent: SourceModeIntent) {
+        when (intent) {
+            is SourceModeIntent.ModeSelected ->
+                editable.update { it.copy(selected = intent.mode) }
+
+            SourceModeIntent.Confirmed -> commit()
+        }
+    }
+
+    fun reset() {
+        editable.value = Editable()
+    }
+
+    private fun commit() {
+        val selected = state.value?.selected ?: return
+        flow.update { it.copy(mode = selected) }
+    }
+
+    private data class Editable(
+        val selected: SourceModeUi? = null,
+    )
+}

@@ -6,4 +6,6 @@ sealed interface SourceAccessIntent {
     data class AccessAnswered(val grant: SourceAccessGrant) : SourceAccessIntent
 
     data object ScanCancelled : SourceAccessIntent
+
+    data object Confirmed : SourceAccessIntent
 }

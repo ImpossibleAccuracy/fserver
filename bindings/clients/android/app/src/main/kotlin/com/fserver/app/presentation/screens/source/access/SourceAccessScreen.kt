@@ -1,6 +1,5 @@
 package com.fserver.app.presentation.screens.source.access
 
-import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,12 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCheckState
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -32,32 +31,35 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
-import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
 import com.fserver.app.presentation.screens.source.shared.composable.SourceScanResult
-import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.titleRes
+import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.core.files.model.FileSize
 
 @Composable
 fun SourceAccessScreen(
-    viewModel: SourceFlowViewModel,
+    handler: SourceAccessHandler,
     navigateToMode: (SourceAccessUi) -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state = viewModel.accessState.collectAsStateWithLifecycle().value ?: return
+    val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     val requester = rememberSourceAccessRequester { grant ->
-        viewModel.onAccessIntent(SourceAccessIntent.AccessAnswered(grant))
+        handler.onIntent(SourceAccessIntent.AccessAnswered(grant))
     }
 
     SourceAccessScreenContent(
         state = state,
-        onIntent = viewModel::onAccessIntent,
+        onIntent = handler::onIntent,
         onRequestAccess = { requester.request(state.kind) },
-        onContinue = { navigateToMode(state.access) },
+        onContinue = {
+            handler.onIntent(SourceAccessIntent.Confirmed)
+            navigateToMode(state.access)
+        },
         navigateToSourcePick = navigateToSourcePick,
         navigateUp = navigateUp,
     )
@@ -134,27 +136,20 @@ private fun SourceAccessScreenContent(
         val bodyModifier = Modifier.padding(innerPadding)
 
         when (state.phase) {
-            SourceAccessState.Phase.Scanning -> SourceProgressStep(
-                modifier = bodyModifier,
-                title = stringResource(R.string.source_scan_folder_title),
-                body = state.scanPath.ifEmpty { stringResource(state.kind.titleRes) },
-                progress = null,
-                detail = stringResource(
-                    R.string.source_scan_folder_summary,
-                    state.scannedFiles,
-                    Formatter.formatShortFileSize(LocalContext.current, state.scannedBytes),
-                ),
-            )
-
+            SourceAccessState.Phase.Scanning,
             SourceAccessState.Phase.Scanned -> SourceScanResult(
                 modifier = bodyModifier,
-                title = stringResource(R.string.source_scan_done_title),
-                body = state.scanPath.ifEmpty { stringResource(state.kind.titleRes) },
-                detail = stringResource(
-                    R.string.source_scan_folder_summary,
-                    state.scannedFiles,
-                    Formatter.formatShortFileSize(LocalContext.current, state.scannedBytes),
-                ),
+                title =
+                    if (state.phase == SourceAccessState.Phase.Scanning) stringResource(R.string.source_scan_folder_title)
+                    else stringResource(R.string.source_scan_done_title),
+                body = state.scanned?.label ?: stringResource(state.kind.titleRes),
+                detail = state.scanned?.let {
+                    stringResource(
+                        R.string.source_scan_folder_summary,
+                        it.files,
+                        it.bytes.formatted(),
+                    )
+                },
             )
 
             SourceAccessState.Phase.Denied -> SourceAccessFailure(
@@ -354,9 +349,12 @@ private fun SourceAccessScanningPreview() {
             state = SourceAccessState(
                 kind = SourceKindUi.Folder,
                 phase = SourceAccessState.Phase.Scanning,
-                scanPath = "/DCIM/Projects",
-                scannedFiles = 842,
-                scannedBytes = 6_549_123_072L,
+                scanned = PickedSourceUi(
+                    label = "/DCIM/Projects",
+                    files = 842,
+                    bytes = FileSize(6_549_123_072L),
+                    uri = null,
+                ),
             ),
             onIntent = {},
             onRequestAccess = {},

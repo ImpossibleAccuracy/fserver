@@ -15,10 +15,10 @@ fun EntryProviderScope<Destination>.sourceConditionsEntry(
         val flow = sourceFlowViewModel { navigator.popToSourcePick() } ?: return@entry
 
         SourceConditionsScreen(
-            viewModel = flow,
-            navigateToDone = { summary ->
+            handler = flow.conditions,
+            navigateToDone = {
                 navigator.navigate(
-                    screen = Destination.Source.Done(summary),
+                    screen = Destination.Source.Done,
                     dropping = { it.isSourceFlowScreen },
                 )
             },

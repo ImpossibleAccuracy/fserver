@@ -3,14 +3,13 @@ package com.fserver.app.presentation.screens.discovery.automatic
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.firstAction
-import com.fserver.app.presentation.composable.model.searchableTransportKinds
-import com.fserver.app.presentation.screens.discovery.shared.toCardUi
 import com.fserver.app.presentation.composable.model.toRows
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryIntent
 import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
+import com.fserver.app.presentation.screens.discovery.shared.toCardUi
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
-import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
@@ -235,6 +234,15 @@ class DeviceDiscoveryViewModel(
         scanJobs.clear()
     }
 }
+
+/**
+ * The methods the search screen offers.
+ *
+ * [TransportKind.ManualAddress] is excluded: a typed address is not something the
+ * screen can go and look for, so it is its own entry on the connection screen instead.
+ */
+private val searchableTransportKinds: List<TransportKind> =
+    TransportKind.entries.filterNot { it == TransportKind.ManualAddress }
 
 private fun ForeignDevice.toUi() = DeviceDiscoveryState.DeviceUi(
     id = deviceId,

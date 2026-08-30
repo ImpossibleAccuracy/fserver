@@ -1,10 +1,9 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.SourceSummaryUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.serialization.Serializable
 
@@ -80,7 +79,7 @@ sealed interface Destination : NavKey {
          * screen of the flow is dropped on the way here, the shared ViewModel with them.
          */
         @Serializable
-        data class Done(val summary: SourceSummaryUi) : Destination
+        data object Done : Destination
     }
 
     @Serializable

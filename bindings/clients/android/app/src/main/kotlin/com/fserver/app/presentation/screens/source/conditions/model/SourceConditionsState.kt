@@ -1,10 +1,7 @@
 package com.fserver.app.presentation.screens.source.conditions.model
 
-import com.fserver.app.presentation.screens.source.shared.composable.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.shared.composable.HostRightsUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceKindUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.composable.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 
 /**
  * Everything a mode still needs to know before it can be turned on, plus the work that runs
@@ -21,7 +18,7 @@ data class SourceConditionsState(
     val sourceLabel: String = "",
     /** Auto-upload: whether the backlog comes along, and what it costs. */
     val uploadScope: UploadScopeUi = UploadScopeUi.New,
-    val backlogLabel: String = "",
+    val backlogLabel: String? = null,
     val wifiOnly: Boolean = true,
     val chargingOnly: Boolean = false,
     /** Offload: which files leave first, and what is exempt whatever the rule says. */

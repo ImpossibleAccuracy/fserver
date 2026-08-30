@@ -20,10 +20,11 @@ fun EntryProviderScope<Destination>.sourceModeEntry(
             Timber.i("SourceModeScreen: LaunchedEffect: collecting TargetDeviceSelectedResult")
             TargetDeviceSelectedResult.collect { deviceId ->
                 Timber.d("SourceModeScreen: TargetDeviceSelectedResult collected: deviceId=$deviceId")
-                val kind = flow.modeState.value?.kind ?: return@collect
-                val mode = flow.modeState.value?.selected ?: return@collect
-
                 flow.onDeviceSelected(deviceId)
+
+                val kind = flow.state.value.kind ?: return@collect
+                val mode = flow.state.value.mode ?: return@collect
+
                 navigator.navigate(
                     screen = Destination.Source.Conditions(
                         kind = kind,
@@ -35,7 +36,7 @@ fun EntryProviderScope<Destination>.sourceModeEntry(
         }
 
         SourceModeScreen(
-            viewModel = flow,
+            handler = flow.mode,
             navigateNext = {
                 navigator.navigate(Destination.TargetDevice)
             },

@@ -36,12 +36,3 @@ val TransportKind.localizedName: Int
         TransportKind.SubnetScan -> R.string.method_subnet_localized_name
         TransportKind.ManualAddress -> R.string.method_manual_localized_name
     }
-
-/**
- * The methods the search screen offers.
- *
- * [TransportKind.ManualAddress] is excluded: a typed address is not something the
- * screen can go and look for, so it is its own entry on the connection screen instead.
- */
-val searchableTransportKinds: List<TransportKind> =
-    TransportKind.entries.filterNot { it == TransportKind.ManualAddress }

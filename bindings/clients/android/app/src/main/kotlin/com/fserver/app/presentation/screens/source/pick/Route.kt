@@ -12,7 +12,7 @@ fun EntryProviderScope<Destination>.sourcePickEntry(
         val flow = ownedSourceFlowViewModel()
 
         SourcePickScreen(
-            viewModel = flow,
+            handler = flow.pick,
             navigateToAccess = { kind ->
                 flow.start(kind)
                 navigator.navigate(Destination.Source.Access(kind))
