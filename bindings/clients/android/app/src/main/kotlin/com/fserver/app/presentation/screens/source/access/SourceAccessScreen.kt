@@ -143,12 +143,20 @@ private fun SourceAccessScreenContent(
                     if (state.phase == SourceAccessState.Phase.Scanning) stringResource(R.string.source_scan_folder_title)
                     else stringResource(R.string.source_scan_done_title),
                 body = state.scanned?.label ?: stringResource(state.kind.titleRes),
-                detail = state.scanned?.let {
+                detail = if (state.scanned != null) {
                     stringResource(
                         R.string.source_scan_folder_summary,
-                        it.files,
-                        it.bytes.formatted(),
+                        state.scanned.files,
+                        state.scanned.bytes.formatted(),
                     )
+                } else if (state.progress != null) {
+                    stringResource(
+                        R.string.source_scan_folder_summary,
+                        state.progress.scannedFiles,
+                        state.progress.scannedSize.formatted(),
+                    )
+                } else {
+                    null
                 },
             )
 

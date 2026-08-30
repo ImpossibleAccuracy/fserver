@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.core.files.model.DirectoryScanProgress
 
 @Immutable
 data class SourceAccessState(
@@ -11,6 +12,7 @@ data class SourceAccessState(
     val phase: Phase = Phase.Explaining,
     val access: SourceAccessUi = SourceAccessUi.Full,
     val scanned: PickedSourceUi? = null,
+    val progress: DirectoryScanProgress? = null,
 ) {
     enum class Phase {
         Explaining,

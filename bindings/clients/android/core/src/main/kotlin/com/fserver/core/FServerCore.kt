@@ -1,6 +1,7 @@
 package com.fserver.core
 
 import com.fserver.core.di.coreModule
+import com.fserver.core.files.FilesController
 import com.fserver.core.files.transfer.TransferRepository
 import com.fserver.core.files.transfer.impl.TransferRepositoryImpl
 import com.fserver.core.network.NetworkController
@@ -68,6 +69,8 @@ class FServerCore private constructor(
     val requirements: RequirementsChecker by lazy { koin.get() }
 
     val transferRepository: TransferRepository by lazy { koin.get() }
+
+    val filesController: FilesController by lazy { koin.get() }
 
     /**
      * Tears down the internal graph and stops background work. After this the instance is dead -

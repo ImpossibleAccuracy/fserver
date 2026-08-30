@@ -29,6 +29,7 @@ val coreModule = module {
     single { get<FServerCore>().networkInfo }
     single { get<FServerCore>().requirements }
     single { get<FServerCore>().transferRepository }
+    single { get<FServerCore>().filesController }
 
     // Storage-backed repositories, republished so a ViewModel can read what the engine reads.
     single { get<FServerStorageProvider>().identity }

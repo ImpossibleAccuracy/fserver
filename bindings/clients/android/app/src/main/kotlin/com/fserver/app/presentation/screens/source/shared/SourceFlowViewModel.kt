@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.shared
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.source.access.SourceAccessHandler
@@ -9,6 +10,7 @@ import com.fserver.app.presentation.screens.source.mode.SourceModeHandler
 import com.fserver.app.presentation.screens.source.pick.SourcePickHandler
 import com.fserver.app.presentation.screens.source.shared.model.SourceFlowState
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.core.files.FilesController
 import com.fserver.core.network.device.DevicesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 class SourceFlowViewModel(
+    private val context: Context,
+    private val filesController: FilesController,
     private val devicesRepository: DevicesRepository,
 ) : ViewModel() {
 
@@ -36,7 +40,7 @@ class SourceFlowViewModel(
 
     val pick = SourcePickHandler(viewModelScope)
 
-    val access = SourceAccessHandler(editable, viewModelScope)
+    val access = SourceAccessHandler(context, filesController, editable, viewModelScope)
 
     val mode = SourceModeHandler(editable, viewModelScope)
 

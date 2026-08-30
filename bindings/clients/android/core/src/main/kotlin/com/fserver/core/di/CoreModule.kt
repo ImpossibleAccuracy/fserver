@@ -1,6 +1,8 @@
 package com.fserver.core.di
 
 import android.content.Context
+import com.fserver.core.files.FilesController
+import com.fserver.core.files.scan.DirectoryScanner
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.JsonQrCodeParser
@@ -33,6 +35,9 @@ internal fun coreModule(
     single<BackgroundScope> { backgroundScope }
 
     factoryOf(::JsonQrCodeParser)
+    factoryOf(::DirectoryScanner)
+
+    factoryOf(::FilesController)
 
     singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
