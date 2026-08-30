@@ -1,9 +1,9 @@
 package com.fserver.app.presentation.screens.source.mode.model
 
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
-import com.fserver.app.presentation.composable.model.modes
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.modes
 
 /**
  * One mode per source, picked once access is in hand.

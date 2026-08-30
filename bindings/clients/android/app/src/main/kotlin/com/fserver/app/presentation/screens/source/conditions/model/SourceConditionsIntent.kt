@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.source.conditions.model
 
-import com.fserver.app.presentation.composable.model.EvictCriterionUi
-import com.fserver.app.presentation.composable.model.HostRightsUi
-import com.fserver.app.presentation.composable.model.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.EvictCriterionUi
+import com.fserver.app.presentation.screens.source.shared.HostRightsUi
+import com.fserver.app.presentation.screens.source.shared.UploadScopeUi
 
 sealed interface SourceConditionsIntent {
     data object ExplainerAccepted : SourceConditionsIntent

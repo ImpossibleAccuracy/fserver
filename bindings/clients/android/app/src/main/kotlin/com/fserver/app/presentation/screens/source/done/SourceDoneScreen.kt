@@ -27,8 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard

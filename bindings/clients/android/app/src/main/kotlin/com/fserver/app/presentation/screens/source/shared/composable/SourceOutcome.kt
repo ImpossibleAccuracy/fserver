@@ -1,36 +1,26 @@
-package com.fserver.app.presentation.screens.source.composable
+package com.fserver.app.presentation.screens.source.shared.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import com.fserver.app.presentation.designkit.DkInlineSpinner
-import com.fserver.app.presentation.designkit.DkMonoCaption
-import com.fserver.app.presentation.designkit.DkProgressBar
+import androidx.compose.ui.unit.dp
 import com.fserver.app.presentation.designkit.DkSpacing
 
-/**
- * The seconds between an answer and its consequence: scanning a folder, checking what the
- * target already has, counting what a rule would evict.
- *
- * Short-lived, but not skippable as a screen — there is real work behind it, and the running
- * count is the only preview the user gets before an irreversible mode turns on. Cancel is
- * always offered for the same reason; it lives in the screen's action bar with every other
- * control.
- */
 @Composable
-fun SourceProgressStep(
+fun SourceAccessFailure(
     title: String,
     body: String,
-    progress: Float,
-    detail: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -40,12 +30,18 @@ fun SourceProgressStep(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        DkInlineSpinner()
+        Icon(
+            imageVector = Icons.Default.PriorityHigh,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(28.dp),
+        )
         Text(
             modifier = Modifier.padding(top = DkSpacing.lg),
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
         )
         Text(
             modifier = Modifier.padding(top = DkSpacing.sm),
@@ -53,16 +49,6 @@ fun SourceProgressStep(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-        )
-        DkProgressBar(
-            progress = progress,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = DkSpacing.xl),
-        )
-        DkMonoCaption(
-            modifier = Modifier.padding(top = DkSpacing.sm),
-            text = detail,
         )
     }
 }

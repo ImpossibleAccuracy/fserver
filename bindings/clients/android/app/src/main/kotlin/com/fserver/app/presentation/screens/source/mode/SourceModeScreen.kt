@@ -20,11 +20,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
-import com.fserver.app.presentation.composable.model.modeTitleRes
-import com.fserver.app.presentation.composable.model.titleRes
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.modeTitleRes
+import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
@@ -35,7 +35,7 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.source.composable.SourceChoiceRow
+import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
 import com.fserver.app.presentation.screens.source.mode.model.SourceModeIntent
 import com.fserver.app.presentation.screens.source.mode.model.SourceModeState
 import com.fserver.app.presentation.theme.FServerTheme

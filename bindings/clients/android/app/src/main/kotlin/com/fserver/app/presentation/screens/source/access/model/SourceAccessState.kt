@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.access.model
 
-import com.fserver.app.presentation.composable.model.SourceKindUi
+import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
 
 /**
  * The access step of a branch: explain what is about to be asked for, ask the system, then
@@ -10,13 +11,14 @@ import com.fserver.app.presentation.composable.model.SourceKindUi
  * runtime dialog, a folder gets the SAF tree picker, the whole device gets no dialog at all and
  * a trip to system settings instead.
  */
+@Immutable
 data class SourceAccessState(
     val kind: SourceKindUi,
     val phase: Phase = Phase.Explaining,
     /** Only the folder branch scans before the mode question: the count has to be honest there. */
-    val scanProgress: Float = 0f,
     val scanPath: String = "",
-    val scanSummary: String = "",
+    val scannedFiles: Int = 0,
+    val scannedBytes: Long = 0,
 ) {
     enum class Phase {
         Explaining,

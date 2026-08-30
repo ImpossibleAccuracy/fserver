@@ -2,8 +2,8 @@ package com.fserver.app.presentation.screens.source.done.model
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
 
 /**
  * What was just turned on, in the four lines that answer "what did I do".

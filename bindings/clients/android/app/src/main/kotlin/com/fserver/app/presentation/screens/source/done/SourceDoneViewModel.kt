@@ -2,8 +2,8 @@ package com.fserver.app.presentation.screens.source.done
 
 import androidx.lifecycle.ViewModel
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.done.model.SourceDoneState
 import kotlinx.coroutines.flow.MutableStateFlow

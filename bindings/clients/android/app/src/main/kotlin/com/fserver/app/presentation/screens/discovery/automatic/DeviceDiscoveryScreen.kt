@@ -33,6 +33,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.data.SampleData
+import com.fserver.app.presentation.composable.model.icon
+import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -51,8 +53,8 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.designkit.dkDashedBorder
 import com.fserver.app.presentation.screens.discovery.shared.NetworkCardUi
-import com.fserver.app.presentation.composable.model.icon
-import com.fserver.app.presentation.composable.model.titleRes
+import com.fserver.app.presentation.screens.source.shared.icon
+import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.permission.RequirementResolver
 import com.fserver.app.presentation.permission.rememberRequirementResolver
 import com.fserver.app.presentation.screens.discovery.automatic.composable.TransportKindSheet

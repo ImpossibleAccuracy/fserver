@@ -13,18 +13,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
-/** Thin accent bar on a neutral track — 4dp, fully rounded, no stop indicator. */
 @Composable
 fun DkProgressBar(
-    progress: Float,
+    progress: Float?,
     modifier: Modifier = Modifier,
 ) {
+    val barModifier = modifier
+        .fillMaxWidth()
+        .height(4.dp)
+        .clip(RoundedCornerShape(2.dp))
+
+    if (progress == null) {
+        LinearProgressIndicator(
+            modifier = barModifier,
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+            gapSize = 0.dp,
+        )
+        return
+    }
+
     LinearProgressIndicator(
         progress = { progress },
-        modifier = modifier
-            .fillMaxWidth()
-            .height(4.dp)
-            .clip(RoundedCornerShape(2.dp)),
+        modifier = barModifier,
         color = MaterialTheme.colorScheme.primary,
         trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,

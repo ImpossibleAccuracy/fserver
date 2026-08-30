@@ -1,9 +1,9 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
 import kotlinx.serialization.Serializable
 

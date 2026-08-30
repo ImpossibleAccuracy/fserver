@@ -2,15 +2,14 @@ package com.fserver.app.presentation.screens.source.access
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessUiEffect
+import com.fserver.app.presentation.screens.source.shared.SourceAccessGrant
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,14 +17,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * Explain, ask, report — the shape every branch shares.
- *
- * TODO: nothing here talks to Android yet. [SourceAccessIntent.AccessRequested] answers itself,
- * and the folder scan is a timer rather than a walk of the tree. The permission launcher, the
- * SAF contract and the resume check for `MANAGE_EXTERNAL_STORAGE` replace those two seams; the
- * phases and the copy around them do not move.
- */
 class SourceAccessViewModel(
     key: Destination.Source.Access,
 ) : ViewModel() {
@@ -40,12 +31,11 @@ class SourceAccessViewModel(
 
     fun onIntent(intent: SourceAccessIntent) {
         when (intent) {
-            SourceAccessIntent.AccessRequested -> requestAccess()
+            is SourceAccessIntent.AccessAnswered -> when (intent.grant) {
+                SourceAccessGrant.Denied -> deny()
+                else -> startScan(intent.grant)
+            }
 
-            is SourceAccessIntent.AccessAnswered -> onAnswered(intent.access)
-
-            // Cancelling the scan drops back to the explainer, not out of the branch: the
-            // permission is still granted, only the walk was abandoned.
             SourceAccessIntent.ScanCancelled -> {
                 scanJob?.cancel()
                 _state.update { it.copy(phase = SourceAccessState.Phase.Explaining) }
@@ -53,57 +43,64 @@ class SourceAccessViewModel(
         }
     }
 
-    private fun requestAccess() {
-        if (_state.value.kind == SourceKindUi.WholeDevice) {
-            viewModelScope.launch { effects.send(SourceAccessUiEffect.OpenSystemSettings) }
-        }
-        onAnswered(SourceAccessUi.Full)
+    private fun deny() {
+        _state.update { it.copy(phase = SourceAccessState.Phase.Denied) }
     }
 
-    private fun onAnswered(access: SourceAccessUi?) {
-        if (access == null) {
-            _state.update { it.copy(phase = SourceAccessState.Phase.Denied) }
-            return
-        }
+    private fun continueWith(access: SourceAccessUi) {
+        viewModelScope.launch { effects.send(SourceAccessUiEffect.NavigateToMode(access)) }
+    }
 
-        if (_state.value.kind != SourceKindUi.Folder) {
-            viewModelScope.launch { effects.send(SourceAccessUiEffect.NavigateToMode(access)) }
-            return
-        }
-
+    private fun startScan(grant: SourceAccessGrant) {
         scanJob?.cancel()
-        scanJob = viewModelScope.launch { scanFolder(access) }
-    }
-
-    /** Placeholder walk: the numbers are the ones the deck shows, paced to look like work. */
-    private suspend fun scanFolder(access: SourceAccessUi) {
         _state.update {
             it.copy(
                 phase = SourceAccessState.Phase.Scanning,
-                scanProgress = 0f,
-                scanPath = SampleFolderPath,
-                scanSummary = "",
+                scanPath = when (grant) {
+                    SourceAccessGrant.Denied -> ""
+                    SourceAccessGrant.AllFiles -> "All files"
+
+                    is SourceAccessGrant.Media -> when (grant.access) {
+                        SourceAccessUi.Full -> "All media"
+                        SourceAccessUi.Partial -> "Partial media"
+                    }
+
+                    is SourceAccessGrant.Tree -> grant.label
+                },
+                scannedFiles = 0,
+                scannedBytes = 0,
             )
         }
 
-        repeat(ScanSteps) { step ->
-            delay(ScanStepMillis)
-            _state.update {
+        /*scanJob = viewModelScope.launch {
+            directoryScanner
+                .scan(FoundDirectory.Path(grant.uri.toString()))
+                .catch { error ->
+                    Timber.e(error, "Failed to scan %s", grant.uri)
+                    deny()
+                }
+                .collect { onScanState(it) }
+        }*/
+    }
+
+    /*private fun onScanState(scan: DirectoryScanner.State) {
+        when (scan) {
+            is DirectoryScanner.State.Progress -> _state.update {
                 it.copy(
-                    scanProgress = (step + 1).toFloat() / ScanSteps,
-                    scanSummary = SampleFolderSummary,
+                    scannedFiles = scan.scannedFiles,
+                    scannedBytes = scan.scannedSize.bytes,
                 )
             }
+
+            is DirectoryScanner.State.Ready -> {
+                _state.update {
+                    it.copy(
+                        scannedFiles = scan.files.size,
+                        scannedBytes = scan.files.sumOf { file -> file.size.bytes },
+                    )
+                }
+                continueWith(SourceAccessUi.Full)
+            }
         }
-
-        effects.send(SourceAccessUiEffect.NavigateToMode(access))
-    }
-
-    companion object {
-        private const val ScanSteps = 10
-        private const val ScanStepMillis = 120L
-
-        const val SampleFolderPath = "/storage/emulated/0/DCIM/Projects"
-        const val SampleFolderSummary = "842 files · 6.1 GB · 37 nested folders"
-    }
+    }*/
 }

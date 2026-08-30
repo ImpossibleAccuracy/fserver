@@ -2,8 +2,8 @@ package com.fserver.app.presentation.screens.source.conditions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.SourceModeUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.conditions.model.SourceConditionsState

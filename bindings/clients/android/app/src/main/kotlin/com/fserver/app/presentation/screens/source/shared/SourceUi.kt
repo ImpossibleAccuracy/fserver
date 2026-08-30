@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.composable.model
+package com.fserver.app.presentation.screens.source.shared
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons

@@ -1,9 +1,9 @@
 package com.fserver.app.presentation.screens.source.mode
 
 import androidx.lifecycle.ViewModel
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.modes
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.modes
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.mode.model.SourceModeIntent
 import com.fserver.app.presentation.screens.source.mode.model.SourceModeState

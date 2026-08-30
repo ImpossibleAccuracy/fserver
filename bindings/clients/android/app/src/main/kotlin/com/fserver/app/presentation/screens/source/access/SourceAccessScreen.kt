@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.access
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,14 +15,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.SourceAccessUi
-import com.fserver.app.presentation.composable.model.SourceKindUi
-import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCheckState
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -36,8 +35,12 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessUiEffect
-import com.fserver.app.presentation.screens.source.composable.SourceAccessFailure
-import com.fserver.app.presentation.screens.source.composable.SourceProgressStep
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
+import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
+import com.fserver.app.presentation.screens.source.shared.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.rememberSourceAccessRequester
+import com.fserver.app.presentation.screens.source.shared.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -52,13 +55,14 @@ fun SourceAccessScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val requester = rememberSourceAccessRequester { grant ->
+        viewModel.onIntent(SourceAccessIntent.AccessAnswered(grant))
+    }
+
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
                 is SourceAccessUiEffect.NavigateToMode -> navigateToMode(effect.access)
-                // TODO: hand off to Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION once the
-                // branch is wired up; the result is read back on resume, not returned here.
-                SourceAccessUiEffect.OpenSystemSettings -> Unit
             }
         }
     }
@@ -66,21 +70,17 @@ fun SourceAccessScreen(
     SourceAccessScreenContent(
         state = state,
         onIntent = viewModel::onIntent,
+        onRequestAccess = { requester.request(state.kind) },
         navigateToSourcePick = navigateToSourcePick,
         navigateUp = navigateUp,
     )
 }
 
-/**
- * What the branch is about to ask Android for, in the branch's own words.
- *
- * The screen exists because the system dialog cannot be reworded: by the time it appears the
- * user should already know what is being taken and — more usefully — what is not.
- */
 @Composable
 private fun SourceAccessScreenContent(
     state: SourceAccessState,
     onIntent: (SourceAccessIntent) -> Unit,
+    onRequestAccess: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -92,7 +92,6 @@ private fun SourceAccessScreenContent(
                 onBack = navigateUp,
             )
         },
-        // Every phase ends in the same two controls in the same place; only their labels change.
         bottomBar = {
             DkActionBar {
                 when (state.phase) {
@@ -106,7 +105,7 @@ private fun SourceAccessScreenContent(
                         DkPrimaryButton(
                             modifier = Modifier.fillMaxWidth(),
                             text = stringResource(state.kind.retryRes),
-                            onClick = { onIntent(SourceAccessIntent.AccessRequested) },
+                            onClick = onRequestAccess,
                         )
                         DkGhostButton(
                             modifier = Modifier.fillMaxWidth(),
@@ -119,7 +118,7 @@ private fun SourceAccessScreenContent(
                         DkPrimaryButton(
                             modifier = Modifier.fillMaxWidth(),
                             text = stringResource(state.kind.continueRes),
-                            onClick = { onIntent(SourceAccessIntent.AccessRequested) },
+                            onClick = onRequestAccess,
                         )
                         DkGhostButton(
                             modifier = Modifier.fillMaxWidth(),
@@ -138,8 +137,12 @@ private fun SourceAccessScreenContent(
                 modifier = bodyModifier,
                 title = stringResource(R.string.source_scan_folder_title),
                 body = state.scanPath,
-                progress = state.scanProgress,
-                detail = state.scanSummary,
+                progress = null,
+                detail = stringResource(
+                    R.string.source_scan_folder_summary,
+                    state.scannedFiles,
+                    Formatter.formatShortFileSize(LocalContext.current, state.scannedBytes),
+                ),
             )
 
             SourceAccessState.Phase.Denied -> SourceAccessFailure(
@@ -189,8 +192,6 @@ private fun AccessExplainer(
             )
         }
 
-        // The photos branch is the only one that can draw a line between what it takes and what
-        // it leaves — for the others the boundary is the folder, or there is none at all.
         if (kind == SourceKindUi.Photos) {
             Column {
                 DkStatusRow(
@@ -266,49 +267,53 @@ private val SourceKindUi.retryRes: Int
     get() = when (this) {
         SourceKindUi.Photos,
         SourceKindUi.Folder -> R.string.action_retry
+
         SourceKindUi.WholeDevice -> R.string.source_error_open_settings
     }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true)
 @Composable
 private fun SourceAccessPhotosPreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.Photos),
             onIntent = {},
+            onRequestAccess = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Folder", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Folder", showBackground = true)
 @Composable
 private fun SourceAccessFolderPreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.Folder),
             onIntent = {},
+            onRequestAccess = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Whole device", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Whole device", showBackground = true)
 @Composable
 private fun SourceAccessDevicePreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.WholeDevice),
             onIntent = {},
+            onRequestAccess = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Denied", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Denied", showBackground = true)
 @Composable
 private fun SourceAccessDeniedPreview() {
     FServerTheme {
@@ -318,13 +323,14 @@ private fun SourceAccessDeniedPreview() {
                 phase = SourceAccessState.Phase.Denied,
             ),
             onIntent = {},
+            onRequestAccess = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
     }
 }
 
-@Preview(name = "Scanning", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Scanning", showBackground = true)
 @Composable
 private fun SourceAccessScanningPreview() {
     FServerTheme {
@@ -332,11 +338,12 @@ private fun SourceAccessScanningPreview() {
             state = SourceAccessState(
                 kind = SourceKindUi.Folder,
                 phase = SourceAccessState.Phase.Scanning,
-                scanProgress = 0.4f,
-                scanPath = SourceAccessViewModel.SampleFolderPath,
-                scanSummary = SourceAccessViewModel.SampleFolderSummary,
+                scanPath = "/DCIM/Projects",
+                scannedFiles = 842,
+                scannedBytes = 6_549_123_072L,
             ),
             onIntent = {},
+            onRequestAccess = {},
             navigateToSourcePick = {},
             navigateUp = {},
         )
