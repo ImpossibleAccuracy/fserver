@@ -1,4 +1,4 @@
-package com.fserver.files.model
+package com.fserver.files.scan
 
 sealed interface ScanSource {
     data class Root(val rootPaths: List<String>) : ScanSource {

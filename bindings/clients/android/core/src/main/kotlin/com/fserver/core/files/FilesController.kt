@@ -1,7 +1,8 @@
 package com.fserver.core.files
 
-import com.fserver.common.task.ProgressTask
+import com.fserver.common.task.map
 import com.fserver.common.utils.runBackgroundJob
+import com.fserver.core.files.impl.toCore
 import com.fserver.core.files.impl.toFiles
 import com.fserver.core.files.scan.ScanSource
 import com.fserver.core.files.source.AccessModel
@@ -9,8 +10,6 @@ import com.fserver.core.files.source.FileSource
 import com.fserver.core.files.sync.SourceSyncWorker
 import com.fserver.core.store.FileSourcesStore
 import com.fserver.files.FilesNode
-import com.fserver.files.scan.DirectoryScanProgress
-import com.fserver.files.scan.ScannedFile
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -26,8 +25,14 @@ class FilesController internal constructor(
     private val store: FileSourcesStore,
     private val syncWorker: SourceSyncWorker,
 ) {
-    fun loadContent(directory: ScanSource): ProgressTask<DirectoryScanProgress, List<ScannedFile>> =
-        node.scanner.scan(directory = directory.toFiles())
+    fun loadContent(directory: ScanSource) = node.scanner
+        .scan(directory = directory.toFiles())
+        .map(
+            progressMapper = { it.toCore() },
+            resultMapper = { list ->
+                list.map { it.toCore() }
+            },
+        )
 
     /**
      * Registers a new [directory] + [accessModel] pair and persists it.

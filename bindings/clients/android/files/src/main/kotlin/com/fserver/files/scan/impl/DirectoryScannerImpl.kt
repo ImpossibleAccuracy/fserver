@@ -3,7 +3,7 @@ package com.fserver.files.scan.impl
 import android.content.Context
 import android.os.Build
 import com.fserver.common.task.ProgressTask
-import com.fserver.files.model.ScanSource
+import com.fserver.files.scan.ScanSource
 import com.fserver.common.task.progressTask
 import com.fserver.files.scan.DirectoryScanProgress
 import com.fserver.files.scan.DirectoryScanner

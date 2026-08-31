@@ -1,7 +1,7 @@
 package com.fserver.files
 
 import android.content.Context
-import com.fserver.files.model.ScanSource
+import com.fserver.files.scan.ScanSource
 import com.fserver.files.scan.DirectoryScanner
 import com.fserver.files.scan.ScannedFile
 import com.fserver.files.scan.impl.DirectoryScannerImpl

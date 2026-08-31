@@ -4,7 +4,7 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.files.scan.ScanSource
 import com.fserver.core.files.scan.ScannedFile
-import com.fserver.files.model.ScanSource as FilesScanSource
+import com.fserver.files.scan.ScanSource as FilesScanSource
 import com.fserver.files.scan.DirectoryScanProgress as FilesScanProgress
 import com.fserver.files.scan.ScannedFile as FilesScannedFile
 

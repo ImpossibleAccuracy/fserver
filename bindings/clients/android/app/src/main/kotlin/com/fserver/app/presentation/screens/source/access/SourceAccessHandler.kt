@@ -91,7 +91,7 @@ class SourceAccessHandler(
             }
 
             // Scanner not finished yet, keep comments
-            /*val task = filesController.loadContent(
+            val task = filesController.loadContent(
                 directory = directory
             )
 
@@ -101,33 +101,33 @@ class SourceAccessHandler(
                 }
             }
 
-                .fold(
-                    onSuccess = { files ->
-                        val bytes = files.sumOf { it.size.bytes }
-                        val tree = grant as? SourceAccessGrant.Tree
-                        val access =
-                            (grant as? SourceAccessGrant.Media)?.access ?: SourceAccessUi.Full
+            task.result().fold(
+                onSuccess = { files ->
+                    val bytes = files.sumOf { it.size.bytes }
+                    val tree = grant as? SourceAccessGrant.Tree
+                    val access =
+                        (grant as? SourceAccessGrant.Media)?.access ?: SourceAccessUi.Full
 
-                        editable.update {
-                            it.copy(
-                                phase = SourceAccessState.Phase.Scanned,
-                                access = access,
-                                scanned = PickedSourceUi(
-                                    files = files.size,
-                                    bytes = FileSize(bytes),
-                                    uri = tree?.uri?.toString(),
-                                    label = tree?.label.orEmpty(),
-                                ),
-                            )
-                        }
-                    },
-                    onFailure = {
-                        Timber.e(it)
-
-                        // TODO
-                        editable.update { it.copy(phase = SourceAccessState.Phase.Denied) }
+                    editable.update {
+                        it.copy(
+                            phase = SourceAccessState.Phase.Scanned,
+                            access = access,
+                            scanned = PickedSourceUi(
+                                files = files.size,
+                                bytes = FileSize(bytes),
+                                uri = tree?.uri?.toString(),
+                                label = tree?.label.orEmpty(),
+                            ),
+                        )
                     }
-                )*/
+                },
+                onFailure = {
+                    Timber.e(it)
+
+                    // TODO
+                    editable.update { it.copy(phase = SourceAccessState.Phase.Denied) }
+                }
+            )
         }
     }
 
