@@ -1,6 +1,9 @@
 package com.fserver.core.files.scan
 
 import android.content.Context
+import android.os.Build
+import android.os.Environment
+import android.os.storage.StorageManager
 
 sealed interface ScanSource {
     data class Root(val rootPaths: List<String>) : ScanSource {
@@ -9,9 +12,17 @@ sealed interface ScanSource {
         }
 
         companion object {
-            /** Every storage volume the OS will hand out, delegated to `:files`. */
-            fun fromContext(context: Context): Root =
-                Root(com.fserver.files.model.ScanSource.Root.fromContext(context).rootPaths)
+            /** Every storage volume the OS will hand out. */
+            fun fromContext(context: Context): Root {
+                val sm = context.getSystemService(StorageManager::class.java)
+                val roots = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    sm.storageVolumes.mapNotNull { it.directory?.absolutePath }
+                } else {
+                    listOfNotNull(Environment.getExternalStorageDirectory().absolutePath)
+                }
+
+                return Root(roots)
+            }
         }
     }
 
