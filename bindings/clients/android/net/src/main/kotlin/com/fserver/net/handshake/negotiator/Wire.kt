@@ -1,6 +1,6 @@
 package com.fserver.net.handshake.negotiator
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.wire.Envelope
 import com.fserver.net.wire.FrameKind
 import com.fserver.net.wire.ProtocolVersions

@@ -1,6 +1,6 @@
 package com.fserver.net.connection.impl
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
@@ -20,7 +20,7 @@ import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.GreetingSource
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
-import com.fserver.net.utils.netRunCatching
+import com.fserver.common.utils.runCatchingCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,7 +40,7 @@ internal class RequestManagerImpl<M : Any>(
     override suspend fun probe(
         peer: PeerRef,
         policy: ConnectionPolicy?
-    ): Result<ProbeResult> = netRunCatching {
+    ): Result<ProbeResult> = runCatchingCancellable {
         val policy = policy ?: config.policy
         val transport = selector.forEndpoint(peer.endpoint)
             ?: throw NetworkException.NoRoute("no transport carries ${peer.endpoint.address}")
@@ -79,7 +79,7 @@ internal class RequestManagerImpl<M : Any>(
     override suspend fun probe(
         peer: DiscoveredPeer,
         policy: ConnectionPolicy?
-    ): Result<ProbeResult> = netRunCatching {
+    ): Result<ProbeResult> = runCatchingCancellable {
         val policy = policy ?: config.policy
 
         // Transport that cannot hold an anonymous conversation answers for itself
@@ -90,7 +90,7 @@ internal class RequestManagerImpl<M : Any>(
             }
             ?.takeIf { (_, capabilities) -> capabilities.greeting == GreetingSource.Transport }
             ?.let { (route, capabilities) ->
-                return@netRunCatching ProbeResult(
+                return@runCatchingCancellable ProbeResult(
                     route = route,
                     greeting = PublicGreeting(
                         // Versions are the peer's claim, from the air.
@@ -116,8 +116,8 @@ internal class RequestManagerImpl<M : Any>(
         peer: PeerRef,
         policy: ConnectionPolicy?,
         request: AuthRequest?
-    ): Result<PeerSession<M>> = netRunCatching {
-        connectionsHolder.sessionFor(peer.deviceId)?.let { return@netRunCatching it }
+    ): Result<PeerSession<M>> = runCatchingCancellable {
+        connectionsHolder.sessionFor(peer.deviceId)?.let { return@runCatchingCancellable it }
 
         val policy = policy ?: config.policy
         val link = openLink(peer, policy, request)
@@ -133,9 +133,9 @@ internal class RequestManagerImpl<M : Any>(
         peer: DiscoveredPeer,
         policy: ConnectionPolicy?,
         request: AuthRequest?
-    ): Result<PeerSession<M>> = netRunCatching {
+    ): Result<PeerSession<M>> = runCatchingCancellable {
         val deviceId = peer.advertised.deviceId
-        connectionsHolder.sessionFor(deviceId)?.let { return@netRunCatching it }
+        connectionsHolder.sessionFor(deviceId)?.let { return@runCatchingCancellable it }
 
         val policy = policy ?: config.policy
         overRoutes(
@@ -174,7 +174,7 @@ internal class RequestManagerImpl<M : Any>(
     }
 
     private suspend fun shutdownTransport(transport: Transport) {
-        netRunCatching { transport.shutdown() }.onFailure {
+        runCatchingCancellable { transport.shutdown() }.onFailure {
             config.logger.warn(
                 "dropped transport ${transport.id.value} would not shut down",
                 it

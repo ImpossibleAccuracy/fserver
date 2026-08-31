@@ -1,6 +1,6 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.spi.Transport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

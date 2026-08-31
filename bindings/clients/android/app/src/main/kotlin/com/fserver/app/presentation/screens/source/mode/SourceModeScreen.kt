@@ -34,7 +34,7 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.modeTitleRes
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 
 @Composable
 fun SourceModeScreen(

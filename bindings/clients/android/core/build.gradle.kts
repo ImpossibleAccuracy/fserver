@@ -43,8 +43,13 @@ dependencies {
     implementation(projects.net.transport.android)
 
     // Same contract for the filesystem half: `:files` is an implementation detail of `:core`, and
-    // every `:files` entity a consumer needs is mirrored under `files/model`. See `FilesMapping`.
+    // every `:files` entity a consumer needs is mirrored under `files/scan`. See `FilesMapping`.
     implementation(projects.files)
+
+    // `api`, unlike every other project dependency here: shared exceptions, `ProgressTask`
+    // and `FileSize` are meant to reach the host, so `:app` names them directly instead of
+    // `:core` mirroring types it does not own.
+    api(projects.common)
 
     implementation(libs.androidx.core.ktx)
 

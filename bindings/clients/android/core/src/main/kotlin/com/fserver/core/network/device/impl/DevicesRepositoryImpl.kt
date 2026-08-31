@@ -1,7 +1,7 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.core.Constants
-import com.fserver.core.network.MalformedQrException
+import com.fserver.common.exception.MalformedQrException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.auth.AuthCredentials
@@ -22,8 +22,8 @@ import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.utils.chainWith
-import com.fserver.core.utils.runBackgroundJob
+import com.fserver.common.utils.chainWith
+import com.fserver.common.utils.runBackgroundJob
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.NegotiatedParameters

@@ -31,6 +31,9 @@ kotlin {
 }
 
 dependencies {
+    // ProgressTask and FileSystemException are both in this module's public surface.
+    api(projects.common)
+
     // Every seam is a suspend fun, so this is api, not implementation.
     api(libs.kotlinx.coroutines.android)
 

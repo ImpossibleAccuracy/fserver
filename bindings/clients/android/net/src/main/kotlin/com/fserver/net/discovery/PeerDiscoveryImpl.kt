@@ -1,6 +1,6 @@
 package com.fserver.net.discovery
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
@@ -8,7 +8,7 @@ import com.fserver.net.security.auth.advertisableMethods
 import com.fserver.net.spi.Advertiser
 import com.fserver.net.spi.DiscoveryProvider
 import com.fserver.net.spi.SpiId
-import com.fserver.net.utils.netRunCatching
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -51,13 +51,13 @@ internal class PeerDiscoveryImpl(
 
     override suspend fun scan(
         params: DiscoveryProvider.ScanParams
-    ): Result<List<DiscoveredPeer>> = netRunCatching {
+    ): Result<List<DiscoveredPeer>> = runCatchingCancellable {
         val identity = config.identityStore.local()
 
         val provider = config.discoveryProviders.firstOrNull { it.accepts(params) }
             ?: throw NetworkException.Transport("no discovery provider handles $params")
 
-        if (provider.id in running.value) return@netRunCatching emptyList()
+        if (provider.id in running.value) return@runCatchingCancellable emptyList()
 
         running.toggle(provider.id, add = true)
         val found = LinkedHashMap<String, DiscoveredPeer>()
@@ -105,7 +105,7 @@ internal class PeerDiscoveryImpl(
         running.toggle(id, add = false)
     }
 
-    override suspend fun startAdvertising(id: SpiId): Result<Unit> = netRunCatching {
+    override suspend fun startAdvertising(id: SpiId): Result<Unit> = runCatchingCancellable {
         advertisingLock.withLock {
             val config = config
             val advertiser = config.advertisers.firstOrNull { it.id == id }

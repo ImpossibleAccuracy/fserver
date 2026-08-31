@@ -1,10 +1,8 @@
 package com.fserver.files.scan
 
+import com.fserver.common.task.ProgressTask
 import com.fserver.files.model.ScanSource
 
 interface DirectoryScanner {
-    suspend fun scan(
-        directory: ScanSource,
-        onProgress: (DirectoryScanProgress) -> Unit,
-    ): List<ScannedFile>
+    fun scan(directory: ScanSource): ProgressTask<DirectoryScanProgress, List<ScannedFile>>
 }

@@ -1,6 +1,6 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.ByteWriter

@@ -6,9 +6,9 @@ import com.fserver.app.presentation.screens.source.access.model.SourceAccessStat
 import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceFlowState
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.scan.DirectoryScanProgress
-import com.fserver.core.files.model.FileSize
 import com.fserver.core.files.scan.ScanSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -91,15 +91,16 @@ class SourceAccessHandler(
             }
 
             // Scanner not finished yet, keep comments
-            filesController
-                .loadContent(
-                    directory = directory,
-                    onProgress = { progress ->
-                        editable.update {
-                            it.copy(progress = progress)
-                        }
-                    }
-                )
+            /*val task = filesController.loadContent(
+                directory = directory
+            )
+
+            task.progress.collect { progress ->
+                editable.update {
+                    it.copy(progress = progress)
+                }
+            }
+
                 .fold(
                     onSuccess = { files ->
                         val bytes = files.sumOf { it.size.bytes }
@@ -126,7 +127,7 @@ class SourceAccessHandler(
                         // TODO
                         editable.update { it.copy(phase = SourceAccessState.Phase.Denied) }
                     }
-                )
+                )*/
         }
     }
 

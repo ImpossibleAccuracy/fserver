@@ -1,6 +1,6 @@
 package com.fserver.net.security.trust
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.identity.PeerIdentity
 
 /**

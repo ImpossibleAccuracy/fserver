@@ -1,11 +1,11 @@
 package com.fserver.net.security.auth
 
-import com.fserver.net.NetworkException
-import com.fserver.net.security.trust.TrustCheck
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
+import com.fserver.net.security.trust.TrustCheck
 import com.fserver.net.wire.ByteWriter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -525,7 +525,10 @@ class SasAuthMethodTest {
 
         val needle = canary.encodeToByteArray()
         sent.forEachIndexed { index, frame ->
-            assertFalse("frame $index carries the identity in plaintext", frame.containsSlice(needle))
+            assertFalse(
+                "frame $index carries the identity in plaintext",
+                frame.containsSlice(needle)
+            )
         }
     }
 
@@ -676,7 +679,8 @@ class SasAuthMethodTest {
         }
 
         private fun ECPublicKey.uncompressedPoint(): ByteArray =
-            byteArrayOf(0x04) + w.affineX.toByteArray().fitTo(32) + w.affineY.toByteArray().fitTo(32)
+            byteArrayOf(0x04) + w.affineX.toByteArray().fitTo(32) + w.affineY.toByteArray()
+                .fitTo(32)
 
         private fun ByteArray.fitTo(length: Int): ByteArray = when {
             size == length -> this

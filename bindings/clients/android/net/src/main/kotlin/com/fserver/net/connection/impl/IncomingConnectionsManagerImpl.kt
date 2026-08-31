@@ -1,6 +1,6 @@
 package com.fserver.net.connection.impl
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
@@ -15,7 +15,7 @@ import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
-import com.fserver.net.utils.netRunCatching
+import com.fserver.common.utils.runCatchingCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -182,7 +182,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
             }
         }
 
-        override suspend fun accept(): Result<Unit> = netRunCatching {
+        override suspend fun accept(): Result<Unit> = runCatchingCancellable {
             if (!settled.compareAndSet(false, true)) {
                 throw NetworkException.Transport("request from ${peer.advertisedName} already settled")
             }

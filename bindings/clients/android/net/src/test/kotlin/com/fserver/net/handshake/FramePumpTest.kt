@@ -1,6 +1,6 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.support.channelPair
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob

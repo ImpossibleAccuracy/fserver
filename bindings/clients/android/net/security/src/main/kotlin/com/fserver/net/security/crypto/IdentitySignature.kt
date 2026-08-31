@@ -1,6 +1,6 @@
 package com.fserver.net.security.crypto
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import org.bouncycastle.asn1.sec.SECNamedCurves
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.bouncycastle.crypto.digests.SHA256Digest

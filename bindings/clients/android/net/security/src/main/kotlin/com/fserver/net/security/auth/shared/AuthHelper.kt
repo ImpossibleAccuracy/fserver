@@ -1,6 +1,6 @@
 package com.fserver.net.security.auth.shared
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider

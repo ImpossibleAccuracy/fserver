@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.source.shared.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 
 /** What the access step's scan found, for the screens after it. */
 @Immutable

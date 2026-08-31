@@ -1,6 +1,6 @@
 package com.fserver.net.wire
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 
 /**
  * Frame types. [isControl] frames jump the send queue: a multi-hour transfer must not sit in

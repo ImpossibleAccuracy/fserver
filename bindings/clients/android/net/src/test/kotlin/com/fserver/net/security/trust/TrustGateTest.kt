@@ -1,6 +1,6 @@
 package com.fserver.net.security.trust
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest

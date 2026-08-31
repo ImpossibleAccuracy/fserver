@@ -15,6 +15,9 @@ kotlin {
 }
 
 dependencies {
+    // Exceptions and shared helpers live here, and they surface in this module's own API.
+    api(projects.common)
+
     // Every seam is a suspend fun or a Flow, so this is api, not implementation.
     api(libs.kotlinx.coroutines.core)
 

@@ -1,4 +1,4 @@
-package com.fserver.core.utils
+package com.fserver.common.utils
 
 /**
  * Chains two [Result]s together, returning the first one if it is success, or the second one if the first is failure.

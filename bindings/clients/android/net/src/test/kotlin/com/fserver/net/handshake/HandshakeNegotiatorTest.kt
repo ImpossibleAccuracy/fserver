@@ -1,6 +1,7 @@
 package com.fserver.net.handshake
 
-import com.fserver.net.NetworkException
+import com.fserver.net.DictionaryMismatchException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
@@ -120,8 +121,8 @@ class HandshakeNegotiatorTest {
             )
 
             val refused = responder.exceptionOrNull()
-            assertTrue(refused is NetworkException.DictionaryMismatch)
-            assertEquals(7, (refused as NetworkException.DictionaryMismatch).remote.version)
+            assertTrue(refused is DictionaryMismatchException)
+            assertEquals(7, (refused as DictionaryMismatchException).remote.version)
             assertTrue(initiator.exceptionOrNull() is NetworkException.Handshake)
         }
 

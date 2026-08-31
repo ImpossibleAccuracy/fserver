@@ -1,4 +1,4 @@
-package com.fserver.core.files.model
+package com.fserver.common.model
 
 @JvmInline
 value class FileSize(val bytes: Long) {

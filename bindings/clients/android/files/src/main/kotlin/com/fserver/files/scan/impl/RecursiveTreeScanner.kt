@@ -6,7 +6,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
-import com.fserver.files.model.FileSystemException
+import com.fserver.common.exception.FileSystemException
 import com.fserver.files.scan.ScannedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext

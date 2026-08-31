@@ -1,6 +1,6 @@
 package com.fserver.net.wire
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test

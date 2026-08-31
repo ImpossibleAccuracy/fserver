@@ -1,6 +1,6 @@
 package com.fserver.core.files.source
 
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 import kotlin.time.Instant
 
 /**

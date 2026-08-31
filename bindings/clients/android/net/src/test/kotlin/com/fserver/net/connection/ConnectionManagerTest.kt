@@ -1,6 +1,6 @@
 package com.fserver.net.connection
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.discovery.AdvertisedPeer

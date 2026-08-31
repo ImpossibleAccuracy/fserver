@@ -1,6 +1,7 @@
 package com.fserver.net.security.crypto
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
+import com.fserver.net.security.crypto.CryptoProvider.Aead
 import org.bouncycastle.crypto.InvalidCipherTextException
 import org.bouncycastle.crypto.agreement.X25519Agreement
 import org.bouncycastle.crypto.digests.SHA256Digest
@@ -41,7 +42,11 @@ object X25519CryptoProvider : CryptoProvider {
                 val agreement = X25519Agreement().apply { init(private) }
                 val secret = ByteArray(agreement.agreementSize)
                 try {
-                    agreement.calculateAgreement(X25519PublicKeyParameters(peerPublicKey, 0), secret, 0)
+                    agreement.calculateAgreement(
+                        X25519PublicKeyParameters(peerPublicKey, 0),
+                        secret,
+                        0
+                    )
                 } catch (e: IllegalStateException) {
                     // BC throws when the peer key is a low-order point and the secret would be all zeros.
                     throw NetworkException.Protocol("X25519 agreement failed", e)

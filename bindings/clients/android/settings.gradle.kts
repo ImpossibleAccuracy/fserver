@@ -32,6 +32,7 @@ include(
     ":core",
     ":core:storage",
 )
+include(":common")
 include(":files")
 include(
     ":net",

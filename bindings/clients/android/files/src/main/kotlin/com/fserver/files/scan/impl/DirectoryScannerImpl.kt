@@ -2,10 +2,13 @@ package com.fserver.files.scan.impl
 
 import android.content.Context
 import android.os.Build
+import com.fserver.common.task.ProgressTask
 import com.fserver.files.model.ScanSource
+import com.fserver.common.task.progressTask
 import com.fserver.files.scan.DirectoryScanProgress
 import com.fserver.files.scan.DirectoryScanner
 import com.fserver.files.scan.ScannedFile
+import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -16,11 +19,10 @@ import kotlinx.coroutines.launch
 internal class DirectoryScannerImpl(
     private val context: Context,
 ) : DirectoryScanner {
-    override suspend fun scan(
+    override fun scan(
         directory: ScanSource,
-        onProgress: (DirectoryScanProgress) -> Unit,
-    ): List<ScannedFile> {
-        val collector = ScanCollector(onProgress)
+    ): ProgressTask<DirectoryScanProgress, List<ScannedFile>> = progressTask {
+        val collector = ScanCollector(this)
 
         when (directory) {
             is ScanSource.Root -> scanRoots(directory.rootPaths, collector)
@@ -38,7 +40,7 @@ internal class DirectoryScannerImpl(
             }
         }
 
-        return collector.result()
+        collector.result()
     }
 
     /** Volumes are independent trees, so they are walked at the same time. */
@@ -50,4 +52,28 @@ internal class DirectoryScannerImpl(
             launch { DirectoryFilesScanner.scanDirectory(path, collector::add) }
         }
     }
+}
+
+private class ScanCollector(
+    private val scope: ProducerScope<DirectoryScanProgress>,
+) {
+    private val lock = Any()
+    private val found = mutableListOf<ScannedFile>()
+    private var totalBytes = 0L
+
+    fun add(file: ScannedFile) {
+        val progress = synchronized(lock) {
+            found += file
+            totalBytes += file.size
+
+            DirectoryScanProgress(
+                scannedFiles = found.size,
+                scannedSizeBytes = totalBytes,
+            )
+        }
+
+        scope.trySend(progress)
+    }
+
+    fun result(): List<ScannedFile> = synchronized(lock) { found.toList() }
 }

@@ -1,6 +1,6 @@
 package com.fserver.files.scan.impl
 
-import com.fserver.files.model.FileSystemException
+import com.fserver.common.exception.FileSystemException
 import com.fserver.files.scan.ScannedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext

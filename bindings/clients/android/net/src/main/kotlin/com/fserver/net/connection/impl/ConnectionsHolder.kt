@@ -1,6 +1,6 @@
 package com.fserver.net.connection.impl
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder

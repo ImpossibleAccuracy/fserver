@@ -1,6 +1,6 @@
 package com.fserver.net.handshake.negotiator
 
-import com.fserver.net.NetworkException
+import com.fserver.net.DictionaryMismatchException
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.ConnectionPolicy
@@ -39,7 +39,7 @@ internal class SealedPhase(
             is MessageDictionary.Decision.Accept -> decision.effectiveVersion
             is MessageDictionary.Decision.Reject -> {
                 wire.sendClose("dictionary rejected: ${decision.reason}")
-                throw NetworkException.DictionaryMismatch(remote, decision.reason)
+                throw DictionaryMismatchException(remote, decision.reason)
             }
         }
 

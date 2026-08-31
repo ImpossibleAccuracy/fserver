@@ -1,7 +1,7 @@
 package com.fserver.net.session
 
 import com.fserver.net.NetLogger
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy

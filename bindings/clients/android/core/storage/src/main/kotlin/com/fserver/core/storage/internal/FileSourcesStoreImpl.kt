@@ -1,6 +1,6 @@
 package com.fserver.core.storage.internal
 
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.source.FileSource
 import com.fserver.core.files.source.ProcessedFile
 import com.fserver.core.storage.FileSourcesRepository

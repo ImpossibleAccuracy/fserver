@@ -14,7 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import com.fserver.app.R
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 

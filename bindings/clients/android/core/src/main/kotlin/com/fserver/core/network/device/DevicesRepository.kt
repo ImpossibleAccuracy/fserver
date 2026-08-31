@@ -1,7 +1,7 @@
 package com.fserver.core.network.device
 
-import com.fserver.core.network.DetectionFailedException
-import com.fserver.core.network.MalformedQrException
+import com.fserver.common.exception.DetectionFailedException
+import com.fserver.common.exception.MalformedQrException
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.device.model.ForeignDevice

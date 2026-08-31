@@ -3,7 +3,7 @@ package com.fserver.app.presentation.screens.source.mode.model
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.modes
-import com.fserver.core.files.model.FileSize
+import com.fserver.common.model.FileSize
 
 /**
  * One mode per source, picked once access is in hand.

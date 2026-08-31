@@ -1,6 +1,6 @@
 package com.fserver.net.security.crypto
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import org.junit.Assert.fail
 import org.junit.Test
 import java.security.KeyPair
@@ -28,7 +28,11 @@ class IdentitySignatureTest {
     @Test
     fun `rejects a signature over different data`() {
         assertRejected {
-            IdentitySignature.verify(publicKey, "other-transcript".encodeToByteArray(), sign(keys, data))
+            IdentitySignature.verify(
+                publicKey,
+                "other-transcript".encodeToByteArray(),
+                sign(keys, data)
+            )
         }
     }
 

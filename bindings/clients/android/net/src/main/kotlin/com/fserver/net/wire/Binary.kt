@@ -1,6 +1,6 @@
 package com.fserver.net.wire
 
-import com.fserver.net.NetworkException
+import com.fserver.common.exception.NetworkException
 import java.nio.BufferUnderflowException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets

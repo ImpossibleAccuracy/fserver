@@ -1,12 +1,18 @@
 package com.fserver.files.access
 
+import com.fserver.common.task.ProgressTask
 import com.fserver.files.model.ScanSource
-import kotlinx.coroutines.flow.Flow
+import java.io.File
 
-interface AccessModel {
+/**
+ * How a source's bytes actually move. Not to be confused with `:core`'s `AccessModel`, which is
+ * the policy deciding whether they may move at all.
+ */
+interface UploadStrategy {
     fun supports(params: Params): Boolean
 
-    fun upload(params: Params, directory: ScanSource): Flow<UploadProgress>
+    // TODO: File is temporary
+    fun upload(params: Params, directory: ScanSource): ProgressTask<UploadProgress, List<File>>
 
     interface Params
 

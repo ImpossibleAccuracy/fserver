@@ -1,5 +1,6 @@
 package com.fserver.net
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
@@ -7,7 +8,6 @@ import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.TimeoutsConfig
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.PeerAuthenticator
-import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
