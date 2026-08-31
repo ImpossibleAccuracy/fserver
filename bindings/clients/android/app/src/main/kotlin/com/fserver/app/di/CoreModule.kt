@@ -35,4 +35,5 @@ val coreModule = module {
     single { get<FServerStorageProvider>().identity }
     single { get<FServerStorageProvider>().auth }
     single { get<FServerStorageProvider>().trustedDevices }
+    single { get<FServerStorageProvider>().fileSources }
 }

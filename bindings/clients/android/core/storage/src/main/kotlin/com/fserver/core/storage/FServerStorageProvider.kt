@@ -10,9 +10,11 @@ import com.fserver.core.FServerConfig
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
+import com.fserver.core.storage.internal.FileSourcesStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
 import com.fserver.core.store.AuthSettingsStore
 import com.fserver.core.store.DeviceIdentityStore
+import com.fserver.core.store.FileSourcesStore
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.TrustedDevicesStore
 import kotlinx.coroutines.CoroutineScope
@@ -54,12 +56,15 @@ class FServerStorageProvider private constructor(
     private val identityStore by lazy { DeviceIdentityStoreImpl(dataStore) }
     private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
     private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
+    private val fileSourcesStore by lazy { FileSourcesStoreImpl() }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
     val auth: AuthSettingsRepository get() = authStore
 
     val trustedDevices: TrustedDevicesRepository get() = trustStore
+
+    val fileSources: FileSourcesRepository get() = fileSourcesStore
 
     /**
      * The `:core` config backed by this storage.
@@ -76,6 +81,7 @@ class FServerStorageProvider private constructor(
         override val identity: DeviceIdentityStore get() = identityStore
         override val auth: AuthSettingsStore get() = authStore
         override val trust: TrustedDevicesStore get() = trustStore
+        override val fileSources: FileSourcesStore get() = fileSourcesStore
     }
 
     companion object {

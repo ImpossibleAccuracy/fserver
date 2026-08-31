@@ -2,6 +2,7 @@ package com.fserver.core.di
 
 import android.content.Context
 import com.fserver.core.files.FilesController
+import com.fserver.core.files.sync.SourceSyncWorker
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.JsonQrCodeParser
@@ -9,6 +10,7 @@ import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.impl.NetworkInfoRepositoryImpl
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.requirement.impl.RequirementsCheckerImpl
+import com.fserver.core.store.FServerStorage
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
@@ -34,7 +36,11 @@ internal fun coreModule(
     single<BackgroundScope> { backgroundScope }
 
     factoryOf(::JsonQrCodeParser)
-    factoryOf(::FilesController)
+
+    // The host hands in one FServerStorage; the engine binds the slices it actually calls.
+    single { get<FServerStorage>().fileSources }
+    singleOf(::SourceSyncWorker)
+    singleOf(::FilesController)
 
     singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
