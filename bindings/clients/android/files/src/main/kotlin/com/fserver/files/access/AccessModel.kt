@@ -1,12 +1,12 @@
-package com.fserver.core.files.access
+package com.fserver.files.access
 
-import com.fserver.core.files.model.FoundDirectory
+import com.fserver.files.model.ScanSource
 import kotlinx.coroutines.flow.Flow
 
 interface AccessModel {
     fun supports(params: Params): Boolean
 
-    fun upload(params: Params, directory: FoundDirectory): Flow<UploadProgress>
+    fun upload(params: Params, directory: ScanSource): Flow<UploadProgress>
 
     interface Params
 

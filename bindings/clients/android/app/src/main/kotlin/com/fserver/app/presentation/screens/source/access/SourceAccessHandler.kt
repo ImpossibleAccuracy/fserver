@@ -7,9 +7,9 @@ import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceFlowState
 import com.fserver.core.files.FilesController
-import com.fserver.core.files.model.DirectoryScanProgress
+import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.files.model.FileSize
-import com.fserver.core.files.model.FoundDirectory
+import com.fserver.core.files.scan.ScanSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -130,11 +130,11 @@ class SourceAccessHandler(
         }
     }
 
-    private fun SourceAccessGrant.directory(): FoundDirectory? = when (this) {
+    private fun SourceAccessGrant.directory(): ScanSource? = when (this) {
         SourceAccessGrant.Denied -> null
-        SourceAccessGrant.AllFiles -> FoundDirectory.Root.fromContext(context)
-        is SourceAccessGrant.Tree -> FoundDirectory.Tree(uri.toString())
-        is SourceAccessGrant.Media -> FoundDirectory.Media
+        SourceAccessGrant.AllFiles -> ScanSource.Root.fromContext(context)
+        is SourceAccessGrant.Tree -> ScanSource.Tree(uri.toString())
+        is SourceAccessGrant.Media -> ScanSource.Media
     }
 
     private data class Editable(

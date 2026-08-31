@@ -42,6 +42,10 @@ dependencies {
     implementation(projects.net.security)
     implementation(projects.net.transport.android)
 
+    // Same contract for the filesystem half: `:files` is an implementation detail of `:core`, and
+    // every `:files` entity a consumer needs is mirrored under `files/model`. See `FilesMapping`.
+    implementation(projects.files)
+
     implementation(libs.androidx.core.ktx)
 
     // JNA loads libnetwork_core.so and marshals calls across the FFI.
@@ -69,9 +73,6 @@ dependencies {
     // Nearby Connections - device discovery/transport without a shared network
     implementation(libs.play.services.nearby)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-
-    // IO
-    implementation(libs.androidx.documentfile)
 
     // Serialization - the payload a scanned connection code carries
     implementation(libs.kotlinx.serialization.json)

@@ -1,8 +1,7 @@
-package com.fserver.core.files.scan.impl
+package com.fserver.files.scan.impl
 
-import com.fserver.core.files.model.FileSize
-import com.fserver.core.files.model.FileSystemException
-import com.fserver.core.files.scan.ScannedFile
+import com.fserver.files.model.FileSystemException
+import com.fserver.files.scan.ScannedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -28,7 +27,7 @@ internal object DirectoryFilesScanner {
                 ScannedFile(
                     path = item.absolutePath,
                     directory = item.parent ?: directoryPath,
-                    size = FileSize(item.length())
+                    size = item.length()
                 )
             )
         }

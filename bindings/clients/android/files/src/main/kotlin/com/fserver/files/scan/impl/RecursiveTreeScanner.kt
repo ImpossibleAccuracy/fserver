@@ -1,4 +1,4 @@
-package com.fserver.core.files.scan.impl
+package com.fserver.files.scan.impl
 
 import android.content.ContentResolver
 import android.content.Context
@@ -6,9 +6,8 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
-import com.fserver.core.files.model.FileSize
-import com.fserver.core.files.model.FileSystemException
-import com.fserver.core.files.scan.ScannedFile
+import com.fserver.files.model.FileSystemException
+import com.fserver.files.scan.ScannedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -82,7 +81,7 @@ internal object RecursiveTreeScanner {
                                 .buildDocumentUriUsingTree(treeUri, documentId)
                                 .toString(),
                             directory = parentUri.toString(),
-                            size = FileSize(if (cursor.isNull(2)) 0L else cursor.getLong(2)),
+                            size = if (cursor.isNull(2)) 0L else cursor.getLong(2),
                         )
                     )
                 }

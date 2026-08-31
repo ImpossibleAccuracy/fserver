@@ -1,42 +1,38 @@
-package com.fserver.core.files.scan
+package com.fserver.files.scan.impl
 
 import android.content.ContentUris
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
-import com.fserver.core.files.model.DirectoryScanProgress
-import com.fserver.core.files.model.FileSize
-import com.fserver.core.files.model.FoundDirectory
-import com.fserver.core.files.scan.impl.DirectoryFilesScanner
-import com.fserver.core.files.scan.impl.RecursiveTreeScanner
+import com.fserver.files.model.ScanSource
+import com.fserver.files.scan.DirectoryScanProgress
+import com.fserver.files.scan.DirectoryScanner
+import com.fserver.files.scan.ScannedFile
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlin.collections.plusAssign
 
-internal class DirectoryScanner(
+internal class DirectoryScannerImpl(
     private val context: Context,
-) {
-    suspend fun scan(
-        directory: FoundDirectory,
+) : DirectoryScanner {
+    override suspend fun scan(
+        directory: ScanSource,
         onProgress: (DirectoryScanProgress) -> Unit,
     ): List<ScannedFile> =
         when (directory) {
-            is FoundDirectory.Root ->
+            is ScanSource.Root ->
                 scanDirectories(directory.rootPaths, onProgress)
 
-            is FoundDirectory.Tree -> scanTree(directory.path, onProgress)
+            is ScanSource.Tree -> scanTree(directory.path, onProgress)
 
-            is FoundDirectory.Media -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            is ScanSource.Media -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 queryMediaStore(onProgress = onProgress)
             } else {
-                // TODO: filter only media files on older Android versions
-                scan(
-                    directory = FoundDirectory.Root.fromContext(context),
-                    onProgress = onProgress,
-                )
+                TODO("Add files scan for pre-Android 10")
             }
         }
 
@@ -54,12 +50,12 @@ internal class DirectoryScanner(
                     directoryPath = directory,
                     onFileFound = { file ->
                         foundFiles += file
-                        totalSize += file.size.bytes
+                        totalSize += file.size
 
                         onProgress(
                             DirectoryScanProgress(
                                 scannedFiles = foundFiles.size,
-                                scannedSize = FileSize(totalSize),
+                                scannedSizeBytes = totalSize,
                             )
                         )
                     }
@@ -85,12 +81,12 @@ internal class DirectoryScanner(
             dirPath = dirPath,
             onFileFound = { file ->
                 foundFiles += file
-                totalSize += file.size.bytes
+                totalSize += file.size
 
                 onProgress(
                     DirectoryScanProgress(
                         scannedFiles = foundFiles.size,
-                        scannedSize = FileSize(totalSize),
+                        scannedSizeBytes = totalSize,
                     )
                 )
             }
@@ -137,19 +133,18 @@ internal class DirectoryScanner(
                     )
 
                     totalSize += if (cursor.isNull(sizeIndex)) 0L else cursor.getLong(sizeIndex)
-                    foundMedia += ScannedFile(
+                    foundMedia plusAssign ScannedFile(
                         path = uri.toString(),
                         directory = cursor.getString(bucketIndex) ?: "Unknown",
-                        size = FileSize(
+                        size =
                             if (cursor.isNull(sizeIndex)) 0L
-                            else cursor.getLong(sizeIndex)
-                        ),
+                            else cursor.getLong(sizeIndex),
                     )
 
                     onProgress(
                         DirectoryScanProgress(
                             scannedFiles = foundMedia.size,
-                            scannedSize = FileSize(totalSize),
+                            scannedSizeBytes = totalSize,
                         )
                     )
                 }

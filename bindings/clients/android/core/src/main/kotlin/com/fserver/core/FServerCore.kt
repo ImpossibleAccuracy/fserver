@@ -9,6 +9,7 @@ import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.files.FilesNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -103,10 +104,13 @@ class FServerCore private constructor(
                 coroutineScope = scope,
             )
 
+            val files = FilesNode.create(config.context)
+
             val koin = koinApplication {
                 modules(
                     coreModule(config.context, scope),
                     module {
+                        single { files }
                         single { config.storage }
                         single { network }
                         single { authenticator }
