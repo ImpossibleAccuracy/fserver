@@ -25,7 +25,7 @@ internal class DirectoryScannerImpl(
         val collector = ScanCollector(this)
 
         when (directory) {
-            is ScanSource.Root -> scanRoots(directory.rootPaths, collector)
+            is ScanSource.Root -> scanVolumes(directory.volumes, collector)
 
             is ScanSource.Tree -> RecursiveTreeScanner.scanTree(
                 context = context,
@@ -44,12 +44,12 @@ internal class DirectoryScannerImpl(
     }
 
     /** Volumes are independent trees, so they are walked at the same time. */
-    private suspend fun scanRoots(
-        rootPaths: List<String>,
+    private suspend fun scanVolumes(
+        volumes: List<ScanSource.Root.Volume>,
         collector: ScanCollector,
     ) = coroutineScope {
-        for (path in rootPaths) {
-            launch { DirectoryFilesScanner.scanDirectory(path, collector::add) }
+        for (volume in volumes) {
+            launch { DirectoryFilesScanner.scanVolume(volume, collector::add) }
         }
     }
 }
@@ -64,7 +64,7 @@ private class ScanCollector(
     fun add(file: FoundFile) {
         val progress = synchronized(lock) {
             found += file
-            totalBytes += file.size
+            totalBytes += file.size.bytes
 
             ScanProgress(
                 scannedFiles = found.size,

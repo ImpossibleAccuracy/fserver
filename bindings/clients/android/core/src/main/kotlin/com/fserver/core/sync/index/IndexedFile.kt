@@ -16,14 +16,9 @@ data class IndexedFile(
     /** Row key, unique within this device's index. Assigned by whoever writes the record. */
     val id: String,
     val sourceId: String,
-    /**
-     * Cross-device identity: two devices holding the same file agree on this value.
-     *
-     * Derived from [path], never from [id] or [sourceId] - each device registers its own source
-     * under its own id, so anything scoped to one would never match the peer's.
-     */
+    /** Cross-device identity: two devices holding the same file agree on this value. */
     val fileId: String,
-    /** Source-relative, so it means the same thing on both sides. */
+    /** Source-relative and canonical file location. */
     val path: String,
     /** What this device holds right now. */
     val state: State,
@@ -57,8 +52,6 @@ data class IndexedFile(
     sealed interface State {
         /** Bytes are here and readable. */
         data class Present(
-            /** Device-local handle - an absolute path for a tree source, a URI for a SAF one. */
-            val location: String,
             /** Pinned files are exempt from eviction. */
             val pinned: Boolean = false,
         ) : State

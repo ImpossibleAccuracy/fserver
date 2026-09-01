@@ -7,15 +7,19 @@ import com.fserver.files.scan.ScanProgress
 import com.fserver.files.scan.ScanSource
 
 internal fun SourceLocation.toFiles(): ScanSource = when (this) {
-    is SourceLocation.Root -> ScanSource.Root(rootPaths)
+    is SourceLocation.Root -> ScanSource.Root(volumes.map { it.toFiles() })
     is SourceLocation.Tree -> ScanSource.Tree(path)
     SourceLocation.Media -> ScanSource.Media
 }
 
+private fun SourceLocation.Root.Volume.toFiles(): ScanSource.Root.Volume =
+    ScanSource.Root.Volume(id = id, path = path)
+
 internal fun FoundFile.toCore(): ScannedFile = ScannedFile(
     path = path,
-    directory = directory,
-    size = FileSize(size),
+    directory = path.substringBeforeLast('/', missingDelimiterValue = ""),
+    size = size,
+    lastModified = lastModified,
 )
 
 internal fun ScanProgress.toCore(): DirectoryScanProgress = DirectoryScanProgress(

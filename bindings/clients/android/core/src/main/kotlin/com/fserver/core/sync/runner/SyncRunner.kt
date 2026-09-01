@@ -69,8 +69,17 @@ internal class SyncRunner(
 
         val decisions = uploadStrategySelector.plan(source.syncMode, snapshot)
 
-        //TODO:
-        // 1. execute decisions.actions
-        // 2. mark processed or re-run (if some actions need to be retried)
+        // TODO: executor.
+        //  1. Resolve FileAction.ComputeHash first, then re-plan: hash local bytes, ask the peer for
+        //     remote ones. Cap the rounds - a strategy bug must not spin here forever.
+        //  2. Execute the remaining actions. Transfers already stream the bytes, so hash in the same
+        //     pass instead of reading the file twice.
+        //  3. Download writes the index record together with the bytes, carrying the peer's fileId,
+        //     revision and hash. Minting our own re-owns the file, and every later peer edit then
+        //     reads as a false Conflict; writing no record at all makes the next scan mint a fresh
+        //     fileId, and the pair ping-pongs upload/download every pass.
+        //  4. Restore the peer's lastModified on the written file so the next scan sees no change.
+        //     Not always possible through MediaStore/SAF, so step 3 has to hold on its own.
+        //  5. Mark processed only what actually succeeded; failed actions stay for the next pass.
     }
 }

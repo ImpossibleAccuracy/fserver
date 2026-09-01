@@ -24,17 +24,20 @@ internal class FileIndexStoreImpl : FileIndexStore {
     override suspend fun processedFiles(sourceId: String): List<IndexedFile> =
         processed.value[sourceId].orEmpty().values.toList()
 
-    override suspend fun findProcessed(sourceId: String, path: String): IndexedFile? =
-        processed.value[sourceId]?.values?.find { it.path == path }
-
-    override suspend fun markProcessed(files: Collection<IndexedFile>) = writeLock.withLock {
-        if (files.isEmpty()) return@withLock
-
+    override suspend fun markProcessed(
+        indexed: Collection<IndexedFile>,
+        deleted: Collection<String>
+    ) {
         processed.update { current ->
-            // One source at a time is the common case, but a caller may hand in a mixed batch.
-            files.groupBy { it.sourceId }.entries.fold(current) { acc, (sourceId, batch) ->
-                acc + (sourceId to acc[sourceId].orEmpty() + batch.associateBy { it.id })
-            }
+            indexed
+                .groupBy { it.sourceId }
+                .entries
+                .fold(current) { acc, (sourceId, batch) ->
+                    val updated = acc[sourceId].orEmpty().plus(batch.associateBy { it.id })
+                        .filter { it.key !in deleted }
+
+                    acc + (sourceId to updated)
+                }
         }
     }
 

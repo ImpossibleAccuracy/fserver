@@ -32,9 +32,8 @@ data class FileRecord(
      * reach the other side as a user deletion. Collapsing them loses user data.
      */
     sealed interface State {
-        /** Bytes are here and readable. [location] is the side-local handle (path, URI, blob key). */
+        /** Bytes are here and readable. */
         data class Present(
-            val location: String,
             /** Pinned files are exempt from eviction. */
             val pinned: Boolean = false,
         ) : State

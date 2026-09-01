@@ -16,6 +16,8 @@ import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.runner.UploadStrategySelector
+import com.fserver.core.util.DefaultTimeProvider
+import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
@@ -39,6 +41,7 @@ internal fun coreModule(
 ): Module = module {
     single { context }
     single<BackgroundScope> { backgroundScope }
+    single { DefaultTimeProvider } bind TimeProvider::class
 
     factoryOf(::JsonQrCodeParser)
 

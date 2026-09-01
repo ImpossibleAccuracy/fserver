@@ -7,13 +7,30 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.fserver.common.exception.FileSystemException
+import com.fserver.common.model.FileSize
+import com.fserver.common.utils.SourcePaths
 import com.fserver.files.scan.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlin.time.Instant
 
 internal object RecursiveTreeScanner {
+    private const val ColumnDocumentId = 0
+    private const val ColumnMimeType = 1
+    private const val ColumnSize = 2
+    private const val ColumnDisplayName = 3
+    private const val ColumnLastModified = 4
+
+    private val Projection = arrayOf(
+        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+        DocumentsContract.Document.COLUMN_MIME_TYPE,
+        DocumentsContract.Document.COLUMN_SIZE,
+        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+    )
+
     /** Process a directory tree recursively. */
     suspend fun scanTree(
         context: Context,
@@ -34,32 +51,34 @@ internal object RecursiveTreeScanner {
             resolver = context.contentResolver,
             treeUri = document.uri,
             parentDocumentId = DocumentsContract.getDocumentId(document.uri),
+            prefix = emptyList(),
             onFileFound = onFileFound,
         )
     }
 
-    /** Scan directory and its subdirectories recursively. */
+    /**
+     * Scan directory and its subdirectories recursively.
+     *
+     * [prefix] is grown from display names on the way down rather than parsed out of a document id
+     * afterwards: the id format belongs to the provider, and the tree root is what paths here are
+     * relative to.
+     */
     private suspend fun recursiveScanFiles(
         resolver: ContentResolver,
         treeUri: Uri,
         parentDocumentId: String,
+        prefix: List<String>,
         onFileFound: (FoundFile) -> Unit,
     ) {
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             treeUri,
             parentDocumentId,
         )
-        val parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, parentDocumentId)
 
         resolver
             .query(
                 /* uri = */ childrenUri,
-                /* projection = */
-                arrayOf(
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    DocumentsContract.Document.COLUMN_MIME_TYPE,
-                    DocumentsContract.Document.COLUMN_SIZE,
-                ),
+                /* projection = */ Projection,
                 /* selection = */ null,
                 /* selectionArgs = */ null,
                 /* sortOrder = */ null,
@@ -68,23 +87,39 @@ internal object RecursiveTreeScanner {
                 while (cursor.moveToNext()) {
                     currentCoroutineContext().ensureActive()
 
-                    val documentId = cursor.getString(0) ?: continue
+                    val documentId = cursor.getString(ColumnDocumentId) ?: continue
+                    val name = cursor.getString(ColumnDisplayName) ?: continue
 
-                    if (cursor.getString(1) == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        recursiveScanFiles(resolver, treeUri, documentId, onFileFound)
+                    if (cursor.getString(ColumnMimeType) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                        recursiveScanFiles(
+                            resolver = resolver,
+                            treeUri = treeUri,
+                            parentDocumentId = documentId,
+                            prefix = prefix + name,
+                            onFileFound = onFileFound,
+                        )
                         continue
                     }
 
+                    val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)
+
                     onFileFound(
                         FoundFile(
-                            path = DocumentsContract
-                                .buildDocumentUriUsingTree(treeUri, documentId)
-                                .toString(),
-                            directory = parentUri.toString(),
-                            size = if (cursor.isNull(2)) 0L else cursor.getLong(2),
+                            path = SourcePaths.canonical(volume = null, segments = prefix + name),
+                            size = FileSize(cursor.longOrZero(ColumnSize)),
+                            lastModified = Instant.fromEpochMilliseconds(
+                                cursor.longOrZero(ColumnLastModified),
+                            ),
+                            provider = UriContentProvider(
+                                resolver = resolver,
+                                uri = uri,
+                            ),
                         )
                     )
                 }
             }
     }
+
+    private fun android.database.Cursor.longOrZero(column: Int): Long =
+        if (isNull(column)) 0L else getLong(column)
 }

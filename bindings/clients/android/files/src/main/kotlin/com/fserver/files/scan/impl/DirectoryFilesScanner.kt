@@ -1,33 +1,41 @@
 package com.fserver.files.scan.impl
 
 import com.fserver.common.exception.FileSystemException
+import com.fserver.common.model.FileSize
+import com.fserver.common.utils.SourcePaths
 import com.fserver.files.scan.FoundFile
+import com.fserver.files.scan.ScanSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.time.Instant
 
 internal object DirectoryFilesScanner {
-    suspend fun scanDirectory(
-        directoryPath: String,
+    suspend fun scanVolume(
+        volume: ScanSource.Root.Volume,
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        val file = File(directoryPath)
+        val root = File(volume.path)
 
-        if (!file.exists()) throw FileSystemException.NotDirectory(directoryPath)
-        if (!file.isDirectory) throw FileSystemException.NotDirectory(directoryPath)
+        if (!root.exists()) throw FileSystemException.NotDirectory(volume.path)
+        if (!root.isDirectory) throw FileSystemException.NotDirectory(volume.path)
 
-        for (item in file.walkTopDown()) {
+        for (item in root.walkTopDown()) {
             currentCoroutineContext().ensureActive()
 
             if (!item.isFile) continue
 
             onFileFound(
                 FoundFile(
-                    path = item.absolutePath,
-                    directory = item.parent ?: directoryPath,
-                    size = item.length()
+                    path = SourcePaths.canonical(
+                        volume = volume.id,
+                        path = item.relativeTo(root).invariantSeparatorsPath,
+                    ),
+                    size = FileSize(item.length()),
+                    lastModified = Instant.fromEpochMilliseconds(item.lastModified()),
+                    provider = FileContentProvider(item),
                 )
             )
         }

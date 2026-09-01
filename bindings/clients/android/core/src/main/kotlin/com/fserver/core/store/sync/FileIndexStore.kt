@@ -18,16 +18,17 @@ interface FileIndexStore {
      */
     suspend fun processedFiles(sourceId: String): List<IndexedFile>
 
-    /** null when this pass is the first to see [path]. */
-    suspend fun findProcessed(sourceId: String, path: String): IndexedFile?
-
     /**
-     * Records [files] as done, replacing any earlier record with the same [IndexedFile.id].
+     * Records [indexed] as done, replacing any earlier record with the same [IndexedFile.id].
+     * Deletes [deleted] from the index, which is a no-op if the file was never recorded.
      *
      * Call this only once a file has actually been handed off. Marking ahead of the handoff means
      * a failure leaves the file permanently skipped.
      */
-    suspend fun markProcessed(files: Collection<IndexedFile>)
+    suspend fun markProcessed(
+        indexed: Collection<IndexedFile>,
+        deleted: Collection<String>,
+    )
 
     /**
      * Forgets what [sourceId] has done, so the next pass treats every file as new. Touches no

@@ -18,10 +18,7 @@ internal fun IndexedFile.toFileRecord(): FileRecord = FileRecord(
 )
 
 private fun IndexedFile.State.toFiles(): FileRecord.State = when (this) {
-    is IndexedFile.State.Present -> FileRecord.State.Present(
-        location = location,
-        pinned = pinned,
-    )
+    is IndexedFile.State.Present -> FileRecord.State.Present(pinned)
 
     is IndexedFile.State.Evicted -> FileRecord.State.Evicted(evictedAt)
 
