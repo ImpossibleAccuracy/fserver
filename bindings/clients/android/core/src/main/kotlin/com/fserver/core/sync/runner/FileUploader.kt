@@ -9,9 +9,9 @@ import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.files.FilesNode
-import com.fserver.files.upload.FileAction
+import com.fserver.files.upload.FileRecord
+import com.fserver.net.session.PeerSession
 
 /**
  * Streams one local file to the peer: [RemoteOperation.Upload.Init], chunks, then
@@ -19,30 +19,29 @@ import com.fserver.files.upload.FileAction
  * is the one action with a multi-message protocol of its own.
  */
 internal class FileUploader(
-    private val remoteFetcher: PeerIndexFetcher,
     private val storage: FServerStorage,
     private val node: FilesNode,
 ) {
     suspend fun uploadFile(
-        action: FileAction.Upload,
+        file: FileRecord,
         source: SourceEntry,
+        session: PeerSession<FileServerMessages>,
     ) {
-        val locator = action.file.locator
-            ?: error("Cannot upload file ${action.file.id} because it has no locator")
-
-        val session = remoteFetcher.connectToDevice(source)
+        val locator = file.locator
+            ?: error("Cannot upload file ${file.id} because it has no locator")
 
         // Run as operation to confirm that the peer is ready to receive the file
         session.runRemoteOperation(
-            operation = RemoteOperation.Upload.Init(action.file.toDto())
+            operation = RemoteOperation.Upload.Init(
+                sourceId = source.id,
+                file = file.toDto(),
+            )
         )
 
-        val hasher = if (action.file.content == null) FileHasher() else null
+        val hasher = if (file.content == null) FileHasher() else null
 
         val fs = node.openSource(source.location.toFiles())
-        val file = fs.openFile(locator)
-
-        file.use { steam ->
+        fs.openFile(locator).use { steam ->
             var offset = 0L
             val buffer = ByteArray(CHUNK_SIZE)
 
@@ -57,7 +56,8 @@ internal class FileUploader(
                 // TODO: ask peer about it's state each N chunks, to retry/resume/abort if needed
                 session.send(
                     FileServerMessages.UploadChunk(
-                        fileId = action.file.id.value,
+                        sourceId = source.id,
+                        fileId = file.id.value,
                         offset = offset,
                         bytes = chunk,
                     )
@@ -67,11 +67,11 @@ internal class FileUploader(
             }
         }
 
-        val hash = hasher?.compute() ?: action.file.content!!
+        val hash = hasher?.compute() ?: file.content!!
 
         session.runRemoteOperation(
             operation = RemoteOperation.Upload.UploadCompleted(
-                fileId = action.file.id.value,
+                key = IndexedFileKey(file.id.value, source.id),
                 hash = hash.value,
                 algorithm = hash.algorithm,
             )
@@ -79,7 +79,7 @@ internal class FileUploader(
 
         if (hasher != null) {
             storage.index.saveHash(
-                fileId = IndexedFileKey(action.file.id.value, source.id),
+                key = IndexedFileKey(file.id.value, source.id),
                 hash = hash,
             )
         }

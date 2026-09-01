@@ -23,6 +23,10 @@ internal class FileIndexStoreImpl : FileIndexStore {
     /** Source id -> that source's processed records, keyed by [IndexedFile.id]. */
     private val processed = MutableStateFlow<Map<String, Map<String, IndexedFile>>>(emptyMap())
 
+    override suspend fun findFile(key: IndexedFileKey): IndexedFile? {
+        return processed.value[key.sourceId]?.get(key.fileId)
+    }
+
     override suspend fun processedFiles(sourceId: String): List<IndexedFile> =
         processed.value[sourceId].orEmpty().values.toList()
 
@@ -41,13 +45,13 @@ internal class FileIndexStoreImpl : FileIndexStore {
     }
 
     override suspend fun saveHash(
-        fileId: IndexedFileKey,
+        key: IndexedFileKey,
         hash: ContentHash
     ) {
         processed.update { current ->
             current.mapValues { (_, files) ->
                 files.mapValues { (_, file) ->
-                    if (file.fileId == fileId.fileId && file.sourceId == fileId.sourceId) {
+                    if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
                         file.copy(hash = hash)
                     } else {
                         file
@@ -58,13 +62,13 @@ internal class FileIndexStoreImpl : FileIndexStore {
     }
 
     override suspend fun updateFileState(
-        fileId: IndexedFileKey,
+        key: IndexedFileKey,
         state: IndexedFile.State
     ) {
         processed.update { current ->
             current.mapValues { (_, files) ->
                 files.mapValues { (_, file) ->
-                    if (file.fileId == fileId.fileId && file.sourceId == fileId.sourceId) {
+                    if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
                         file.copy(state = state)
                     } else {
                         file
@@ -75,14 +79,14 @@ internal class FileIndexStoreImpl : FileIndexStore {
     }
 
     override suspend fun updateStateBatch(
-        fileIds: List<IndexedFileKey>,
+        keys: List<IndexedFileKey>,
         state: IndexedFile.State
     ) {
         processed.update { current ->
             current.mapValues { (_, files) ->
                 files.mapValues { (_, file) ->
                     val matching =
-                        fileIds.any { it.fileId == file.fileId && it.sourceId == file.sourceId }
+                        keys.any { it.fileId == file.fileId && it.sourceId == file.sourceId }
 
                     if (matching) {
                         file.copy(state = state)

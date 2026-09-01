@@ -1,6 +1,7 @@
 package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.dto.FileRecordDto
+import com.fserver.core.sync.index.IndexedFileKey
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,27 +13,32 @@ internal sealed interface RemoteOperation {
     /** Acts on a file the peer already knows from its own index. */
     @Serializable
     sealed interface File : RemoteOperation {
-        @Serializable
-        data class Hash(val fileId: String) : File
+        val key: IndexedFileKey
 
         @Serializable
-        data class Delete(val fileId: String) : File
+        data class Hash(override val key: IndexedFileKey) : File
 
         @Serializable
-        data class Download(val fileId: String) : File
+        data class Delete(override val key: IndexedFileKey) : File
+
+        @Serializable
+        data class Download(override val key: IndexedFileKey) : File
     }
 
     /** Brackets a [FileServerMessages.UploadChunk] stream: [Init] before the first chunk, [UploadCompleted] after the last. */
     @Serializable
     sealed interface Upload : RemoteOperation {
         @Serializable
-        data class Init(val file: FileRecordDto) : Upload
+        data class Init(
+            val sourceId: String,
+            val file: FileRecordDto
+        ) : Upload
 
         @Serializable
         data class UploadCompleted(
-            val fileId: String,
+            val key: IndexedFileKey,
             val hash: String,
-            val algorithm: String
+            val algorithm: String,
         ) : Upload
     }
 }

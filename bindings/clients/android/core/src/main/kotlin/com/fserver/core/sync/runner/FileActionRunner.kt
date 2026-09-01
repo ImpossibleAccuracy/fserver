@@ -39,7 +39,14 @@ internal class FileActionRunner(
             is FileAction.DeleteLocal -> deleteLocalFile(action, source)
             is FileAction.DeleteRemote -> deleteRemoteFile(action, source)
             is FileAction.Download -> downloadFile(action, source)
-            is FileAction.Upload -> fileUploader.uploadFile(action, source)
+            is FileAction.Upload -> {
+                val session = remoteFetcher.connectToDevice(source)
+                fileUploader.uploadFile(
+                    file = action.file,
+                    source = source,
+                    session = session,
+                )
+            }
         }
     }
 
@@ -55,7 +62,9 @@ internal class FileActionRunner(
             val session = remoteFetcher.connectToDevice(source)
 
             session.runRemoteOperation(
-                operation = RemoteOperation.File.Hash(action.id.value),
+                operation = RemoteOperation.File.Hash(
+                    IndexedFileKey(action.id.value, source.id)
+                ),
             )
         }
     }
@@ -98,7 +107,7 @@ internal class FileActionRunner(
             }
 
             storage.index.updateFileState(
-                fileId = IndexedFileKey(action.file.id.value, source.id),
+                key = IndexedFileKey(action.id.value, source.id),
                 state = IndexedFile.State.Evicted(
                     evictedAt = timeProvider.now(),
                 )
@@ -123,7 +132,7 @@ internal class FileActionRunner(
             }
 
             storage.index.updateFileState(
-                fileId = IndexedFileKey(action.file.id.value, source.id),
+                key = IndexedFileKey(action.id.value, source.id),
                 state = IndexedFile.State.Deleted(
                     deletedAt = timeProvider.now(),
                 ),
@@ -138,7 +147,9 @@ internal class FileActionRunner(
         val session = remoteFetcher.connectToDevice(source)
 
         session.runRemoteOperation(
-            operation = RemoteOperation.File.Delete(action.file.id.value),
+            operation = RemoteOperation.File.Delete(
+                IndexedFileKey(action.id.value, source.id)
+            ),
         )
     }
 
@@ -149,7 +160,9 @@ internal class FileActionRunner(
         val session = remoteFetcher.connectToDevice(source)
 
         session.runRemoteOperation(
-            operation = RemoteOperation.File.Download(action.file.id.value),
+            operation = RemoteOperation.File.Download(
+                IndexedFileKey(action.id.value, source.id)
+            ),
             timeout = 2.minutes, // TODO: make configurable
         )
     }

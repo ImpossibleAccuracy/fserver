@@ -13,6 +13,8 @@ import com.fserver.core.sync.index.IndexedFileKey
  */
 @SubclassOptInRequired(FServerStorageApi::class)
 interface FileIndexStore {
+    suspend fun findFile(key: IndexedFileKey): IndexedFile?
+
     /**
      * Everything [sourceId] has already handed off, so the next pass can diff against it.
      *
@@ -28,12 +30,12 @@ interface FileIndexStore {
      */
     suspend fun markProcessed(indexed: Collection<IndexedFile>)
 
-    /** Records that [fileId] has the given [hash], replacing any earlier record. */
-    suspend fun saveHash(fileId: IndexedFileKey, hash: ContentHash)
+    /** Records that [key] has the given [hash], replacing any earlier record. */
+    suspend fun saveHash(key: IndexedFileKey, hash: ContentHash)
 
-    suspend fun updateFileState(fileId: IndexedFileKey, state: IndexedFile.State)
+    suspend fun updateFileState(key: IndexedFileKey, state: IndexedFile.State)
 
-    suspend fun updateStateBatch(fileIds: List<IndexedFileKey>, state: IndexedFile.State)
+    suspend fun updateStateBatch(keys: List<IndexedFileKey>, state: IndexedFile.State)
 
     /**
      * Forgets what [sourceId] has done, so the next pass treats every file as new. Touches no

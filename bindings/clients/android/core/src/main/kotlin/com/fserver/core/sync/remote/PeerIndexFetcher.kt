@@ -17,7 +17,7 @@ internal class PeerIndexFetcher(
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
         val device = connectToDevice(source)
 
-        val response = device.request(FileServerMessages.FetchFiles)
+        val response = device.request(FileServerMessages.FetchFiles(source.id))
             .getOrThrow()
 
         if (response !is FileServerMessages.Response.FilesList) {

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 internal sealed interface FileServerMessages {
     @Serializable
-    data object FetchFiles : FileServerMessages
+    data class FetchFiles(val sourceId: String) : FileServerMessages
 
     @Serializable
     data class OperationWithConfirmation(
@@ -16,6 +16,7 @@ internal sealed interface FileServerMessages {
 
     @Serializable
     class UploadChunk(
+        val sourceId: String,
         val fileId: String,
         val offset: Long,
         val bytes: ByteArray,
@@ -26,6 +27,12 @@ internal sealed interface FileServerMessages {
         @Serializable
         data class FilesList(
             val files: List<FileRecordDto>,
+        ) : Response
+
+        @Serializable
+        data class OperationFailed(
+            val operationId: String,
+            val reason: String,
         ) : Response
 
         @Serializable

@@ -101,7 +101,7 @@ internal class LocalChangesIndexer(
         store.index.markProcessed(toSave)
 
         store.index.updateStateBatch(
-            fileIds = toDelete.map { IndexedFileKey(it.fileId, it.sourceId) },
+            keys = toDelete.map { IndexedFileKey(it.fileId, it.sourceId) },
             state = IndexedFile.State.Deleted(
                 deletedAt = currentTime,
             )
@@ -111,10 +111,32 @@ internal class LocalChangesIndexer(
         return store.index.processedFiles(source.id)
     }
 
+    /** Run hash computation for file record */
     suspend fun hashFile(source: SourceEntry, local: FileRecord) {
         val locator = local.locator
             ?: error("Cannot hash file without locator: ${local.path} in source ${source.id}")
 
+        val key = IndexedFileKey(local.id.value, source.id)
+        hashFile(source, key, locator)
+    }
+
+    /** Run hash computation for indexed file */
+    suspend fun hashFile(source: SourceEntry, local: IndexedFile) {
+        val locator = local.locator
+
+        val key = IndexedFileKey(local.fileId, source.id)
+        hashFile(source, key, locator)
+    }
+
+    /**
+     * Compute the hash of a file and store it in the index.
+     * Keep private, so callers can't break anything.
+     */
+    private suspend fun hashFile(
+        source: SourceEntry,
+        key: IndexedFileKey,
+        locator: String,
+    ) {
         val hasher = FileHasher()
 
         withContext(Dispatchers.IO) {
@@ -130,7 +152,7 @@ internal class LocalChangesIndexer(
         }
 
         store.index.saveHash(
-            fileId = IndexedFileKey(local.id.value, source.id),
+            key = key,
             hash = hasher.compute(),
         )
     }

@@ -1,11 +1,12 @@
 package com.fserver.core.network.dictionary.dto
 
 import com.fserver.common.model.ContentHash
+import com.fserver.core.sync.index.IndexedFile
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.Revision
-import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 /**
  * Wire form of [FileRecord].
@@ -61,6 +62,20 @@ internal data class RevisionDto(
     val counter: Long,
 )
 
+internal fun IndexedFile.toDto(): FileRecordDto = FileRecordDto(
+    id = fileId,
+    path = path,
+    state = state.toDto(),
+    content = hash?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
+    metadata = FileRecordDto.Metadata(
+        size = size.bytes,
+        lastModified = modifiedAt,
+        revision = revision?.let {
+            RevisionDto(originDevice = it.originDevice, counter = it.counter)
+        },
+    ),
+)
+
 internal fun FileRecord.toDto(): FileRecordDto = FileRecordDto(
     id = id.value,
     path = path,
@@ -89,6 +104,14 @@ internal fun FileRecordDto.toFileRecord(): FileRecord = FileRecord(
         },
     ),
 )
+
+private fun IndexedFile.State.toDto(): FileRecordDto.State = when (this) {
+    is IndexedFile.State.Present -> FileRecordDto.State.Present(pinned)
+
+    is IndexedFile.State.Evicted -> FileRecordDto.State.Evicted(evictedAt)
+
+    is IndexedFile.State.Deleted -> FileRecordDto.State.Deleted(deletedAt)
+}
 
 private fun FileRecord.State.toDto(): FileRecordDto.State = when (this) {
     is FileRecord.State.Present -> FileRecordDto.State.Present(pinned)

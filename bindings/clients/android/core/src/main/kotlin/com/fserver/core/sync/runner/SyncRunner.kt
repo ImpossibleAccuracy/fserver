@@ -80,6 +80,8 @@ internal class SyncRunner(
      * hash rounds the others are waiting on.
      */
     private suspend fun process(source: SourceEntry) {
+        // TODO: check if other side still has the source
+
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
 
