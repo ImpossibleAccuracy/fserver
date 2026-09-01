@@ -5,17 +5,34 @@ import com.fserver.common.model.FileSize
 import kotlin.time.Instant
 
 /**
- * One file a source has already worked through, and enough about it to tell whether it has changed since.
+ * One file a source has already worked through, as this device last saw it.
+ *
+ * Shaped so a pass can turn it into the record a strategy plans over without asking anything else -
+ * see `toFileRecord`. The types are mirrored rather than reused because `:files` is an
+ * implementation detail of `:core`, and a storage backend implementing [
+ * com.fserver.core.store.sync.FileIndexStore] must compile without it on the classpath.
  */
 data class IndexedFile(
+    /** Row key, unique within this device's index. Assigned by whoever writes the record. */
     val id: String,
     val sourceId: String,
-    /** Where the file was when it was processed. */
+    /**
+     * Cross-device identity: two devices holding the same file agree on this value.
+     *
+     * Derived from [path], never from [id] or [sourceId] - each device registers its own source
+     * under its own id, so anything scoped to one would never match the peer's.
+     */
+    val fileId: String,
+    /** Source-relative, so it means the same thing on both sides. */
     val path: String,
+    /** What this device holds right now. */
+    val state: State,
     val size: FileSize,
     /** Filesystem mtime as of processing. */
     val modifiedAt: Instant,
     val hash: ContentHash? = null,
+    /** Who last wrote the file and how many times, or null when the peer does not report it. */
+    val revision: Revision? = null,
     val processedAt: Instant,
 ) {
     /**
@@ -30,4 +47,34 @@ data class IndexedFile(
         } else {
             this.size == size && this.modifiedAt == modifiedAt
         }
+
+    /**
+     * What this device holds right now.
+     *
+     * The [Evicted] / [Deleted] split is load-bearing: eviction frees local space and must never
+     * reach the other side as a user deletion. Collapsing them loses user data.
+     */
+    sealed interface State {
+        /** Bytes are here and readable. */
+        data class Present(
+            /** Device-local handle - an absolute path for a tree source, a URI for a SAF one. */
+            val location: String,
+            /** Pinned files are exempt from eviction. */
+            val pinned: Boolean = false,
+        ) : State
+
+        /** Known here, bytes dropped to reclaim space. Still part of the set - not a deletion. */
+        data class Evicted(val evictedAt: Instant) : State
+
+        /** Tombstone. The user deleted it; this one does propagate. */
+        data class Deleted(val deletedAt: Instant) : State
+    }
+
+    /** Per-device write counter. Concurrent edits show up as two different [originDevice]s. */
+    data class Revision(
+        /** Device that last wrote the file. */
+        val originDevice: String,
+        /** How many times that device wrote the file. */
+        val counter: Long,
+    )
 }

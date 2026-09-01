@@ -4,7 +4,9 @@ import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.files.upload.FilesSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -60,10 +62,15 @@ internal class SyncRunner(
         val local = localIndexer.refresh(source)
         val remote = remoteFetcher.fetchIndex(source)
 
+        val snapshot = FilesSnapshot(
+            local = local.map { it.toFileRecord() },
+            remote = remote,
+        )
+
+        val decisions = uploadStrategySelector.plan(source.syncMode, snapshot)
+
         //TODO:
-        // 1. compute snapshot
-        // 2. run strategy to get actions
-        // 3. execute actions
-        // 4. mark processed or re-run (if some actions need to be retried)
+        // 1. execute decisions.actions
+        // 2. mark processed or re-run (if some actions need to be retried)
     }
 }
