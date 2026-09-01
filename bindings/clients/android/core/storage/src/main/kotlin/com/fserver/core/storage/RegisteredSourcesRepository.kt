@@ -1,19 +1,19 @@
 package com.fserver.core.storage
 
-import com.fserver.core.files.source.FileSource
+import com.fserver.core.sync.SourceEntry
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Registered sources, as a screen needs them. Disjoint from `FileSourcesStore` on purpose: the
- * engine enumerates sources and marks off what it has worked through, the UI lists and renames.
+ * Registered sources, as a screen needs them. Disjoint from `SourcesStore` on purpose: the engine
+ * enumerates sources and marks off what it has worked through, the UI lists and renames.
  *
- * Registering a new source is an engine action - call `FilesController.addSource`, not this.
+ * Registering a new source is an engine action - call `SourcesController.addSource`, not this.
  */
-interface FileSourcesRepository {
+interface RegisteredSourcesRepository {
     /** Every registered source, newest first. */
-    val sources: Flow<List<FileSource>>
+    val sources: Flow<List<SourceEntry>>
 
-    fun observeById(id: String): Flow<FileSource?>
+    fun observeById(id: String): Flow<SourceEntry?>
 
     /**
      * How many of the source's files are already done, for a progress line. The paths themselves

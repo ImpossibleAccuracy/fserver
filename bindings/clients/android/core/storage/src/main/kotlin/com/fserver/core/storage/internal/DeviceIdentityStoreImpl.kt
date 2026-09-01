@@ -8,7 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.LocalDevice
 import com.fserver.core.storage.DeviceIdentityRepository
-import com.fserver.core.store.DeviceIdentityStore
+import com.fserver.core.store.network.DeviceIdentityStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first

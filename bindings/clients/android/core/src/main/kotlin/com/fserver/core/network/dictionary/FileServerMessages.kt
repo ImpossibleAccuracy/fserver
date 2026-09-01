@@ -9,6 +9,9 @@ internal sealed interface FileServerMessages {
         data class TransferRequest(
             val filesCount: Int,
         ) : Request
+
+        @Serializable
+        data object SavedFiles : Request
     }
 
     sealed interface Response : FileServerMessages {
@@ -17,5 +20,8 @@ internal sealed interface FileServerMessages {
 
         @Serializable
         data object RejectTransfer : Response
+
+        @Serializable
+        data object SavedFiles : Response
     }
 }

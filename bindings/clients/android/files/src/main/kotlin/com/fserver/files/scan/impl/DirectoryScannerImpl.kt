@@ -5,9 +5,9 @@ import android.os.Build
 import com.fserver.common.task.ProgressTask
 import com.fserver.files.scan.ScanSource
 import com.fserver.common.task.progressTask
-import com.fserver.files.scan.DirectoryScanProgress
+import com.fserver.files.scan.ScanProgress
 import com.fserver.files.scan.DirectoryScanner
-import com.fserver.files.scan.ScannedFile
+import com.fserver.files.scan.FoundFile
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ internal class DirectoryScannerImpl(
 ) : DirectoryScanner {
     override fun scan(
         directory: ScanSource,
-    ): ProgressTask<DirectoryScanProgress, List<ScannedFile>> = progressTask {
+    ): ProgressTask<ScanProgress, List<FoundFile>> = progressTask {
         val collector = ScanCollector(this)
 
         when (directory) {
@@ -55,18 +55,18 @@ internal class DirectoryScannerImpl(
 }
 
 private class ScanCollector(
-    private val scope: ProducerScope<DirectoryScanProgress>,
+    private val scope: ProducerScope<ScanProgress>,
 ) {
     private val lock = Any()
-    private val found = mutableListOf<ScannedFile>()
+    private val found = mutableListOf<FoundFile>()
     private var totalBytes = 0L
 
-    fun add(file: ScannedFile) {
+    fun add(file: FoundFile) {
         val progress = synchronized(lock) {
             found += file
             totalBytes += file.size
 
-            DirectoryScanProgress(
+            ScanProgress(
                 scannedFiles = found.size,
                 scannedSizeBytes = totalBytes,
             )
@@ -75,5 +75,5 @@ private class ScanCollector(
         scope.trySend(progress)
     }
 
-    fun result(): List<ScannedFile> = synchronized(lock) { found.toList() }
+    fun result(): List<FoundFile> = synchronized(lock) { found.toList() }
 }

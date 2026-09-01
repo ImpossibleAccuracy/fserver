@@ -2,7 +2,8 @@ package com.fserver.core.di
 
 import android.content.Context
 import com.fserver.core.files.FilesController
-import com.fserver.core.files.sync.SourceSyncWorker
+import com.fserver.core.files.transfer.TransferRepository
+import com.fserver.core.files.transfer.impl.TransferRepositoryImpl
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.JsonQrCodeParser
@@ -10,7 +11,11 @@ import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.impl.NetworkInfoRepositoryImpl
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.requirement.impl.RequirementsCheckerImpl
-import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.runner.SyncRunner
+import com.fserver.core.sync.runner.UploadStrategySelector
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
@@ -37,10 +42,14 @@ internal fun coreModule(
 
     factoryOf(::JsonQrCodeParser)
 
-    // The host hands in one FServerStorage; the engine binds the slices it actually calls.
-    single { get<FServerStorage>().fileSources }
-    singleOf(::SourceSyncWorker)
     singleOf(::FilesController)
+    singleOf(::TransferRepositoryImpl) bind TransferRepository::class
+
+    singleOf(::LocalChangesIndexer)
+    singleOf(::PeerIndexFetcher)
+    singleOf(::UploadStrategySelector)
+    singleOf(::SyncRunner)
+    singleOf(::SourcesController)
 
     singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class

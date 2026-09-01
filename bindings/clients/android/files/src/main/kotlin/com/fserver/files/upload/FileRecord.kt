@@ -1,11 +1,11 @@
 package com.fserver.files.upload
 
+import com.fserver.common.model.ContentHash
 import kotlin.time.Instant
 
 /** One file as a single side - local or remote - currently sees it. */
 data class FileRecord(
     val id: FileId,
-    val name: String,
     val path: String,
     val state: State,
     /** Content identity, or null while the index has not hashed the file yet */
@@ -50,13 +50,6 @@ data class FileRecord(
 /** Cross-device identity of a file. Equal ids on both sides mean "the same file". */
 @JvmInline
 value class FileId(val value: String)
-
-/** Carries the file hash. */
-data class ContentHash(
-    val value: String,
-    /** Hash algorithm, so records hashed by different versions never compare equal by accident */
-    val algorithm: String,
-)
 
 /** Per-device write counter. Concurrent edits show up as two different [originDevice]s. */
 data class Revision(

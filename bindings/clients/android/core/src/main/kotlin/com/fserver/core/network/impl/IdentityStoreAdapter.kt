@@ -1,7 +1,7 @@
 package com.fserver.core.network.impl
 
 import com.fserver.core.network.device.model.LocalDevice
-import com.fserver.core.store.DeviceIdentityStore
+import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.net.security.crypto.IdentitySignature
 import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.security.identity.LocalIdentity

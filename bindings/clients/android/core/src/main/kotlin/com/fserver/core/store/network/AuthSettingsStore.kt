@@ -1,6 +1,7 @@
-package com.fserver.core.store
+package com.fserver.core.store.network
 
 import com.fserver.core.network.auth.OfferedAuthMethod
+import com.fserver.core.store.FServerStorageApi
 import kotlinx.coroutines.flow.StateFlow
 
 /**

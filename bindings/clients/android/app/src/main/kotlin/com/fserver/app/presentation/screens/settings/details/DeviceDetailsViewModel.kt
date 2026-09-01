@@ -45,7 +45,7 @@ class DeviceDetailsViewModel(
 
     val state: StateFlow<DeviceDetailsState> = combine(
         devicesRepository.device(key.deviceId),
-        trustedDevices.findKnownRoute(key.deviceId),
+        trustedDevices.observeKnownRoute(key.deviceId),
         trustedKeys,
     ) { device, knownRoute, trusted ->
         val record = trusted.maxByOrNull { it.lastSeen }
@@ -75,7 +75,7 @@ class DeviceDetailsViewModel(
             }
 
             DeviceDetailsIntent.Reconnect -> viewModelScope.launch {
-                val route = trustedDevices.findKnownRoute(key.deviceId).firstOrNull()
+                val route = trustedDevices.observeKnownRoute(key.deviceId).firstOrNull()
                     ?: return@launch
 
                 val peer = route.asPeerLocator()

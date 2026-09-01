@@ -14,7 +14,7 @@ import com.fserver.files.upload.UploadStrategy
  * pure, snapshot in / decisions out - not to be the real sync policy. No batching, no caps, no
  * ordering guarantees, no partial-transfer handling.
  */
-class MirrorUploadStrategy : UploadStrategy<MirrorUploadStrategy.Params> {
+class MirrorUploadStrategy : UploadStrategy {
 
     /**
      * @param restoreMissingLocalFiles pull files that only the remote side has. Off means the
@@ -24,9 +24,15 @@ class MirrorUploadStrategy : UploadStrategy<MirrorUploadStrategy.Params> {
         val restoreMissingLocalFiles: Boolean = true,
     ) : UploadStrategy.Params
 
-    override fun accepts(params: UploadStrategy.Params): Params? = params as? Params
+    override fun accepts(params: UploadStrategy.Params): Boolean = params is Params
 
-    override suspend fun plan(params: Params, snapshot: FilesSnapshot): UploadDecisions {
+    override suspend fun plan(
+        params: UploadStrategy.Params,
+        snapshot: FilesSnapshot
+    ): UploadDecisions {
+        val params = params as? Params
+            ?: throw IllegalArgumentException("MirrorUploadStrategy only accepts Params, got $params")
+
         val actions = snapshot.join().mapNotNull { (_, local, remote) ->
             decide(params, local, remote)
         }

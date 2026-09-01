@@ -97,13 +97,26 @@ internal class TransferRepositoryImpl(
                     FileServerMessages.Response.RejectTransfer
                 }
 
-                try {
-                    event.reply?.invoke(response)
-                    Timber.d("Sent response to transfer request: $response")
-                } catch (e: Exception) {
-                    Timber.w(e, "Failed to send response to transfer request")
-                }
+                reply(event, response)
             }
+
+            // TODO: answer with this device's real index once it is persisted. An empty set still
+            //  beats silence - the peer blocks on this response until its request times out.
+            FileServerMessages.Request.SavedFiles -> {
+                reply(event, FileServerMessages.Response.SavedFiles)
+            }
+        }
+    }
+
+    private suspend fun reply(
+        event: PeerSession.Inbound<FileServerMessages>,
+        response: FileServerMessages.Response,
+    ) {
+        try {
+            event.reply?.invoke(response)
+            Timber.d("Sent response: $response")
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to send response: $response")
         }
     }
 

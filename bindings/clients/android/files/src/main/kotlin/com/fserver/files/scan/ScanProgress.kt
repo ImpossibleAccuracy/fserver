@@ -1,6 +1,6 @@
 package com.fserver.files.scan
 
-data class DirectoryScanProgress(
+data class ScanProgress(
     val scannedFiles: Int,
     val scannedSizeBytes: Long,
 )

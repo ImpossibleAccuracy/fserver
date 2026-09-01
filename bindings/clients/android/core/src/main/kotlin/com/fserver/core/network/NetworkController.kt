@@ -9,7 +9,7 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.IdentityStoreAdapter
 import com.fserver.core.network.impl.TimberNetLogger
 import com.fserver.core.network.impl.TrustStoreAdapter
-import com.fserver.core.store.AuthSettingsStore
+import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.networkConfig

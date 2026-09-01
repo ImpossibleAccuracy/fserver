@@ -13,7 +13,7 @@ interface TrustedDevicesRepository {
     val devices: Flow<List<TrustedDevice>>
 
     /** null when nothing dialable was ever recorded for [deviceId], or the device was forgotten. */
-    fun findKnownRoute(deviceId: String): Flow<KnownRoute?>
+    fun observeKnownRoute(deviceId: String): Flow<KnownRoute?>
 
     /**
      * Drops every key recorded for [deviceId], and its known route with them. The next handshake

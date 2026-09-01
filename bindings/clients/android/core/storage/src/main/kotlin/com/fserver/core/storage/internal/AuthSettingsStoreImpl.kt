@@ -8,7 +8,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.storage.AuthSettingsRepository
-import com.fserver.core.store.AuthSettingsStore
+import com.fserver.core.store.network.AuthSettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

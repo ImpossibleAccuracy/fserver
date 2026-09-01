@@ -28,12 +28,14 @@ val coreModule = module {
     single { get<FServerCore>().deviceDetection }
     single { get<FServerCore>().networkInfo }
     single { get<FServerCore>().requirements }
-    single { get<FServerCore>().transferRepository }
-    single { get<FServerCore>().filesController }
+    single { get<FServerCore>().transfers }
+    single { get<FServerCore>().files }
+    single { get<FServerCore>().sources }
 
     // Storage-backed repositories, republished so a ViewModel can read what the engine reads.
     single { get<FServerStorageProvider>().identity }
     single { get<FServerStorageProvider>().auth }
     single { get<FServerStorageProvider>().trustedDevices }
     single { get<FServerStorageProvider>().fileSources }
+    single { get<FServerStorageProvider>().syncPreferences }
 }

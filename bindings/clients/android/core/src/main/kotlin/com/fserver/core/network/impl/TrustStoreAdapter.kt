@@ -2,7 +2,7 @@ package com.fserver.core.network.impl
 
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.TrustedDevice
-import com.fserver.core.store.TrustedDevicesStore
+import com.fserver.core.store.network.TrustedDevicesStore
 import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.security.trust.PeerTrustStore
 import com.fserver.net.security.trust.TrustRecord

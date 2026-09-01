@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
-import com.fserver.files.scan.ScannedFile
+import com.fserver.files.scan.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 internal object MediaStoreScanner {
     suspend fun scanMedia(
         context: Context,
-        onFileFound: (ScannedFile) -> Unit,
+        onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
         val projection = arrayOf(
@@ -45,7 +45,7 @@ internal object MediaStoreScanner {
                     val uri = ContentUris.withAppendedId(collection, cursor.getLong(idIndex))
 
                     onFileFound(
-                        ScannedFile(
+                        FoundFile(
                             path = uri.toString(),
                             directory = cursor.getString(bucketIndex) ?: "Unknown",
                             size = if (cursor.isNull(sizeIndex)) 0L else cursor.getLong(sizeIndex),

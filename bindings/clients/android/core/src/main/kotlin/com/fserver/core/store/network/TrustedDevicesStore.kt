@@ -1,7 +1,8 @@
-package com.fserver.core.store
+package com.fserver.core.store.network
 
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
+import com.fserver.core.store.FServerStorageApi
 
 /**
  * What a completed handshake leaves behind. Lookups and writes only - listing and forgetting are
@@ -23,4 +24,7 @@ interface TrustedDevicesStore {
      * must tolerate being handed the same route again.
      */
     suspend fun recordKnownRoute(deviceId: String, route: KnownRoute)
+
+    /** null when nothing dialable was ever recorded for [deviceId], or the device was forgotten. */
+    suspend fun findKnownRoute(deviceId: String): KnownRoute?
 }

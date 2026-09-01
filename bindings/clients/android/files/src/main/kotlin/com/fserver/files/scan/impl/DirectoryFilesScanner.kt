@@ -1,7 +1,7 @@
 package com.fserver.files.scan.impl
 
 import com.fserver.common.exception.FileSystemException
-import com.fserver.files.scan.ScannedFile
+import com.fserver.files.scan.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -11,7 +11,7 @@ import java.io.File
 internal object DirectoryFilesScanner {
     suspend fun scanDirectory(
         directoryPath: String,
-        onFileFound: (ScannedFile) -> Unit,
+        onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val file = File(directoryPath)
 
@@ -24,7 +24,7 @@ internal object DirectoryFilesScanner {
             if (!item.isFile) continue
 
             onFileFound(
-                ScannedFile(
+                FoundFile(
                     path = item.absolutePath,
                     directory = item.parent ?: directoryPath,
                     size = item.length()

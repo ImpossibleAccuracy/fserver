@@ -1,6 +1,7 @@
-package com.fserver.core.store
+package com.fserver.core.store.network
 
 import com.fserver.core.network.device.model.LocalDevice
+import com.fserver.core.store.FServerStorageApi
 import java.security.KeyPair
 
 /** Who this device is, persisted by the host. Renaming is a UI concern and lives on the repository. */

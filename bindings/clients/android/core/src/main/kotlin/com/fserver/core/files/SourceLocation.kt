@@ -1,12 +1,12 @@
-package com.fserver.core.files.scan
+package com.fserver.core.files
 
 import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
 
-sealed interface ScanSource {
-    data class Root(val rootPaths: List<String>) : ScanSource {
+sealed interface SourceLocation {
+    data class Root(val rootPaths: List<String>) : SourceLocation {
         init {
             require(rootPaths.isNotEmpty()) { "Root paths list cannot be empty" }
         }
@@ -26,7 +26,7 @@ sealed interface ScanSource {
         }
     }
 
-    data class Tree(val path: String) : ScanSource
+    data class Tree(val path: String) : SourceLocation
 
-    data object Media : ScanSource
+    data object Media : SourceLocation
 }

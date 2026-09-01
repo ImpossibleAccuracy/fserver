@@ -9,7 +9,7 @@ import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.storage.database.FServerStorageDatabase
-import com.fserver.core.store.TrustedDevicesStore
+import com.fserver.core.store.network.TrustedDevicesStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -68,7 +68,12 @@ internal class TrustedDevicesStoreImpl(
         }
     }
 
-    override fun findKnownRoute(deviceId: String): Flow<KnownRoute?> =
+    override suspend fun findKnownRoute(deviceId: String): KnownRoute? =
+        routeDao.selectByDeviceId(deviceId)
+            .executeAsOneOrNull()
+            ?.toDomainModel()
+
+    override fun observeKnownRoute(deviceId: String): Flow<KnownRoute?> =
         routeDao.selectByDeviceId(deviceId)
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)

@@ -10,13 +10,17 @@ import com.fserver.core.FServerConfig
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
-import com.fserver.core.storage.internal.FileSourcesStoreImpl
+import com.fserver.core.storage.internal.FileIndexStoreImpl
+import com.fserver.core.storage.internal.SourcesStoreImpl
+import com.fserver.core.storage.internal.SyncStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
-import com.fserver.core.store.AuthSettingsStore
-import com.fserver.core.store.DeviceIdentityStore
-import com.fserver.core.store.FileSourcesStore
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.store.TrustedDevicesStore
+import com.fserver.core.store.network.AuthSettingsStore
+import com.fserver.core.store.network.DeviceIdentityStore
+import com.fserver.core.store.network.TrustedDevicesStore
+import com.fserver.core.store.sync.FileIndexStore
+import com.fserver.core.store.sync.SourcesStore
+import com.fserver.core.store.sync.SyncStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,7 +30,7 @@ import kotlinx.coroutines.SupervisorJob
  *
  * Build one per process. It owns the files it writes - a preferences file and a SQLite database,
  * both namespaced so they cannot collide with the host's own. Hand [coreConfig] to
- * `FServerCore.create`, inject the three repositories into screens, and never name a
+ * `FServerCore.create`, inject the repositories this class exposes into screens, and never name a
  * `com.fserver.core.store` type: that package is the SPI a backend implements, not an API a UI
  * calls. See `FServerStorageApi`.
  *
@@ -56,7 +60,9 @@ class FServerStorageProvider private constructor(
     private val identityStore by lazy { DeviceIdentityStoreImpl(dataStore) }
     private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
     private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
-    private val fileSourcesStore by lazy { FileSourcesStoreImpl() }
+    private val fileIndexStore by lazy { FileIndexStoreImpl() }
+    private val sourcesStore by lazy { SourcesStoreImpl(fileIndexStore) }
+    private val syncStore by lazy { SyncStoreImpl(dataStore) }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
@@ -64,7 +70,9 @@ class FServerStorageProvider private constructor(
 
     val trustedDevices: TrustedDevicesRepository get() = trustStore
 
-    val fileSources: FileSourcesRepository get() = fileSourcesStore
+    val fileSources: RegisteredSourcesRepository get() = sourcesStore
+
+    val syncPreferences: SyncPreferencesRepository get() = syncStore
 
     /**
      * The `:core` config backed by this storage.
@@ -81,7 +89,9 @@ class FServerStorageProvider private constructor(
         override val identity: DeviceIdentityStore get() = identityStore
         override val auth: AuthSettingsStore get() = authStore
         override val trust: TrustedDevicesStore get() = trustStore
-        override val fileSources: FileSourcesStore get() = fileSourcesStore
+        override val index: FileIndexStore get() = fileIndexStore
+        override val sources: SourcesStore get() = sourcesStore
+        override val preferences: SyncStore get() = syncStore
     }
 
     companion object {

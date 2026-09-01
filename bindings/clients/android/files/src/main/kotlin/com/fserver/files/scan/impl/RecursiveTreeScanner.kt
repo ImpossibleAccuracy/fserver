@@ -7,7 +7,7 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.fserver.common.exception.FileSystemException
-import com.fserver.files.scan.ScannedFile
+import com.fserver.files.scan.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -18,7 +18,7 @@ internal object RecursiveTreeScanner {
     suspend fun scanTree(
         context: Context,
         dirPath: String,
-        onFileFound: (ScannedFile) -> Unit,
+        onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val uri = dirPath.toUri()
 
@@ -43,7 +43,7 @@ internal object RecursiveTreeScanner {
         resolver: ContentResolver,
         treeUri: Uri,
         parentDocumentId: String,
-        onFileFound: (ScannedFile) -> Unit,
+        onFileFound: (FoundFile) -> Unit,
     ) {
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             treeUri,
@@ -76,7 +76,7 @@ internal object RecursiveTreeScanner {
                     }
 
                     onFileFound(
-                        ScannedFile(
+                        FoundFile(
                             path = DocumentsContract
                                 .buildDocumentUriUsingTree(treeUri, documentId)
                                 .toString(),
