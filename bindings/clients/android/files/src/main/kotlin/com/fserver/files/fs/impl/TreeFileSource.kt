@@ -1,5 +1,6 @@
-package com.fserver.files.scan.impl
+package com.fserver.files.fs.impl
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -9,42 +10,30 @@ import androidx.documentfile.provider.DocumentFile
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
-import com.fserver.files.scan.FoundFile
+import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.ScanSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.InputStream
 import kotlin.time.Instant
 
-internal object RecursiveTreeScanner {
-    private const val ColumnDocumentId = 0
-    private const val ColumnMimeType = 1
-    private const val ColumnSize = 2
-    private const val ColumnDisplayName = 3
-    private const val ColumnLastModified = 4
-
-    private val Projection = arrayOf(
-        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-        DocumentsContract.Document.COLUMN_MIME_TYPE,
-        DocumentsContract.Document.COLUMN_SIZE,
-        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-    )
-
-    /** Process a directory tree recursively. */
-    suspend fun scanTree(
-        context: Context,
-        dirPath: String,
+internal class TreeFileSource(
+    private val context: Context,
+    private val source: ScanSource.Tree,
+) : SourceAdapter() {
+    override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        val uri = dirPath.toUri()
+        val uri = source.path.toUri()
 
         val document = DocumentFile.fromTreeUri(context, uri)
             ?: DocumentFile.fromSingleUri(context, uri)
-            ?: throw FileSystemException.InvalidPath(dirPath)
+            ?: throw FileSystemException.InvalidPath(source.path)
 
         if (!document.isDirectory) {
-            throw FileSystemException.NotDirectory(dirPath)
+            throw FileSystemException.NotDirectory(source.path)
         }
 
         recursiveScanFiles(
@@ -106,13 +95,10 @@ internal object RecursiveTreeScanner {
                     onFileFound(
                         FoundFile(
                             path = SourcePaths.canonical(volume = null, segments = prefix + name),
+                            locator = uri.toString(),
                             size = FileSize(cursor.longOrZero(ColumnSize)),
                             lastModified = Instant.fromEpochMilliseconds(
                                 cursor.longOrZero(ColumnLastModified),
-                            ),
-                            provider = UriContentProvider(
-                                resolver = resolver,
-                                uri = uri,
                             ),
                         )
                     )
@@ -120,6 +106,40 @@ internal object RecursiveTreeScanner {
             }
     }
 
+    @SuppressLint("Recycle")
+    override suspend fun openFile(locator: String): InputStream {
+        val uri = locator.toUri()
+
+        return withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)
+                ?: throw FileSystemException.InvalidPath(locator)
+        }
+    }
+
+    override suspend fun deleteFile(locator: String): Boolean {
+        val uri = locator.toUri()
+
+        return withContext(Dispatchers.IO) {
+            DocumentsContract.deleteDocument(context.contentResolver, uri)
+        }
+    }
+
     private fun android.database.Cursor.longOrZero(column: Int): Long =
         if (isNull(column)) 0L else getLong(column)
+
+    companion object {
+        private const val ColumnDocumentId = 0
+        private const val ColumnMimeType = 1
+        private const val ColumnSize = 2
+        private const val ColumnDisplayName = 3
+        private const val ColumnLastModified = 4
+
+        private val Projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+        )
+    }
 }

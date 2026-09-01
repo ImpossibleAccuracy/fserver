@@ -1,7 +1,9 @@
 package com.fserver.core.store.sync
 
+import com.fserver.common.model.ContentHash
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.IndexedFileKey
 
 /**
  * What each source has already worked through. The sources themselves live on [SourcesStore].
@@ -20,19 +22,22 @@ interface FileIndexStore {
 
     /**
      * Records [indexed] as done, replacing any earlier record with the same [IndexedFile.id].
-     * Deletes [deleted] from the index, which is a no-op if the file was never recorded.
      *
      * Call this only once a file has actually been handed off. Marking ahead of the handoff means
      * a failure leaves the file permanently skipped.
      */
-    suspend fun markProcessed(
-        indexed: Collection<IndexedFile>,
-        deleted: Collection<String>,
-    )
+    suspend fun markProcessed(indexed: Collection<IndexedFile>)
+
+    /** Records that [fileId] has the given [hash], replacing any earlier record. */
+    suspend fun saveHash(fileId: IndexedFileKey, hash: ContentHash)
+
+    suspend fun updateFileState(fileId: IndexedFileKey, state: IndexedFile.State)
+
+    suspend fun updateStateBatch(fileIds: List<IndexedFileKey>, state: IndexedFile.State)
 
     /**
      * Forgets what [sourceId] has done, so the next pass treats every file as new. Touches no
-     * bytes on disk: this is bookkeeping, never an eviction or a delete.
+     * bytes on disk: this is bookkeeping, never an eviction or deletion.
      */
     suspend fun clearProcessed(sourceId: String)
 }

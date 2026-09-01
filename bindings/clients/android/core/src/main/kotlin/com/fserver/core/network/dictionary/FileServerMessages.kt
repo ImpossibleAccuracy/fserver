@@ -1,27 +1,36 @@
 package com.fserver.core.network.dictionary
 
+import com.fserver.core.network.dictionary.dto.FileRecordDto
 import kotlinx.serialization.Serializable
 
 @Serializable
 internal sealed interface FileServerMessages {
-    sealed interface Request : FileServerMessages {
-        @Serializable
-        data class TransferRequest(
-            val filesCount: Int,
-        ) : Request
+    @Serializable
+    data object FetchFiles : FileServerMessages
 
-        @Serializable
-        data object SavedFiles : Request
-    }
+    @Serializable
+    data class OperationWithConfirmation(
+        val operationId: String,
+        val instance: RemoteOperation,
+    ) : FileServerMessages
 
+    @Serializable
+    class UploadChunk(
+        val fileId: String,
+        val offset: Long,
+        val bytes: ByteArray,
+    ) : FileServerMessages
+
+    @Serializable
     sealed interface Response : FileServerMessages {
         @Serializable
-        data object ConfirmTransfer : Response
+        data class FilesList(
+            val files: List<FileRecordDto>,
+        ) : Response
 
         @Serializable
-        data object RejectTransfer : Response
-
-        @Serializable
-        data object SavedFiles : Response
+        data class OperationCompleted(
+            val operationId: String,
+        ) : Response
     }
 }

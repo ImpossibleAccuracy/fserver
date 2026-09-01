@@ -8,8 +8,8 @@ import com.fserver.files.FilesNode
 class FilesController internal constructor(
     private val node: FilesNode,
 ) {
-    fun loadContent(directory: SourceLocation) = node.scanner
-        .scan(directory = directory.toFiles())
+    fun loadContent(directory: SourceLocation) = node.openSource(directory.toFiles())
+        .scan()
         .map(
             progressMapper = { it.toCore() },
             resultMapper = { list ->

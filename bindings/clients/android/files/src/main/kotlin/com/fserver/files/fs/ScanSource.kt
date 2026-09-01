@@ -1,4 +1,4 @@
-package com.fserver.files.scan
+package com.fserver.files.fs
 
 sealed interface ScanSource {
     /** Whole storage volumes. Counterpart to [Tree], which is scoped to one directory. */

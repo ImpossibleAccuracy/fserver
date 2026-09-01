@@ -1,7 +1,9 @@
 package com.fserver.core.storage.internal
 
+import com.fserver.common.model.ContentHash
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.IndexedFileKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -26,7 +28,6 @@ internal class FileIndexStoreImpl : FileIndexStore {
 
     override suspend fun markProcessed(
         indexed: Collection<IndexedFile>,
-        deleted: Collection<String>
     ) {
         processed.update { current ->
             indexed
@@ -34,10 +35,62 @@ internal class FileIndexStoreImpl : FileIndexStore {
                 .entries
                 .fold(current) { acc, (sourceId, batch) ->
                     val updated = acc[sourceId].orEmpty().plus(batch.associateBy { it.id })
-                        .filter { it.key !in deleted }
-
                     acc + (sourceId to updated)
                 }
+        }
+    }
+
+    override suspend fun saveHash(
+        fileId: IndexedFileKey,
+        hash: ContentHash
+    ) {
+        processed.update { current ->
+            current.mapValues { (_, files) ->
+                files.mapValues { (_, file) ->
+                    if (file.fileId == fileId.fileId && file.sourceId == fileId.sourceId) {
+                        file.copy(hash = hash)
+                    } else {
+                        file
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun updateFileState(
+        fileId: IndexedFileKey,
+        state: IndexedFile.State
+    ) {
+        processed.update { current ->
+            current.mapValues { (_, files) ->
+                files.mapValues { (_, file) ->
+                    if (file.fileId == fileId.fileId && file.sourceId == fileId.sourceId) {
+                        file.copy(state = state)
+                    } else {
+                        file
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun updateStateBatch(
+        fileIds: List<IndexedFileKey>,
+        state: IndexedFile.State
+    ) {
+        processed.update { current ->
+            current.mapValues { (_, files) ->
+                files.mapValues { (_, file) ->
+                    val matching =
+                        fileIds.any { it.fileId == file.fileId && it.sourceId == file.sourceId }
+
+                    if (matching) {
+                        file.copy(state = state)
+                    } else {
+                        file
+                    }
+                }
+            }
         }
     }
 

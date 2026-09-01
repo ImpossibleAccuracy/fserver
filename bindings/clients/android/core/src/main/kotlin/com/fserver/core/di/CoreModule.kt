@@ -2,8 +2,6 @@ package com.fserver.core.di
 
 import android.content.Context
 import com.fserver.core.files.FilesController
-import com.fserver.core.files.transfer.TransferRepository
-import com.fserver.core.files.transfer.impl.TransferRepositoryImpl
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.JsonQrCodeParser
@@ -14,6 +12,7 @@ import com.fserver.core.requirement.impl.RequirementsCheckerImpl
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerRequestServer
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.runner.UploadStrategySelector
 import com.fserver.core.util.DefaultTimeProvider
@@ -46,10 +45,10 @@ internal fun coreModule(
     factoryOf(::JsonQrCodeParser)
 
     singleOf(::FilesController)
-    singleOf(::TransferRepositoryImpl) bind TransferRepository::class
 
     singleOf(::LocalChangesIndexer)
     singleOf(::PeerIndexFetcher)
+    singleOf(::PeerRequestServer)
     singleOf(::UploadStrategySelector)
     singleOf(::SyncRunner)
     singleOf(::SourcesController)

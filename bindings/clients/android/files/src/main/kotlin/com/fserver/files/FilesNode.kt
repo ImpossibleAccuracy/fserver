@@ -1,10 +1,10 @@
 package com.fserver.files
 
 import android.content.Context
-import com.fserver.files.scan.ScanSource
-import com.fserver.files.scan.DirectoryScanner
-import com.fserver.files.scan.FoundFile
-import com.fserver.files.scan.impl.DirectoryScannerImpl
+import com.fserver.files.fs.FileSource
+import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.ScanSource
+import com.fserver.files.fs.SourceFileSystem
 
 /**
  * Entry point to `:files`. Build one per process and keep it.
@@ -16,7 +16,9 @@ import com.fserver.files.scan.impl.DirectoryScannerImpl
 class FilesNode private constructor(
     private val context: Context,
 ) {
-    val scanner: DirectoryScanner by lazy { DirectoryScannerImpl(context) }
+    private val fileSystem: SourceFileSystem by lazy { SourceFileSystem(context) }
+
+    fun openSource(source: ScanSource): FileSource = fileSystem.open(source)
 
     companion object {
         fun create(context: Context): FilesNode = FilesNode(

@@ -3,6 +3,7 @@ package com.fserver.core.sync.remote
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
 import com.fserver.files.upload.FileRecord
@@ -14,19 +15,21 @@ internal class PeerIndexFetcher(
     private val devicesRepository: DevicesRepository,
 ) {
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
-        val device = networkController.incomingConnections.session(source.deviceId)
-            ?: tryToConnectByDeviceId(source.deviceId)
+        val device = connectToDevice(source)
 
-        val response = device.request(FileServerMessages.Request.SavedFiles)
+        val response = device.request(FileServerMessages.FetchFiles)
             .getOrThrow()
 
-        if (response !is FileServerMessages.Response.SavedFiles) {
+        if (response !is FileServerMessages.Response.FilesList) {
             throw IllegalStateException("Unexpected response from device ${source.deviceId}: $response")
         }
 
-        // TODO
-        return emptyList<FileRecord>()
+        return response.files.map { it.toFileRecord() }
     }
+
+    suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =
+        networkController.incomingConnections.session(source.deviceId)
+            ?: tryToConnectByDeviceId(source.deviceId)
 
     private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
         val known = storage.trust.findKnownRoute(deviceId)

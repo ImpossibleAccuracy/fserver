@@ -1,11 +1,14 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.exception.SyncException
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.files.upload.FileAction
+import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -25,12 +28,38 @@ internal class SyncRunner(
     private val localIndexer: LocalChangesIndexer,
     private val remoteFetcher: PeerIndexFetcher,
     private val uploadStrategySelector: UploadStrategySelector,
+    private val actionRunner: FileActionRunner,
     private val backgroundScope: BackgroundScope,
 ) {
     private val mutex = Mutex()
 
-    /** One pass over every registered source. */
-    suspend fun runOnce() = mutex.withLock {
+    /** One pass over every registered source. Waits for a pass already running. */
+    suspend fun runOnce() = mutex.withLock { runPass() }
+
+    /**
+     * One pass over every registered source, launched on the engine's background scope.
+     *
+     * Skips rather than queues: the pass reads the whole world every time, so a second one right
+     * behind the first would only redo its work.
+     */
+    fun runOnceAsync() = backgroundScope.launch {
+        if (!mutex.tryLock()) {
+            Timber.w("One-off source pass skipped: another pass is still running")
+            return@launch
+        }
+
+        try {
+            runPass()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "One-off source pass failed")
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    private suspend fun runPass() {
         for (source in storage.sources.all()) {
             try {
                 process(source)
@@ -42,44 +71,72 @@ internal class SyncRunner(
         }
     }
 
-    /** One pass over every registered source, launched on the engine's background scope. */
-    fun runOnceAsync() = backgroundScope.launch {
-        try {
-            if (mutex.isLocked) {
-                Timber.w("One-off source pass skipped: another pass is still running")
-                return@launch
+    /**
+     * Plan and execute until nothing is left to hash.
+     *
+     * A [FileAction.ComputeHash] means the strategy planned that one file without knowing its
+     * content, so only that file's other actions wait for the next round - the rest of the source
+     * runs now. Failures are collected instead of thrown: one unreachable file must not cancel the
+     * hash rounds the others are waiting on.
+     */
+    private suspend fun process(source: SourceEntry) {
+        val errors = mutableListOf<Throwable>()
+        val handled = mutableSetOf<FileId>()
+
+        // Disk is scanned once: hashing writes to the index only, so later rounds re-read it.
+        var local = localIndexer.refresh(source)
+        var round = 0
+
+        while (true) {
+            val snapshot = FilesSnapshot(
+                local = local.map { it.toFileRecord() },
+                remote = remoteFetcher.fetchIndex(source),
+            )
+
+            val decisions = uploadStrategySelector.plan(source.syncMode, snapshot)
+            if (decisions.isEmpty) break
+
+            val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()
+                .mapTo(mutableSetOf(), FileAction.ComputeHash::id)
+
+            for (action in decisions.actions) {
+                if (action !is FileAction.ComputeHash) {
+                    // Planned from unknown content - re-plan it once the hash lands.
+                    if (action.id in unhashed) continue
+
+                    // One action per file per pass: a later round re-plans from an index the
+                    // transfer has not written back yet, and would hand out the same action twice.
+                    if (!handled.add(action.id)) continue
+                }
+
+                actionRunner.execute(source, action)
+                    .exceptionOrNull()
+                    ?.let(errors::add)
             }
 
-            runOnce()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.w(e, "One-off source pass failed")
+            if (unhashed.isEmpty()) break
+
+            if (++round > MaxRounds) {
+                errors += SyncException.MaxRetriesExceededException(
+                    "Source ${source.id} still has ${unhashed.size} unhashed files after $MaxRounds rounds",
+                )
+                break
+            }
+
+            local = storage.index.processedFiles(source.id)
         }
+
+        if (errors.isEmpty()) return
+
+        val failure = SyncException.ActionFailedException(
+            "Source ${source.id} pass failed with ${errors.size} errors",
+        )
+        errors.forEach(failure::addSuppressed)
+
+        throw failure
     }
 
-    private suspend fun process(source: SourceEntry) {
-        val local = localIndexer.refresh(source)
-        val remote = remoteFetcher.fetchIndex(source)
-
-        val snapshot = FilesSnapshot(
-            local = local.map { it.toFileRecord() },
-            remote = remote,
-        )
-
-        val decisions = uploadStrategySelector.plan(source.syncMode, snapshot)
-
-        // TODO: executor.
-        //  1. Resolve FileAction.ComputeHash first, then re-plan: hash local bytes, ask the peer for
-        //     remote ones. Cap the rounds - a strategy bug must not spin here forever.
-        //  2. Execute the remaining actions. Transfers already stream the bytes, so hash in the same
-        //     pass instead of reading the file twice.
-        //  3. Download writes the index record together with the bytes, carrying the peer's fileId,
-        //     revision and hash. Minting our own re-owns the file, and every later peer edit then
-        //     reads as a false Conflict; writing no record at all makes the next scan mint a fresh
-        //     fileId, and the pair ping-pongs upload/download every pass.
-        //  4. Restore the peer's lastModified on the written file so the next scan sees no change.
-        //     Not always possible through MediaStore/SAF, so step 3 has to hold on its own.
-        //  5. Mark processed only what actually succeeded; failed actions stay for the next pass.
+    companion object {
+        private const val MaxRounds = 3
     }
 }

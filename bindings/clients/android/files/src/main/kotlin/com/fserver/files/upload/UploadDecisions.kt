@@ -20,8 +20,11 @@ data class UploadDecisions(
 }
 
 /**
- * A single unit of work for the executor. Describes intent only - who moves the bytes, and in what
- * order, is the caller's problem.
+ * A single unit of work for the executor.
+ * Describes intent only - who moves the bytes, and in what order, is the caller's problem.
+ *
+ * Caller follows ALL actions without regard for configuration/strategy/any other context.
+ * This means that an incorrectly chosen action can break the entire system.
  */
 sealed interface FileAction {
     val id: FileId
@@ -68,8 +71,17 @@ sealed interface FileAction {
      * A verb rather than a silent assumption, because both assumptions are wrong:
      * "unhashed means equal" skips real changes, "unhashed means different" re-uploads the whole set every scan.
      */
-    data class ComputeHash(val file: FileRecord, override val reason: String) : FileAction {
-        override val id: FileId get() = file.id
+    data class ComputeHash(
+        override val id: FileId,
+        val local: FileRecord,
+        val remote: FileRecord,
+        override val reason: String
+    ) : FileAction {
+        init {
+            require(local.content == null || remote.content == null) {
+                "ComputeHash is only needed when one side has no content hash"
+            }
+        }
     }
 
     /** Both sides changed and the strategy refuses to guess. Needs a human or a policy above. */

@@ -81,7 +81,9 @@ class MirrorUploadStrategy : UploadStrategy {
 
                 // Cannot decide without a hash, and cannot compute one here: ask, then re-plan.
                 ContentMatch.UNKNOWN -> FileAction.ComputeHash(
-                    file = if (local.content == null) local else remote,
+                    id = local.id,
+                    local = local,
+                    remote = remote,
                     reason = "not hashed yet",
                 )
             }

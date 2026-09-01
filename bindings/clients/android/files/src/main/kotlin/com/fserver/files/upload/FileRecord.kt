@@ -7,6 +7,7 @@ import kotlin.time.Instant
 data class FileRecord(
     val id: FileId,
     val path: String,
+    val locator: String?,
     val state: State,
     /** Content identity, or null while the index has not hashed the file yet */
     val content: ContentHash?,

@@ -1,4 +1,4 @@
-package com.fserver.files.scan
+package com.fserver.files.fs
 
 import com.fserver.common.model.FileSize
 import kotlin.time.Instant
@@ -9,16 +9,8 @@ data class FoundFile(
      * peer ever sees, and the one file identity is derived from.
      */
     val path: String,
+    /** Address of the file in the source. */
+    val locator: String,
     val size: FileSize,
     val lastModified: Instant,
-    val provider: ContentProvider,
-) {
-    /** Filesystem specific provider of the file's content. */
-    interface ContentProvider {
-        /** Address of the file in the source. */
-        val locator: String
-
-        /** Load the file's bytes. */
-        suspend fun loadBytes(): ByteArray
-    }
-}
+)

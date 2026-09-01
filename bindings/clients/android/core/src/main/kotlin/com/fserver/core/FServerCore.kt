@@ -2,13 +2,13 @@ package com.fserver.core
 
 import com.fserver.core.di.coreModule
 import com.fserver.core.files.FilesController
-import com.fserver.core.files.transfer.TransferRepository
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.remote.PeerRequestServer
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,9 +67,6 @@ class FServerCore private constructor(
      */
     val requirements: RequirementsChecker by lazy { koin.get() }
 
-    /** Ad-hoc device-to-device sends, and the incoming one waiting on the user. */
-    val transfers: TransferRepository by lazy { koin.get() }
-
     /** Walking a directory the user picked, before it is registered as a source. */
     val files: FilesController by lazy { koin.get() }
 
@@ -78,6 +75,14 @@ class FServerCore private constructor(
      * Listing what is registered is a UI concern - inject `RegisteredSourcesRepository` for that.
      */
     val sources: SourcesController by lazy { koin.get() }
+
+    /**
+     * Starts answering what peers ask of this device - index requests, transfers, deletes.
+     *
+     * @return `null` if already serving, a `Job` that completes when the listener is canceled otherwise.
+     */
+    fun startServing() =
+        koin.get<PeerRequestServer>().start()
 
     /**
      * Tears down the internal graph and stops background work. After this the instance is dead -

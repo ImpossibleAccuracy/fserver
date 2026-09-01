@@ -20,6 +20,8 @@ data class IndexedFile(
     val fileId: String,
     /** Source-relative and canonical file location. */
     val path: String,
+    /** Address of the file in the local source. */
+    val locator: String,
     /** What this device holds right now. */
     val state: State,
     val size: FileSize,

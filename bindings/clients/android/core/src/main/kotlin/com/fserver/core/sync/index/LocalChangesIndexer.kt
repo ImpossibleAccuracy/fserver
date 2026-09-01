@@ -4,11 +4,15 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
 import com.fserver.core.files.scan.toFiles
+import com.fserver.core.files.util.FileHasher
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
-import com.fserver.files.scan.FoundFile
+import com.fserver.files.fs.FoundFile
+import com.fserver.files.upload.FileRecord
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.time.Instant
 
 internal class LocalChangesIndexer(
@@ -25,8 +29,8 @@ internal class LocalChangesIndexer(
             .associateBy { it.path }
             .toMutableMap()
 
-        val actualState = node.scanner
-            .scan(source.location.toFiles())
+        val actualState = node.openSource(source.location.toFiles())
+            .scan()
             .result().getOrThrow()
 
         val new = mutableListOf<FoundFile>()
@@ -37,6 +41,9 @@ internal class LocalChangesIndexer(
             if (saved == null) {
                 new += file
             } else if (file.lastModified != saved.modifiedAt || file.size != saved.size) {
+                updated[saved] = file
+            } else if (saved.state !is IndexedFile.State.Present) {
+                // File was deleted but now is back
                 updated[saved] = file
             }
         }
@@ -91,15 +98,46 @@ internal class LocalChangesIndexer(
             it.state is IndexedFile.State.Present
         }
 
-        store.index.markProcessed(
-            indexed = toSave,
-            deleted = toDelete.map { it.id },
+        store.index.markProcessed(toSave)
+
+        store.index.updateStateBatch(
+            fileIds = toDelete.map { IndexedFileKey(it.fileId, it.sourceId) },
+            state = IndexedFile.State.Deleted(
+                deletedAt = currentTime,
+            )
         )
 
-        return toSave
+        // Return full state after all writes
+        return store.index.processedFiles(source.id)
+    }
+
+    suspend fun hashFile(source: SourceEntry, local: FileRecord) {
+        val locator = local.locator
+            ?: error("Cannot hash file without locator: ${local.path} in source ${source.id}")
+
+        val hasher = FileHasher()
+
+        withContext(Dispatchers.IO) {
+            val fs = node.openSource(source.location.toFiles())
+            fs.openFile(locator).use { stream ->
+                val buffer = ByteArray(HashChunkSize)
+                var bytesRead: Int
+
+                while (stream.read(buffer).also { bytesRead = it } != -1) {
+                    hasher.write(buffer, bytesRead)
+                }
+            }
+        }
+
+        store.index.saveHash(
+            fileId = IndexedFileKey(local.id.value, source.id),
+            hash = hasher.compute(),
+        )
     }
 
     companion object {
+        private const val HashChunkSize = 8192 // 8 KB chunk size
+
         private const val InitialRevisionCounter = 1L
     }
 }
@@ -117,6 +155,7 @@ private fun FoundFile.toIndexed(
     sourceId = sourceId,
     fileId = fileId,
     path = path,
+    locator = locator,
     state = state,
     size = size,
     modifiedAt = lastModified,

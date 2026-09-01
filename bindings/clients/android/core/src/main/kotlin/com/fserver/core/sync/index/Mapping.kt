@@ -8,6 +8,7 @@ import com.fserver.files.upload.Revision
 internal fun IndexedFile.toFileRecord(): FileRecord = FileRecord(
     id = FileId(fileId),
     path = path,
+    locator = locator,
     state = state.toFiles(),
     content = hash,
     metadata = FileRecord.Metadata(

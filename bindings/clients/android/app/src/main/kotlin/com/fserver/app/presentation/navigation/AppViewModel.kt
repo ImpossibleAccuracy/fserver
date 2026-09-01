@@ -10,8 +10,7 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
-import com.fserver.core.files.transfer.IncomingTransfer
-import com.fserver.core.files.transfer.TransferRepository
+import com.fserver.core.FServerCore
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,8 +38,8 @@ import timber.log.Timber
 class AppViewModel(
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
-    private val transferRepository: TransferRepository,
     private val advertisement: AdvertisementLifecycleHandler,
+    private val fServerCore: FServerCore,
 ) : ViewModel() {
     /** True while the app is in front of an authenticated user — advertising's other precondition. */
     private val isAppVisible = MutableStateFlow(false)
@@ -55,16 +54,15 @@ class AppViewModel(
     val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
-        transferRepository.incomingTransfer,
         devicesRepository.pendingConfirmation,
-    ) { destination, pending, incomingTransfer, pendingConfirmation ->
+    ) { destination, pending, pendingConfirmation ->
         destination ?: return@combine null
 
         AppRootState(
             startDestination = destination,
             incomingConnection = pending.firstOrNull()?.toUi(),
             pendingConfirmation = pendingConfirmation?.toUi(),
-            incomingTransfer = incomingTransfer?.toUi(),
+            incomingTransfer = null,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -90,8 +88,12 @@ class AppViewModel(
                 }
         }
 
+        // Keep serving in VM, cause serving should not be started for alarms/notifications/other background tasks
+        fServerCore.startServing()?.invokeOnCompletion {
+            Timber.i("FServerCore finished serving: ${it?.message ?: "no error"}")
+        }
+
         advertisement.start(viewModelScope, isAppVisible)
-        transferRepository.listenForTransfers()
     }
 
     fun onIntent(intent: AppRootIntent) {
@@ -102,11 +104,9 @@ class AppViewModel(
             is AppRootIntent.RejectIncomingConnection ->
                 answer { it.reject() }
 
-            is AppRootIntent.AcceptIncomingTransfer ->
-                answerTransfer { it.accept() }
+            is AppRootIntent.AcceptIncomingTransfer -> {}
 
-            is AppRootIntent.RejectIncomingTransfer ->
-                answerTransfer { it.reject() }
+            is AppRootIntent.RejectIncomingTransfer -> {}
 
             is AppRootIntent.AcceptPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = true)
@@ -129,16 +129,6 @@ class AppViewModel(
         viewModelScope.launch {
             runCatching { verdict(request) }
                 .onFailure { Timber.w(it, "could not answer ${request.deviceName}") }
-        }
-    }
-
-    /** The offer itself lives in :core, so answering it is all this has to do. */
-    private fun answerTransfer(verdict: suspend (IncomingTransfer) -> Unit) {
-        val transfer = transferRepository.incomingTransfer.value ?: return
-
-        viewModelScope.launch {
-            runCatching { verdict(transfer) }
-                .onFailure { Timber.w(it, "could not answer incoming transfer") }
         }
     }
 

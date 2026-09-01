@@ -1,19 +1,32 @@
-package com.fserver.files.scan.impl
+package com.fserver.files.fs.impl
 
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
-import com.fserver.files.scan.FoundFile
-import com.fserver.files.scan.ScanSource
+import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.ScanSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
 import kotlin.time.Instant
 
-internal object DirectoryFilesScanner {
-    suspend fun scanVolume(
+internal class RootFileSource(
+    private val source: ScanSource.Root,
+) : SourceAdapter() {
+    override suspend fun scanFiles(
+        onFileFound: (FoundFile) -> Unit,
+    ) = coroutineScope {
+        for (volume in source.volumes) {
+            launch { scanVolume(volume, onFileFound) }
+        }
+    }
+
+    private suspend fun scanVolume(
         volume: ScanSource.Root.Volume,
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
@@ -33,11 +46,33 @@ internal object DirectoryFilesScanner {
                         volume = volume.id,
                         path = item.relativeTo(root).invariantSeparatorsPath,
                     ),
+                    locator = item.absolutePath,
                     size = FileSize(item.length()),
                     lastModified = Instant.fromEpochMilliseconds(item.lastModified()),
-                    provider = FileContentProvider(item),
                 )
             )
+        }
+    }
+
+    override suspend fun openFile(locator: String): InputStream {
+        val file = File(locator)
+
+        if (!file.exists()) throw FileSystemException.InvalidPath(locator)
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) {
+            file.inputStream()
+        }
+    }
+
+    override suspend fun deleteFile(locator: String): Boolean {
+        val file = File(locator)
+
+        if (!file.exists()) return true
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) {
+            file.delete()
         }
     }
 }

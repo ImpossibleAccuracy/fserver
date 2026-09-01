@@ -1,26 +1,31 @@
-package com.fserver.files.scan.impl
+package com.fserver.files.fs.impl
 
+import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
+import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
-import com.fserver.files.scan.FoundFile
+import com.fserver.files.fs.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import java.io.InputStream
 import kotlin.time.Instant
 
 /** Every image, video and audio file the MediaStore indexes, newest first. */
 @RequiresApi(Build.VERSION_CODES.Q)
-internal object MediaStoreScanner {
-    suspend fun scanMedia(
-        context: Context,
+internal class MediaFileSource(
+    private val context: Context,
+) : SourceAdapter() {
+    override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
-    ) = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
@@ -71,24 +76,37 @@ internal object MediaStoreScanner {
                                     name,
                                 ),
                             ),
+                            locator = uri.toString(),
                             size = FileSize(
                                 if (cursor.isNull(sizeIndex)) 0L else cursor.getLong(sizeIndex),
                             ),
                             // MediaStore counts DATE_MODIFIED in seconds, unlike every other API here.
                             lastModified = Instant.fromEpochSeconds(
-                                if (cursor.isNull(modifiedIndex)) 0L else cursor.getLong(modifiedIndex),
+                                if (cursor.isNull(modifiedIndex)) 0L else cursor.getLong(
+                                    modifiedIndex
+                                ),
                             ),
-                            provider = UriContentProvider(
-                                resolver = context.contentResolver,
-                                uri = uri,
-                            )
                         )
                     )
                 }
             }
     }
 
-    /** Aligned with the volume ids a [com.fserver.files.scan.ScanSource.Root] scan reports. */
+    @SuppressLint("Recycle")
+    override suspend fun openFile(locator: String): InputStream {
+        val uri = locator.toUri()
+
+        return withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)
+                ?: throw FileSystemException.InvalidPath(locator)
+        }
+    }
+
+    override suspend fun deleteFile(locator: String): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    /** Aligned with the volume ids a [com.fserver.files.fs.ScanSource.Root] scan reports. */
     private fun volumeId(volumeName: String?): String = when (volumeName) {
         null, MediaStore.VOLUME_EXTERNAL_PRIMARY -> SourcePaths.PrimaryVolume
         else -> volumeName
