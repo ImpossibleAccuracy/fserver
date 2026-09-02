@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Files a scan turned up are addressed by absolute path on the volumes the user granted, so the
+  viewer intent needs the whole tree rather than one app-owned directory.
+-->
+<paths>
+    <root-path
+        name="volumes"
+        path="/" />
+</paths>

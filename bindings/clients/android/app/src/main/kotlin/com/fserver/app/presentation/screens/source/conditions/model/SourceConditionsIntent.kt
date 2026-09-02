@@ -21,4 +21,7 @@ sealed interface SourceConditionsIntent {
     data object Confirmed : SourceConditionsIntent
 
     data object PreparingCancelled : SourceConditionsIntent
+
+    /** Registering the source failed — try the same answers again. */
+    data object RetryConfirmed : SourceConditionsIntent
 }

@@ -129,9 +129,11 @@ fun DkIconButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     icon: ImageVector,
+    enabled: Boolean = true,
 ) {
     IconButton(
-        onClick = onClick
+        enabled = enabled,
+        onClick = onClick,
     ) {
         Icon(
             imageVector = icon,

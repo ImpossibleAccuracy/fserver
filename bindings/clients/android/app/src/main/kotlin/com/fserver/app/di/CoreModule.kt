@@ -31,7 +31,7 @@ val coreModule = module {
     single {
         FServerCore.create(
             config = get(),
-            storage = get(),
+            storage = get<FServerStorageProvider>().asStorage(),
         )
     }
 

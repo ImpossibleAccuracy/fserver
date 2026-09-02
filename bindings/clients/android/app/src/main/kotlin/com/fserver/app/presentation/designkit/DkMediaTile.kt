@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.fserver.app.R
@@ -25,12 +29,16 @@ import com.fserver.app.R
  *
  * Previews are fetched and cached ahead of time; the file itself is not — the download
  * marker in the corner is what says the bytes are still on the server.
+ *
+ * [thumbnail] fills the slot once one is decoded; until then the tile is the same empty square,
+ * so a grid never reflows as previews arrive.
  */
 @Composable
 fun DkMediaTile(
     modifier: Modifier = Modifier,
     extensionLabel: String? = null,
     durationLabel: String? = null,
+    thumbnail: ImageBitmap? = null,
     remote: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
@@ -48,6 +56,16 @@ fun DkMediaTile(
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
+        if (thumbnail != null) {
+            Image(
+                bitmap = thumbnail,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(6.dp)),
+            )
+        }
         if (extensionLabel != null) {
             Text(
                 text = extensionLabel,

@@ -5,9 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -18,14 +18,9 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -45,10 +39,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.composable.DkFab
+import com.fserver.app.presentation.composable.model.FileAvailabilityUi
+import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.composable.model.FileUi
+import com.fserver.app.presentation.composable.model.FilesViewModeUi
+import com.fserver.app.presentation.composable.model.TreeNodeUi
 import com.fserver.app.presentation.designkit.DkFadingDivider
+import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkMediaTile
-import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
@@ -59,13 +58,9 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkTreeRow
-import com.fserver.app.presentation.composable.model.FileAvailabilityUi
-import com.fserver.app.presentation.composable.model.FileKindUi
-import com.fserver.app.presentation.composable.model.FileUi
-import com.fserver.app.presentation.composable.model.FilesViewModeUi
-import com.fserver.app.presentation.composable.model.TreeNodeUi
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
+import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -312,9 +307,7 @@ private fun FilesTreeView(nodes: List<TreeNodeUi>, modifier: Modifier = Modifier
         items(nodes, key = { it.id }) { node ->
             DkTreeRow(
                 title = node.name,
-                depth = node.depth,
                 expandable = node.isFolder,
-                expanded = node.expanded,
                 trailingText = node.childCountLabel,
                 onClick = {},
                 trailing = {
@@ -368,15 +361,6 @@ private fun FileUi.subtitleLabel(): String? = when {
 
     sizeLabel != null && dateLabel != null -> "$sizeLabel · $dateLabel"
     else -> sizeLabel ?: dateLabel
-}
-
-private fun FileKindUi.icon(): ImageVector = when (this) {
-    FileKindUi.Folder -> Icons.Default.Folder
-    FileKindUi.Image -> Icons.Default.Image
-    FileKindUi.Video -> Icons.Default.Movie
-    FileKindUi.Audio -> Icons.Default.AudioFile
-    FileKindUi.Document -> Icons.Default.Description
-    FileKindUi.Other -> Icons.AutoMirrored.Filled.InsertDriveFile
 }
 
 @Preview(showBackground = true)

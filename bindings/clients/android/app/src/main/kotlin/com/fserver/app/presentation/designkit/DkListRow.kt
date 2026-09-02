@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,11 +31,12 @@ import androidx.compose.ui.unit.dp
 fun DkThumbnail(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    size: Dp = 34.dp,
     contentDescription: String? = null,
 ) {
     Box(
         modifier = modifier
-            .size(34.dp)
+            .size(size)
             .background(
                 MaterialTheme.colorScheme.surfaceContainerHigh,
                 MaterialTheme.shapes.medium,
@@ -43,10 +45,10 @@ fun DkThumbnail(
     ) {
         if (icon != null) {
             Icon(
+                modifier = Modifier.size(size / 2),
                 imageVector = icon,
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
             )
         }
     }
@@ -73,8 +75,9 @@ fun DkIcon(
  */
 @Composable
 fun DkListRow(
-    title: String,
     modifier: Modifier = Modifier,
+    title: String,
+    titleMaxLines: Int = 1,
     subtitle: String? = null,
     subtitleStyle: TextStyle? = null,
     subtitleMaxLines: Int = 1,
@@ -82,12 +85,16 @@ fun DkListRow(
     onClick: (() -> Unit)? = null,
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+    contentPaddings: PaddingValues = PaddingValues(
+        horizontal = DkSpacing.screenPadding,
+        vertical = DkSpacing.md
+    ),
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.md),
+            .padding(contentPaddings),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
     ) {
@@ -100,7 +107,7 @@ fun DkListRow(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-                maxLines = 1,
+                maxLines = titleMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {

@@ -44,6 +44,7 @@ import com.fserver.app.presentation.screens.source.conditions.sourceConditionsEn
 import com.fserver.app.presentation.screens.source.done.sourceDoneEntry
 import com.fserver.app.presentation.screens.source.mode.sourceModeEntry
 import com.fserver.app.presentation.screens.source.pick.sourcePickEntry
+import com.fserver.app.presentation.screens.source.upload.sourceUploadEntry
 import com.fserver.app.presentation.screens.target.targetDeviceEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
@@ -211,6 +212,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             sourceAccessEntry(navigator)
             sourceModeEntry(navigator)
             sourceConditionsEntry(navigator)
+            sourceUploadEntry(navigator)
             sourceDoneEntry(navigator)
         },
     )

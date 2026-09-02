@@ -1,9 +1,11 @@
 package com.fserver.app.presentation.screens.source.access.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
+import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.scan.DirectoryScanProgress
 
 @Immutable
@@ -11,9 +13,20 @@ data class SourceAccessState(
     val kind: SourceKindUi,
     val phase: Phase = Phase.Explaining,
     val access: SourceAccessUi = SourceAccessUi.Full,
-    val scanned: PickedSourceUi? = null,
+    val label: String = "",
+    val files: Int = 0,
+    val bytes: FileSize = FileSize(0),
     val progress: DirectoryScanProgress? = null,
+    val preview: SourcePreviewUi? = null,
+    val selection: SourcePreviewSelection? = null,
 ) {
+    /**
+     * The whole-device branch narrows to one folder before it may go on. The second walk over
+     * that folder carries no preview, which is what tells the two scans apart.
+     */
+    val isPickingDirectory: Boolean
+        get() = phase == Phase.Scanned && kind == SourceKindUi.WholeDevice && preview != null
+
     enum class Phase {
         Explaining,
 

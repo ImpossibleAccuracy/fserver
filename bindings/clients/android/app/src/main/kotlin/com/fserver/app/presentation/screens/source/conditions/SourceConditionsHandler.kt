@@ -9,6 +9,8 @@ import com.fserver.app.presentation.screens.source.conditions.model.UploadScopeU
 import com.fserver.app.presentation.screens.source.shared.model.SourceFlowState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.SyncMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -24,11 +26,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SourceConditionsHandler(
     private val devicesRepository: DevicesRepository,
+    private val sourcesController: SourcesController,
 
     private val flow: MutableStateFlow<SourceFlowState>,
     private val scope: CoroutineScope,
@@ -54,6 +59,7 @@ class SourceConditionsHandler(
                 kind = shared.kind ?: return@combine null,
                 mode = mode,
                 phase = when {
+                    local.error != null -> SourceConditionsState.Phase.Failed
                     local.preparing -> SourceConditionsState.Phase.Preparing
                     mode == SourceModeUi.Offload && !local.explainerAccepted ->
                         SourceConditionsState.Phase.Explainer
@@ -75,6 +81,7 @@ class SourceConditionsHandler(
                 hostRights = local.hostRights,
                 progress = local.progress,
                 progressDetail = local.progressDetail,
+                error = local.error,
             )
         }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -116,6 +123,12 @@ class SourceConditionsHandler(
                 prepareJob = scope.launch { prepare() }
             }
 
+            SourceConditionsIntent.RetryConfirmed -> {
+                prepareJob?.cancel()
+                editable.update { it.copy(error = null) }
+                prepareJob = scope.launch { prepare() }
+            }
+
             SourceConditionsIntent.PreparingCancelled -> {
                 prepareJob?.cancel()
                 editable.update { it.copy(preparing = false) }
@@ -128,8 +141,14 @@ class SourceConditionsHandler(
         editable.value = Editable()
     }
 
+    private companion object {
+        const val IncompleteAnswers = "The flow was left without a source, a target or a mode."
+    }
+
     private suspend fun prepare() {
-        editable.update { it.copy(preparing = true, progress = 0f, progressDetail = "") }
+        editable.update {
+            it.copy(preparing = true, progress = 0f, progressDetail = "", error = null)
+        }
 
         val mode = flow.value.mode
         val steps = 5
@@ -153,17 +172,71 @@ class SourceConditionsHandler(
             it.copy(
                 conditions = SourceFlowState.SavedConditions(
                     olderThanDays = editable.value.olderThanDays,
-                    /*uploadScope = editable.value.uploadScope,
-                    wifiOnly = editable.value.wifiOnly,
-                    chargingOnly = editable.value.chargingOnly,
-                    criterion = editable.value.criterion,
-                    keepPinned = editable.value.keepPinned,
-                    hostRights = editable.value.hostRights,*/
                 )
             )
         }
 
-        effectChannel.send(SourceConditionsUiEffect.NavigateToDone)
+        register()
+    }
+
+    /**
+     * Hands the answered form to the engine, which assigns the source its id and asks the peer to
+     * host the other half. Everything after this is the peer's move, so it happens on the upload
+     * screen rather than here.
+     */
+    private suspend fun register() {
+        val shared = flow.value
+        val source = shared.source
+        val deviceId = shared.targetDeviceId
+        val syncMode = shared.mode?.let(::toSyncMode)
+
+        if (source == null || deviceId == null || syncMode == null) {
+            editable.update { it.copy(preparing = false, error = IncompleteAnswers) }
+            return
+        }
+
+        sourcesController.addSource(
+            location = source.location,
+            syncMode = syncMode,
+            deviceId = deviceId,
+            label = source.label.ifEmpty { shared.kind?.name.orEmpty() },
+        ).fold(
+            onSuccess = { entry ->
+                flow.update { it.copy(sourceId = entry.id) }
+                editable.update { it.copy(preparing = false) }
+                effectChannel.send(SourceConditionsUiEffect.NavigateToUpload(entry.id))
+            },
+            onFailure = { failure ->
+                Timber.e(failure, "Could not register the source")
+                editable.update {
+                    it.copy(preparing = false, error = failure.message ?: failure.toString())
+                }
+            },
+        )
+    }
+
+    /**
+     * The form, as the engine reads it. Auto-upload scoped to new files is a cut-off rather than a
+     * filter, which is why the backlog answer becomes an instant.
+     */
+    private fun toSyncMode(mode: SourceModeUi): SyncMode? = when (mode) {
+        SourceModeUi.Sync -> SyncMode.Mirror
+
+        SourceModeUi.AutoUpload -> SyncMode.AutoUpload(
+            ignoreFilesBefore = when (editable.value.uploadScope) {
+                UploadScopeUi.New -> Clock.System.now()
+                UploadScopeUi.All -> null
+            },
+        )
+
+        // The engine evicts by age only, so the least-recently-used rule falls back to the same
+        // cut-off until it grows a policy of its own.
+        SourceModeUi.Offload -> SyncMode.Offload(
+            policy = SyncMode.Offload.EvictPolicy.OlderThanDays(editable.value.olderThanDays),
+            keepPinned = editable.value.keepPinned,
+        )
+
+        SourceModeUi.Host -> null
     }
 
     private data class Editable(
@@ -178,5 +251,6 @@ class SourceConditionsHandler(
         val preparing: Boolean = false,
         val progress: Float = 0f,
         val progressDetail: String = "",
+        val error: String? = null,
     )
 }

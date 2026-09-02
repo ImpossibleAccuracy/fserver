@@ -29,6 +29,8 @@ data class SourceConditionsState(
     val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
     val progress: Float = 0f,
     val progressDetail: String = "",
+    /** Why registering the source failed, when it did. */
+    val error: String? = null,
 ) {
     enum class Phase {
         /**
@@ -41,6 +43,9 @@ data class SourceConditionsState(
 
         /** Checking what the target already has, or counting what the rule would evict. */
         Preparing,
+
+        /** The engine refused to register the source. Nothing was turned on. */
+        Failed,
     }
 
     companion object {

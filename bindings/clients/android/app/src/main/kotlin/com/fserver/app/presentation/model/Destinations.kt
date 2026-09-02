@@ -75,9 +75,13 @@ sealed interface Destination : NavKey {
         data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
 
         /**
-         * What was just turned on, in four lines. It carries the whole summary because every
-         * screen of the flow is dropped on the way here, the shared ViewModel with them.
+         * Registered, and waiting: first on the peer to take on its half of the source, then on
+         * the first pass. Neither is the user's to drive, so this screen only offers to leave.
          */
+        @Serializable
+        data object Upload : Destination
+
+        /** What was just turned on, in four lines. */
         @Serializable
         data object Done : Destination
     }

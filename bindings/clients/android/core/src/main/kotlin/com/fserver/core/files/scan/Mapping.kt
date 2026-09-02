@@ -20,6 +20,7 @@ private fun SourceLocation.Root.Volume.toFiles(): FileSystemSource.Root.Volume =
 internal fun FoundFile.toCore(): ScannedFile = ScannedFile(
     path = path,
     directory = path.substringBeforeLast('/', missingDelimiterValue = ""),
+    locator = locator,
     size = size,
     lastModified = lastModified,
 )

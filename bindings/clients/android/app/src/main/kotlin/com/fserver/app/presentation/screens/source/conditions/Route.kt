@@ -4,7 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.screens.source.shared.SourceFlowParent
-import com.fserver.app.presentation.screens.source.shared.isSourceFlowScreen
+import com.fserver.app.presentation.screens.source.shared.isAnsweredSourceFlowScreen
 import com.fserver.app.presentation.screens.source.shared.popToSourcePick
 import com.fserver.app.presentation.screens.source.shared.sourceFlowViewModel
 
@@ -16,10 +16,12 @@ fun EntryProviderScope<Destination>.sourceConditionsEntry(
 
         SourceConditionsScreen(
             handler = flow.conditions,
-            navigateToDone = {
+            // Everything answered goes with it: the source is registered from here on, and none
+            // of those screens has a question left to ask.
+            navigateToUpload = {
                 navigator.navigate(
-                    screen = Destination.Source.Done,
-                    dropping = { it.isSourceFlowScreen },
+                    screen = Destination.Source.Upload,
+                    dropping = { it.isAnsweredSourceFlowScreen },
                 )
             },
             navigateUp = { navigator.navigateUp() },

@@ -8,19 +8,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCheckState
 import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
@@ -30,14 +35,21 @@ import com.fserver.app.presentation.designkit.DkStatusRow
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.access.model.SourceAccessState
+import com.fserver.app.presentation.screens.source.access.model.SourceAccessUiEffect
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceScanResult
-import com.fserver.app.presentation.screens.source.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
+import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
+import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewHeader
+import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
+import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.displayLabel
+import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.screens.source.shared.rememberSourceFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
+import com.fserver.core.files.scan.DirectoryScanProgress
 
 @Composable
 fun SourceAccessScreen(
@@ -52,11 +64,26 @@ fun SourceAccessScreen(
         handler.onIntent(SourceAccessIntent.AccessAnswered(grant))
     }
 
+    LaunchedEffect(handler) {
+        handler.effects.collect { effect ->
+            when (effect) {
+                SourceAccessUiEffect.NavigateToMode ->
+                    navigateToMode(handler.state.value?.access ?: SourceAccessUi.Full)
+            }
+        }
+    }
+
     SourceAccessScreenContent(
         state = state,
-        onIntent = handler::onIntent,
+        newIntent = handler::onIntent,
         onRequestAccess = { requester.request(state.kind) },
+        onFileClick = rememberSourceFileOpener(),
         onContinue = {
+            if (state.isPickingDirectory) {
+                handler.onIntent(SourceAccessIntent.DirectoryConfirmed)
+                return@SourceAccessScreenContent
+            }
+
             handler.onIntent(SourceAccessIntent.Confirmed)
             navigateToMode(state.access)
         },
@@ -68,8 +95,9 @@ fun SourceAccessScreen(
 @Composable
 private fun SourceAccessScreenContent(
     state: SourceAccessState,
-    onIntent: (SourceAccessIntent) -> Unit,
+    newIntent: (SourceAccessIntent) -> Unit,
     onRequestAccess: () -> Unit,
+    onFileClick: (SourcePreviewUi.File) -> Unit,
     onContinue: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
@@ -77,18 +105,55 @@ private fun SourceAccessScreenContent(
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
+            val selected = state.selection?.selected
+
             DkTopBar(
-                title = stringResource(state.kind.titleRes),
-                onBack = navigateUp,
+                title = when (selected) {
+                    null -> stringResource(state.kind.titleRes)
+                    is SourcePreviewUi.Directory -> selected.displayLabel()
+                    else -> selected.name
+                },
+                subtitle = when (selected) {
+                    is SourcePreviewUi.Directory -> stringResource(
+                        R.string.source_preview_directory_count,
+                        selected.files,
+                        selected.size.formatted(),
+                    )
+
+                    is SourcePreviewUi.File -> selected.size.formatted()
+
+                    else -> null
+                },
+                onBack = {
+                    if (state.phase == SourceAccessState.Phase.Scanned &&
+                        state.selection?.selected != null &&
+                        state.selection.walkUp != null
+                    ) {
+                        state.selection.walkUp.invoke()
+                    } else {
+                        navigateUp()
+                    }
+                },
+                actions = {
+                    if (state.selection != null) {
+                        DkIconButton(
+                            icon = Icons.Default.Check,
+                            onClick = onContinue,
+                            enabled = state.selection.selected != null,
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
+            if (state.selection != null) return@DkScaffold
+
             DkActionBar {
                 when (state.phase) {
                     SourceAccessState.Phase.Scanning -> DkGhostButton(
                         modifier = Modifier.fillMaxWidth(),
                         text = stringResource(R.string.action_cancel),
-                        onClick = { onIntent(SourceAccessIntent.ScanCancelled) },
+                        onClick = { newIntent(SourceAccessIntent.ScanCancelled) },
                     )
 
                     SourceAccessState.Phase.Scanned -> {
@@ -136,28 +201,24 @@ private fun SourceAccessScreenContent(
         val bodyModifier = Modifier.padding(innerPadding)
 
         when (state.phase) {
-            SourceAccessState.Phase.Scanning,
-            SourceAccessState.Phase.Scanned -> SourceScanResult(
+            SourceAccessState.Phase.Scanning -> SourceScanResult(
                 modifier = bodyModifier,
-                title =
-                    if (state.phase == SourceAccessState.Phase.Scanning) stringResource(R.string.source_scan_folder_title)
-                    else stringResource(R.string.source_scan_done_title),
-                body = state.scanned?.label ?: stringResource(state.kind.titleRes),
-                detail = if (state.scanned != null) {
+                title = stringResource(R.string.source_scan_folder_title),
+                body = state.label.ifEmpty { stringResource(state.kind.titleRes) },
+                detail = state.progress?.let { progress ->
                     stringResource(
                         R.string.source_scan_folder_summary,
-                        state.scanned.files,
-                        state.scanned.bytes.formatted(),
+                        progress.scannedFiles,
+                        progress.scannedSize.formatted(),
                     )
-                } else if (state.progress != null) {
-                    stringResource(
-                        R.string.source_scan_folder_summary,
-                        state.progress.scannedFiles,
-                        state.progress.scannedSize.formatted(),
-                    )
-                } else {
-                    null
                 },
+            )
+
+            SourceAccessState.Phase.Scanned -> ScannedBody(
+                modifier = bodyModifier,
+                state = state,
+                selection = state.selection,
+                onFileClick = onFileClick,
             )
 
             SourceAccessState.Phase.Denied -> SourceAccessFailure(
@@ -174,10 +235,58 @@ private fun SourceAccessScreenContent(
     }
 }
 
+/**
+ * What the walk turned up: the files themselves, or — for the whole device — the folders it
+ * passed through, since everything is not something a source may be pointed at.
+ */
+@Composable
+private fun ScannedBody(
+    modifier: Modifier = Modifier,
+    state: SourceAccessState,
+    selection: SourcePreviewSelection?,
+    onFileClick: (SourcePreviewUi.File) -> Unit,
+) {
+    val preview = state.preview
+    if (preview == null) {
+        SourceScanResult(
+            modifier = modifier,
+            title = stringResource(R.string.source_scan_done_title),
+            body = state.label.ifEmpty { stringResource(state.kind.titleRes) },
+            detail = stringResource(
+                R.string.source_scan_folder_summary,
+                state.files,
+                state.bytes.formatted(),
+            ),
+        )
+        return
+    }
+
+    val summary = stringResource(
+        R.string.source_scan_folder_summary,
+        state.files,
+        state.bytes.formatted(),
+    )
+
+    SourcePreview(
+        modifier = modifier,
+        preview = preview,
+        onFileClick = onFileClick,
+        selection = selection,
+        header = {
+            if (!state.isPickingDirectory) {
+                SourcePreviewHeader(
+                    title = state.label.ifEmpty { stringResource(state.kind.titleRes) },
+                    detail = summary,
+                )
+            }
+        },
+    )
+}
+
 @Composable
 private fun AccessExplainer(
-    kind: SourceKindUi,
     modifier: Modifier = Modifier,
+    kind: SourceKindUi,
 ) {
     Column(
         modifier = modifier
@@ -292,8 +401,9 @@ private fun SourceAccessPhotosPreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.Media),
-            onIntent = {},
+            newIntent = {},
             onRequestAccess = {},
+            onFileClick = {},
             onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
@@ -307,8 +417,9 @@ private fun SourceAccessFolderPreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.Folder),
-            onIntent = {},
+            newIntent = {},
             onRequestAccess = {},
+            onFileClick = {},
             onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
@@ -322,8 +433,9 @@ private fun SourceAccessDevicePreview() {
     FServerTheme {
         SourceAccessScreenContent(
             state = SourceAccessState(kind = SourceKindUi.WholeDevice),
-            onIntent = {},
+            newIntent = {},
             onRequestAccess = {},
+            onFileClick = {},
             onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
@@ -340,8 +452,9 @@ private fun SourceAccessDeniedPreview() {
                 kind = SourceKindUi.Media,
                 phase = SourceAccessState.Phase.Denied,
             ),
-            onIntent = {},
+            newIntent = {},
             onRequestAccess = {},
+            onFileClick = {},
             onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},
@@ -357,15 +470,111 @@ private fun SourceAccessScanningPreview() {
             state = SourceAccessState(
                 kind = SourceKindUi.Folder,
                 phase = SourceAccessState.Phase.Scanning,
-                scanned = PickedSourceUi(
-                    label = "/DCIM/Projects",
-                    files = 842,
-                    bytes = FileSize(6_549_123_072L),
-                    uri = null,
+                label = "/DCIM/Projects",
+                progress = DirectoryScanProgress(
+                    scannedFiles = 412,
+                    scannedSize = FileSize(3_100_000_000L),
                 ),
             ),
-            onIntent = {},
+            newIntent = {},
             onRequestAccess = {},
+            onFileClick = {},
+            onContinue = {},
+            navigateToSourcePick = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Folder preview", showBackground = true)
+@Composable
+private fun SourceAccessPreviewPreview() {
+    FServerTheme {
+        SourceAccessScreenContent(
+            state = SourceAccessState(
+                kind = SourceKindUi.Folder,
+                phase = SourceAccessState.Phase.Scanned,
+                label = "/DCIM/Projects",
+                files = 842,
+                bytes = FileSize(6_549_123_072L),
+                preview = SourcePreviewUi.PlainList(
+                    files = listOf(
+                        SourcePreviewUi.File(
+                            path = "IMG_0001.jpg",
+                            name = "IMG_0001.jpg",
+                            kind = FileKindUi.Image,
+                            locator = "/storage/emulated/0/DCIM/Projects/IMG_0001.jpg",
+                            size = FileSize(4_210_000),
+                            extensionLabel = null,
+                        ),
+                        SourcePreviewUi.File(
+                            path = "notes.pdf",
+                            name = "notes.pdf",
+                            kind = FileKindUi.Document,
+                            locator = "/storage/emulated/0/DCIM/Projects/notes.pdf",
+                            size = FileSize(820_000),
+                            extensionLabel = "PDF",
+                        ),
+                    ),
+                ),
+            ),
+            newIntent = {},
+            onRequestAccess = {},
+            onFileClick = {},
+            onContinue = {},
+            navigateToSourcePick = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Directory pick", showBackground = true)
+@Composable
+private fun SourceAccessDirectoryPickPreview() {
+    FServerTheme {
+        SourceAccessScreenContent(
+            state = SourceAccessState(
+                kind = SourceKindUi.WholeDevice,
+                phase = SourceAccessState.Phase.Scanned,
+                files = 12_408,
+                bytes = FileSize(41_200_000_000L),
+                preview = SourcePreviewUi.Tree(
+                    directories = listOf(
+                        SourcePreviewUi.Directory(
+                            path = "/storage/emulated/0",
+                            name = "primary",
+                            files = 12_408,
+                            size = FileSize(41_200_000_000L),
+                            isVolume = true,
+                            contents = listOf(
+                                SourcePreviewUi.Directory(
+                                    path = "/storage/emulated/0/DCIM",
+                                    name = "DCIM",
+                                    files = 2_310,
+                                    size = FileSize(19_100_000_000L),
+                                    contents = listOf(
+                                        SourcePreviewUi.Directory(
+                                            path = "/storage/emulated/0/DCIM/Camera",
+                                            name = "Camera",
+                                            files = 2_140,
+                                            size = FileSize(18_400_000_000L),
+                                        ),
+                                    ),
+                                ),
+                                SourcePreviewUi.Directory(
+                                    path = "/storage/emulated/0/Download",
+                                    name = "Download",
+                                    files = 87,
+                                    size = FileSize(1_240_000_000L),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            newIntent = {},
+            onRequestAccess = {},
+            onFileClick = {},
             onContinue = {},
             navigateToSourcePick = {},
             navigateUp = {},

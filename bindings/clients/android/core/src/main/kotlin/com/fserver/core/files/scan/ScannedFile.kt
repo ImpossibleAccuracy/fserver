@@ -9,6 +9,8 @@ data class ScannedFile(
     val path: String,
     /** Parent of [path], or empty at the source root. */
     val directory: String,
+    /** Address of the file in the source. Mostly file path or URI. */
+    val locator: String,
     val size: FileSize,
     val lastModified: Instant,
 )

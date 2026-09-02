@@ -432,6 +432,14 @@
     <string name="source_scan_folder_summary">%1$d files · %2$s</string>
     <string name="source_scan_done_title">Scan finished</string>
 
+    <!-- Send flow: what the scan found, before anything is done with it -->
+    <string name="source_preview_truncated">Showing %1$d of %2$d files</string>
+    <string name="source_preview_empty">The scan found nothing here.</string>
+    <string name="source_preview_open_failed">No app on this phone opens that file.</string>
+    <string name="source_preview_directory_count">%1$d items · %2$s</string>
+    <string name="source_preview_volume_primary">Internal storage</string>
+    <string name="source_preview_directory_confirm">Use this folder</string>
+
     <!-- Send flow: one mode per source -->
     <string name="source_mode_photos_title">What to do with photos?</string>
     <string name="source_mode_folder_title">What to do with the folder?</string>
@@ -533,6 +541,17 @@
     <string name="source_summary_contents">Now</string>
     <string name="source_summary_rights">Rights</string>
     <string name="source_summary_address">Address</string>
+    <!-- Send flow: registering the source, and the wait for the other device -->
+    <string name="source_create_failed_title">The source was not registered</string>
+    <string name="source_upload_title">Setting up</string>
+    <string name="source_upload_waiting_title">Waiting for the other device…</string>
+    <string name="source_upload_waiting_body">The source is registered here. %1$s has to take on its half before anything is sent.</string>
+    <string name="source_upload_syncing_title">Sending files…</string>
+    <string name="source_upload_syncing_body">First exchange with %1$s. After it the source keeps itself level on its own.</string>
+    <string name="source_upload_refused_title">%1$s refused the source</string>
+    <string name="source_upload_background_note">You can close this — the setup and the transfer carry on without the screen.</string>
+    <string name="source_upload_close">Close</string>
+
     <string name="source_done_to_files">To files</string>
     <string name="source_done_add_another">Add another source</string>
 </resources>

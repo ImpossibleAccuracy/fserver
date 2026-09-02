@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.shared.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.common.model.FileSize
+import com.fserver.core.files.SourceLocation
 
 /** What the access step's scan found, for the screens after it. */
 @Immutable
@@ -12,5 +13,6 @@ data class PickedSourceUi(
     val files: Int,
     /** Found files size */
     val bytes: FileSize,
-    val uri: String? = null,
+    /** What the engine registers as the source, once the flow is confirmed. */
+    val location: SourceLocation.Selectable,
 )

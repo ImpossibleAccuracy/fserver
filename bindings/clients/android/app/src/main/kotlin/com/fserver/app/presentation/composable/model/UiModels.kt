@@ -12,7 +12,14 @@ import com.fserver.app.presentation.designkit.DkCheckState
  * the screens do not move.
  */
 
-enum class FileKindUi { Folder, Image, Video, Audio, Document, Other }
+enum class FileKindUi {
+    @Deprecated("folder is not a file kind, delete")
+    Folder,
+    Image, Video, Audio, Document, Other;
+
+    val isMedia: Boolean
+        get() = this == Image || this == Video
+}
 
 /** Whether the bytes are here or still on the server. Drives the row's trailing marker. */
 enum class FileAvailabilityUi { OnServer, OnDevice }

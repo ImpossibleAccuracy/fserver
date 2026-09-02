@@ -77,6 +77,8 @@ class FServerStorageProvider private constructor(
 
     val syncPreferences: SyncPreferencesRepository get() = syncStore
 
+    fun asStorage(): FServerStorage = Storage()
+
     private inner class Storage : FServerStorage {
         override val identity: DeviceIdentityStore get() = identityStore
         override val auth: AuthSettingsStore get() = authStore

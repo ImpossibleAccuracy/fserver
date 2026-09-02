@@ -52,13 +52,14 @@ import com.fserver.app.presentation.screens.source.shared.composable.SourceChoic
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
 fun SourceConditionsScreen(
     handler: SourceConditionsHandler,
-    navigateToDone: () -> Unit,
+    navigateToUpload: (String) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state = handler.state.collectAsStateWithLifecycle().value ?: return
@@ -66,7 +67,7 @@ fun SourceConditionsScreen(
     LaunchedEffect(handler.effects) {
         handler.effects.collect { effect ->
             when (effect) {
-                is SourceConditionsUiEffect.NavigateToDone -> navigateToDone()
+                is SourceConditionsUiEffect.NavigateToUpload -> navigateToUpload(effect.sourceId)
             }
         }
     }
@@ -128,6 +129,19 @@ private fun SourceConditionsScreenContent(
                             onClick = navigateUp,
                         )
                     }
+
+                    SourceConditionsState.Phase.Failed -> {
+                        DkPrimaryButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.action_retry),
+                            onClick = { onIntent(SourceConditionsIntent.RetryConfirmed) },
+                        )
+                        DkGhostButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.action_back),
+                            onClick = navigateUp,
+                        )
+                    }
                 }
             }
         },
@@ -152,6 +166,12 @@ private fun SourceConditionsScreenContent(
                 modifier = bodyModifier,
                 state = state,
                 onIntent = onIntent,
+            )
+
+            SourceConditionsState.Phase.Failed -> SourceAccessFailure(
+                modifier = bodyModifier,
+                title = stringResource(R.string.source_create_failed_title),
+                body = state.error.orEmpty(),
             )
         }
     }

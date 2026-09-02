@@ -3,7 +3,9 @@ package com.fserver.core.storage.internal
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.sync.SourceEntry
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.SourceTombstone
+import com.fserver.core.sync.SyncMode
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,11 @@ internal class SourcesStoreImpl(
     override suspend fun all(): List<SourceEntry> = state.value
 
     override suspend fun findById(id: String): SourceEntry? = state.value.find { it.id == id }
+
+    override suspend fun findByModeAndLocation(
+        mode: SyncMode,
+        location: SourceLocation,
+    ): SourceEntry? = state.value.find { it.syncMode == mode && it.location == location }
 
     override suspend fun upsert(source: SourceEntry) = writeLock.withLock {
         state.update { current ->

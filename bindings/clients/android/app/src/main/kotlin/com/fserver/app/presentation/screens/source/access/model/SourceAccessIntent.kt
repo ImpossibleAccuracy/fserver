@@ -7,5 +7,8 @@ sealed interface SourceAccessIntent {
 
     data object ScanCancelled : SourceAccessIntent
 
+    /** Whole device only: narrows the source to one folder and walks it again. */
+    data object DirectoryConfirmed : SourceAccessIntent
+
     data object Confirmed : SourceAccessIntent
 }
