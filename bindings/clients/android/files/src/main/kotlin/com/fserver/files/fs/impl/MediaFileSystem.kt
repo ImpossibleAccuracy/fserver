@@ -20,9 +20,9 @@ import kotlin.time.Instant
 
 /** Every image, video and audio file the MediaStore indexes, newest first. */
 @RequiresApi(Build.VERSION_CODES.Q)
-internal class MediaFileSource(
+internal class MediaFileSystem(
     private val context: Context,
-) : SourceAdapter() {
+) : SystemAdapter() {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ): Unit = withContext(Dispatchers.IO) {
@@ -106,7 +106,7 @@ internal class MediaFileSource(
         TODO("Not yet implemented")
     }
 
-    /** Aligned with the volume ids a [com.fserver.files.fs.ScanSource.Root] scan reports. */
+    /** Aligned with the volume ids a [com.fserver.files.fs.FileSystemSource.Root] scan reports. */
     private fun volumeId(volumeName: String?): String = when (volumeName) {
         null, MediaStore.VOLUME_EXTERNAL_PRIMARY -> SourcePaths.PrimaryVolume
         else -> volumeName

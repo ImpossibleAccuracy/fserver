@@ -4,16 +4,16 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.ScanProgress
-import com.fserver.files.fs.ScanSource
+import com.fserver.files.fs.FileSystemSource
 
-internal fun SourceLocation.toFiles(): ScanSource = when (this) {
-    is SourceLocation.Root -> ScanSource.Root(volumes.map { it.toFiles() })
-    is SourceLocation.Tree -> ScanSource.Tree(path)
-    SourceLocation.Media -> ScanSource.Media
+internal fun SourceLocation.toFiles(): FileSystemSource = when (this) {
+    is SourceLocation.Root -> FileSystemSource.Root(volumes.map { it.toFiles() })
+    is SourceLocation.Tree -> FileSystemSource.Tree(path)
+    SourceLocation.Media -> FileSystemSource.Media
 }
 
-private fun SourceLocation.Root.Volume.toFiles(): ScanSource.Root.Volume =
-    ScanSource.Root.Volume(id = id, path = path)
+private fun SourceLocation.Root.Volume.toFiles(): FileSystemSource.Root.Volume =
+    FileSystemSource.Root.Volume(id = id, path = path)
 
 internal fun FoundFile.toCore(): ScannedFile = ScannedFile(
     path = path,

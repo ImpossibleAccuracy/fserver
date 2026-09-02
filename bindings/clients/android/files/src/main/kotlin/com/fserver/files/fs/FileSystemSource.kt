@@ -1,8 +1,8 @@
 package com.fserver.files.fs
 
-sealed interface ScanSource {
+sealed interface FileSystemSource {
     /** Whole storage volumes. Counterpart to [Tree], which is scoped to one directory. */
-    data class Root(val volumes: List<Volume>) : ScanSource {
+    data class Root(val volumes: List<Volume>) : FileSystemSource {
         init {
             require(volumes.isNotEmpty()) { "Volumes list cannot be empty" }
         }
@@ -19,7 +19,7 @@ sealed interface ScanSource {
         )
     }
 
-    data class Tree(val path: String) : ScanSource
+    data class Tree(val path: String) : FileSystemSource
 
-    data object Media : ScanSource
+    data object Media : FileSystemSource
 }

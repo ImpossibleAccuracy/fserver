@@ -4,7 +4,7 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
 import com.fserver.files.fs.FoundFile
-import com.fserver.files.fs.ScanSource
+import com.fserver.files.fs.FileSystemSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -15,9 +15,9 @@ import java.io.File
 import java.io.InputStream
 import kotlin.time.Instant
 
-internal class RootFileSource(
-    private val source: ScanSource.Root,
-) : SourceAdapter() {
+internal class RootFileSystem(
+    private val source: FileSystemSource.Root,
+) : SystemAdapter() {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = coroutineScope {
@@ -27,7 +27,7 @@ internal class RootFileSource(
     }
 
     private suspend fun scanVolume(
-        volume: ScanSource.Root.Volume,
+        volume: FileSystemSource.Root.Volume,
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val root = File(volume.path)

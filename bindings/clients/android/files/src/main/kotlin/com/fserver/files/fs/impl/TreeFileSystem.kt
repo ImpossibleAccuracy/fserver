@@ -11,7 +11,7 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
 import com.fserver.files.fs.FoundFile
-import com.fserver.files.fs.ScanSource
+import com.fserver.files.fs.FileSystemSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -19,10 +19,10 @@ import kotlinx.coroutines.withContext
 import java.io.InputStream
 import kotlin.time.Instant
 
-internal class TreeFileSource(
+internal class TreeFileSystem(
     private val context: Context,
-    private val source: ScanSource.Tree,
-) : SourceAdapter() {
+    private val source: FileSystemSource.Tree,
+) : SystemAdapter() {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {

@@ -2,7 +2,7 @@ package com.fserver.files.fs.impl
 
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.progressTask
-import com.fserver.files.fs.FileSource
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.ScanProgress
 import kotlinx.coroutines.channels.ProducerScope
@@ -11,7 +11,7 @@ import kotlinx.coroutines.channels.ProducerScope
  * Base for the backends in this package.
  * Progress tallying is shared here, so an impl only walks its own source.
  */
-internal abstract class SourceAdapter : FileSource {
+internal abstract class SystemAdapter : FileSystem {
     final override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = progressTask {
         val collector = ScanCollector(this)
 

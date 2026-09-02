@@ -4,12 +4,12 @@ import com.fserver.common.task.ProgressTask
 import java.io.InputStream
 
 /**
- * One [ScanSource] opened for work. The source is bound here, so callers pass locators only and
+ * One [FileSystemSource] opened for work. The source is bound here, so callers pass locators only and
  * never learn which backend serves them.
  *
- * Get one from [SourceFileSystem.open].
+ * Get one from [FileSystemEntryPoint.open].
  */
-interface FileSource {
+interface FileSystem {
     /** Walk the source, reporting files as they turn up. */
     fun scan(): ProgressTask<ScanProgress, List<FoundFile>>
 
