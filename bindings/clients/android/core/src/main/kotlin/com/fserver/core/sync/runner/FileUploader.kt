@@ -71,7 +71,7 @@ internal class FileUploader(
 
         session.runRemoteOperation(
             operation = RemoteOperation.Upload.UploadCompleted(
-                key = IndexedFileKey(file.id.value, source.id),
+                key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
                 hash = hash.value,
                 algorithm = hash.algorithm,
             )
@@ -79,7 +79,7 @@ internal class FileUploader(
 
         if (hasher != null) {
             storage.index.saveHash(
-                key = IndexedFileKey(file.id.value, source.id),
+                key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
                 hash = hash,
             )
         }

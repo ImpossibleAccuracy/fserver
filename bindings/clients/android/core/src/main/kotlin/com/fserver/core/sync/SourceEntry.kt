@@ -12,7 +12,10 @@ import kotlin.time.Instant
  */
 data class SourceEntry(
     val id: String,
-    /** The device that registered this source. */
+    /**
+     * The peer this source syncs with. Load-bearing beyond routing: it is what the serving side
+     * checks a request against, so a source only ever answers the one device it is paired with.
+     */
     val deviceId: String,
     /** What to walk. */
     val location: SourceLocation,

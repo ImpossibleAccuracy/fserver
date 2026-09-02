@@ -29,6 +29,13 @@ internal sealed interface FileServerMessages {
             val files: List<FileRecordDto>,
         ) : Response
 
+        /** [FetchFiles] could not be answered: no such source, not ours to ask for, or busy. */
+        @Serializable
+        data class FetchFilesFailed(
+            val sourceId: String,
+            val reason: String,
+        ) : Response
+
         @Serializable
         data class OperationFailed(
             val operationId: String,

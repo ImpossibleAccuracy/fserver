@@ -12,7 +12,10 @@ import com.fserver.files.FilesNode
 import com.fserver.files.fs.FoundFile
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 
 internal class LocalChangesIndexer(
@@ -20,7 +23,18 @@ internal class LocalChangesIndexer(
     private val node: FilesNode,
     private val timeProvider: TimeProvider,
 ) {
-    suspend fun refresh(source: SourceEntry): List<IndexedFile> {
+    private val refreshLocks = ConcurrentHashMap<String, Mutex>()
+
+    /**
+     * Re-scan [source] and bring the index in line with what is on disk.
+     *
+     * Serialized per source: a local pass and a peer's index request both land here, and two
+     * scans writing the same rows interleave into double-bumped revision counters.
+     */
+    suspend fun refresh(source: SourceEntry): List<IndexedFile> =
+        refreshLocks.computeIfAbsent(source.id) { Mutex() }.withLock { runRefresh(source) }
+
+    private suspend fun runRefresh(source: SourceEntry): List<IndexedFile> {
         val currentTime = timeProvider.now()
         val device = store.identity.localDevice()
 
@@ -101,7 +115,7 @@ internal class LocalChangesIndexer(
         store.index.markProcessed(toSave)
 
         store.index.updateStateBatch(
-            keys = toDelete.map { IndexedFileKey(it.fileId, it.sourceId) },
+            keys = toDelete.map { IndexedFileKey(fileId = it.fileId, sourceId = it.sourceId) },
             state = IndexedFile.State.Deleted(
                 deletedAt = currentTime,
             )
@@ -116,7 +130,7 @@ internal class LocalChangesIndexer(
         val locator = local.locator
             ?: error("Cannot hash file without locator: ${local.path} in source ${source.id}")
 
-        val key = IndexedFileKey(local.id.value, source.id)
+        val key = IndexedFileKey(fileId = local.id.value, sourceId = source.id)
         hashFile(source, key, locator)
     }
 
@@ -124,7 +138,7 @@ internal class LocalChangesIndexer(
     suspend fun hashFile(source: SourceEntry, local: IndexedFile) {
         val locator = local.locator
 
-        val key = IndexedFileKey(local.fileId, source.id)
+        val key = IndexedFileKey(fileId = local.fileId, sourceId = source.id)
         hashFile(source, key, locator)
     }
 

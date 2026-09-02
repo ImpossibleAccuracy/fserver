@@ -1,5 +1,6 @@
 package com.fserver.core.sync.remote
 
+import com.fserver.common.exception.SyncException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -20,11 +21,15 @@ internal class PeerIndexFetcher(
         val response = device.request(FileServerMessages.FetchFiles(source.id))
             .getOrThrow()
 
-        if (response !is FileServerMessages.Response.FilesList) {
-            throw IllegalStateException("Unexpected response from device ${source.deviceId}: $response")
-        }
+        return when (response) {
+            is FileServerMessages.Response.FilesList -> response.files.map { it.toFileRecord() }
 
-        return response.files.map { it.toFileRecord() }
+            is FileServerMessages.Response.FetchFilesFailed -> throw SyncException.RemoteRejectedException(
+                "Device ${source.deviceId} would not list source ${source.id}: ${response.reason}"
+            )
+
+            else -> throw IllegalStateException("Unexpected response from device ${source.deviceId}: $response")
+        }
     }
 
     suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =

@@ -11,6 +11,13 @@ sealed class SyncException(message: String, cause: Throwable? = null) :
     class ActionFailedException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)
 
+    /**
+     * The peer answered, and the answer was "no". [message] carries the reason it gave, so a
+     * refusal is not reported as a protocol error.
+     */
+    class RemoteRejectedException(message: String, cause: Throwable? = null) :
+        SyncException(message, cause)
+
     /** The pass kept re-planning without converging and was cut off. */
     class MaxRetriesExceededException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)

@@ -85,10 +85,18 @@ class FServerCore private constructor(
         koin.get<PeerRequestServer>().start()
 
     /**
+     * Stops answering peers and drops every request still in flight. [startServing] works again
+     * afterwards - unlike [shutdown], this leaves the instance usable.
+     */
+    suspend fun stopServing() =
+        koin.get<PeerRequestServer>().stop()
+
+    /**
      * Tears down the internal graph and stops background work. After this the instance is dead -
      * build a new one rather than reusing it.
      */
     suspend fun shutdown() {
+        stopServing()
         network.shutdown()
         koin.close()
         ownedScope?.cancel()

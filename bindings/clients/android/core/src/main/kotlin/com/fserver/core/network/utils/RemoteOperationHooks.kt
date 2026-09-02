@@ -1,5 +1,6 @@
 package com.fserver.core.network.utils
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.IdGenerator
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
@@ -22,13 +23,25 @@ internal suspend fun PeerSession<FileServerMessages>.runRemoteOperation(
         instance = operation,
     )
 
-    val response = request(request, timeout).getOrThrow()
+    when (val response = request(request, timeout).getOrThrow()) {
+        is FileServerMessages.Response.OperationCompleted -> {
+            if (response.operationId != operationId) {
+                error("FileOperation response operationId does not match request: ${response.operationId} vs $operationId")
+            }
+        }
 
-    if (response !is FileServerMessages.Response.OperationCompleted) {
-        error("Unexpected response to FileOperation request: $response")
-    }
+        // A refusal the peer explained. Kept distinct from a protocol error so the caller can log
+        // why the peer said no instead of "unexpected response".
+        is FileServerMessages.Response.OperationFailed -> {
+            if (response.operationId != operationId) {
+                error("FileOperation failure operationId does not match request: ${response.operationId} vs $operationId")
+            }
 
-    if (response.operationId != operationId) {
-        error("FileOperation response operationId does not match request: ${response.operationId} vs $operationId")
+            throw SyncException.RemoteRejectedException(
+                "Peer ${identity.deviceId} refused $operation: ${response.reason}"
+            )
+        }
+
+        else -> error("Unexpected response to FileOperation request: $response")
     }
 }

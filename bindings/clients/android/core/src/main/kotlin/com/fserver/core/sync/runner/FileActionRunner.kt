@@ -17,7 +17,10 @@ import com.fserver.files.upload.FileAction
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Carries out one planned [FileAction] and nothing more.
@@ -63,7 +66,7 @@ internal class FileActionRunner(
 
             session.runRemoteOperation(
                 operation = RemoteOperation.File.Hash(
-                    IndexedFileKey(action.id.value, source.id)
+                    IndexedFileKey(fileId = action.id.value, sourceId = source.id)
                 ),
             )
         }
@@ -107,7 +110,7 @@ internal class FileActionRunner(
             }
 
             storage.index.updateFileState(
-                key = IndexedFileKey(action.id.value, source.id),
+                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
                 state = IndexedFile.State.Evicted(
                     evictedAt = timeProvider.now(),
                 )
@@ -132,7 +135,7 @@ internal class FileActionRunner(
             }
 
             storage.index.updateFileState(
-                key = IndexedFileKey(action.id.value, source.id),
+                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
                 state = IndexedFile.State.Deleted(
                     deletedAt = timeProvider.now(),
                 ),
@@ -148,7 +151,7 @@ internal class FileActionRunner(
 
         session.runRemoteOperation(
             operation = RemoteOperation.File.Delete(
-                IndexedFileKey(action.id.value, source.id)
+                IndexedFileKey(fileId = action.id.value, sourceId = source.id)
             ),
         )
     }
@@ -161,9 +164,24 @@ internal class FileActionRunner(
 
         session.runRemoteOperation(
             operation = RemoteOperation.File.Download(
-                IndexedFileKey(action.id.value, source.id)
+                IndexedFileKey(fileId = action.id.value, sourceId = source.id)
             ),
-            timeout = 2.minutes, // TODO: make configurable
+            timeout = downloadTimeout(action.file.metadata.size),
         )
+    }
+
+    /**
+     * The peer confirms a download only once the whole file is across, so a fixed timeout fails
+     * big transfers that are working fine. Budgeted from size against a pessimistic link instead.
+     */
+    private fun downloadTimeout(sizeBytes: Long): Duration =
+        (MinDownloadTimeout + (sizeBytes / SlowestExpectedBytesPerSecond).seconds)
+            .coerceAtMost(MaxDownloadTimeout)
+
+    companion object {
+        // TODO: make configurable
+        private val MinDownloadTimeout = 2.minutes
+        private val MaxDownloadTimeout = 2.hours
+        private const val SlowestExpectedBytesPerSecond = 64L * 1024
     }
 }
