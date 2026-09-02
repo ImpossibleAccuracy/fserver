@@ -18,13 +18,13 @@ internal class PeerIndexFetcher(
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
         val device = connectToDevice(source)
 
-        val response = device.request(FileServerMessages.FetchFiles(source.id))
+        val response = device.request(FileServerMessages.FetchFiles.Request(source.id))
             .getOrThrow()
 
         return when (response) {
-            is FileServerMessages.Response.FilesList -> response.files.map { it.toFileRecord() }
+            is FileServerMessages.FetchFiles.FilesList -> response.files.map { it.toFileRecord() }
 
-            is FileServerMessages.Response.FetchFilesFailed -> throw SyncException.RemoteRejectedException(
+            is FileServerMessages.FetchFiles.Failed -> throw SyncException.RemoteRejectedException(
                 "Device ${source.deviceId} would not list source ${source.id}: ${response.reason}"
             )
 

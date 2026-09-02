@@ -4,9 +4,11 @@ import com.fserver.common.exception.SyncException
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.SyncLeaseNegotiator
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
@@ -29,6 +31,8 @@ internal class SyncRunner(
     private val remoteFetcher: PeerIndexFetcher,
     private val uploadStrategySelector: UploadStrategySelector,
     private val actionRunner: FileActionRunner,
+    private val constraintChecker: DeviceConstraintChecker,
+    private val leaseNegotiator: SyncLeaseNegotiator,
     private val backgroundScope: BackgroundScope,
 ) {
     private val mutex = Mutex()
@@ -72,6 +76,26 @@ internal class SyncRunner(
     }
 
     /**
+     * One source, under a lease the peer agreed to.
+     *
+     * The [Mutex] above only keeps *this* device to one pass at a time; the peer runs its own
+     * timer and can start a pass over the same source at the same moment. Both plan from a
+     * snapshot of both indexes, so the lease is what makes only one of them act on it.
+     */
+    private suspend fun process(source: SourceEntry) {
+        val constraintsMet = constraintChecker(
+            constraints = storage.preferences.getSourceRules().deviceConstraints,
+        )
+
+        if (!constraintsMet) {
+            Timber.w("Source ${source.id} skipped: device constraints not met")
+            return
+        }
+
+        leaseNegotiator.runWithLease(source) { syncSource(source) }
+    }
+
+    /**
      * Plan and execute until nothing is left to hash.
      *
      * A [FileAction.ComputeHash] means the strategy planned that one file without knowing its
@@ -79,9 +103,7 @@ internal class SyncRunner(
      * runs now. Failures are collected instead of thrown: one unreachable file must not cancel the
      * hash rounds the others are waiting on.
      */
-    private suspend fun process(source: SourceEntry) {
-        // TODO: check if other side still has the source
-
+    private suspend fun syncSource(source: SourceEntry) {
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
 

@@ -5,8 +5,8 @@ import com.fserver.core.sync.index.IndexedFileKey
 import kotlinx.serialization.Serializable
 
 /**
- * What one peer asks another to do. Travels inside [FileServerMessages.OperationWithConfirmation],
- * which pairs it with the id the peer's [FileServerMessages.Response.OperationCompleted] is matched by.
+ * What one peer asks another to do. Travels inside [FileServerMessages.OperationWithConfirmation.Request],
+ * which pairs it with the id the peer's [FileServerMessages.OperationWithConfirmation.Completed] is matched by.
  */
 @Serializable
 internal sealed interface RemoteOperation {

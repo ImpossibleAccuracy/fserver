@@ -15,6 +15,7 @@ import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.IndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.runner.FileUploader
@@ -57,6 +58,7 @@ internal class PeerRequestServer(
     private val node: FilesNode,
     private val localIndexer: LocalChangesIndexer,
     private val fileUploader: FileUploader,
+    private val leaseRegistry: SyncLeaseRegistry,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
 ) {
@@ -125,6 +127,9 @@ internal class PeerRequestServer(
                     serve(session)
                 } finally {
                     withContext(NonCancellable) {
+                        // A peer that dropped mid-pass is not coming back to release what it held.
+                        leaseRegistry.releaseAllFrom(peer.deviceId)
+
                         // Only if a reconnect has not already claimed the slot.
                         jobsLock.withLock {
                             if (jobs[peer]?.session === session) jobs.remove(peer)
@@ -154,9 +159,10 @@ internal class PeerRequestServer(
         val slots = Semaphore(MaxConcurrentRequests)
 
         session.incoming.collect { event ->
-            if (event.message.isUploadStream()) {
-                // Ordered on purpose: Init -> chunks -> UploadCompleted only mean anything in
-                // arrival order, and dispatching them concurrently reorders them.
+            if (event.message.isOrderSensitive()) {
+                // Ordered on purpose: Init -> chunks -> UploadCompleted, and acquire -> release,
+                // only mean anything in arrival order - dispatching them concurrently reorders
+                // them, and a release overtaking its acquire strands the lease until it expires.
                 handle(session, event, context)
                 return@collect
             }
@@ -202,14 +208,22 @@ internal class PeerRequestServer(
             is FileServerMessages.Response ->
                 Timber.w("Uncorrelated ${message::class.simpleName} from ${session.identity.deviceId}")
 
-            is FileServerMessages.FetchFiles -> sendFiles(event, message, session)
+            is FileServerMessages.FetchFiles.Request -> sendFiles(event, message, session)
+
+            is FileServerMessages.AcquireSyncLease.Request -> answerLease(event, message, session)
+
+            is FileServerMessages.ReleaseSyncLease -> leaseRegistry.releaseFromPeer(
+                sourceId = message.sourceId,
+                peerDeviceId = session.identity.deviceId,
+                leaseId = message.leaseId,
+            )
 
             is FileServerMessages.UploadChunk -> {
                 // TODO: read the chunk, append it to the file and record the locator on the
                 //  matching SessionContext.UploadContext - UploadCompleted indexes what it finds there.
             }
 
-            is FileServerMessages.OperationWithConfirmation -> {
+            is FileServerMessages.OperationWithConfirmation.Request -> {
                 val result = runCatchingCancellable {
                     runOperation(session, message.instance, context)
                 }
@@ -222,7 +236,7 @@ internal class PeerRequestServer(
 
                 result.fold(
                     onSuccess = {
-                        reply(FileServerMessages.Response.OperationCompleted(message.operationId))
+                        reply(FileServerMessages.OperationWithConfirmation.Completed(message.operationId))
                     },
                     onFailure = { t ->
                         Timber.w(
@@ -231,7 +245,7 @@ internal class PeerRequestServer(
                         )
 
                         reply(
-                            FileServerMessages.Response.OperationFailed(
+                            FileServerMessages.OperationWithConfirmation.Failed(
                                 operationId = message.operationId,
                                 reason = t.message ?: "Unknown error"
                             )
@@ -242,10 +256,69 @@ internal class PeerRequestServer(
         }
     }
 
+    /**
+     * Answers the peer's bid to run the pass over one source.
+     *
+     * Denial is an answer, not an error: the peer skips that source for this round because the
+     * pass that does hold the lease syncs both directions anyway.
+     */
+    private suspend fun answerLease(
+        event: PeerSession.Inbound<FileServerMessages>,
+        message: FileServerMessages.AcquireSyncLease.Request,
+        session: PeerSession<FileServerMessages>,
+    ) {
+        val reply = event.reply
+        if (reply == null) {
+            Timber.w("Cannot answer AcquireSyncLease(${message.sourceId}) from ${session.identity.deviceId}: no reply channel")
+            return
+        }
+
+        val granted = runCatchingCancellable {
+            authorizedSource(session.identity, message.sourceId)
+
+            leaseRegistry.grantToPeer(
+                sourceId = message.sourceId,
+                peerDeviceId = session.identity.deviceId,
+                leaseId = message.leaseId,
+                localDeviceId = storage.identity.localDevice().deviceId,
+            )
+        }
+
+        granted.fold(
+            onSuccess = { held ->
+                if (held) {
+                    reply(
+                        FileServerMessages.AcquireSyncLease.Granted(
+                            sourceId = message.sourceId,
+                            leaseId = message.leaseId,
+                        )
+                    )
+                } else {
+                    reply(
+                        FileServerMessages.AcquireSyncLease.Denied(
+                            sourceId = message.sourceId,
+                            reason = SyncingHereReason,
+                        )
+                    )
+                }
+            },
+            onFailure = { t ->
+                Timber.w(t, "Cannot lease source ${message.sourceId} to ${session.identity.deviceId}")
+
+                reply(
+                    FileServerMessages.AcquireSyncLease.Denied(
+                        sourceId = message.sourceId,
+                        reason = t.message ?: "Unknown error",
+                    )
+                )
+            },
+        )
+    }
+
     /** Send local indexed files to the peer. */
     private suspend fun sendFiles(
         event: PeerSession.Inbound<FileServerMessages>,
-        message: FileServerMessages.FetchFiles,
+        message: FileServerMessages.FetchFiles.Request,
         session: PeerSession<FileServerMessages>,
     ) {
         val reply = event.reply
@@ -261,7 +334,7 @@ internal class PeerRequestServer(
 
         files.fold(
             onSuccess = { indexed ->
-                reply(FileServerMessages.Response.FilesList(indexed.map { it.toDto() }))
+                reply(FileServerMessages.FetchFiles.FilesList(indexed.map { it.toDto() }))
             },
             onFailure = { t ->
                 Timber.w(
@@ -271,7 +344,7 @@ internal class PeerRequestServer(
 
                 // Answered rather than dropped: otherwise the peer waits out its request timeout.
                 reply(
-                    FileServerMessages.Response.FetchFilesFailed(
+                    FileServerMessages.FetchFiles.Failed(
                         sourceId = message.sourceId,
                         reason = t.message ?: "Unknown error",
                     )
@@ -411,15 +484,15 @@ internal class PeerRequestServer(
         val reply = event.reply ?: return
 
         when (val message = event.message) {
-            is FileServerMessages.OperationWithConfirmation -> reply(
-                FileServerMessages.Response.OperationFailed(
+            is FileServerMessages.OperationWithConfirmation.Request -> reply(
+                FileServerMessages.OperationWithConfirmation.Failed(
                     operationId = message.operationId,
                     reason = BusyReason,
                 )
             )
 
-            is FileServerMessages.FetchFiles -> reply(
-                FileServerMessages.Response.FetchFilesFailed(
+            is FileServerMessages.FetchFiles.Request -> reply(
+                FileServerMessages.FetchFiles.Failed(
                     sourceId = message.sourceId,
                     reason = BusyReason,
                 )
@@ -430,9 +503,11 @@ internal class PeerRequestServer(
     }
 
     /** Messages that only mean anything in the order they were sent. */
-    private fun FileServerMessages.isUploadStream(): Boolean = when (this) {
+    private fun FileServerMessages.isOrderSensitive(): Boolean = when (this) {
         is FileServerMessages.UploadChunk -> true
-        is FileServerMessages.OperationWithConfirmation -> instance is RemoteOperation.Upload
+        is FileServerMessages.AcquireSyncLease.Request -> true
+        is FileServerMessages.ReleaseSyncLease -> true
+        is FileServerMessages.OperationWithConfirmation.Request -> instance is RemoteOperation.Upload
         else -> false
     }
 
@@ -440,6 +515,8 @@ internal class PeerRequestServer(
         private const val MaxConcurrentRequests = 5
 
         private const val BusyReason = "Receiver busy"
+
+        private const val SyncingHereReason = "Source is being synced by its other device"
     }
 }
 

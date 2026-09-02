@@ -18,13 +18,13 @@ internal suspend fun PeerSession<FileServerMessages>.runRemoteOperation(
 ) {
     val operationId = IdGenerator.nextId
 
-    val request = FileServerMessages.OperationWithConfirmation(
+    val request = FileServerMessages.OperationWithConfirmation.Request(
         operationId = operationId,
         instance = operation,
     )
 
     when (val response = request(request, timeout).getOrThrow()) {
-        is FileServerMessages.Response.OperationCompleted -> {
+        is FileServerMessages.OperationWithConfirmation.Completed -> {
             if (response.operationId != operationId) {
                 error("FileOperation response operationId does not match request: ${response.operationId} vs $operationId")
             }
@@ -32,7 +32,7 @@ internal suspend fun PeerSession<FileServerMessages>.runRemoteOperation(
 
         // A refusal the peer explained. Kept distinct from a protocol error so the caller can log
         // why the peer said no instead of "unexpected response".
-        is FileServerMessages.Response.OperationFailed -> {
+        is FileServerMessages.OperationWithConfirmation.Failed -> {
             if (response.operationId != operationId) {
                 error("FileOperation failure operationId does not match request: ${response.operationId} vs $operationId")
             }
