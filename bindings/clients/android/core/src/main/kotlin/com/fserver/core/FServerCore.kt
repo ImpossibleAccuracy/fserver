@@ -3,13 +3,11 @@ package com.fserver.core
 import com.fserver.core.di.coreModule
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.NetworkController
-import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.remote.PeerRequestServer
-import com.fserver.files.FilesNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,7 +15,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
-import org.koin.dsl.module
 
 /**
  * Entry point to `:core`. Build one per process, keep it, [close] it when the host dies.
@@ -86,7 +83,7 @@ class FServerCore private constructor(
 
     /**
      * Stops answering peers and drops every request still in flight. [startServing] works again
-     * afterwards - unlike [shutdown], this leaves the instance usable.
+     * afterward - unlike [shutdown], this leaves the instance usable.
      */
     suspend fun stopServing() =
         koin.get<PeerRequestServer>().stop()
@@ -115,31 +112,15 @@ class FServerCore private constructor(
             val scope = config.backgroundScope
                 ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-            val authenticator = InteractivePeerAuthenticator()
-
-            val network = NetworkController(
-                config = config,
-                authenticator = authenticator,
-                coroutineScope = scope,
-            )
-
-            val files = FilesNode.create(config.context)
-
             val koin = koinApplication {
-                modules(
-                    coreModule(config.context, scope),
-                    module {
-                        single { files }
-                        single { config.storage }
-                        single { network }
-                        single { authenticator }
-                    }
-                )
+                modules(coreModule(config, scope))
             }.koin
 
             return FServerCore(
                 koin = koin,
-                network = network,
+                // Pulled eagerly: the node starts watching auth settings as it is built, and
+                // shutting the core down has to reach it whether or not anything else asked.
+                network = koin.get(),
                 ownedScope = scope.takeIf { config.backgroundScope == null },
             )
         }

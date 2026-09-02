@@ -1,0 +1,13 @@
+package com.fserver.core.di
+
+import com.fserver.core.files.FilesController
+import com.fserver.files.FilesNode
+import org.koin.core.module.dsl.singleOf
+import org.koin.dsl.module
+
+/** Reading the filesystem: the `:files` node and the walk a host runs before registering a source. */
+internal val filesModule = module {
+    single { FilesNode.create(get()) }
+
+    singleOf(::FilesController)
+}

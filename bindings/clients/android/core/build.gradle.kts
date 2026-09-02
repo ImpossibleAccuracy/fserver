@@ -26,6 +26,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
+
+    testOptions {
+        // The Koin graph test builds a stub Context; nothing here calls into the framework.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {
@@ -87,6 +92,8 @@ dependencies {
 
     // Tests
     testImplementation(libs.junit)
+    testImplementation(platform(libs.koin.bom))
+    testImplementation(libs.koin.test)
 }
 
 // -------------- CODEGEN TASKS --------------
