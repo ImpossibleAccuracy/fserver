@@ -10,3 +10,5 @@ interface TimeProvider {
 internal object DefaultTimeProvider : TimeProvider {
     override fun now(): Instant = Clock.System.now()
 }
+
+// TODO: add implementation, that will use network-based time source

@@ -1,5 +1,6 @@
 package com.fserver.core.sync
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
@@ -7,10 +8,10 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import com.fserver.core.sync.setup.SourceSetupExchange
+import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.flow.Flow
 import timber.log.Timber
 import java.util.UUID
-import kotlin.time.Clock
 
 /**
  * The registry of synced sources, and the one way a host changes it.
@@ -23,6 +24,7 @@ class SourcesController internal constructor(
     private val storage: FServerStorage,
     private val syncRunner: SyncRunner,
     private val sourceSetup: SourceSetupExchange,
+    private val timeProvider: TimeProvider,
 ) {
     /** The newest source a peer has asked this device to host, or null when nothing is waiting. */
     val incomingRequest: Flow<IncomingSourceRequest?> get() = sourceSetup.pending
@@ -45,6 +47,17 @@ class SourcesController internal constructor(
         deviceId: String,
         label: String,
     ): Result<SourceEntry> = runBackgroundJob {
+        storage.sources.findByModeAndLocation(
+            mode = syncMode,
+            location = location
+        )?.let {
+            throw SyncException.DuplicateSourceException(
+                sourceId = it.id,
+                location = location.toString(),
+                mode = syncMode.toString()
+            )
+        }
+
         val source = SourceEntry(
             id = UUID.randomUUID().toString(),
             deviceId = deviceId,
@@ -54,7 +67,7 @@ class SourcesController internal constructor(
             role = SourceEntry.Role.Initiator,
             status = SourceEntry.Status.Pending,
             label = label,
-            createdAt = Clock.System.now(),
+            createdAt = timeProvider.now(),
         )
 
         storage.sources.upsert(source)
@@ -109,6 +122,16 @@ class SourcesController internal constructor(
                     "Cannot change sync mode type from ${existing.syncMode::class.simpleName} to ${syncMode::class.simpleName}"
                 )
             }
+
+            storage.sources.findByModeAndLocation(mode = syncMode, location = existing.location)
+                ?.takeIf { it.id != id }
+                ?.let {
+                    throw SyncException.DuplicateSourceException(
+                        sourceId = it.id,
+                        location = existing.location.toString(),
+                        mode = syncMode.toString()
+                    )
+                }
 
             storage.sources.upsert(existing.copy(syncMode = syncMode))
 

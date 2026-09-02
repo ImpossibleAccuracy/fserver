@@ -10,6 +10,7 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.StorageVolumes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,7 +134,7 @@ class SourceAccessHandler(
 
     private fun SourceAccessGrant.directory(): SourceLocation? = when (this) {
         SourceAccessGrant.Denied -> null
-        SourceAccessGrant.AllFiles -> SourceLocation.Root.fromContext(context)
+        SourceAccessGrant.AllFiles -> StorageVolumes.fromContext(context)
         is SourceAccessGrant.Tree -> SourceLocation.Tree(uri.toString())
         is SourceAccessGrant.Media -> SourceLocation.Media
     }

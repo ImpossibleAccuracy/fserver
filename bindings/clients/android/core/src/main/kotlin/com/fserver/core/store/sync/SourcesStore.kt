@@ -1,8 +1,10 @@
 package com.fserver.core.store.sync
 
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.SourceTombstone
+import com.fserver.core.sync.SyncMode
 import com.fserver.core.sync.index.IndexedFile
 
 /**
@@ -18,6 +20,8 @@ interface SourcesStore {
     suspend fun all(): List<SourceEntry>
 
     suspend fun findById(id: String): SourceEntry?
+
+    suspend fun findByModeAndLocation(mode: SyncMode, location: SourceLocation): SourceEntry?
 
     /** Inserts, or replaces the record carrying the same [SourceEntry.id]. */
     suspend fun upsert(source: SourceEntry)

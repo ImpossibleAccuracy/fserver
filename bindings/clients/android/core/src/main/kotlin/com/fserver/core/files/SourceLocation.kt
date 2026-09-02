@@ -1,9 +1,5 @@
 package com.fserver.core.files
 
-import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.os.storage.StorageManager
 import com.fserver.common.utils.SourcePaths
 
 sealed interface SourceLocation {
@@ -13,10 +9,17 @@ sealed interface SourceLocation {
     /** Where files a peer sends may be written */
     sealed interface Hostable : SourceLocation
 
-    /** Whole storage volumes. Counterpart to [Tree], which is scoped to one directory. */
-    data class Root(val volumes: List<Volume>) : Selectable {
+    /**
+     * Whole storage volumes. Scannable only - a source is one directory, so a user pointing at
+     * everything picks a [Directory] out of what a scan over this found.
+     */
+    data class Root(val volumes: List<Volume>) : SourceLocation {
         init {
             require(volumes.isNotEmpty()) { "Volumes list cannot be empty" }
+        }
+
+        override fun toString(): String {
+            return "Root(volumes=${volumes.joinToString { it.id }})"
         }
 
         /**
@@ -29,49 +32,30 @@ sealed interface SourceLocation {
             /** Mount point on this device. Local only - a peer mounts it somewhere else. */
             val path: String,
         )
-
-        companion object {
-            /** Every storage volume the OS will hand out. */
-            fun fromContext(context: Context): Root {
-                val volumes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val sm = context.getSystemService(StorageManager::class.java)
-
-                    sm.storageVolumes.mapNotNull { volume ->
-                        val directory = volume.directory ?: return@mapNotNull null
-                        // A volume with neither flag has no stable id, so nothing found on it could
-                        // be matched against a peer. Skipping beats emitting paths that never join.
-                        val id = if (volume.isPrimary) {
-                            SourcePaths.PrimaryVolume
-                        } else {
-                            volume.uuid ?: return@mapNotNull null
-                        }
-
-                        Volume(id = id, path = directory.absolutePath)
-                    }
-                } else {
-                    listOf(
-                        Volume(
-                            id = SourcePaths.PrimaryVolume,
-                            path = Environment.getExternalStorageDirectory().absolutePath,
-                        )
-                    )
-                }
-
-                return Root(volumes)
-            }
-        }
     }
 
     /** One directory, addressed by the Storage Access Framework tree the user granted. */
-    data class Tree(val path: String) : Selectable, Hostable
+    data class Tree(val path: String) : Selectable, Hostable {
+        override fun toString(): String {
+            return "Tree(path=$path)"
+        }
+    }
 
-    data object Media : Selectable
+    data object Media : Selectable {
+        override fun toString(): String {
+            return "Media"
+        }
+    }
 
     /**
      * One directory on a storage volume, addressed by path - [Root] scoped down to a single
      * folder, and only reachable with a grant wide enough to write outside the app's own storage.
      */
-    data class Directory(val path: String) : Hostable
+    data class Directory(val path: String) : Selectable, Hostable {
+        override fun toString(): String {
+            return "Directory(path=$path)"
+        }
+    }
 
     /**
      * App-private storage, scoped to one [bucket] directory under it.
@@ -83,6 +67,10 @@ sealed interface SourceLocation {
             require(bucket.none { it == '/' || it == '\\' } && bucket != "." && bucket != "..") {
                 "Bucket must be a single directory name: $bucket"
             }
+        }
+
+        override fun toString(): String {
+            return "Internal(bucket=$bucket)"
         }
     }
 }

@@ -108,7 +108,7 @@ internal class NetworkController(
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
         networkConfig(dictionary = FileServerDictionary()) {
             identityStore = IdentityStoreAdapter(storage.identity)
-            trustStore = TrustStoreAdapter(storage.trust)
+            trustStore = TrustStoreAdapter(storage.trust, config.timeProvider)
             authenticator = this@NetworkController.authenticator
             crypto = this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope
