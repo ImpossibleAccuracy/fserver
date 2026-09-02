@@ -1,9 +1,10 @@
 package com.fserver.core.storage.internal
 
-import com.fserver.common.model.FileSize
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.SourceTombstone
+import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +12,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.time.Instant
 
 /**
  * TODO: in-memory scaffolding. Registered sources are lost with the process - swap the
@@ -23,9 +23,13 @@ import kotlin.time.Instant
  */
 internal class SourcesStoreImpl(
     private val index: FileIndexStoreImpl,
+    private val timeProvider: TimeProvider,
 ) : SourcesStore, RegisteredSourcesRepository {
     private val writeLock = Mutex()
     private val state = MutableStateFlow<List<SourceEntry>>(emptyList())
+
+    /** Source id -> what [delete] left behind. */
+    private val tombstones = MutableStateFlow<Map<String, SourceTombstone>>(emptyMap())
 
     // ---------------- SourcesStore: what the engine calls ----------------
 
@@ -41,30 +45,35 @@ internal class SourcesStoreImpl(
         }
     }
 
+    override suspend fun updateStatus(id: String, status: SourceEntry.Status) = writeLock.withLock {
+        state.update { current ->
+            current.map { source -> if (source.id == id) source.copy(status = status) else source }
+        }
+    }
+
     override suspend fun delete(id: String) {
         writeLock.withLock {
+            val removed = state.value.find { it.id == id }
+
             state.update { current -> current.filterNot { it.id == id } }
+
+            // The peer it synced with is read off the record on the way out: once the source is
+            // gone, nothing else here remembers who to tell.
+            if (removed != null) {
+                tombstones.update { current ->
+                    current + (id to SourceTombstone(
+                        sourceId = id,
+                        deviceId = removed.deviceId,
+                        removedAt = timeProvider.now(),
+                        location = removed.location,
+                    ))
+                }
+            }
         }
         index.clearProcessed(id)
     }
 
-    override suspend fun recordScanResult(
-        id: String,
-        fileCount: Int,
-        totalBytes: Long,
-        at: Instant,
-    ) = writeLock.withLock {
-        state.update { current ->
-            current.map { source ->
-                if (source.id != id) source
-                else source.copy(
-                    fileCount = fileCount,
-                    totalSize = FileSize(totalBytes),
-                    lastSyncedAt = at,
-                )
-            }
-        }
-    }
+    override suspend fun findTombstone(id: String): SourceTombstone? = tombstones.value[id]
 
     // ---------------- RegisteredSourcesRepository: what a screen calls ----------------
 

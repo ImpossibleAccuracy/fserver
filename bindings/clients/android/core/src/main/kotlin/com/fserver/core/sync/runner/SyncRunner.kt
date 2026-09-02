@@ -13,6 +13,7 @@ import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,9 +22,7 @@ import timber.log.Timber
 /**
  * Walks every registered source by request.
  *
- * No timer of its own: `:core` ships as a standalone library, so it cannot assume WorkManager or
- * edit the host's manifest. A host that wants periodic passes schedules its own job and calls
- * `SourcesController.runSync`.
+ * No timer of its own: host that wants periodic passes schedules its own job and calls `SourcesController.runSync`.
  */
 internal class SyncRunner(
     private val storage: FServerStorage,
@@ -42,11 +41,9 @@ internal class SyncRunner(
 
     /**
      * One pass over every registered source, launched on the engine's background scope.
-     *
-     * Skips rather than queues: the pass reads the whole world every time, so a second one right
-     * behind the first would only redo its work.
+     * Skips if a pass is already running.
      */
-    fun runOnceAsync() = backgroundScope.launch {
+    fun runOnceAsync(): Job = backgroundScope.launch {
         if (!mutex.tryLock()) {
             Timber.w("One-off source pass skipped: another pass is still running")
             return@launch
@@ -73,16 +70,19 @@ internal class SyncRunner(
                 Timber.e(e, "Source pass failed for ${source.id}")
             }
         }
+
+        //TODO:
+        // run remote setup on sources that are pending
     }
 
-    /**
-     * One source, under a lease the peer agreed to.
-     *
-     * The [Mutex] above only keeps *this* device to one pass at a time; the peer runs its own
-     * timer and can start a pass over the same source at the same moment. Both plan from a
-     * snapshot of both indexes, so the lease is what makes only one of them act on it.
-     */
+    /** One source, under a lease the peer agreed to. */
     private suspend fun process(source: SourceEntry) {
+        // Allow sync only active sources
+        if (source.status != SourceEntry.Status.Active) {
+            Timber.i("Source ${source.id} skipped: ${source.status}")
+            return
+        }
+
         val constraintsMet = constraintChecker(
             constraints = storage.preferences.getSourceRules().deviceConstraints,
         )
@@ -98,10 +98,9 @@ internal class SyncRunner(
     /**
      * Plan and execute until nothing is left to hash.
      *
-     * A [FileAction.ComputeHash] means the strategy planned that one file without knowing its
-     * content, so only that file's other actions wait for the next round - the rest of the source
-     * runs now. Failures are collected instead of thrown: one unreachable file must not cancel the
-     * hash rounds the others are waiting on.
+     * Run several rounds because the peer's index may have files with unknown content,
+     * and the first round only hashes files that are already known locally.
+     * Later rounds re-read the index and plan from it, until all files are hashed or a maximum number of rounds is reached.
      */
     private suspend fun syncSource(source: SourceEntry) {
         val errors = mutableListOf<Throwable>()
@@ -117,7 +116,7 @@ internal class SyncRunner(
                 remote = remoteFetcher.fetchIndex(source),
             )
 
-            val decisions = uploadStrategySelector.plan(source.syncMode, snapshot)
+            val decisions = uploadStrategySelector.plan(source.syncMode, source.role, snapshot)
             if (decisions.isEmpty) break
 
             val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()

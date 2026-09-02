@@ -15,10 +15,11 @@ import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.IndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
-import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.runner.FileUploader
+import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
@@ -59,6 +60,7 @@ internal class PeerRequestServer(
     private val localIndexer: LocalChangesIndexer,
     private val fileUploader: FileUploader,
     private val leaseRegistry: SyncLeaseRegistry,
+    private val sourceSetup: SourceSetupExchange,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
 ) {
@@ -212,11 +214,17 @@ internal class PeerRequestServer(
 
             is FileServerMessages.AcquireSyncLease.Request -> answerLease(event, message, session)
 
-            is FileServerMessages.ReleaseSyncLease -> leaseRegistry.releaseFromPeer(
+            is FileServerMessages.AcquireSyncLease.ReleaseLease -> leaseRegistry.releaseFromPeer(
                 sourceId = message.sourceId,
                 peerDeviceId = session.identity.deviceId,
                 leaseId = message.leaseId,
             )
+
+            is FileServerMessages.ConfigureSource.Request ->
+                sourceSetup.onRequest(session.identity, message)
+
+            is FileServerMessages.ConfigureSource.Decision ->
+                sourceSetup.onDecision(session.identity, message)
 
             is FileServerMessages.UploadChunk -> {
                 // TODO: read the chunk, append it to the file and record the locator on the
@@ -256,12 +264,7 @@ internal class PeerRequestServer(
         }
     }
 
-    /**
-     * Answers the peer's bid to run the pass over one source.
-     *
-     * Denial is an answer, not an error: the peer skips that source for this round because the
-     * pass that does hold the lease syncs both directions anyway.
-     */
+    /** Answers the peer's bid to run the pass over one source. */
     private suspend fun answerLease(
         event: PeerSession.Inbound<FileServerMessages>,
         message: FileServerMessages.AcquireSyncLease.Request,
@@ -273,9 +276,16 @@ internal class PeerRequestServer(
             return
         }
 
-        val granted = runCatchingCancellable {
-            authorizedSource(session.identity, message.sourceId)
+        // Resolved rather than authorized: a source this device dropped is answered, not refused,
+        // so the peer disables it's half instead of asking again on every pass.
+        val resolved = resolve(session.identity, message.sourceId)
 
+        if (resolved !is Resolved.Servable) {
+            reply(resolved.toRefusal(message.sourceId))
+            return
+        }
+
+        val granted = runCatchingCancellable {
             leaseRegistry.grantToPeer(
                 sourceId = message.sourceId,
                 peerDeviceId = session.identity.deviceId,
@@ -303,7 +313,10 @@ internal class PeerRequestServer(
                 }
             },
             onFailure = { t ->
-                Timber.w(t, "Cannot lease source ${message.sourceId} to ${session.identity.deviceId}")
+                Timber.w(
+                    t,
+                    "Cannot lease source ${message.sourceId} to ${session.identity.deviceId}"
+                )
 
                 reply(
                     FileServerMessages.AcquireSyncLease.Denied(
@@ -314,6 +327,20 @@ internal class PeerRequestServer(
             },
         )
     }
+
+    /** How a refusal reaches the peer: [Resolved.Gone] is final, everything else is "not now". */
+    private fun Resolved.toRefusal(sourceId: String): FileServerMessages.AcquireSyncLease =
+        when (this) {
+            is Resolved.Gone -> FileServerMessages.AcquireSyncLease.Inactive(
+                sourceId = sourceId,
+                reason = reason,
+            )
+
+            else -> FileServerMessages.AcquireSyncLease.Denied(
+                sourceId = sourceId,
+                reason = UnknownSourceReason,
+            )
+        }
 
     /** Send local indexed files to the peer. */
     private suspend fun sendFiles(
@@ -457,26 +484,58 @@ internal class PeerRequestServer(
         }
     }
 
-    /**
-     * The source [sourceId] names, but only if [peer] is the device it syncs with.
-     *
-     * This is the whole access control on this side: every id served here was picked by the peer,
-     * so without the check any authenticated device can list, delete or overwrite any source on
-     * this one. "Not found" covers both misses on purpose - whether a source exists is not
-     * something an unrelated peer gets to learn.
-     */
-    private suspend fun authorizedSource(peer: PeerIdentity, sourceId: String): SourceEntry {
-        val source = storage.sources.findById(sourceId)
+    /** [resolve], for the entry points that have nothing to say to a peer but an error. */
+    private suspend fun authorizedSource(peer: PeerIdentity, sourceId: String): SourceEntry =
+        when (val resolved = resolve(peer, sourceId)) {
+            is Resolved.Servable -> resolved.source
 
-        if (source == null || source.deviceId != peer.deviceId) {
-            if (source != null) {
-                Timber.w("Device ${peer.deviceId} asked for source $sourceId, which syncs with ${source.deviceId}")
-            }
+            is Resolved.Gone ->
+                throw IllegalArgumentException("Source $sourceId is no longer synced: ${resolved.reason}")
 
-            throw IllegalArgumentException("Source $sourceId not found")
+            Resolved.Unknown -> throw IllegalArgumentException("Source $sourceId not found")
         }
 
-        return source
+    /**
+     * What [sourceId] is, as far as [peer] is concerned.
+     *
+     * This is the whole access control on this side: every id served here was picked by the peer,
+     * so without the check any authenticated device can list, delete or overwrite any source on this one.
+     * [Resolved.Unknown] covers a miss and someone else's source alike on purpose -
+     * whether a source exists is not something an unrelated peer gets to learn, which is also why
+     * only the paired device is ever told [Resolved.Gone] or [Resolved.Servable].
+     */
+    private suspend fun resolve(peer: PeerIdentity, sourceId: String): Resolved {
+        val source = storage.sources.findById(sourceId)
+
+        if (source != null) {
+            if (source.deviceId != peer.deviceId) {
+                Timber.w("Device ${peer.deviceId} asked for source $sourceId, which syncs with ${source.deviceId}")
+                return Resolved.Unknown
+            }
+
+            return when (val status = source.status) {
+                SourceEntry.Status.Active -> Resolved.Servable(source)
+
+                is SourceEntry.Status.Disabled -> Resolved.Gone(status.reason)
+
+                // The peer would not be asking about a source it had not registered, so its
+                // acceptance landed in its own store even though the answer never reached ours.
+                // Serving it while still calling it pending is what would strand the pair.
+                SourceEntry.Status.Pending -> {
+                    Timber.i("Source $sourceId activated: ${peer.deviceId} is asking for it")
+                    storage.sources.updateStatus(sourceId, SourceEntry.Status.Active)
+                    Resolved.Servable(source.copy(status = SourceEntry.Status.Active))
+                }
+            }
+        }
+
+        val tombstone = storage.sources.findTombstone(sourceId)
+
+        return if (tombstone != null && tombstone.deviceId == peer.deviceId) {
+            Resolved.Gone(RemovedReason)
+        } else {
+            Resolved.Unknown
+        }
     }
 
     /** Tells the peer we are at capacity, so it fails now instead of waiting out its timeout. */
@@ -506,7 +565,7 @@ internal class PeerRequestServer(
     private fun FileServerMessages.isOrderSensitive(): Boolean = when (this) {
         is FileServerMessages.UploadChunk -> true
         is FileServerMessages.AcquireSyncLease.Request -> true
-        is FileServerMessages.ReleaseSyncLease -> true
+        is FileServerMessages.AcquireSyncLease.ReleaseLease -> true
         is FileServerMessages.OperationWithConfirmation.Request -> instance is RemoteOperation.Upload
         else -> false
     }
@@ -515,9 +574,21 @@ internal class PeerRequestServer(
         private const val MaxConcurrentRequests = 5
 
         private const val BusyReason = "Receiver busy"
-
         private const val SyncingHereReason = "Source is being synced by its other device"
+        private const val UnknownSourceReason = "Source not found"
+        private const val RemovedReason = "Source was removed on the other device"
     }
+}
+
+/** What a peer-chosen source id resolves to for the peer that named it. See `resolve`. */
+private sealed interface Resolved {
+    data class Servable(val source: SourceEntry) : Resolved
+
+    /** Ours, and gone for good: dropped or disabled here. The peer should stop asking. */
+    data class Gone(val reason: String) : Resolved
+
+    /** No such source, or not this peer's. Deliberately the same answer for both. */
+    data object Unknown : Resolved
 }
 
 private class ServedSession(

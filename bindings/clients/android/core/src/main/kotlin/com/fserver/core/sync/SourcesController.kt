@@ -1,9 +1,14 @@
 package com.fserver.core.sync
 
 import com.fserver.common.utils.runBackgroundJob
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.runner.SyncRunner
+import com.fserver.core.sync.setup.IncomingSourceRequest
+import com.fserver.core.sync.setup.SourceSetupExchange
+import kotlinx.coroutines.flow.Flow
+import timber.log.Timber
 import java.util.UUID
 import kotlin.time.Clock
 
@@ -17,7 +22,11 @@ import kotlin.time.Clock
 class SourcesController internal constructor(
     private val storage: FServerStorage,
     private val syncRunner: SyncRunner,
+    private val sourceSetup: SourceSetupExchange,
 ) {
+    /** The newest source a peer has asked this device to host, or null when nothing is waiting. */
+    val incomingRequest: Flow<IncomingSourceRequest?> get() = sourceSetup.pending
+
     /** Replaces the settings every source runs under. Takes effect on the next pass. */
     suspend fun updatePreferences(preferences: SyncPreferences) {
         storage.preferences.saveSourceRules(preferences)
@@ -27,13 +36,11 @@ class SourcesController internal constructor(
     suspend fun runSync() = syncRunner.runOnce()
 
     /**
-     * Registers a new [location] + [syncMode] pair and persists it.
-     *
-     * The returned record carries the engine-assigned id; scan totals stay zero until a pass has
-     * run over it.
+     * Registers a new [location] + [syncMode] pair, persists it, and asks [deviceId] to register
+     * the other half - a source neither side can sync until both hold a record under the same id.
      */
     suspend fun addSource(
-        location: SourceLocation,
+        location: SourceLocation.Selectable,
         syncMode: SyncMode,
         deviceId: String,
         label: String,
@@ -43,14 +50,47 @@ class SourcesController internal constructor(
             deviceId = deviceId,
             location = location,
             syncMode = syncMode,
+            // Asking is what makes this side the initiator, and one-way modes travel from here.
+            role = SourceEntry.Role.Initiator,
+            status = SourceEntry.Status.Pending,
             label = label,
             createdAt = Clock.System.now(),
         )
 
         storage.sources.upsert(source)
+
+        // Best effort: peer may be off network right now, and the source is registered either way
+        runCatchingCancellable { sourceSetup.requestRemote(source) }
+            .exceptionOrNull()
+            ?.let { Timber.w(it, "Could not ask $deviceId to host source ${source.id}") }
+
         source
+    }
+
+    /**
+     * Takes on the source [sourceId] names, storing what arrives in [location].
+     *
+     * Registers this device's half under the id the peer chose, so both sides address the source
+     * by the same one, and drops the request. The record lands [SourceEntry.Status.Active] as
+     * [SourceEntry.Role.Follower] - accepting is this side's whole half of the setup.
+     *
+     * [location] defaults to app-private storage, which needs no grant and is scoped to this
+     * source alone. A host that wants the files somewhere the user can reach passes a
+     * [SourceLocation.Tree] or [SourceLocation.Directory] instead - one directory per source, and
+     * whether the app may write there is the host's to have arranged.
+     */
+    suspend fun acceptRequest(
+        sourceId: String,
+        location: SourceLocation.Hostable = SourceLocation.Internal(bucket = sourceId),
+    ): Result<SourceEntry> = runBackgroundJob {
+        sourceSetup.accept(sourceId, location)
     }.onSuccess {
         syncRunner.runOnceAsync()
+    }
+
+    /** Refuses [sourceId] and tells the peer, so it drops its own half instead of retrying. */
+    suspend fun rejectRequest(sourceId: String): Result<Unit> = runBackgroundJob {
+        sourceSetup.reject(sourceId)
     }
 
     /**
@@ -71,16 +111,22 @@ class SourcesController internal constructor(
             }
 
             storage.sources.upsert(existing.copy(syncMode = syncMode))
+
+            // TODO: notify peer about changes
         }.onSuccess {
             syncRunner.runOnceAsync()
         }
 
     /**
-     * Drops [id] from the registry. Nothing on disk is touched - unregistering is not eviction and
-     * never a user delete.
+     * Drops [id] from the registry, leaving a tombstone so the peer is told the source is gone the
+     * next time it asks, rather than retrying it forever.
+     *
+     * Nothing on disk is touched - unregistering is not eviction and never a user delete.
      */
     suspend fun removeSource(id: String): Result<Unit> = runBackgroundJob {
         storage.sources.delete(id)
+
+        // TODO: notify peer about removal
     }.onSuccess {
         syncRunner.runOnceAsync()
     }

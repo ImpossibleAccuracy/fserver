@@ -1,8 +1,8 @@
 package com.fserver.app.di
 
+import com.fserver.core.FServerConfig
 import com.fserver.core.FServerCore
 import com.fserver.core.storage.FServerStorageProvider
-import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /**
@@ -21,9 +21,19 @@ import org.koin.dsl.module
  * `Application` a reliable teardown callback to hang one on.
  */
 val coreModule = module {
-    single { FServerStorageProvider.create(androidContext()) }
+    single {
+        FServerConfig(
+            context = get(),
+        )
+    }
 
-    single { FServerCore.create(get<FServerStorageProvider>().coreConfig()) }
+    single { FServerStorageProvider.create(get()) }
+    single {
+        FServerCore.create(
+            config = get(),
+            storage = get(),
+        )
+    }
 
     single { get<FServerCore>().deviceDetection }
     single { get<FServerCore>().networkInfo }

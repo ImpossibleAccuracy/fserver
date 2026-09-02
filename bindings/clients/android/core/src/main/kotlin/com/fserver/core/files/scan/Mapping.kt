@@ -10,6 +10,8 @@ internal fun SourceLocation.toFiles(): FileSystemSource = when (this) {
     is SourceLocation.Root -> FileSystemSource.Root(volumes.map { it.toFiles() })
     is SourceLocation.Tree -> FileSystemSource.Tree(path)
     SourceLocation.Media -> FileSystemSource.Media
+    is SourceLocation.Internal -> FileSystemSource.Internal(bucket)
+    is SourceLocation.Directory -> FileSystemSource.Directory(path)
 }
 
 private fun SourceLocation.Root.Volume.toFiles(): FileSystemSource.Root.Volume =

@@ -6,11 +6,10 @@ import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.remote.PeerRequestServer
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
@@ -48,8 +47,7 @@ import org.koin.dsl.koinApplication
 class FServerCore private constructor(
     private val koin: Koin,
     private val network: NetworkController,
-    /** Non-null only when the core created the scope, and so is the one allowed to cancel it. */
-    private val ownedScope: CoroutineScope?,
+    private val ownedScope: CoroutineScope,
 ) : AutoCloseable {
 
     /** Discovery, connection attempts, and the list of devices currently reachable. */
@@ -96,7 +94,7 @@ class FServerCore private constructor(
         stopServing()
         network.shutdown()
         koin.close()
-        ownedScope?.cancel()
+        ownedScope.cancel()
     }
 
     /**
@@ -108,20 +106,23 @@ class FServerCore private constructor(
     }
 
     companion object {
-        fun create(config: FServerConfig): FServerCore {
-            val scope = config.backgroundScope
-                ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
+        fun create(
+            config: FServerConfig,
+            storage: FServerStorage,
+        ): FServerCore {
             val koin = koinApplication {
-                modules(coreModule(config, scope))
+                modules(
+                    coreModule(
+                        config = config,
+                        storage = storage,
+                    )
+                )
             }.koin
 
             return FServerCore(
                 koin = koin,
-                // Pulled eagerly: the node starts watching auth settings as it is built, and
-                // shutting the core down has to reach it whether or not anything else asked.
                 network = koin.get(),
-                ownedScope = scope.takeIf { config.backgroundScope == null },
+                ownedScope = config.backgroundScope,
             )
         }
     }

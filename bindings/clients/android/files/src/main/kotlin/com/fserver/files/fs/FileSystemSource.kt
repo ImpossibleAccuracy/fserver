@@ -21,5 +21,22 @@ sealed interface FileSystemSource {
 
     data class Tree(val path: String) : FileSystemSource
 
+    /** One directory on a storage volume, addressed by path. Counterpart to [Tree] without SAF. */
+    data class Directory(val path: String) : FileSystemSource
+
     data object Media : FileSystemSource
+
+    /**
+     * App-private storage, scoped to one [bucket] directory under it.
+     *
+     * One bucket per hosted source, so two peers storing a same-named file here stay apart.
+     */
+    data class Internal(val bucket: String) : FileSystemSource {
+        init {
+            require(bucket.isNotBlank()) { "Bucket cannot be blank" }
+            require(bucket.none { it == '/' || it == '\\' } && bucket != "." && bucket != "..") {
+                "Bucket must be a single directory name: $bucket"
+            }
+        }
+    }
 }

@@ -2,8 +2,8 @@ package com.fserver.core.store.sync
 
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.SourceTombstone
 import com.fserver.core.sync.index.IndexedFile
-import kotlin.time.Instant
 
 /**
  * The registered sources, as the engine needs them: enumerate them to work through, stamp what a
@@ -22,9 +22,19 @@ interface SourcesStore {
     /** Inserts, or replaces the record carrying the same [SourceEntry.id]. */
     suspend fun upsert(source: SourceEntry)
 
-    /** Drops the source and every [IndexedFile] recorded against it. */
+    /** Moves [id] to [status], leaving the rest of the record alone. */
+    suspend fun updateStatus(id: String, status: SourceEntry.Status)
+
+    /**
+     * Drops the source and every [IndexedFile] recorded against it, leaving a [SourceTombstone]
+     * behind.
+     *
+     * The tombstone is not optional bookkeeping: it is the only thing that later tells the peer to
+     * stop asking for the id, so an implementation that drops the source silently strands the
+     * other half forever.
+     */
     suspend fun delete(id: String)
 
-    /** Stamps what a completed pass found, leaving the rest of the record alone. */
-    suspend fun recordScanResult(id: String, fileCount: Int, totalBytes: Long, at: Instant)
+    /** What [delete] left behind, or null for an id this device never dropped. */
+    suspend fun findTombstone(id: String): SourceTombstone?
 }

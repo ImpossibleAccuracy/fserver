@@ -11,6 +11,7 @@ import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
 import com.fserver.core.storage.internal.FileIndexStoreImpl
+import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
 import com.fserver.core.storage.internal.SyncStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
@@ -19,11 +20,11 @@ import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
 import com.fserver.core.store.sync.FileIndexStore
+import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
+import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 
 /**
  * The default persistence backend for `:core`, and the only thing a host has to touch.
@@ -40,6 +41,7 @@ import kotlinx.coroutines.SupervisorJob
 class FServerStorageProvider private constructor(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val timeProvider: TimeProvider,
 ) {
     private val dataStore: DataStore<Preferences> by lazy {
         PreferenceDataStoreFactory.create(scope = scope) {
@@ -61,7 +63,8 @@ class FServerStorageProvider private constructor(
     private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
     private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
     private val fileIndexStore by lazy { FileIndexStoreImpl() }
-    private val sourcesStore by lazy { SourcesStoreImpl(fileIndexStore) }
+    private val sourcesStore by lazy { SourcesStoreImpl(fileIndexStore, timeProvider) }
+    private val sourceRequestsStore by lazy { SourceRequestsStoreImpl() }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
 
     val identity: DeviceIdentityRepository get() = identityStore
@@ -74,23 +77,13 @@ class FServerStorageProvider private constructor(
 
     val syncPreferences: SyncPreferencesRepository get() = syncStore
 
-    /**
-     * The `:core` config backed by this storage.
-     *
-     * @param backgroundScope forwarded to `FServerCore`; `null` lets the core own its own.
-     */
-    fun coreConfig(backgroundScope: CoroutineScope? = null) = FServerConfig(
-        context = context,
-        backgroundScope = backgroundScope,
-        storage = Storage(),
-    )
-
     private inner class Storage : FServerStorage {
         override val identity: DeviceIdentityStore get() = identityStore
         override val auth: AuthSettingsStore get() = authStore
         override val trust: TrustedDevicesStore get() = trustStore
         override val index: FileIndexStore get() = fileIndexStore
         override val sources: SourcesStore get() = sourcesStore
+        override val sourceRequests: SourceRequestsStore get() = sourceRequestsStore
         override val preferences: SyncStore get() = syncStore
     }
 
@@ -98,17 +91,10 @@ class FServerStorageProvider private constructor(
         private const val PREFERENCES_NAME = "fserver_core"
         private const val DATABASE_NAME = "fserver_core.db"
 
-        /**
-         * @param scope where `DataStore` and the settings `StateFlow` run. Lives as long as the
-         * provider does, so `null` means one is created and never cancelled - which is right for
-         * the usual process-wide singleton, and wrong for a test.
-         */
-        fun create(
-            context: Context,
-            scope: CoroutineScope? = null,
-        ) = FServerStorageProvider(
-            context = context.applicationContext,
-            scope = scope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        fun create(config: FServerConfig) = FServerStorageProvider(
+            context = config.context,
+            scope = config.backgroundScope,
+            timeProvider = config.timeProvider,
         )
     }
 }

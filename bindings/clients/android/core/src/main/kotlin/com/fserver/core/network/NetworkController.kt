@@ -9,6 +9,7 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.IdentityStoreAdapter
 import com.fserver.core.network.impl.TimberNetLogger
 import com.fserver.core.network.impl.TrustStoreAdapter
+import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.net.NetworkNode
 import com.fserver.net.config.NetworkConfig
@@ -35,6 +36,7 @@ import kotlinx.coroutines.sync.withLock
  */
 internal class NetworkController(
     private val config: FServerConfig,
+    private val storage: FServerStorage,
     private val authenticator: PeerAuthenticator,
     private val coroutineScope: BackgroundScope,
 ) {
@@ -54,7 +56,7 @@ internal class NetworkController(
     val requestManager get() = node.requestsManager
 
     init {
-        val offered = config.storage.auth.offeredMethods.value
+        val offered = storage.auth.offeredMethods.value
         lastOfferedMethods = offered
         node = NetworkNode.create(baseConfig.copy(authMethods = netAuthMethods(offered)))
 
@@ -68,7 +70,7 @@ internal class NetworkController(
 
     /** Swaps the node's auth methods whenever [AuthSettingsStore] reports a different set. */
     private suspend fun watchAuthSettings() {
-        config.storage.auth.offeredMethods.collectLatest { offered ->
+        storage.auth.offeredMethods.collectLatest { offered ->
             hotSwapLock.withLock {
                 if (lastOfferedMethods == offered) return@withLock
                 lastOfferedMethods = offered
@@ -105,8 +107,8 @@ internal class NetworkController(
 
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
         networkConfig(dictionary = FileServerDictionary()) {
-            identityStore = IdentityStoreAdapter(config.storage.identity)
-            trustStore = TrustStoreAdapter(config.storage.trust)
+            identityStore = IdentityStoreAdapter(storage.identity)
+            trustStore = TrustStoreAdapter(storage.trust)
             authenticator = this@NetworkController.authenticator
             crypto = this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope

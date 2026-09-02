@@ -3,7 +3,7 @@ package com.fserver.core.util
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-internal interface TimeProvider {
+interface TimeProvider {
     fun now(): Instant
 }
 

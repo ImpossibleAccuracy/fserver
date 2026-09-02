@@ -4,6 +4,7 @@ import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
 import com.fserver.core.store.sync.FileIndexStore
+import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
 
@@ -26,6 +27,9 @@ interface FServerStorage {
 
     /** The registry of sources the engine syncs. */
     val sources: SourcesStore
+
+    /** Sources a peer asked this device to host, until its user answers. */
+    val sourceRequests: SourceRequestsStore
 
     /** Sync settings shared by every source. */
     val preferences: SyncStore

@@ -1,11 +1,9 @@
 package com.fserver.core.di
 
 import com.fserver.core.FServerConfig
-import com.fserver.core.util.DefaultTimeProvider
-import com.fserver.core.util.TimeProvider
+import com.fserver.core.store.FServerStorage
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
-import org.koin.dsl.bind
 import org.koin.dsl.module
 
 /** Work that must outlive the screen. Bound from the host config. */
@@ -20,15 +18,14 @@ internal typealias BackgroundScope = CoroutineScope
  */
 internal fun coreModule(
     config: FServerConfig,
-    backgroundScope: CoroutineScope,
+    storage: FServerStorage,
 ): Module = module {
     includes(filesModule, networkModule, syncModule, requirementsModule)
 
     // From the host. The whole config is bound too: `:net` reads context and storage off it.
+    single { storage }
     single { config }
     single { config.context }
-    single { config.storage }
-    single<BackgroundScope> { backgroundScope }
-
-    single { DefaultTimeProvider } bind TimeProvider::class
+    single { config.timeProvider }
+    single<BackgroundScope> { config.backgroundScope }
 }

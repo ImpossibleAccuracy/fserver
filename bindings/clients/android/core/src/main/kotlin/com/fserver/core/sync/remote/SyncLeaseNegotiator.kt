@@ -55,7 +55,6 @@ internal class SyncLeaseNegotiator(
             session.request(
                 FileServerMessages.AcquireSyncLease.Request(
                     sourceId = source.id,
-                    deviceId = storage.identity.localDevice().deviceId,
                     leaseId = leaseId,
                 )
             ).getOrThrow()
@@ -85,6 +84,18 @@ internal class SyncLeaseNegotiator(
                 null
             }
 
+            // The peer dropped it's half.
+            // Disable source here, so user can re-enable it if they want to continue syncing with the peer.
+            is FileServerMessages.AcquireSyncLease.Inactive -> {
+                registry.release(source.id, leaseId)
+                Timber.i("Source ${source.id} disabled: ${source.deviceId} no longer syncs it (${response.reason})")
+                storage.sources.updateStatus(
+                    id = source.id,
+                    status = SourceEntry.Status.Disabled(response.reason)
+                )
+                null
+            }
+
             else -> {
                 registry.release(source.id, leaseId)
                 throw IllegalStateException("Unexpected answer to AcquireSyncLease from ${source.deviceId}: $response")
@@ -107,7 +118,7 @@ internal class SyncLeaseNegotiator(
         sourceId: String,
         leaseId: String,
     ) {
-        session.send(FileServerMessages.ReleaseSyncLease(sourceId, leaseId))
+        session.send(FileServerMessages.AcquireSyncLease.ReleaseLease(sourceId, leaseId))
             .exceptionOrNull()
             ?.let { Timber.w(it, "Could not release the lease on source $sourceId") }
     }

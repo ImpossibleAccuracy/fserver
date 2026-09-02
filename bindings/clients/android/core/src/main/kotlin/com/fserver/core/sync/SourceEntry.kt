@@ -1,6 +1,5 @@
 package com.fserver.core.sync
 
-import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import kotlin.time.Instant
 
@@ -19,13 +18,48 @@ data class SourceEntry(
     val deviceId: String,
     /** What to walk. */
     val location: SourceLocation,
+    /** What to do with the files found there. */
     val syncMode: SyncMode,
+    val role: Role,
+    val status: Status,
     /** Display name, supplied by whoever registered the source. */
     val label: String,
     val createdAt: Instant,
-    /** What the last completed scan found. Zeroed until one has run. */
-    val fileCount: Int = 0,
-    val totalSize: FileSize = FileSize(0),
     /** null until a sync pass has processed this source once. */
     val lastSyncedAt: Instant? = null,
-)
+) {
+    /** Which end of the source this device is. */
+    enum class Role {
+        /** Registered the source and asked the peer to host it. Files originate on this side. */
+        Initiator,
+
+        /** Accepted the peer's ask, and holds what arrives in the location it picked. */
+        Follower,
+    }
+
+    /**
+     * Whether a source may sync at all.
+     *
+     * A source works only while both devices hold a record under its id, and that is not something
+     * either side decides alone: the peer's user accepts it, and can drop it again later. Passes
+     * run under [Active] and no other status.
+     */
+    sealed interface Status {
+        /**
+         * Registered here, waiting on the peer's user.
+         * This device runs no pass yet - but it still answers the peer, whose acceptance may be on its way.
+         */
+        data object Pending : Status
+
+        /** Both devices hold it. The only status a pass runs under. */
+        data object Active : Status
+
+        /**
+         * The peer refused the source, or dropped its half later.
+         *
+         * Kept rather than removed: the record is what stops the next pass from asking again, and
+         * what the user reads to find out why a source went quiet.
+         */
+        data class Disabled(val reason: String) : Status
+    }
+}

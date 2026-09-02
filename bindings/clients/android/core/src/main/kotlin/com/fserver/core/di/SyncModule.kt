@@ -6,6 +6,7 @@ import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.remote.PeerRequestServer
+import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.sync.remote.SyncLeaseNegotiator
 import com.fserver.core.sync.runner.FileActionRunner
 import com.fserver.core.sync.runner.FileUploader
@@ -22,6 +23,7 @@ internal val syncModule = module {
 
     singleOf(::PeerIndexFetcher)
     singleOf(::PeerRequestServer)
+    singleOf(::SourceSetupExchange)
 
     singleOf(::FileUploader)
     singleOf(::FileActionRunner)

@@ -33,8 +33,11 @@ internal class PeerIndexFetcher(
     }
 
     suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =
-        networkController.incomingConnections.session(source.deviceId)
-            ?: tryToConnectByDeviceId(source.deviceId)
+        connectToDevice(source.deviceId)
+
+    suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> =
+        networkController.incomingConnections.session(deviceId)
+            ?: tryToConnectByDeviceId(deviceId)
 
     private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
         val known = storage.trust.findKnownRoute(deviceId)

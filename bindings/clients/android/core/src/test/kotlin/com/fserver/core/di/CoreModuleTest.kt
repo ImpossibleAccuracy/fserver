@@ -23,9 +23,9 @@ class CoreModuleTest {
         val module = coreModule(
             config = FServerConfig(
                 context = ContextWrapper(null),
-                storage = storageStub(),
+                backgroundScope = CoroutineScope(EmptyCoroutineContext),
             ),
-            backgroundScope = CoroutineScope(EmptyCoroutineContext),
+            storage = storageStub(),
         )
 
         module.verify()
