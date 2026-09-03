@@ -1,6 +1,8 @@
 package com.fserver.net.peer
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.dictionary.MessageDictionary
+import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteReader
 import com.fserver.net.wire.ByteWriter
 
@@ -28,6 +30,15 @@ internal object PeerDescriptorCodec {
         val supportedFrom = reader.i32()
         val supportedTo = reader.i32()
         val maxFrameSize = reader.i32()
+
+        // The one field here that becomes a limit on our own sends, so it is the one a peer could
+        // use to make the link useless - every message would be too large for a frame.
+        if (maxFrameSize < TransportCapabilities.MIN_FRAME_SIZE) {
+            throw NetworkException.Protocol(
+                "peer declared a $maxFrameSize byte frame limit, below the " +
+                        "${TransportCapabilities.MIN_FRAME_SIZE} byte minimum"
+            )
+        }
 
         return PeerDescriptor(
             displayName = displayName,

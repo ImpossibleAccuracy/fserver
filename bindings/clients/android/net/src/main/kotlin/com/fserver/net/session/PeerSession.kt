@@ -35,6 +35,18 @@ interface PeerSession<M : Any> {
      */
     val incoming: Flow<Inbound<M>>
 
+    /**
+     * Largest encoded message this link carries in *one* frame - the transport's limit, less what
+     * the envelope and the seal take.
+     *
+     * Nothing has to be sized against it: a bigger message is split across frames and rebuilt on
+     * the peer, so [send] and [request] take a message of any size up to
+     * [com.fserver.net.connection.SessionConfig.maxAssembledMessageSize]. It is published for a sender that
+     * would rather not build a huge message in memory to begin with - a file, say, which reads
+     * better in pieces than as one array.
+     */
+    val maxPayloadSize: Int
+
     /** Fire and forget. Succeeds once the frame reached the transport, not once the peer read it. */
     suspend fun send(message: M): Result<Unit>
 

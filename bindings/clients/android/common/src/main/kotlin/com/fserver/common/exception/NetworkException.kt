@@ -31,4 +31,13 @@ sealed class NetworkException(message: String, cause: Throwable? = null) :
 
     /** No answer in time. Whether to ask again is the dictionary's decision, not the network's. */
     class RequestTimeout(timeout: Duration) : NetworkException("no response within $timeout")
+
+    /**
+     * The message is past what this link will carry at all.
+     *
+     * Not the same as "does not fit a frame" - a message over the frame size is split and sent in
+     * pieces. This is the ceiling on the whole message.
+     */
+    class FrameTooLarge(val size: Int, val limit: Int) :
+        NetworkException("message of $size bytes exceeds the $limit byte payload limit of this link")
 }

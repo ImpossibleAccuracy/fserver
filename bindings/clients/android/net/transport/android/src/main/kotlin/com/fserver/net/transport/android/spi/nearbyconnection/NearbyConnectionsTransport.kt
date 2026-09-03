@@ -1,5 +1,6 @@
 package com.fserver.net.transport.android.spi.nearbyconnection
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.GreetingSource
@@ -114,6 +115,8 @@ internal class NearbyConnectionsTransport(
         private val link: NearbyConnectionsLink,
         private val repository: NearbyConnectionsRepository,
     ) : Transport.Channel {
+        private val maxFrameSize = ConnectionsClient.MAX_BYTES_DATA_SIZE
+
         override val endpoint: TransportEndpoint =
             NearbyConnectionsTransportEndpoint(link.peer.endpointId)
 
@@ -121,8 +124,16 @@ internal class NearbyConnectionsTransport(
 
         override val inbound: Flow<ByteArray> = link.inbound
 
-        override suspend fun send(frame: ByteArray): Result<Unit> =
-            repository.send(link.peer.endpointId, frame)
+        /** Nearby drops the whole payload over its limit, and says so only in a callback. */
+        override suspend fun send(frame: ByteArray): Result<Unit> {
+            if (frame.size > maxFrameSize) {
+                return Result.failure(
+                    NetworkException.FrameTooLarge(size = frame.size, limit = maxFrameSize)
+                )
+            }
+
+            return repository.send(link.peer.endpointId, frame)
+        }
 
         override fun close() {
             repository.disconnect(link.peer.endpointId)

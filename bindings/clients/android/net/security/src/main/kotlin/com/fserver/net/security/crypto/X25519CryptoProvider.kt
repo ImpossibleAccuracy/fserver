@@ -93,6 +93,10 @@ object X25519CryptoProvider : CryptoProvider {
         private var sendCounter = 0L
         private var receiveCounter = 0L
 
+        // The nonce is derived from the counter rather than carried, so the tag is all a sealed
+        // frame gains over its plaintext.
+        override val overhead: Int = TAG_BITS / 8
+
         override fun seal(plaintext: ByteArray): ByteArray =
             run(sendKey, nonce(sendCounter++), forEncryption = true, plaintext)
 

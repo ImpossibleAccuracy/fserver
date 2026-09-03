@@ -1,6 +1,7 @@
 package com.fserver.net.connection
 
 import com.fserver.net.spi.SpiId
+import com.fserver.net.spi.TransportCapabilities
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -45,7 +46,23 @@ data class SessionConfig(
     val maxSessions: Int = 16,
     val sendQueueCapacity: Int = 64,
     val incomingQueueCapacity: Int = 64,
-)
+    /**
+     * Largest whole message can be split into frames on the way out, and reassembled on the way in.
+     * The session will refuse to rebuild a message larger than this.
+     */
+    val maxAssembledMessageSize: Int = 16 * 1024 * 1024,
+    /** How many messages may be half-rebuilt at once */
+    val maxAssemblingMessages: Int = 4,
+) {
+    init {
+        // A ceiling under one frame would refuse messages the link could carry unsplit.
+        require(maxAssembledMessageSize >= TransportCapabilities.MIN_FRAME_SIZE) {
+            "maxAssembledMessageSize $maxAssembledMessageSize is below the " +
+                    "${TransportCapabilities.MIN_FRAME_SIZE} byte minimum frame"
+        }
+        require(maxAssemblingMessages > 0) { "maxAssemblingMessages must be positive" }
+    }
+}
 
 data class ThrottleConfig(
     /** how far back [maxAttempts] looks; a fixed sliding window per source address. */

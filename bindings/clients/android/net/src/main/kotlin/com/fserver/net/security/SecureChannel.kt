@@ -26,6 +26,9 @@ internal class SecureChannel(
 ) {
     val inbound: Flow<ByteArray> by lazy { remainingFrames().map(aead::open) }
 
+    /** What sealing costs a frame - subtract it from the transport's limit, never from a guess. */
+    val overhead: Int get() = aead.overhead
+
     /** One frame, for the part of the handshake that runs sealed. */
     suspend fun next(timeout: Duration): ByteArray = aead.open(reader(timeout))
 

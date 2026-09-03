@@ -1,5 +1,6 @@
 package com.fserver.net.transport.android.spi.multicastdns
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
 import kotlinx.coroutines.CancellationException
@@ -55,7 +56,17 @@ internal class SocketChannel(
         }
     }.flowOn(Dispatchers.IO)
 
+    /**
+     * Refused here rather than written: the peer's reader rejects an oversized frame and drops the
+     * link, so putting one on the wire costs the session instead of one message.
+     */
     override suspend fun send(frame: ByteArray): Result<Unit> = writeLock.withLock {
+        if (frame.size > maxFrameSize) {
+            return@withLock Result.failure(
+                NetworkException.FrameTooLarge(size = frame.size, limit = maxFrameSize)
+            )
+        }
+
         withContext(Dispatchers.IO) {
             try {
                 outputStream.writeInt(frame.size)

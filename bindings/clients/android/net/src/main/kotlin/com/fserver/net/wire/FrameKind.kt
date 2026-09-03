@@ -26,6 +26,12 @@ internal enum class FrameKind(val code: Int) {
     RESPONSE(12),
     ERROR(13),
 
+    /**
+     * One slice of a message that did not fit a frame. Carries the kind it will be rebuilt as,
+     * so routing sees the whole message or nothing - see [com.fserver.net.wire.Fragment].
+     */
+    CHUNK(14),
+
     PING(20),
     PONG(21),
     CLOSE(22);

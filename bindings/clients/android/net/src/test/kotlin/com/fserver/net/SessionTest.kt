@@ -3,6 +3,7 @@ package com.fserver.net
 import com.fserver.common.exception.NetworkException
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.SessionConfig
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
 import com.fserver.net.connection.TimeoutsConfig
@@ -18,6 +19,7 @@ import com.fserver.net.support.LoopbackNetwork
 import com.fserver.net.support.TestDictionary
 import com.fserver.net.support.TestMessage
 import com.fserver.net.support.TestingAuthMethod
+import com.fserver.net.wire.Envelope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -81,6 +83,109 @@ class SessionTest {
         assertEquals(TestMessage.Notice("hello"), received.message)
         assertEquals(null, received.reply)
     }
+
+    @Test
+    fun `payload budget is the frame limit less the envelope and the seal`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+
+        // Passthrough crypto seals nothing, so the envelope header is the whole difference.
+        assertEquals(64 * 1024 - Envelope.Codec.HEADER_SIZE, session.maxPayloadSize)
+    }
+
+    @Test
+    fun `a message filling the budget still goes through`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val notice = TestMessage.Notice("x".repeat(session.maxPayloadSize - NOTICE_PREFIX))
+
+        session.send(notice).getOrThrow()
+
+        val received = withTimeout(TIMEOUT) { firstSession(bob).incoming.first() }
+        assertEquals(notice, received.message)
+    }
+
+    @Test
+    fun `a message larger than one frame is split and rebuilt`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val notice = TestMessage.Notice(body(session.maxPayloadSize * 3 + 17))
+
+        session.send(notice).getOrThrow()
+
+        val received = withTimeout(TIMEOUT) { firstSession(bob).incoming.first() }
+        assertEquals(notice, received.message)
+    }
+
+    @Test
+    fun `a split request is answered with a split response`() = runBlocking {
+        val alice = node("alice")
+        val bob = node("bob")
+        acceptEverything(bob)
+
+        scope.launch {
+            val session = firstSession(bob)
+            session.incoming.collect { inbound ->
+                val ask = inbound.message as TestMessage.Ask
+                inbound.reply?.invoke(TestMessage.Answer(ask.text.uppercase()))
+            }
+        }
+
+        val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+        val ask = TestMessage.Ask(body(session.maxPayloadSize * 2))
+
+        val answer = withTimeout(TIMEOUT) { session.request(ask).getOrThrow() }
+
+        assertEquals(TestMessage.Answer(ask.text.uppercase()), answer)
+        assertTrue(session.state.value is State.Ready)
+    }
+
+    @Test
+    fun `a message past the configured ceiling is refused, and the link survives it`() =
+        runBlocking {
+            val alice = node("alice", policy = capped(CEILING))
+            val bob = node("bob")
+            acceptEverything(bob)
+
+            val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+
+            val outcome = session.send(TestMessage.Notice(body(CEILING + 1)))
+
+            assertTrue(outcome.exceptionOrNull() is NetworkException.FrameTooLarge)
+            assertTrue(session.state.value is State.Ready)
+
+            // Nothing of it reached the wire, so the session is still worth something.
+            session.send(TestMessage.Notice("still here")).getOrThrow()
+            val received = withTimeout(TIMEOUT) { firstSession(bob).incoming.first() }
+            assertEquals(TestMessage.Notice("still here"), received.message)
+        }
+
+    @Test
+    fun `a message past the receiver's ceiling is dropped, and the link survives it`() =
+        runBlocking {
+            val alice = node("alice")
+            val bob = node("bob", policy = capped(CEILING))
+            acceptEverything(bob)
+
+            val session = withTimeout(TIMEOUT) { connect(alice, "bob").getOrThrow() }
+
+            session.send(TestMessage.Notice(body(CEILING * 2))).getOrThrow()
+            session.send(TestMessage.Notice("still here")).getOrThrow()
+
+            // The big one is gathered and thrown away, so the small one is what bob ever sees.
+            val received = withTimeout(TIMEOUT) { firstSession(bob).incoming.first() }
+            assertEquals(TestMessage.Notice("still here"), received.message)
+            assertTrue(session.state.value is State.Ready)
+        }
 
     @Test
     fun `both ends see one session, and identities match`() = runBlocking {
@@ -187,6 +292,15 @@ class SessionTest {
 
     // ------------------------------------------------------------------ helpers
 
+    /** A body of exactly [size] bytes once the codec has written its prefix in front of it. */
+    private fun body(size: Int): String = "x".repeat(size - NOTICE_PREFIX)
+
+    private fun capped(ceiling: Int): ConnectionPolicy = ConnectionPolicy(
+        timeouts = TimeoutsConfig(keepAlive = null),
+        reconnect = null,
+        sessionConfig = SessionConfig(maxAssembledMessageSize = ceiling),
+    )
+
     private fun node(
         name: String,
         dictionary: MessageDictionary<TestMessage> = TestDictionary(),
@@ -236,5 +350,11 @@ class SessionTest {
 
     private companion object {
         val TIMEOUT = 10.seconds
+
+        /** What `TestCodec` writes in front of a notice - "N:". */
+        const val NOTICE_PREFIX = 2
+
+        /** Small enough to cross with a handful of frames, big enough to need several. */
+        const val CEILING = 128 * 1024
     }
 }

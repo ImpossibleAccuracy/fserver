@@ -1,7 +1,7 @@
 package com.fserver.net.session
 
-import com.fserver.net.NetLogger
 import com.fserver.common.exception.NetworkException
+import com.fserver.net.NetLogger
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ReconnectPolicy
@@ -13,6 +13,7 @@ import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.session.PeerSession.Inbound
 import com.fserver.net.session.PeerSession.State
 import com.fserver.net.wire.Envelope
+import com.fserver.net.wire.Fragment
 import com.fserver.net.wire.FrameKind
 import com.fserver.net.wire.ProtocolVersions
 import kotlinx.coroutines.CancellationException
@@ -74,6 +75,17 @@ internal class PeerSessionImpl<M : Any>(
     override val descriptor: PeerDescriptor = negotiated.peerDescriptor
     override val state: StateFlow<State> = _state.asStateFlow()
 
+    override val maxPayloadSize: Int
+        get() {
+            val current = link.value
+            val frameLimit = currentNegotiated().maxFrameSize
+            // No link yet means no aead to ask: the budget is re-read per message, and the only
+            // send that could see this one is the first after a reconnect.
+            val sealing = current?.secure?.overhead ?: 0
+
+            return (frameLimit - sealing - Envelope.Codec.HEADER_SIZE).coerceAtLeast(0)
+        }
+
     /**
      * What authenticated the link now in place, or the last one there was - a reconnecting session
      * is still a session that got in on that method, so a config reload judges it on that.
@@ -96,6 +108,11 @@ internal class PeerSessionImpl<M : Any>(
     private val lastInboundAt = AtomicLong(System.nanoTime())
     private val terminated = AtomicBoolean(false)
 
+    // Keyed by the message id every slice of one message carries. Cleared with the link: half a
+    // message is worth nothing once the sender is gone.
+    private val assembling = ConcurrentHashMap<Long, Assembly>()
+    private val nextAssembly = AtomicLong(1)
+
     // ------------------------------------------------------------------ lifecycle
 
     fun start(initial: SessionLink) {
@@ -105,6 +122,7 @@ internal class PeerSessionImpl<M : Any>(
     }
 
     private fun install(newLink: SessionLink) {
+        assembling.clear()
         link.value = newLink
         lastInboundAt.set(System.nanoTime())
         _state.value = State.Ready(newLink.negotiated)
@@ -141,6 +159,7 @@ internal class PeerSessionImpl<M : Any>(
 
     /** Post-termination cleanup. */
     private fun finish(finalState: State) {
+        assembling.clear()
         failPending(NetworkException.SessionClosed())
         link.value?.let { runCatching { it.secure.close() } }
         link.value = null
@@ -165,14 +184,10 @@ internal class PeerSessionImpl<M : Any>(
     // ------------------------------------------------------------------ public API
 
     override suspend fun send(message: M): Result<Unit> = guarded {
-        enqueue(
-            queue = appQueue,
-            envelope = Envelope(
-                version = ProtocolVersions.CURRENT,
-                kind = FrameKind.MESSAGE,
-                messageId = nextMessageId.getAndIncrement(),
-                payload = codec.encode(message),
-            )
+        submit(
+            kind = FrameKind.MESSAGE,
+            messageId = nextMessageId.getAndIncrement(),
+            message = message,
         )
     }
 
@@ -182,14 +197,10 @@ internal class PeerSessionImpl<M : Any>(
         pending[id] = answer
 
         try {
-            enqueue(
-                queue = appQueue,
-                envelope = Envelope(
-                    version = ProtocolVersions.CURRENT,
-                    kind = FrameKind.REQUEST,
-                    messageId = id,
-                    payload = codec.encode(message),
-                )
+            submit(
+                kind = FrameKind.REQUEST,
+                messageId = id,
+                message = message,
             )
 
             val effectiveTimeout = timeout ?: policy.timeouts.request
@@ -224,7 +235,10 @@ internal class PeerSessionImpl<M : Any>(
 
                 frame.ack?.complete(result)
                 if (result.isFailure) {
-                    logger.warn("failed to send ${frame.envelope.kind} to ${negotiated.peer.deviceId}", result.exceptionOrNull())
+                    logger.warn(
+                        "failed to send ${frame.envelope.kind} to ${negotiated.peer.deviceId}",
+                        result.exceptionOrNull()
+                    )
                 }
             } catch (e: Throwable) {
                 frame.ack?.complete(Result.failure(NetworkException.SessionClosed()))
@@ -285,6 +299,8 @@ internal class PeerSessionImpl<M : Any>(
                 State.Closed(CloseReason.Remote(envelope.payload.decodeToString()))
             )
 
+            FrameKind.CHUNK -> assemble(envelope)?.let(::dispatch)
+
             FrameKind.MESSAGE, FrameKind.REQUEST -> deliver(envelope)
 
             FrameKind.RESPONSE -> completeRequest(envelope)
@@ -297,6 +313,79 @@ internal class PeerSessionImpl<M : Any>(
             FrameKind.DESCRIPTOR, FrameKind.READY ->
                 logger.warn("handshake frame ${envelope.kind} on an established session - ignored")
         }
+    }
+
+    /**
+     * One slice in; the message it completes, or null while slices are still missing.
+     *
+     * Everything the peer says about a slice is checked before a byte of it is kept: the id it
+     * belongs to is the peer's to choose, and so is how many slices it claims are coming.
+     */
+    private fun assemble(envelope: Envelope): Envelope? {
+        val fragment = try {
+            Fragment.Codec.decode(envelope.payload)
+        } catch (e: NetworkException) {
+            logger.warn("malformed chunk from ${negotiated.peer.deviceId}", e)
+            return null
+        }
+
+        if (fragment.kind !in FRAGMENTABLE || fragment.total < 1 ||
+            fragment.index !in 0 until fragment.total
+        ) {
+            logger.warn("chunk ${fragment.index}/${fragment.total} of ${fragment.kind} is not a message this session can rebuild")
+            return null
+        }
+
+        val assembly = assembling[envelope.messageId] ?: run {
+            evictOldestAssemblyIfFull()
+
+            Assembly(
+                kind = fragment.kind,
+                correlationId = envelope.correlationId,
+                total = fragment.total,
+                sequence = nextAssembly.getAndIncrement(),
+            ).also { assembling[envelope.messageId] = it }
+        }
+
+        // A slice that disagrees with the ones before it says the sender is confused; so is
+        // anything already gathered under that id.
+        if (assembly.kind != fragment.kind || assembly.total != fragment.total) {
+            logger.warn("chunk of message ${envelope.messageId} contradicts its earlier slices")
+            assembling.remove(envelope.messageId)
+            return null
+        }
+
+        if (!assembly.accept(fragment, policy.sessionConfig.maxAssembledMessageSize)) {
+            logger.warn("message ${envelope.messageId} from ${negotiated.peer.deviceId} exceeds the message limit - dropped")
+            assembling.remove(envelope.messageId)
+            return null
+        }
+
+        if (!assembly.isComplete) return null
+        assembling.remove(envelope.messageId)
+
+        return Envelope(
+            version = envelope.version,
+            kind = assembly.kind,
+            messageId = envelope.messageId,
+            correlationId = assembly.correlationId,
+            payload = assembly.join(),
+        )
+    }
+
+    /**
+     * Makes room by dropping the assembly that has waited longest.
+     *
+     * The oldest goes rather than the newest being refused: a message whose rest never arrives -
+     * the sender died, or a reconnect cut it in half - would otherwise hold its slot for as long
+     * as the session lives and take the channel down with it a few stalls later.
+     */
+    private fun evictOldestAssemblyIfFull() {
+        if (assembling.size < policy.sessionConfig.maxAssemblingMessages) return
+
+        val oldest = assembling.minByOrNull { it.value.sequence } ?: return
+        assembling.remove(oldest.key)
+        logger.warn("dropping half-rebuilt message ${oldest.key} from ${negotiated.peer.deviceId} - its slices stopped coming")
     }
 
     private fun deliver(envelope: Envelope) {
@@ -317,15 +406,11 @@ internal class PeerSessionImpl<M : Any>(
         val reply: (suspend (M) -> Result<Unit>)? = if (envelope.kind == FrameKind.REQUEST) {
             { answer ->
                 guarded {
-                    enqueue(
-                        appQueue,
-                        Envelope(
-                            version = ProtocolVersions.CURRENT,
-                            kind = FrameKind.RESPONSE,
-                            messageId = nextMessageId.getAndIncrement(),
-                            correlationId = envelope.messageId,
-                            payload = codec.encode(answer),
-                        )
+                    submit(
+                        kind = FrameKind.RESPONSE,
+                        messageId = nextMessageId.getAndIncrement(),
+                        correlationId = envelope.messageId,
+                        message = answer,
                     )
                 }
             }
@@ -437,6 +522,95 @@ internal class PeerSessionImpl<M : Any>(
         payload = payload,
     )
 
+    /**
+     * Queues [message], in one frame or in as many as it takes.
+     *
+     * Splitting happens here rather than above the session because only this layer knows what a
+     * frame holds - the transport's limit, less the envelope and the seal. Callers hand over whole
+     * messages and never see the seam.
+     */
+    private suspend fun submit(
+        kind: FrameKind,
+        messageId: Long,
+        correlationId: Long = Envelope.NO_CORRELATION,
+        message: M,
+    ) {
+        val payload = codec.encode(message)
+        val budget = maxPayloadSize
+
+        if (payload.size <= budget) {
+            enqueue(
+                queue = appQueue,
+                envelope = Envelope(
+                    version = ProtocolVersions.CURRENT,
+                    kind = kind,
+                    messageId = messageId,
+                    correlationId = correlationId,
+                    payload = payload,
+                ),
+            )
+            return
+        }
+
+        submitFragmented(
+            kind = kind,
+            messageId = messageId,
+            correlationId = correlationId,
+            payload = payload,
+            budget = budget
+        )
+    }
+
+    /**
+     * The message as [FrameKind.CHUNK] frames, in order, under one message id.
+     *
+     * Send completes when the last slice is on the wire: a caller that got a success has had
+     * the whole message sent, the same promise an unsplit one makes. A slice that fails takes the
+     * send down with it and leaves the peer holding a partial message, which it drops.
+     *
+     * Every peer is expected to rebuild these - [FrameKind.CHUNK] is part of the protocol rather
+     * than an extension to negotiate, so one that does not understand it fails on the frame kind.
+     */
+    private suspend fun submitFragmented(
+        kind: FrameKind,
+        messageId: Long,
+        correlationId: Long,
+        payload: ByteArray,
+        budget: Int,
+    ) {
+        val ceiling = policy.sessionConfig.maxAssembledMessageSize
+        if (payload.size > ceiling) {
+            throw NetworkException.FrameTooLarge(size = payload.size, limit = ceiling)
+        }
+
+        val sliceSize = budget - Fragment.Codec.HEADER_SIZE
+        if (sliceSize <= 0) {
+            throw NetworkException.FrameTooLarge(size = payload.size, limit = budget)
+        }
+
+        val total = (payload.size + sliceSize - 1) / sliceSize
+
+        for (index in 0 until total) {
+            val from = index * sliceSize
+            val slice = payload.copyOfRange(from, minOf(from + sliceSize, payload.size))
+
+            enqueue(
+                queue = appQueue,
+                envelope = Envelope(
+                    version = ProtocolVersions.CURRENT,
+                    kind = FrameKind.CHUNK,
+                    messageId = messageId,
+                    correlationId = correlationId,
+                    payload = Fragment.Codec.encode(
+                        Fragment(kind = kind, index = index, total = total, part = slice)
+                    ),
+                ),
+            )
+        }
+    }
+
+    private fun currentNegotiated(): NegotiatedParameters = link.value?.negotiated ?: negotiated
+
     /** Result-wrapping that still lets structured cancellation through. */
     private inline fun <T> guarded(block: () -> T): Result<T> = try {
         if (terminated.get()) throw NetworkException.SessionClosed()
@@ -457,6 +631,49 @@ internal class PeerSessionImpl<M : Any>(
         is CloseReason.Local -> reason.detail
     }
 
+    /** Slices of one message, until the last of them turns up. */
+    private class Assembly(
+        val kind: FrameKind,
+        val correlationId: Long,
+        val total: Int,
+        /** Arrival order, so the one that has waited longest is the one evicted. */
+        val sequence: Long,
+    ) {
+        private val slices = arrayOfNulls<ByteArray>(total)
+        private var gathered = 0
+        private var bytes = 0
+
+        val isComplete: Boolean get() = gathered == total
+
+        /** False when the message would outgrow [ceiling] - the caller drops the whole assembly. */
+        fun accept(fragment: Fragment, ceiling: Int): Boolean {
+            // A resent slice is not an error; a second, different one under the same index is not
+            // worth telling apart from it, and neither may grow what was already accounted for.
+            if (slices[fragment.index] != null) return true
+
+            val grown = bytes.toLong() + fragment.part.size
+            if (grown > ceiling) return false
+
+            slices[fragment.index] = fragment.part
+            bytes = grown.toInt()
+            gathered++
+            return true
+        }
+
+        fun join(): ByteArray {
+            val message = ByteArray(bytes)
+            var offset = 0
+
+            for (slice in slices) {
+                val part = slice ?: continue
+                part.copyInto(message, offset)
+                offset += part.size
+            }
+
+            return message
+        }
+    }
+
     private class OutgoingFrame(
         val envelope: Envelope,
         val ack: CompletableDeferred<Result<Unit>>?,
@@ -465,5 +682,8 @@ internal class PeerSessionImpl<M : Any>(
     private companion object {
         val CLOSE_FLUSH: Duration = 2.seconds
         const val IDLE_PERIODS = 3L
+
+        /** Kinds a split message may be rebuilt as. Nothing control or handshake is ever split. */
+        val FRAGMENTABLE = setOf(FrameKind.MESSAGE, FrameKind.REQUEST, FrameKind.RESPONSE)
     }
 }

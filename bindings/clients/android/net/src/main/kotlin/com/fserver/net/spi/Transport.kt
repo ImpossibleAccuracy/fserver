@@ -61,14 +61,36 @@ interface Transport {
  * before any connection exists - which is what makes properties peer-independent.
  */
 data class TransportCapabilities(
+    /**
+     * Largest single frame this transport carries. Negotiated down to what both devices accept.
+     *
+     * A message larger than this is not refused - the session splits it across frames and the peer
+     * rebuilds it, bounded by
+     * [com.fserver.net.connection.SessionConfig.maxAssembledMessageSize].
+     */
     val maxFrameSize: Int = DEFAULT_MAX_FRAME_SIZE,
     /** Transport-level security, if any. Null when the transport does not authenticate or encrypt. */
     val security: AuthMethodId? = null,
     /** Where the public greeting comes from. */
     val greeting: GreetingSource = GreetingSource.Wire,
 ) {
+    init {
+        require(maxFrameSize >= MIN_FRAME_SIZE) {
+            "maxFrameSize $maxFrameSize is below the $MIN_FRAME_SIZE byte minimum"
+        }
+    }
+
     companion object {
         const val DEFAULT_MAX_FRAME_SIZE: Int = 512 * 1024
+
+        /**
+         * Smallest frame a session can work in.
+         *
+         * The handshake is what sets it: descriptors and auth rounds are single frames that cannot
+         * be split, so transport below this could not finish a handshake, let alone carry
+         * messages in useful pieces afterward.
+         */
+        const val MIN_FRAME_SIZE: Int = 4 * 1024
     }
 }
 

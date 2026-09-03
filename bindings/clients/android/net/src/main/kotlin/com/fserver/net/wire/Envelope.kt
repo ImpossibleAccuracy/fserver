@@ -51,7 +51,7 @@ internal class Envelope(
             )
         }
 
-        private const val HEADER_SIZE = 1 + 1 + 8 + 8 + 4
+        const val HEADER_SIZE = 1 + 1 + 8 + 8 + 4 // version + kind + messageId + correlationId + payload buffer length
     }
 
     companion object {

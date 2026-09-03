@@ -28,6 +28,12 @@ interface CryptoProvider {
 
     /** Frame-level seal/open. Failure to open is a protocol failure, not a dropped frame. */
     interface Aead {
+        /**
+         * Bytes [seal] adds to a frame. What fits in one frame is the transport's limit minus
+         * this, so a suite that hides the figure would have callers guess at it.
+         */
+        val overhead: Int
+
         fun seal(plaintext: ByteArray): ByteArray
         fun open(ciphertext: ByteArray): ByteArray
     }
@@ -66,6 +72,7 @@ object PassthroughCryptoProvider : CryptoProvider {
     override fun aead(sharedSecret: ByteArray, role: CryptoProvider.Role): CryptoProvider.Aead =
         object :
             CryptoProvider.Aead {
+            override val overhead: Int = 0
             override fun seal(plaintext: ByteArray): ByteArray = plaintext
             override fun open(ciphertext: ByteArray): ByteArray = ciphertext
         }

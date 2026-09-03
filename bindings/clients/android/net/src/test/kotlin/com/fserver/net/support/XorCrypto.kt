@@ -23,6 +23,7 @@ class XorCryptoProvider : CryptoProvider {
         val openMask = (sharedSecret[0].toInt() xor tweak(other(role))).toByte()
 
         return object : CryptoProvider.Aead {
+            override val overhead: Int = 0
             override fun seal(plaintext: ByteArray) = mask(plaintext, sealMask)
             override fun open(ciphertext: ByteArray) = mask(ciphertext, openMask)
         }
