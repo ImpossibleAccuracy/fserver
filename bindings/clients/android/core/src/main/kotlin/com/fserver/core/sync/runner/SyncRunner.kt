@@ -64,6 +64,8 @@ internal class SyncRunner(
         for (source in storage.sources.all()) {
             try {
                 process(source)
+
+                Timber.i("Source ${source.id} pass completed successfully")
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
 
