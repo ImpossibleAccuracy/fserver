@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.utils.StageTimer
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -13,6 +14,7 @@ import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
+import timber.log.Timber
 import java.io.InputStream
 
 /**
@@ -32,16 +34,24 @@ internal class FileUploader(
         val locator = file.locator
             ?: error("Cannot upload file ${file.id} because it has no locator")
 
+        // Instrumentation: a slow upload is disk, hashing, crypto or the socket, and the only way
+        // to tell is to count. See StageTimer.enabled to take it back out.
+        val timer = StageTimer("upload ${file.path}")
+
         // Run as operation to confirm that the peer is ready to receive the file
-        session.runRemoteOperation(
-            operation = RemoteOperation.Upload.Init(
-                sourceId = source.id,
-                file = file.toDto(),
+        timer.time("init-rtt") {
+            session.runRemoteOperation(
+                operation = RemoteOperation.Upload.Init(
+                    sourceId = source.id,
+                    file = file.toDto(),
+                )
             )
-        )
+        }
 
         val chunkSize = chunkSize(session, source.id, file.id.value)
         val hasher = if (file.content == null) FileHasher() else null
+
+        timer.count("chunkSize", chunkSize.toLong())
 
         val fs = node.openSource(source.location.toFiles())
         fs.openFile(locator).use { stream ->
@@ -49,36 +59,45 @@ internal class FileUploader(
             val buffer = ByteArray(chunkSize)
 
             while (true) {
-                val bytesRead = stream.fill(buffer)
+                val bytesRead = timer.time("disk-read") { stream.fill(buffer) }
                 if (bytesRead == 0) break
 
-                hasher?.write(buffer, bytesRead)
+                timer.time("hash") { hasher?.write(buffer, bytesRead) }
 
-                val chunk = buffer.copyOf(bytesRead)
+                val chunk = timer.time("copy") { buffer.copyOf(bytesRead) }
 
                 // TODO: ask peer about it's state each N chunks, to retry/resume/abort if needed
-                session.send(
-                    FileServerMessages.UploadChunk(
-                        sourceId = source.id,
-                        fileId = file.id.value,
-                        offset = offset,
-                        bytes = chunk,
-                    )
-                ).getOrThrow()
+                timer.time("send") {
+                    session.send(
+                        FileServerMessages.UploadChunk(
+                            sourceId = source.id,
+                            fileId = file.id.value,
+                            offset = offset,
+                            // Trimmed to what was read: the receiver takes the length from the frame.
+                            bytes = chunk,
+                        )
+                    ).getOrThrow()
+                }
 
                 offset += bytesRead
+                timer.count("bytes", bytesRead.toLong())
+                timer.count("chunks")
             }
         }
 
         val hash = hasher?.compute() ?: file.content!!
 
-        session.runRemoteOperation(
-            operation = RemoteOperation.Upload.UploadCompleted(
-                key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
-                hash = hash.value,
-                algorithm = hash.algorithm,
+        timer.time("completed-rtt") {
+            session.runRemoteOperation(
+                operation = RemoteOperation.Upload.UploadCompleted(
+                    key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
+                    hash = hash.value,
+                    algorithm = hash.algorithm,
+                )
             )
-        )
+        }
+
+        Timber.i(timer.summary())
 
         if (hasher != null) {
             storage.index.saveHash(

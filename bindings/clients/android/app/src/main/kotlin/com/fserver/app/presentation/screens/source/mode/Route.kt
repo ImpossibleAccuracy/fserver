@@ -17,9 +17,7 @@ fun EntryProviderScope<Destination>.sourceModeEntry(
         val flow = sourceFlowViewModel { navigator.popToSourcePick() } ?: return@entry
 
         LaunchedEffect(Unit) {
-            Timber.i("SourceModeScreen: LaunchedEffect: collecting TargetDeviceSelectedResult")
             TargetDeviceSelectedResult.collect { deviceId ->
-                Timber.d("SourceModeScreen: TargetDeviceSelectedResult collected: deviceId=$deviceId")
                 flow.onDeviceSelected(deviceId)
 
                 val kind = flow.state.value.kind ?: return@collect

@@ -17,7 +17,7 @@ import timber.log.Timber
 /**
  * Pairing a source across the two devices that sync it - both halves of the exchange.
  *
- * A source only works when both devices hold a record under the same id: `PeerRequestServer`
+ * A source only works when both devices hold a record under the same id: `SourceAuthorizer`
  * refuses an id it does not know, so a source registered on one side alone fails every pass. The
  * asking device sends what it registered; the answering one parks the ask until its user has seen
  * it, then registers it's half into app-private storage.

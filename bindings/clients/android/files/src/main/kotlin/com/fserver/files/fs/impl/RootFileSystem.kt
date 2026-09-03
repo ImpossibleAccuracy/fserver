@@ -54,6 +54,10 @@ internal class RootFileSystem(
         }
     }
 
+    override suspend fun createFile(path: String): String {
+        TODO("Not yet implemented")
+    }
+
     override suspend fun openFile(locator: String): InputStream {
         val file = File(locator)
 
@@ -63,6 +67,15 @@ internal class RootFileSystem(
         return withContext(Dispatchers.IO) {
             file.inputStream()
         }
+    }
+
+    override suspend fun writeFile(
+        locator: String,
+        offset: Long,
+        bytes: ByteArray,
+        length: Int
+    ): Boolean {
+        TODO("Not yet implemented")
     }
 
     override suspend fun deleteFile(locator: String): Boolean {

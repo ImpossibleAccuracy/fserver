@@ -39,7 +39,7 @@ internal object UploadChunkCodec {
         Magic.size +
                 Int.SIZE_BYTES + sourceId.utf8Size +
                 Int.SIZE_BYTES + fileId.utf8Size +
-                Long.SIZE_BYTES
+                Long.SIZE_BYTES // offset
 
     fun encode(message: FileServerMessages.UploadChunk): ByteArray =
         ByteWriter(headerSize(message.sourceId, message.fileId) + message.bytes.size)

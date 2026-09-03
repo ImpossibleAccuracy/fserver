@@ -11,6 +11,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
+import java.io.RandomAccessFile
 import kotlin.time.Instant
 
 /**
@@ -42,11 +43,26 @@ internal class DirectoryFileSystem(
                         volume = null,
                         path = item.relativeTo(root).invariantSeparatorsPath,
                     ),
-                    locator = item.absolutePath,
+                    locator = item.locator(),
                     size = FileSize(item.length()),
                     lastModified = Instant.fromEpochMilliseconds(item.lastModified()),
                 )
             )
+        }
+    }
+
+    override suspend fun createFile(path: String): String {
+        // Canonical before the check: `File(root, "../x").path` still starts with root.
+        val file = File(root, path).canonicalFile
+        ensureFileInRoot(file, path)
+
+        if (file.exists()) throw FileSystemException.AlreadyExists(path)
+
+        return withContext(Dispatchers.IO) {
+            file.parentFile?.mkdirs()
+            if (!file.createNewFile()) throw FileSystemException.CreationFailed(path)
+
+            return@withContext file.locator()
         }
     }
 
@@ -57,6 +73,26 @@ internal class DirectoryFileSystem(
 
         return withContext(Dispatchers.IO) {
             file.inputStream()
+        }
+    }
+
+    override suspend fun writeFile(
+        locator: String,
+        offset: Long,
+        bytes: ByteArray,
+        length: Int,
+    ): Boolean {
+        val file = confined(locator)
+
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) {
+            RandomAccessFile(file, "rw").use { ra ->
+                ra.seek(offset)
+                ra.write(bytes, 0, length)
+            }
+
+            true
         }
     }
 
@@ -75,15 +111,16 @@ internal class DirectoryFileSystem(
      * [locator] resolved under [root]. Checked rather than trusted: every byte in this directory
      * arrived from a peer, so a locator that walks back out of it must not open anything.
      */
-    private fun confined(locator: String): File {
-        val file = File(locator).canonicalFile
-        val base = root.canonicalFile
-
-        if (!file.path.startsWith(base.path + File.separator)) {
-            throw FileSystemException.InvalidPath(locator)
+    private fun confined(locator: String): File =
+        File(locator).canonicalFile.also {
+            ensureFileInRoot(it, locator)
         }
 
-        return file
+    /** Ensure that [file] is under [root], throwing if not. */
+    private fun ensureFileInRoot(file: File, locator: String) {
+        if (!file.path.startsWith(root.canonicalFile.path + File.separator)) {
+            throw FileSystemException.InvalidPath(locator)
+        }
     }
 
     companion object {
@@ -99,3 +136,6 @@ internal class DirectoryFileSystem(
             DirectoryFileSystem(File(File(context.filesDir, SourcesDirectory), bucket))
     }
 }
+
+/** Locator for a file in the local filesystem. */
+private fun File.locator(): String = this.absolutePath

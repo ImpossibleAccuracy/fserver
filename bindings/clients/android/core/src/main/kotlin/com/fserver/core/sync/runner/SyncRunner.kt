@@ -118,10 +118,7 @@ internal class SyncRunner(
                 remote = remoteFetcher.fetchIndex(source),
             )
 
-            // Dump snapshot for debugging
             Timber.d("Source ${source.id} snapshot round $round: ${snapshot.local.size} local files, ${snapshot.remote.size} remote files")
-            Timber.d("Local files: ${snapshot.local.map { "${it.id}@${it.path}" }}")
-            Timber.d("Remote files: ${snapshot.remote.map { "${it.id}@${it.path}" }}")
 
             // TODO: selector can return null if one-way strategy runs on the wrong side, so move selection out of lease
             val decisions = uploadStrategySelector.plan(source.syncMode, source.role, snapshot)

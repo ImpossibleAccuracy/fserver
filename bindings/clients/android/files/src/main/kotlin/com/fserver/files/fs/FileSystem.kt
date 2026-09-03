@@ -13,8 +13,19 @@ interface FileSystem {
     /** Walk the source, reporting files as they turn up. */
     fun scan(): ProgressTask<ScanProgress, List<FoundFile>>
 
+    /** Create a file at [path]. */
+    suspend fun createFile(path: String): String
+
     /** Open the file at [locator] for reading. */
     suspend fun openFile(locator: String): InputStream
+
+    /** Write [bytes] to the file at [locator], starting at [offset]. */
+    suspend fun writeFile(
+        locator: String,
+        offset: Long,
+        bytes: ByteArray,
+        length: Int = bytes.size,
+    ): Boolean
 
     suspend fun deleteFile(locator: String): Boolean
 }

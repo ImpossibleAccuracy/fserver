@@ -8,7 +8,7 @@ import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
-import com.fserver.core.sync.remote.PeerRequestServer
+import com.fserver.core.sync.server.PeerRequestServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking

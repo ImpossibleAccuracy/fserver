@@ -12,7 +12,7 @@ import kotlin.time.Instant
  *
  * A pass plans from a snapshot of both indexes, so two of them running at once plan against state
  * the other is already changing. One registry serves both halves of the protocol: the pass asks
- * [beginAcquire] before it talks to the peer, and `PeerRequestServer` asks [grantToPeer] when the
+ * [beginAcquire] before it talks to the peer, and `SyncLeaseHandler` asks [grantToPeer] when the
  * peer asks us for the same source.
  *
  * Nothing here is persisted: a lease dies with the process holding it, which is what a restart

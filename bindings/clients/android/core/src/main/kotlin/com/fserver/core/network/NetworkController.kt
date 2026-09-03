@@ -18,6 +18,7 @@ import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.auth.sas.SasAuthMethod
+import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
@@ -109,8 +110,8 @@ internal class NetworkController(
         networkConfig(dictionary = FileServerDictionary()) {
             identityStore = IdentityStoreAdapter(storage.identity)
             trustStore = TrustStoreAdapter(storage.trust, config.timeProvider)
-            authenticator = this@NetworkController.authenticator
-            crypto = this@NetworkController.crypto
+            authenticator = null // this@NetworkController.authenticator
+            crypto = PassthroughCryptoProvider // this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope
             logger = TimberNetLogger
             policy = ConnectionPolicy(

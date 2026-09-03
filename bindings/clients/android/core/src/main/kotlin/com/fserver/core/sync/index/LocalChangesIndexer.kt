@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 
@@ -140,6 +141,8 @@ internal class LocalChangesIndexer(
 
         val key = IndexedFileKey(fileId = local.fileId, sourceId = source.id)
         hashFile(source, key, locator)
+
+        Timber.d("Hashed file ${local.path} in source ${source.id} with locator $locator")
     }
 
     /**

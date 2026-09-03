@@ -92,6 +92,10 @@ internal class MediaFileSystem(
             }
     }
 
+    override suspend fun createFile(path: String): String {
+        TODO("Not yet implemented")
+    }
+
     @SuppressLint("Recycle")
     override suspend fun openFile(locator: String): InputStream {
         val uri = locator.toUri()
@@ -100,6 +104,15 @@ internal class MediaFileSystem(
             context.contentResolver.openInputStream(uri)
                 ?: throw FileSystemException.InvalidPath(locator)
         }
+    }
+
+    override suspend fun writeFile(
+        locator: String,
+        offset: Long,
+        bytes: ByteArray,
+        length: Int
+    ): Boolean {
+        TODO("Not yet implemented")
     }
 
     override suspend fun deleteFile(locator: String): Boolean {

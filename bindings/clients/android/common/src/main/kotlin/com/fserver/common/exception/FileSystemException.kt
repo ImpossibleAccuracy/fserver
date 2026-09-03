@@ -9,6 +9,8 @@ package com.fserver.common.exception
 sealed class FileSystemException(message: String, cause: Throwable? = null) :
     FServerException(message, cause) {
 
-    data class InvalidPath(val path: String) : FileSystemException("Invalid path: $path")
-    data class NotDirectory(val path: String) : FileSystemException("Path is not directory: $path")
+    class InvalidPath(val path: String) : FileSystemException("Invalid path: $path")
+    class NotDirectory(val path: String) : FileSystemException("Path is not directory: $path")
+    class AlreadyExists(path: String) : FileSystemException("File already exists at path: $path")
+    class CreationFailed(path: String) : FileSystemException("Failed to create file at path: $path")
 }
