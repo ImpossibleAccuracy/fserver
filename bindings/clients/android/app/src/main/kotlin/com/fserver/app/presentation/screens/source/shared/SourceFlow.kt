@@ -57,11 +57,34 @@ fun AppNavigator.popToSourcePick() {
 
 /**
  * Every screen the send-source flow puts on the stack, including the target picker in the
- * middle of it. Reaching the summary drops all of them at once.
+ * middle of it. Leaving the flow drops all of them at once.
  */
 val Destination.isSourceFlowScreen: Boolean
     get() = this is Destination.Source.Pick ||
             this is Destination.Source.Access ||
             this is Destination.Source.Mode ||
             this is Destination.Source.Conditions ||
+            this is Destination.Source.Upload ||
+            this is Destination.Source.Done ||
             this is Destination.TargetDevice
+
+/**
+ * The flow screens a later step may drop behind it — everything but the pick.
+ *
+ * The pick stays on the stack for the whole flow because it owns the shared ViewModel: dropping
+ * it clears the store, and the screens still to come would have nothing left to read.
+ */
+val Destination.isAnsweredSourceFlowScreen: Boolean
+    get() = isSourceFlowScreen && this !is Destination.Source.Pick
+
+/**
+ * Leaves the flow entirely, back to whatever screen it was started from.
+ *
+ * Nothing is undone by this: the source is registered by the time it can be called, and the
+ * engine goes on waiting for the peer without a screen open.
+ */
+fun AppNavigator.closeSourceFlow() {
+    if (!popTo { !it.isSourceFlowScreen }) {
+        navigate(Destination.Files.List)
+    }
+}
