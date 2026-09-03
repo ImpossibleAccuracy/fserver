@@ -343,6 +343,7 @@ private val SourceKindUi.illustrationRes: Int?
         SourceKindUi.Folder -> R.string.source_access_folder_illustration
         // The dangerous branch gets no picture: nothing here should read as an invitation.
         SourceKindUi.WholeDevice -> null
+        SourceKindUi.AppStorage -> null
     }
 
 private val SourceKindUi.headingRes: Int
@@ -350,6 +351,7 @@ private val SourceKindUi.headingRes: Int
         SourceKindUi.Media -> R.string.source_access_photos_heading
         SourceKindUi.Folder -> R.string.source_access_folder_heading
         SourceKindUi.WholeDevice -> R.string.source_access_device_heading
+        SourceKindUi.AppStorage -> R.string.source_access_appstorage_heading
     }
 
 private val SourceKindUi.bodyRes: Int
@@ -357,6 +359,7 @@ private val SourceKindUi.bodyRes: Int
         SourceKindUi.Media -> R.string.source_access_photos_body
         SourceKindUi.Folder -> R.string.source_access_folder_body
         SourceKindUi.WholeDevice -> R.string.source_access_device_body
+        SourceKindUi.AppStorage -> R.string.source_access_appstorage_body
     }
 
 private val SourceKindUi.noteRes: Int?
@@ -364,6 +367,7 @@ private val SourceKindUi.noteRes: Int?
         SourceKindUi.Media -> null
         SourceKindUi.Folder -> R.string.source_access_folder_note
         SourceKindUi.WholeDevice -> R.string.source_access_device_note
+        SourceKindUi.AppStorage -> R.string.source_access_appstorage_note
     }
 
 private val SourceKindUi.continueRes: Int
@@ -371,6 +375,7 @@ private val SourceKindUi.continueRes: Int
         SourceKindUi.Media -> R.string.action_continue
         SourceKindUi.Folder -> R.string.source_access_folder_action
         SourceKindUi.WholeDevice -> R.string.source_access_device_action
+        SourceKindUi.AppStorage -> R.string.source_access_appstorage_action
     }
 
 private val SourceKindUi.errorTitleRes: Int
@@ -378,6 +383,7 @@ private val SourceKindUi.errorTitleRes: Int
         SourceKindUi.Media -> R.string.source_error_photos_title
         SourceKindUi.Folder -> R.string.source_error_folder_title
         SourceKindUi.WholeDevice -> R.string.source_error_device_title
+        SourceKindUi.AppStorage -> R.string.source_error_appstorage_title
     }
 
 private val SourceKindUi.errorBodyRes: Int
@@ -385,12 +391,14 @@ private val SourceKindUi.errorBodyRes: Int
         SourceKindUi.Media -> R.string.source_error_photos_body
         SourceKindUi.Folder -> R.string.source_error_folder_body
         SourceKindUi.WholeDevice -> R.string.source_error_device_body
+        SourceKindUi.AppStorage -> R.string.source_error_appstorage_body
     }
 
 private val SourceKindUi.retryRes: Int
     get() = when (this) {
         SourceKindUi.Media,
-        SourceKindUi.Folder -> R.string.action_retry
+        SourceKindUi.Folder,
+        SourceKindUi.AppStorage -> R.string.action_retry
 
         SourceKindUi.WholeDevice -> R.string.source_error_open_settings
     }

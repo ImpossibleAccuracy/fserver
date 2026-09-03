@@ -12,6 +12,7 @@ fun EntryProviderScope<Destination>.filesListEntry(
             navigateToActions = { navigator.navigate(Destination.Files.Actions) },
             navigateToConnect = { navigator.navigate(Destination.Connect) },
             navigateToSourcePick = { navigator.navigate(Destination.Source.Pick) },
+            navigateToSyncRequest = { navigator.navigate(Destination.SyncRequest.Details(it)) },
         )
     }
 }

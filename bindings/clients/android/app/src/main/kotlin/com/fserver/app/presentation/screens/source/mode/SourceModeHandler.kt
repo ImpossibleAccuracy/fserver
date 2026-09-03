@@ -35,7 +35,8 @@ class SourceModeHandler(
                     else null
 
                 SourceKindUi.Folder,
-                SourceKindUi.WholeDevice ->
+                SourceKindUi.WholeDevice,
+                SourceKindUi.AppStorage ->
                     SourceModeState.AccessType.Full(
                         label = source.label,
                         files = source.files,

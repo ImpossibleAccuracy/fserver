@@ -231,6 +231,7 @@ class SourceAccessHandler(
         SourceAccessGrant.AllFiles -> StorageVolumes.fromContext(context)
         is SourceAccessGrant.Tree -> SourceLocation.Tree(uri.toString())
         is SourceAccessGrant.Media -> SourceLocation.Media
+        SourceAccessGrant.Internal -> SourceLocation.Internal(bucket = DevSourceBucket)
     }
 
     private data class Editable(

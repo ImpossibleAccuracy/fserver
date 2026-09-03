@@ -59,6 +59,7 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkTreeRow
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
+import com.fserver.app.presentation.screens.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
 import com.fserver.app.presentation.theme.FServerTheme
@@ -70,6 +71,7 @@ fun FilesScreen(
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
+    navigateToSyncRequest: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -79,6 +81,7 @@ fun FilesScreen(
         navigateToActions = navigateToActions,
         navigateToConnect = navigateToConnect,
         navigateToSourcePick = navigateToSourcePick,
+        navigateToSyncRequest = navigateToSyncRequest,
     )
 }
 
@@ -95,6 +98,7 @@ private fun FilesScreenContent(
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
+    navigateToSyncRequest: (String) -> Unit,
 ) {
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
@@ -123,16 +127,32 @@ private fun FilesScreenContent(
             }
         },
     ) { innerPadding ->
-        if (state.isEmpty) {
-            FilesEmptyState(
-                navigateToConnect = navigateToConnect,
-                navigateToSourcePick = navigateToSourcePick,
-                modifier = Modifier.padding(innerPadding),
-            )
-            return@DkScaffold
-        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            state.syncRequest?.let { request ->
+                SyncRequestBanner(
+                    modifier = Modifier.padding(
+                        horizontal = DkSpacing.screenPadding,
+                        vertical = DkSpacing.sm,
+                    ),
+                    request = request,
+                    waiting = state.syncRequestsWaiting,
+                    onClick = { navigateToSyncRequest(request.sourceId) },
+                )
+            }
 
-        Column(modifier = Modifier.padding(innerPadding)) {
+            if (state.isEmpty) {
+                FilesEmptyState(
+                    navigateToConnect = navigateToConnect,
+                    navigateToSourcePick = navigateToSourcePick,
+                    modifier = Modifier.weight(1f),
+                )
+                return@Column
+            }
+
             Column(
                 modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
@@ -380,6 +400,7 @@ private fun FilesScreenPreview() {
             navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
+            navigateToSyncRequest = {},
         )
     }
 }
@@ -394,6 +415,7 @@ private fun FilesScreenEmptyPreview() {
             navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
+            navigateToSyncRequest = {},
         )
     }
 }

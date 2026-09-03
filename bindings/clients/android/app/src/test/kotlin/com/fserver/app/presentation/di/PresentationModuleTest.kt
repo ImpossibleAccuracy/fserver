@@ -42,6 +42,9 @@ class PresentationModuleTest {
                 Destination.Source.Mode::class,
                 Destination.Source.Conditions::class,
                 Destination.Source.Done::class,
+                Destination.SyncRequest.Details::class,
+                Destination.SyncRequest.Location::class,
+                Destination.SyncRequest.Done::class,
                 Destination.TargetDevice::class,
             ),
         )

@@ -224,7 +224,7 @@ internal class PeerSessionImpl<M : Any>(
 
                 frame.ack?.complete(result)
                 if (result.isFailure) {
-                    logger.warn("failed to write ${frame.envelope.kind}", result.exceptionOrNull())
+                    logger.warn("failed to send ${frame.envelope.kind} to ${negotiated.peer.deviceId}", result.exceptionOrNull())
                 }
             } catch (e: Throwable) {
                 frame.ack?.complete(Result.failure(NetworkException.SessionClosed()))

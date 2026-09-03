@@ -99,11 +99,11 @@ class SourceUploadHandler(
         if (syncJob != null) return
 
         syncJob = scope.launch {
-            launch {
+            /*launch {
                 runCatching { sourcesController.runSync() }
                     .exceptionOrNull()
                     ?.let { Timber.w(it, "First pass failed") }
-            }
+            }*/
 
             val files = flow.value.source?.files ?: 0
             editable.update { it.copy(syncing = true, progress = 0f) }

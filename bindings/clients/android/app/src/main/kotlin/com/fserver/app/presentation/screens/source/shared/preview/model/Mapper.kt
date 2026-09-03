@@ -15,7 +15,8 @@ fun List<ScannedFile>.toPreview(
             .map { it.toPreviewFile() },
     )
 
-    SourceKindUi.Folder -> SourcePreviewUi.PlainList(
+    SourceKindUi.Folder,
+    SourceKindUi.AppStorage -> SourcePreviewUi.PlainList(
         files = sortedByDescending { it.lastModified }
             .map { it.toPreviewFile() },
     )

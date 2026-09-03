@@ -29,6 +29,14 @@ class SourcesController internal constructor(
     /** The newest source a peer has asked this device to host, or null when nothing is waiting. */
     val incomingRequest: Flow<IncomingSourceRequest?> get() = sourceSetup.pending
 
+    /**
+     * Every source a peer has asked this device to host, oldest first.
+     *
+     * A screen answering one of them needs the whole list: the ask it was opened for is not
+     * necessarily the newest by the time the user gets to it.
+     */
+    val incomingRequests: Flow<List<IncomingSourceRequest>> get() = sourceSetup.pendingAll
+
     /** Replaces the settings every source runs under. Takes effect on the next pass. */
     suspend fun updatePreferences(preferences: SyncPreferences) {
         storage.preferences.saveSourceRules(preferences)
@@ -72,6 +80,8 @@ class SourcesController internal constructor(
 
         storage.sources.upsert(source)
 
+        Timber.i("Registered new source ${source.id} at $location for $deviceId, asking it to host")
+
         // Best effort: peer may be off network right now, and the source is registered either way
         runCatchingCancellable { sourceSetup.requestRemote(source) }
             .exceptionOrNull()
@@ -96,6 +106,7 @@ class SourcesController internal constructor(
         sourceId: String,
         location: SourceLocation.Hostable = SourceLocation.Internal(bucket = sourceId),
     ): Result<SourceEntry> = runBackgroundJob {
+        Timber.i("Accepting source $sourceId at $location")
         sourceSetup.accept(sourceId, location)
     }.onSuccess {
         syncRunner.runOnceAsync()
@@ -103,6 +114,7 @@ class SourcesController internal constructor(
 
     /** Refuses [sourceId] and tells the peer, so it drops its own half instead of retrying. */
     suspend fun rejectRequest(sourceId: String): Result<Unit> = runBackgroundJob {
+        Timber.i("Rejecting source $sourceId")
         sourceSetup.reject(sourceId)
     }
 

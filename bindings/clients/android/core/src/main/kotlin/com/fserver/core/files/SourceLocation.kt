@@ -60,8 +60,11 @@ sealed interface SourceLocation {
     /**
      * App-private storage, scoped to one [bucket] directory under it.
      * The default place a hosted source lands.
+     *
+     * TODO: drop [Selectable] before production. Being pickable as a source of its own exists
+     *  only so the send flow can be walked without granting any storage access.
      */
-    data class Internal(val bucket: String) : Hostable {
+    data class Internal(val bucket: String) : Hostable, Selectable {
         init {
             require(bucket.isNotBlank()) { "Bucket cannot be blank" }
             require(bucket.none { it == '/' || it == '\\' } && bucket != "." && bucket != "..") {

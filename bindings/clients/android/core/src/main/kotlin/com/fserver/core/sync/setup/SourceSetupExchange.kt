@@ -27,8 +27,11 @@ internal class SourceSetupExchange(
     private val peers: PeerIndexFetcher,
     private val timeProvider: TimeProvider,
 ) {
+    /** Every ask waiting on this device's user, oldest first. */
+    val pendingAll: Flow<List<IncomingSourceRequest>> = storage.sourceRequests.pending()
+
     /** The newest ask waiting on this device's user, or null when nothing is. */
-    val pending: Flow<IncomingSourceRequest?> = storage.sourceRequests.pending()
+    val pending: Flow<IncomingSourceRequest?> = pendingAll
         .map { requests -> requests.maxByOrNull { it.receivedAt } }
 
     /** Asks [source]'s peer to register the other half. Throws if it could not be delivered. */

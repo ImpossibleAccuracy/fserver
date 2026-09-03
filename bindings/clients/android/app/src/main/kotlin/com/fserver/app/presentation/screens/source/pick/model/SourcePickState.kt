@@ -13,5 +13,7 @@ data class SourcePickState(
 ) {
     val primary: List<SourceKindUi> = listOf(SourceKindUi.Media, SourceKindUi.Folder)
 
-    val behindMore: List<SourceKindUi> = listOf(SourceKindUi.WholeDevice)
+    // TODO: drop SourceKindUi.AppStorage before production - it is a development source.
+    val behindMore: List<SourceKindUi> =
+        listOf(SourceKindUi.WholeDevice, SourceKindUi.AppStorage)
 }

@@ -19,7 +19,8 @@ val SourceKindUi.modes: List<SourceModeUi>
     get() = when (this) {
         SourceKindUi.Media -> listOf(SourceModeUi.AutoUpload, SourceModeUi.Offload)
         SourceKindUi.Folder,
-        SourceKindUi.WholeDevice -> listOf(
+        SourceKindUi.WholeDevice,
+        SourceKindUi.AppStorage -> listOf(
             SourceModeUi.Sync,
             SourceModeUi.AutoUpload,
             SourceModeUi.Offload,

@@ -388,6 +388,30 @@
     <string name="diagnostics_recheck">Check again</string>
     <string name="diagnostics_copy_report">Copy report</string>
 
+    <!-- Answering a peer's ask to host one of its sources on this device -->
+    <string name="sync_request_banner_title">Sync request</string>
+    <string name="sync_request_banner_body">%1$s asks to sync \"%2$s\"</string>
+    <string name="sync_request_banner_more">%1$d more waiting</string>
+    <string name="sync_request_title">Sync request</string>
+    <string name="sync_request_heading">%1$s wants to sync with this device</string>
+    <string name="sync_request_body">Accepting registers this device as the other half of that source. Files arrive here; nothing on this phone is sent back unless you set up a source of your own.</string>
+    <string name="sync_request_from">From</string>
+    <string name="sync_request_source">Source</string>
+    <string name="sync_request_mode">Mode</string>
+    <string name="sync_request_note">You choose where the files land on the next screen. Declining tells the device, so it stops asking.</string>
+    <string name="sync_request_gone_title">Nothing to answer</string>
+    <string name="sync_request_gone_body">This request is no longer waiting — it was answered already, or the device withdrew it.</string>
+    <string name="sync_request_location_title">Where to keep it?</string>
+    <string name="sync_request_location_body">One folder per source. Whatever the other device sends is written there and nowhere else.</string>
+    <string name="sync_request_location_internal_title">App storage</string>
+    <string name="sync_request_location_internal_subtitle">Private to the app, needs no permission, and goes with an uninstall.</string>
+    <string name="sync_request_location_folder_title">Folder on this device</string>
+    <string name="sync_request_location_folder_subtitle">Pick a folder you can reach from any other app.</string>
+    <string name="sync_request_location_note">Accepting tells the other device it can start sending. It can be undone later by removing the source.</string>
+    <string name="sync_request_done_title">Sync is on</string>
+    <string name="sync_request_done_body">This device now holds the other half of %1$s\'s source.</string>
+    <string name="sync_request_done_saved_to">Saved to</string>
+
     <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
     <string name="source_pick_title">What to connect?</string>
     <string name="source_pick_body">Choose what the app will see on this phone. You can add another source later.</string>
@@ -398,6 +422,9 @@
     <string name="source_folder_subtitle">One folder and everything inside it</string>
     <string name="source_device_title">Whole device</string>
     <string name="source_device_subtitle">Full access to all files. Usually not needed.</string>
+    <!-- TODO: remove before production, along with the AppStorage source branch -->
+    <string name="source_appstorage_title">App storage (dev)</string>
+    <string name="source_appstorage_subtitle">The app\'s own private folder. Development only.</string>
 
     <!-- Send flow: the access step each branch explains for itself -->
     <string name="source_access_photos_illustration">illustration: gallery and an access frame</string>
@@ -416,6 +443,10 @@
     <string name="source_access_device_body">The app will see everything on the device, including other apps\' files. Usually that is not needed: photos are covered by the photos branch, documents by a single folder.</string>
     <string name="source_access_device_note">The permission is granted by hand in Android system settings and stays until you revoke it there.</string>
     <string name="source_access_device_action">Continue anyway</string>
+    <string name="source_access_appstorage_heading">The app\'s own storage</string>
+    <string name="source_access_appstorage_body">Reads the folder the app keeps its own files in. No Android permission is involved, so this branch works on a device where nothing was ever granted.</string>
+    <string name="source_access_appstorage_note">Development source: it reads sources/debug inside the app\'s private storage and nothing else.</string>
+    <string name="source_access_appstorage_action">Scan app storage</string>
 
     <!-- Send flow: what each branch says when access did not happen -->
     <string name="source_error_photos_title">Photo access is required to continue</string>
@@ -424,6 +455,8 @@
     <string name="source_error_folder_body">You closed the system dialog without confirming a folder. Without one there is nothing to configure.</string>
     <string name="source_error_device_title">Access not granted</string>
     <string name="source_error_device_body">The "All files access" toggle stayed off. It lives in the app\'s section of the system settings.</string>
+    <string name="source_error_appstorage_title">Nothing was read</string>
+    <string name="source_error_appstorage_body">The app\'s private folder could not be walked.</string>
     <string name="source_error_open_settings">Open settings again</string>
     <string name="source_error_back_to_sources">Back to source choice</string>
 
@@ -444,6 +477,7 @@
     <string name="source_mode_photos_title">What to do with photos?</string>
     <string name="source_mode_folder_title">What to do with the folder?</string>
     <string name="source_mode_device_title">What to do?</string>
+    <string name="source_mode_appstorage_title">What to do with app storage?</string>
     <string name="source_mode_hint">One mode per source. It can be changed in settings.</string>
     <plurals name="source_mode_partial_title">
         <item quantity="one">Access granted to %1$d item</item>

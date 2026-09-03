@@ -48,11 +48,24 @@ sealed interface SourceAccessGrant {
             get() = SourceAccessUi.Full
     }
 
+    /**
+     * The app's own private storage. Nothing is asked of Android for it.
+     *
+     * TODO: remove before production, along with [SourceKindUi.AppStorage].
+     */
+    data object Internal : SourceAccessGrant {
+        override val accessType: SourceAccessUi
+            get() = SourceAccessUi.Full
+    }
+
     data object Denied : SourceAccessGrant {
         override val accessType: SourceAccessUi
             get() = SourceAccessUi.Full
     }
 }
+
+/** The one bucket the development source reads. TODO: remove before production. */
+const val DevSourceBucket: String = "debug"
 
 /** Raises the system dialog a branch needs and reports what came back. */
 @Composable
@@ -124,6 +137,7 @@ class SourceAccessRequester internal constructor(
             SourceKindUi.Media -> requestMedia()
             SourceKindUi.Folder -> requestTree()
             SourceKindUi.WholeDevice -> requestWholeDevice()
+            SourceKindUi.AppStorage -> onGrant(SourceAccessGrant.Internal)
         }
     }
 

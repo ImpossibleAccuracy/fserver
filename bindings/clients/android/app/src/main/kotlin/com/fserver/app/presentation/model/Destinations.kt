@@ -86,6 +86,29 @@ sealed interface Destination : NavKey {
         data object Done : Destination
     }
 
+    /**
+     * Answering a peer's ask to host one of its sources here - the receiving half of [Source].
+     *
+     * Every key carries the source id rather than the request itself: the ask lives in the engine
+     * until it is answered, so each screen re-reads it and the flow survives process death without
+     * a shared ViewModel behind it.
+     */
+    @Serializable
+    data object SyncRequest {
+
+        /** Who asked, for what, and under which mode. */
+        @Serializable
+        data class Details(val sourceId: String) : Destination
+
+        /** Where the files this device takes on will be written. */
+        @Serializable
+        data class Location(val sourceId: String) : Destination
+
+        /** Accepted, and what that turned on. */
+        @Serializable
+        data class Done(val sourceId: String) : Destination
+    }
+
     @Serializable
     data object Transfers : Destination
 

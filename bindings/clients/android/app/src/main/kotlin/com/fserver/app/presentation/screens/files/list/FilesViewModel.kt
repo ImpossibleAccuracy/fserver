@@ -1,12 +1,18 @@
 package com.fserver.app.presentation.screens.files.list
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
+import com.fserver.app.presentation.screens.request.shared.model.toUi
+import com.fserver.core.storage.TrustedDevicesRepository
+import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * The server's tree, in whichever of the three shapes the user picked.
@@ -17,6 +23,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class FilesViewModel(
     private val content: DemoContentSource,
+    private val sourcesController: SourcesController,
+    private val trustedDevices: TrustedDevicesRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -29,7 +37,21 @@ class FilesViewModel(
             itemCount = content.itemCount(),
         )
     )
-    val state: StateFlow<FilesState> = _state.asStateFlow()
+
+    val state: StateFlow<FilesState> = combine(
+        _state,
+        sourcesController.incomingRequests,
+        trustedDevices.devices,
+    ) { base, requests, devices ->
+        base.copy(
+            syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(devices),
+            syncRequestsWaiting = requests.size,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = _state.value,
+    )
 
     fun onIntent(intent: FilesIntent) {
         when (intent) {

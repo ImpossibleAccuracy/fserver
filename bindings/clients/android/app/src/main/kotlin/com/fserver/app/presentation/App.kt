@@ -38,6 +38,9 @@ import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
+import com.fserver.app.presentation.screens.request.details.syncRequestDetailsEntry
+import com.fserver.app.presentation.screens.request.done.syncRequestDoneEntry
+import com.fserver.app.presentation.screens.request.location.syncRequestLocationEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
 import com.fserver.app.presentation.screens.source.access.sourceAccessEntry
 import com.fserver.app.presentation.screens.source.conditions.sourceConditionsEntry
@@ -214,6 +217,10 @@ private fun NavHostGraph(navigator: AppNavigator) {
             sourceConditionsEntry(navigator)
             sourceUploadEntry(navigator)
             sourceDoneEntry(navigator)
+
+            syncRequestDetailsEntry(navigator)
+            syncRequestLocationEntry(navigator)
+            syncRequestDoneEntry(navigator)
         },
     )
 }

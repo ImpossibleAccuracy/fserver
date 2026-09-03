@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.files.list.model
 import com.fserver.app.presentation.composable.model.FileUi
 import com.fserver.app.presentation.composable.model.FilesViewModeUi
 import com.fserver.app.presentation.composable.model.TreeNodeUi
+import com.fserver.app.presentation.screens.request.shared.model.SyncRequestUi
 
 data class FilesState(
     val serverName: String = "",
@@ -12,6 +13,8 @@ data class FilesState(
     val tree: List<TreeNodeUi> = emptyList(),
     val itemCount: Int = 0,
     val viewMode: FilesViewModeUi = FilesViewModeUi.List,
+    val syncRequest: SyncRequestUi? = null,
+    val syncRequestsWaiting: Int = 0,
 ) {
     /**
      * Nothing is connected and nothing is shared, so there is no tree to show in any of the

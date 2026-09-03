@@ -20,27 +20,26 @@ import kotlinx.coroutines.sync.withLock
 internal class FileIndexStoreImpl : FileIndexStore {
     private val writeLock = Mutex()
 
-    /** Source id -> that source's processed records, keyed by [IndexedFile.id]. */
-    private val processed = MutableStateFlow<Map<String, Map<String, IndexedFile>>>(emptyMap())
+    private val processed = MutableStateFlow<List<IndexedFile>>(emptyList())
 
     override suspend fun findFile(key: IndexedFileKey): IndexedFile? {
-        return processed.value[key.sourceId]?.get(key.fileId)
+        return processed.value.find { it.fileId == key.fileId && it.sourceId == key.sourceId }
     }
 
     override suspend fun processedFiles(sourceId: String): List<IndexedFile> =
-        processed.value[sourceId].orEmpty().values.toList()
+        processed.value.filter { it.sourceId == sourceId }
 
     override suspend fun markProcessed(
         indexed: Collection<IndexedFile>,
     ) {
         processed.update { current ->
-            indexed
-                .groupBy { it.sourceId }
-                .entries
-                .fold(current) { acc, (sourceId, batch) ->
-                    val updated = acc[sourceId].orEmpty().plus(batch.associateBy { it.id })
-                    acc + (sourceId to updated)
-                }
+            val byId =
+                current.associateByTo(mutableMapOf()) { IndexedFileKey(it.fileId, it.sourceId) }
+            indexed.forEach { file ->
+                val key = IndexedFileKey(file.fileId, file.sourceId)
+                byId[key] = file
+            }
+            byId.values.toList()
         }
     }
 
@@ -49,13 +48,11 @@ internal class FileIndexStoreImpl : FileIndexStore {
         hash: ContentHash
     ) {
         processed.update { current ->
-            current.mapValues { (_, files) ->
-                files.mapValues { (_, file) ->
-                    if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
-                        file.copy(hash = hash)
-                    } else {
-                        file
-                    }
+            current.map { file ->
+                if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
+                    file.copy(hash = hash)
+                } else {
+                    file
                 }
             }
         }
@@ -66,13 +63,11 @@ internal class FileIndexStoreImpl : FileIndexStore {
         state: IndexedFile.State
     ) {
         processed.update { current ->
-            current.mapValues { (_, files) ->
-                files.mapValues { (_, file) ->
-                    if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
-                        file.copy(state = state)
-                    } else {
-                        file
-                    }
+            current.map { file ->
+                if (file.fileId == key.fileId && file.sourceId == key.sourceId) {
+                    file.copy(state = state)
+                } else {
+                    file
                 }
             }
         }
@@ -83,26 +78,23 @@ internal class FileIndexStoreImpl : FileIndexStore {
         state: IndexedFile.State
     ) {
         processed.update { current ->
-            current.mapValues { (_, files) ->
-                files.mapValues { (_, file) ->
-                    val matching =
-                        keys.any { it.fileId == file.fileId && it.sourceId == file.sourceId }
-
-                    if (matching) {
-                        file.copy(state = state)
-                    } else {
-                        file
-                    }
+            current.map { file ->
+                if (keys.any { it.fileId == file.fileId && it.sourceId == file.sourceId }) {
+                    file.copy(state = state)
+                } else {
+                    file
                 }
             }
         }
     }
 
     override suspend fun clearProcessed(sourceId: String) = writeLock.withLock {
-        processed.update { current -> current - sourceId }
+        processed.update { current ->
+            current.filterNot { it.sourceId == sourceId }
+        }
     }
 
     /** For the progress line a screen shows. Not on the SPI - the engine never asks for a count. */
     fun observeProcessedCount(sourceId: String): Flow<Int> =
-        processed.map { current -> current[sourceId].orEmpty().size }
+        processed.map { current -> current.count { it.sourceId == sourceId } }
 }

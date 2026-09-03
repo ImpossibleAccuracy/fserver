@@ -1,0 +1,210 @@
+package com.fserver.app.presentation.screens.request.location
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fserver.app.R
+import com.fserver.app.presentation.composable.LocalSnackbarController
+import com.fserver.app.presentation.designkit.DkActionBar
+import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.designkit.DkInfoBox
+import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
+import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.screens.request.location.model.SyncRequestLocationIntent
+import com.fserver.app.presentation.screens.request.location.model.SyncRequestLocationState
+import com.fserver.app.presentation.screens.request.location.model.SyncRequestLocationUiEffect
+import com.fserver.app.presentation.screens.request.shared.model.SyncRequestUi
+import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
+import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.theme.FServerTheme
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
+import timber.log.Timber
+
+@Composable
+fun SyncRequestLocationScreen(
+    modifier: Modifier = Modifier,
+    key: Destination.SyncRequest.Location,
+    viewModel: SyncRequestLocationViewModel = koinViewModel { parametersOf(key) },
+    navigateToDone: () -> Unit,
+    navigateUp: () -> Unit,
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbar = LocalSnackbarController.current
+
+    val folderLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        val picked = uri?.let { context.persistHostTree(it) }
+        if (picked != null) viewModel.onIntent(picked)
+    }
+
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                SyncRequestLocationUiEffect.NavigateToDone -> navigateToDone()
+                is SyncRequestLocationUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
+            }
+        }
+    }
+
+    SyncRequestLocationContent(
+        modifier = modifier,
+        state = state,
+        onIntent = viewModel::onIntent,
+        onPickFolder = { folderLauncher.launch(null) },
+        navigateUp = navigateUp,
+    )
+}
+
+@Composable
+private fun SyncRequestLocationContent(
+    modifier: Modifier = Modifier,
+    state: SyncRequestLocationState,
+    onIntent: (SyncRequestLocationIntent) -> Unit,
+    onPickFolder: () -> Unit,
+    navigateUp: () -> Unit,
+) {
+    DkScaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            DkTopBar(
+                title = stringResource(R.string.sync_request_location_title),
+                subtitle = state.request?.label,
+                onBack = navigateUp,
+            )
+        },
+        bottomBar = {
+            DkActionBar {
+                if (state.isGone) {
+                    DkPrimaryButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = stringResource(R.string.action_back),
+                        onClick = navigateUp,
+                    )
+                    return@DkActionBar
+                }
+
+                DkPrimaryButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.action_accept),
+                    onClick = { onIntent(SyncRequestLocationIntent.Accepted) },
+                    enabled = state.canAccept,
+                )
+                DkGhostButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.action_back),
+                    onClick = navigateUp,
+                    enabled = !state.isAccepting,
+                )
+            }
+        },
+    ) { innerPadding ->
+        if (state.isGone) {
+            SourceAccessFailure(
+                modifier = Modifier.padding(innerPadding),
+                title = stringResource(R.string.sync_request_gone_title),
+                body = stringResource(R.string.sync_request_gone_body),
+            )
+            return@DkScaffold
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = DkSpacing.screenPadding)
+                .padding(bottom = DkSpacing.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
+        ) {
+            Text(
+                text = stringResource(R.string.sync_request_location_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            SourceChoiceRow(
+                title = stringResource(R.string.sync_request_location_internal_title),
+                description = stringResource(R.string.sync_request_location_internal_subtitle),
+                selected = !state.isFolderSelected,
+                recommended = true,
+                onSelect = { onIntent(SyncRequestLocationIntent.AppStorageSelected) },
+            )
+
+            SourceChoiceRow(
+                title = stringResource(R.string.sync_request_location_folder_title),
+                description = state.folder?.label
+                    ?: stringResource(R.string.sync_request_location_folder_subtitle),
+                selected = state.isFolderSelected,
+                onSelect = onPickFolder,
+            )
+
+            DkInfoBox(text = stringResource(R.string.sync_request_location_note))
+        }
+    }
+}
+
+private fun Context.persistHostTree(uri: Uri): SyncRequestLocationIntent.FolderPicked? {
+    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+    runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
+        .onFailure {
+            Timber.w(it, "Could not take a write grant on %s", uri)
+            return null
+        }
+
+    val label = runCatching { DocumentsContract.getTreeDocumentId(uri) }
+        .getOrNull()
+        ?.substringAfter(':')
+        ?.takeIf { it.isNotEmpty() }
+        ?: uri.lastPathSegment.orEmpty()
+
+    return SyncRequestLocationIntent.FolderPicked(uri = uri.toString(), label = "/$label")
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun SyncRequestLocationPreview() {
+    FServerTheme {
+        SyncRequestLocationContent(
+            state = SyncRequestLocationState(
+                request = SyncRequestUi(
+                    sourceId = "3f2a",
+                    deviceName = "MacBook-Pro",
+                    label = "DCIM/Projects",
+                    mode = SourceModeUi.Sync,
+                ),
+                isLoaded = true,
+            ),
+            onIntent = {},
+            onPickFolder = {},
+            navigateUp = {},
+        )
+    }
+}
