@@ -7,7 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.fserver.core.storage.SyncPreferencesRepository
 import com.fserver.core.store.sync.SyncStore
-import com.fserver.core.sync.SyncPreferences
+import com.fserver.core.sync.model.SyncPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map

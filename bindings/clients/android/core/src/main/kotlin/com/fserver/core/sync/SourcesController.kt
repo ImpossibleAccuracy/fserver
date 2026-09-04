@@ -5,6 +5,11 @@ import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.model.SyncPreferences
+import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.SyncProgressRepository
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import com.fserver.core.sync.setup.SourceSetupExchange
@@ -25,22 +30,13 @@ class SourcesController internal constructor(
     private val syncRunner: SyncRunner,
     private val sourceSetup: SourceSetupExchange,
     private val timeProvider: TimeProvider,
+    private val sessionProgressReporter: SyncProgressReporter,
 ) {
-    /** The newest source a peer has asked this device to host, or null when nothing is waiting. */
-    val incomingRequest: Flow<IncomingSourceRequest?> get() = sourceSetup.pending
+    /** Every source a peer has asked this device to host, oldest first. */
+    val incomingRequests: Flow<List<IncomingSourceRequest>> get() = sourceSetup.pending
 
-    /**
-     * Every source a peer has asked this device to host, oldest first.
-     *
-     * A screen answering one of them needs the whole list: the ask it was opened for is not
-     * necessarily the newest by the time the user gets to it.
-     */
-    val incomingRequests: Flow<List<IncomingSourceRequest>> get() = sourceSetup.pendingAll
-
-    /** Replaces the settings every source runs under. Takes effect on the next pass. */
-    suspend fun updatePreferences(preferences: SyncPreferences) {
-        storage.preferences.saveSourceRules(preferences)
-    }
+    /** Currently running operations, and their progress. */
+    val progress: SyncProgressRepository = sessionProgressReporter
 
     /** Run a single sync pass over all registered sources. */
     suspend fun runSync() = syncRunner.runOnce()
@@ -88,6 +84,11 @@ class SourcesController internal constructor(
             ?.let { Timber.w(it, "Could not ask $deviceId to host source ${source.id}") }
 
         source
+    }
+
+    /** Replaces the settings every source runs under. Takes effect on the next pass. */
+    suspend fun updatePreferences(preferences: SyncPreferences) {
+        storage.preferences.saveSourceRules(preferences)
     }
 
     /**

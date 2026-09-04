@@ -1,6 +1,6 @@
 package com.fserver.core.store.sync
 
-import com.fserver.core.sync.SyncPreferences
+import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.store.FServerStorageApi
 
 /** The sync settings shared by every source - see [SyncPreferences]. */

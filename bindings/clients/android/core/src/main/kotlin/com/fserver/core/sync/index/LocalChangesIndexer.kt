@@ -6,7 +6,7 @@ import com.fserver.common.utils.SourcePaths
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FoundFile

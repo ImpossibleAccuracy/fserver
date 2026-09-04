@@ -2,9 +2,9 @@ package com.fserver.core.store.sync
 
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.store.FServerStorageApi
-import com.fserver.core.sync.SourceEntry
-import com.fserver.core.sync.SourceTombstone
-import com.fserver.core.sync.SyncMode
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SourceTombstone
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.index.IndexedFile
 
 /**

@@ -5,8 +5,8 @@ import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
-import com.fserver.core.sync.SyncPreferences
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.index.IndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer

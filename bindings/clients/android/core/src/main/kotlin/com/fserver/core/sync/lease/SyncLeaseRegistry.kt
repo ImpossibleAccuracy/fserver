@@ -1,6 +1,8 @@
 package com.fserver.core.sync.lease
 
 import com.fserver.common.utils.IdGenerator
+import com.fserver.core.sync.progress.SourcePass
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,6 +22,7 @@ import kotlin.time.Instant
  */
 internal class SyncLeaseRegistry(
     private val timeProvider: TimeProvider,
+    private val progress: SyncProgressReporter,
 ) {
     private val lock = Mutex()
 
@@ -96,11 +99,17 @@ internal class SyncLeaseRegistry(
         }
 
         if (granted) {
+            val held = leases[sourceId] as? Lease.Remote
+
             leases[sourceId] = Lease.Remote(
                 peerDeviceId = peerDeviceId,
                 leaseId = leaseId,
                 expiresAt = timeProvider.now() + LeaseTtl,
             )
+
+            if (held?.peerDeviceId != peerDeviceId) {
+                progress.remotePassStarted(sourceId, peerDeviceId)
+            }
         }
 
         granted
@@ -116,6 +125,7 @@ internal class SyncLeaseRegistry(
                 current.leaseId == leaseId
             ) {
                 leases.remove(sourceId)
+                progress.remotePassFinished(sourceId, SourcePass.Remote.Stage.Finished)
             }
 
             Unit
@@ -123,11 +133,14 @@ internal class SyncLeaseRegistry(
 
     /** Drops everything [peerDeviceId] holds. Called when its session ends, however it ended. */
     suspend fun releaseAllFrom(peerDeviceId: String) = lock.withLock {
-        leases.entries.removeAll { (_, lease) ->
-            lease is Lease.Remote && lease.peerDeviceId == peerDeviceId
-        }
+        val dropped = leases.entries
+            .filter { (_, lease) -> lease is Lease.Remote && lease.peerDeviceId == peerDeviceId }
+            .map { it.key }
 
-        Unit
+        dropped.forEach { sourceId ->
+            leases.remove(sourceId)
+            progress.remotePassFinished(sourceId, SourcePass.Remote.Stage.Abandoned)
+        }
     }
 
     /** The holder of [sourceId], treating an expired peer lease as no holder at all. */
@@ -137,6 +150,7 @@ internal class SyncLeaseRegistry(
         // Backstop for a peer that died without its session reporting it.
         if (lease is Lease.Remote && timeProvider.now() >= lease.expiresAt) {
             leases.remove(sourceId)
+            progress.remotePassFinished(sourceId, SourcePass.Remote.Stage.Abandoned)
             return null
         }
 

@@ -1,6 +1,6 @@
 package com.fserver.core.sync.setup
 
-import com.fserver.core.sync.SyncMode
+import com.fserver.core.sync.model.SyncMode
 import kotlin.time.Instant
 
 /**

@@ -3,12 +3,14 @@ package com.fserver.core.sync.runner
 import com.fserver.common.exception.SyncException
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
+import com.fserver.core.sync.lease.SyncLeaseNegotiator
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.SourcePass
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.remote.PeerIndexFetcher
-import com.fserver.core.sync.remote.SyncLeaseNegotiator
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
@@ -32,6 +34,7 @@ internal class SyncRunner(
     private val actionRunner: FileActionRunner,
     private val constraintChecker: DeviceConstraintChecker,
     private val leaseNegotiator: SyncLeaseNegotiator,
+    private val progress: SyncProgressReporter,
     private val backgroundScope: BackgroundScope,
 ) {
     private val mutex = Mutex()
@@ -94,7 +97,18 @@ internal class SyncRunner(
             return
         }
 
-        leaseNegotiator.runWithLease(source) { syncSource(source) }
+        leaseNegotiator.runWithLease(source) {
+            progress.localPassStarted(source.id)
+
+            try {
+                syncSource(source)
+            } catch (e: Exception) {
+                progress.localPassFinished(source.id, e)
+                throw e
+            }
+
+            progress.localPassFinished(source.id, null)
+        }
     }
 
     /**
@@ -109,10 +123,13 @@ internal class SyncRunner(
         val handled = mutableSetOf<FileId>()
 
         // Disk is scanned once: hashing writes to the index only, so later rounds re-read it.
+        progress.localPassStage(source.id, SourcePass.Local.Stage.Scanning)
         var local = localIndexer.refresh(source)
         var round = 0
 
         while (true) {
+            progress.localPassStage(source.id, SourcePass.Local.Stage.Planning)
+
             val snapshot = FilesSnapshot(
                 local = local.map { it.toFileRecord() },
                 remote = remoteFetcher.fetchIndex(source),
@@ -127,19 +144,24 @@ internal class SyncRunner(
             val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()
                 .mapTo(mutableSetOf(), FileAction.ComputeHash::id)
 
-            for (action in decisions.actions) {
-                if (action !is FileAction.ComputeHash) {
-                    // Planned from unknown content - re-plan it once the hash lands.
-                    if (action.id in unhashed) continue
+            val runnable = decisions.actions.filter { action ->
+                if (action is FileAction.ComputeHash) return@filter true
 
-                    // One action per file per pass: a later round re-plans from an index the
-                    // transfer has not written back yet, and would hand out the same action twice.
-                    if (!handled.add(action.id)) continue
-                }
+                // Planned from unknown content - re-plan it once the hash lands.
+                if (action.id in unhashed) return@filter false
 
-                actionRunner.execute(source, action)
-                    .exceptionOrNull()
-                    ?.let(errors::add)
+                // One action per file per pass: a later round re-plans from an index the
+                // transfer has not written back yet, and would hand out the same action twice.
+                handled.add(action.id)
+            }
+
+            progress.localPassPlanned(source.id, runnable)
+
+            for (action in runnable) {
+                val failure = actionRunner.execute(source, action).exceptionOrNull()
+
+                progress.localPassAdvanced(source.id, action, failure)
+                failure?.let(errors::add)
             }
 
             if (unhashed.isEmpty()) break

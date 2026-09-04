@@ -1,7 +1,7 @@
 package com.fserver.core.sync.server
 
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.net.security.identity.PeerIdentity
 import timber.log.Timber
 

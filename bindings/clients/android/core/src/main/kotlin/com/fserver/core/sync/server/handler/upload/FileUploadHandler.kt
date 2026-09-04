@@ -8,9 +8,10 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.util.TimeProvider
@@ -31,6 +32,7 @@ internal class FileUploadHandler(
     private val storage: FServerStorage,
     private val node: FilesNode,
     private val timeProvider: TimeProvider,
+    private val progress: SyncProgressReporter,
 ) {
     suspend fun handle(
         session: PeerSession<FileServerMessages>,
@@ -47,11 +49,18 @@ internal class FileUploadHandler(
                 // Nothing else clears an upload whose sender stopped mid-stream.
                 context.pruneStaleUploads(now)
 
-                context.start(
-                    key = IndexedFileKey(fileId = operation.file.id, sourceId = source.id),
+                val upload = context.start(
+                    source = source,
                     file = operation.file.toFileRecord(),
                     fs = node.openSource(source.location.toFiles()),
                     startedAt = now,
+                    progress = progress,
+                )
+
+                progress.transferStarted(
+                    key = upload.transferKey,
+                    path = operation.file.path,
+                    totalBytes = operation.file.metadata.size
                 )
 
                 Timber.i("Upload started for ${operation.file.id} from source ${source.id} by peer ${session.identity.deviceId}")
@@ -75,19 +84,13 @@ internal class FileUploadHandler(
         }
     }
 
-    suspend fun queueChunk(
-        session: PeerSession<FileServerMessages>,
+    fun queueChunk(
         message: FileServerMessages.UploadChunk,
         context: SessionContext,
     ) {
         val timer = context.collector
 
-        // Once per chunk, and it reaches the store: a slow one throttles the whole session.
-        val source = timer.time("authorize") {
-            authorizer.authorizedSource(session.identity, message.sourceId)
-        }
-
-        val key = IndexedFileKey(fileId = message.fileId, sourceId = source.id)
+        val key = IndexedFileKey(fileId = message.fileId, sourceId = message.sourceId)
         val upload = context.uploads[key]
             ?: throw TransferException.UploadNotFoundException(message.fileId)
 
@@ -147,6 +150,8 @@ internal class FileUploadHandler(
             )
 
         timer.time("index-write") { storage.index.markProcessed(listOf(indexed)) }
+
+        progress.transferCompleted(upload.transferKey)
 
         Timber.i(timer.summary())
     }

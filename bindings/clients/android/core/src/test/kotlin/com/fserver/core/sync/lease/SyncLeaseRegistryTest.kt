@@ -1,5 +1,6 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
@@ -15,7 +16,7 @@ import kotlin.time.Instant
 class SyncLeaseRegistryTest {
 
     private val clock = FakeTimeProvider()
-    private val registry = SyncLeaseRegistry(clock)
+    private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
 
     @Test
     fun `a peer holding the source blocks a local pass`() = runBlocking {
@@ -34,8 +35,8 @@ class SyncLeaseRegistryTest {
 
     @Test
     fun `both asking at once - the lower device id wins`() = runBlocking {
-        val lower = SyncLeaseRegistry(clock)
-        val higher = SyncLeaseRegistry(clock)
+        val lower = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
+        val higher = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
 
         val lowerLease = checkNotNull(lower.beginAcquire(Source))
         val higherLease = checkNotNull(higher.beginAcquire(Source))

@@ -1,6 +1,6 @@
 package com.fserver.core.network.dictionary.dto
 
-import com.fserver.core.sync.SyncMode
+import com.fserver.core.sync.model.SyncMode
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 

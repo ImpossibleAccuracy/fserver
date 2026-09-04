@@ -1,4 +1,4 @@
-package com.fserver.core.sync
+package com.fserver.core.sync.model
 
 import com.fserver.core.files.SourceLocation
 import kotlin.time.Instant
@@ -7,7 +7,7 @@ import kotlin.time.Instant
  * One registered directory plus the [SyncMode] it runs under - the pair the engine works from.
  *
  * Constructor is public because a storage backend has to rebuild one from its own columns. Hosts
- * still register through [SourcesController.addSource], which is what assigns [id].
+ * still register through [com.fserver.core.sync.SourcesController.addSource], which is what assigns [id].
  */
 data class SourceEntry(
     val id: String,

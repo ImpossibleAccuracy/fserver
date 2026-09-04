@@ -1,9 +1,9 @@
-package com.fserver.core.sync.remote
+package com.fserver.core.sync.lease
 
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
-import com.fserver.core.sync.lease.SyncLeaseRegistry
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable

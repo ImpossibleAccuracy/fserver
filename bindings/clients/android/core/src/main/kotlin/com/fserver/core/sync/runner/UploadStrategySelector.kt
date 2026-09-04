@@ -1,7 +1,7 @@
 package com.fserver.core.sync.runner
 
-import com.fserver.core.sync.SourceEntry
-import com.fserver.core.sync.SyncMode
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.files.upload.FilesSnapshot
 import com.fserver.files.upload.UploadDecisions
 import com.fserver.files.upload.UploadStrategy

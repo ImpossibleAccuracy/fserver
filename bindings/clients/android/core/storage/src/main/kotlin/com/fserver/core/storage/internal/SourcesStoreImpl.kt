@@ -2,10 +2,10 @@ package com.fserver.core.storage.internal
 
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.store.sync.SourcesStore
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.files.SourceLocation
-import com.fserver.core.sync.SourceTombstone
-import com.fserver.core.sync.SyncMode
+import com.fserver.core.sync.model.SourceTombstone
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

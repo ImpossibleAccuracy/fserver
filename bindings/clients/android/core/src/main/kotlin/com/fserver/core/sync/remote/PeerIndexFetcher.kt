@@ -6,7 +6,7 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
 

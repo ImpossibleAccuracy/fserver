@@ -6,12 +6,11 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.util.TimeProvider
 import com.fserver.net.security.identity.PeerIdentity
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import timber.log.Timber
 
 /**
@@ -28,11 +27,7 @@ internal class SourceSetupExchange(
     private val timeProvider: TimeProvider,
 ) {
     /** Every ask waiting on this device's user, oldest first. */
-    val pendingAll: Flow<List<IncomingSourceRequest>> = storage.sourceRequests.pending()
-
-    /** The newest ask waiting on this device's user, or null when nothing is. */
-    val pending: Flow<IncomingSourceRequest?> = pendingAll
-        .map { requests -> requests.maxByOrNull { it.receivedAt } }
+    val pending: Flow<List<IncomingSourceRequest>> = storage.sourceRequests.pending()
 
     /** Asks [source]'s peer to register the other half. Throws if it could not be delivered. */
     suspend fun requestRemote(source: SourceEntry) {
@@ -102,7 +97,7 @@ internal class SourceSetupExchange(
      *
      * The peer's id is reused as-is: both devices address the source by it, and the files arriving
      * under [location] are laid out by the peer's canonical paths, so the id is also what keeps
-     * two hosted sources from writing over each other. Its [com.fserver.core.sync.SyncMode] is
+     * two hosted sources from writing over each other. Its [com.fserver.core.sync.model.SyncMode] is
      * carried over unchanged - the mode describes the source, not one end of it, and
      * [SourceEntry.Role.Follower] is what says which end this device is.
      */

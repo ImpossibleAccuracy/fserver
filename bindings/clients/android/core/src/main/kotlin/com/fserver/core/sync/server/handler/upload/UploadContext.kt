@@ -4,6 +4,9 @@ import com.fserver.common.utils.StageTimer
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.progress.FileTransferKey
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.upload.FileRecord
@@ -27,11 +30,16 @@ import kotlin.time.Instant
 internal class UploadContext(
     val file: FileRecord,
     val startedAt: Instant,
+    key: IndexedFileKey,
     private val fs: FileSystem,
     private val buffered: AtomicInteger,
+    private val progress: SyncProgressReporter,
     scope: CoroutineScope,
 ) {
     val hasher = FileHasher()
+
+    /** Incoming whoever asked: a peer pushing to us, or a download this device requested. */
+    val transferKey: FileTransferKey = SyncProgressReporter.incoming(key.sourceId, key.fileId)
 
     /**
      * Where the receiving side's time goes: waiting for chunks, the disk, or hashing. A dominant
@@ -101,6 +109,7 @@ internal class UploadContext(
     suspend fun abandon() {
         writer.cancelAndJoin()
         release()
+        progress.transferFailed(transferKey, failure)
 
         val written = locator ?: return
 
@@ -150,6 +159,7 @@ internal class UploadContext(
 
                 offset += next.bytes.size
                 give(next.bytes.size)
+                progress.transferAdvanced(transferKey, offset)
 
                 timer.count("bytes", next.bytes.size.toLong())
                 timer.count("chunks")

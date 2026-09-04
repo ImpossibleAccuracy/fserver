@@ -1,4 +1,4 @@
-package com.fserver.core.sync
+package com.fserver.core.sync.model
 
 import kotlin.time.Instant
 

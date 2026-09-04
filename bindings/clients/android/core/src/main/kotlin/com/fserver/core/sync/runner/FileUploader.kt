@@ -9,8 +9,10 @@ import com.fserver.core.network.dictionary.codec.UploadChunkCodec
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.SourceEntry
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
@@ -25,11 +27,33 @@ import java.io.InputStream
 internal class FileUploader(
     private val storage: FServerStorage,
     private val node: FilesNode,
+    private val progress: SyncProgressReporter,
 ) {
+    /**
+     * Reported as one transfer whichever way it was asked for: a pass pushing the file, or a peer
+     * asking us to hand it back. Both are this device sending bytes.
+     */
     suspend fun uploadFile(
         file: FileRecord,
         source: SourceEntry,
         session: PeerSession<FileServerMessages>,
+    ) {
+        val key = SyncProgressReporter.outgoing(source, file.id.value)
+
+        try {
+            stream(file, source, session, key)
+            progress.transferCompleted(key)
+        } catch (e: Throwable) {
+            progress.transferFailed(key, e)
+            throw e
+        }
+    }
+
+    private suspend fun stream(
+        file: FileRecord,
+        source: SourceEntry,
+        session: PeerSession<FileServerMessages>,
+        key: FileTransferKey,
     ) {
         val locator = file.locator
             ?: error("Cannot upload file ${file.id} because it has no locator")
@@ -47,6 +71,8 @@ internal class FileUploader(
                 )
             )
         }
+
+        progress.transferStarted(key, file.path, file.metadata.size)
 
         val chunkSize = chunkSize(session, source.id, file.id.value)
         val hasher = if (file.content == null) FileHasher() else null
@@ -80,6 +106,8 @@ internal class FileUploader(
                 }
 
                 offset += bytesRead
+                progress.transferAdvanced(key, offset)
+
                 timer.count("bytes", bytesRead.toLong())
                 timer.count("chunks")
             }

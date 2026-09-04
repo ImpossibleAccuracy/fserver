@@ -1,6 +1,6 @@
 package com.fserver.core.storage
 
-import com.fserver.core.sync.SyncPreferences
+import com.fserver.core.sync.model.SyncPreferences
 import kotlinx.coroutines.flow.Flow
 
 /**

@@ -6,7 +6,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
-import com.fserver.core.sync.SyncPreferences
+import com.fserver.core.sync.model.SyncPreferences
 import kotlinx.coroutines.flow.first
 
 

@@ -214,7 +214,7 @@ internal class PeerRequestServer(
                 sourceSetup.onDecision(session.identity, message)
 
             is FileServerMessages.UploadChunk ->
-                uploads.queueChunk(session, message, context)
+                uploads.queueChunk(message, context)
 
             is FileServerMessages.OperationWithConfirmation.Request -> {
                 val result = runCatchingCancellable {
