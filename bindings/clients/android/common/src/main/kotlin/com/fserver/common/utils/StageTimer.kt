@@ -14,6 +14,8 @@ class StageTimer(private val label: String) {
     private val started = System.nanoTime()
     private val stages = ConcurrentHashMap<String, Stage>()
     private val counters = ConcurrentHashMap<String, AtomicLong>()
+    private val lastReport = AtomicLong(started)
+    private val lastReportBytes = AtomicLong(0)
 
     inline fun <T> time(stage: String, block: () -> T): T {
         if (!enabled) return block()
@@ -40,6 +42,36 @@ class StageTimer(private val label: String) {
         if (!enabled) return
 
         counters.getOrPut(name) { AtomicLong() }.addAndGet(amount)
+    }
+
+    /**
+     * [summary], but at most once per [everyMs]; null in between.
+     *
+     * For the timers that outlive a single file - a session, a socket - where waiting for the end
+     * means the numbers arrive after the transfer everyone was watching is over.
+     */
+    fun periodicSummary(everyMs: Long = ReportPeriodMs): String? {
+        if (!enabled) return null
+
+        val now = System.nanoTime()
+        val last = lastReport.get()
+        val windowMs = (now - last) / 1_000_000
+        if (windowMs < everyMs) return null
+        if (!lastReport.compareAndSet(last, now)) return null
+
+        // Rate over this window, not since the start: an average taken across the pauses between
+        // files says nothing about what the link does while it is actually carrying one.
+        val bytes = counters["bytes"]?.get() ?: 0
+        val delta = bytes - lastReportBytes.getAndSet(bytes)
+
+        return buildString {
+            append(summary())
+            if (delta > 0 && windowMs > 0) {
+                append(" | window ")
+                append("%.2f".format(delta / 1024.0 / 1024.0 / (windowMs / 1000.0)))
+                append(" MiB/s")
+            }
+        }
     }
 
     /** One line: total, every stage that took time, and every counter. */
@@ -80,5 +112,8 @@ class StageTimer(private val label: String) {
         /** Flip to false to take the instrumentation back out of the transfer path. */
         @JvmStatic
         var enabled: Boolean = true
+
+        /** How often a long-lived timer reports itself. */
+        const val ReportPeriodMs = 5_000L
     }
 }

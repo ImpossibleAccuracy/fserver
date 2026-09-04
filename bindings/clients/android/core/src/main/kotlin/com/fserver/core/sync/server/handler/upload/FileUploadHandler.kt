@@ -2,6 +2,7 @@ package com.fserver.core.sync.server.handler.upload
 
 import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.IdGenerator
+import com.fserver.common.utils.StageTimer
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
@@ -79,14 +80,27 @@ internal class FileUploadHandler(
         message: FileServerMessages.UploadChunk,
         context: SessionContext,
     ) {
-        val source = authorizer.authorizedSource(session.identity, message.sourceId)
+        val timer = context.collector
+
+        // Once per chunk, and it reaches the store: a slow one throttles the whole session.
+        val source = timer.time("authorize") {
+            authorizer.authorizedSource(session.identity, message.sourceId)
+        }
+
         val key = IndexedFileKey(fileId = message.fileId, sourceId = source.id)
         val upload = context.uploads[key]
             ?: throw TransferException.UploadNotFoundException(message.fileId)
 
+        timer.count("bytes", message.bytes.size.toLong())
+        timer.count("chunks")
+        timer.periodicSummary()?.let(Timber::i)
+
         // Handed to the upload's own writer rather than written here: this runs on the session
         // collector, and `:net` drops inbound frames while it is not draining (PeerSessionImpl).
-        if (upload.offer(message)) return
+        if (timer.time("offer") { upload.offer(message) }) return
+
+        // A refusal is a resend: counting them says the writer, not the link, is the limit.
+        timer.count("refused-chunks")
 
         throw upload.failure ?: TransferException.PendingChunksOverflowException(
             occupiedBytes = context.buffered.get(),
@@ -100,13 +114,17 @@ internal class FileUploadHandler(
         source: SourceEntry,
         upload: UploadContext,
     ) {
+        // The sender is blocked on this call, with the link idle the whole time it takes, so
+        // every part of it is counted.
+        val timer = StageTimer("finish ${upload.file.id}")
+
         // Wait rest of the chunks to arrive
-        upload.await()
+        timer.time("await-chunks") { upload.await() }
 
         val locator = upload.locator // Locator is set when chunks are written to disk
             ?: throw TransferException.FileNotFoundException("No bytes written for ${operation.key.fileId} in source ${source.id}")
 
-        val computedHash = upload.hasher.compute()
+        val computedHash = timer.time("hash-compute") { upload.hasher.compute() }
 
         if (operation.hash != computedHash.value || operation.algorithm != computedHash.algorithm) {
             // File was corrupted in transit, or the peer sent the wrong hash.
@@ -117,7 +135,7 @@ internal class FileUploadHandler(
             )
         }
 
-        val saved = storage.index.findFile(operation.key)
+        val saved = timer.time("index-lookup") { storage.index.findFile(operation.key) }
 
         val indexed = upload.file
             .copy(content = computedHash)
@@ -128,6 +146,8 @@ internal class FileUploadHandler(
                 currentTime = timeProvider.now(),
             )
 
-        storage.index.markProcessed(listOf(indexed))
+        timer.time("index-write") { storage.index.markProcessed(listOf(indexed)) }
+
+        Timber.i(timer.summary())
     }
 }

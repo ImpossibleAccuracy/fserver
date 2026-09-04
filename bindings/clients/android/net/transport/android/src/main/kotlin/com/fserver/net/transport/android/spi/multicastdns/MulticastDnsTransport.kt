@@ -60,6 +60,7 @@ internal class MulticastDnsTransport(
     private suspend fun openSocket(endpoint: MulticastDnsTransportEndpoint): SocketChannel =
         withContext(Dispatchers.IO) {
             val socket = Socket()
+            SocketTuning.beforeConnect(socket)
 
             try {
                 socket.connect(
@@ -91,7 +92,10 @@ internal class MulticastDnsTransport(
         val serverSocket = AtomicReference<ServerSocket?>(null)
 
         override fun listen(): Flow<Transport.InboundConnection> = channelFlow {
-            val server = ServerSocket(0)
+            val server = ServerSocket()
+            SocketTuning.beforeBind(server)
+            server.bind(InetSocketAddress(0))
+
             if (!serverSocket.compareAndSet(null, server)) {
                 server.closeQuietly()
                 throw IllegalStateException("multicast-dns listener is already running")

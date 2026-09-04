@@ -31,6 +31,7 @@ Idea:
 Major:
 
 - Add sync mode x source location checks (e.g. deny mirror strategy for media source)
+- Bad files transferring speed.
 
 Minor:
 

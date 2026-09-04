@@ -6,6 +6,7 @@ import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.multicastdns.SocketChannel
+import com.fserver.net.transport.android.spi.multicastdns.SocketTuning
 import com.fserver.net.transport.android.spi.multicastdns.closeQuietly
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ internal class DirectIpTransport(
     private suspend fun openSocket(endpoint: DirectIpEndpoint): SocketChannel =
         withContext(Dispatchers.IO) {
             val socket = Socket()
+            SocketTuning.beforeConnect(socket)
 
             try {
                 socket.connect(

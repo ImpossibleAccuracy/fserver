@@ -13,6 +13,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.Closeable
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -30,8 +32,17 @@ internal class SocketChannel(
     private val writeLock = Mutex()
     private val collected = AtomicBoolean(false)
 
-    private val inputStream = DataInputStream(socket.getInputStream())
-    private val outputStream = DataOutputStream(socket.getOutputStream().buffered())
+    init {
+        SocketTuning.afterConnect(socket)
+    }
+
+    // Buffered, and larger than a frame on purpose: BufferedOutputStream writes an array bigger
+    // than its buffer straight through, which would flush the 4-byte length on its own and put a
+    // runt segment in front of every frame. With room for both, a frame is one write.
+    private val inputStream = DataInputStream(BufferedInputStream(socket.getInputStream()))
+    private val outputStream = DataOutputStream(
+        BufferedOutputStream(socket.getOutputStream(), maxFrameSize + Int.SIZE_BYTES)
+    )
 
     /** Collectable once: a second reader of the same stream would split frames in half. */
     override val inbound: Flow<ByteArray> = flow {

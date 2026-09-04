@@ -36,7 +36,7 @@ internal class FileUploader(
 
         // Instrumentation: a slow upload is disk, hashing, crypto or the socket, and the only way
         // to tell is to count. See StageTimer.enabled to take it back out.
-        val timer = StageTimer("upload ${file.path}")
+        val timer = StageTimer("upload ${file.id}")
 
         // Run as operation to confirm that the peer is ready to receive the file
         timer.time("init-rtt") {

@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server
 
+import com.fserver.common.utils.StageTimer
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.server.handler.upload.UploadContext
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +18,8 @@ internal class SessionContext(val scope: CoroutineScope) {
 
     /** One buffer for the whole session, so a peer cannot multiply it by opening more uploads. */
     val buffered = AtomicInteger(0)
+
+    val collector = StageTimer("session-collector")
 
     /** Drops every upload still open, and the half-written files they left behind. */
     suspend fun abandonAll() {

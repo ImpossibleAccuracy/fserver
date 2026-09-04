@@ -37,7 +37,7 @@ internal class UploadContext(
      * Where the receiving side's time goes: waiting for chunks, the disk, or hashing. A dominant
      * `idle-waiting-for-chunk` means the sender or the link is the limit, not this device.
      */
-    private val timer = StageTimer("download ${file.path}")
+    private val timer = StageTimer("download ${file.id}")
 
     /** Where the bytes landed. Meaningful once [await] returned. */
     var locator: String? = null
