@@ -22,7 +22,7 @@ fun EntryProviderScope<Destination>.filesActionsEntry(
             },
             navigateToSourcePick = {
                 navigator.navigateUp()
-                navigator.navigate(Destination.Source.Pick)
+                navigator.navigate(Destination.Source.Setup.Pick)
             },
             dismiss = { navigator.navigateUp() },
         )

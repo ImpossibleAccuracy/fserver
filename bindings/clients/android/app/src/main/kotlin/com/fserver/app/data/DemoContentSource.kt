@@ -22,7 +22,6 @@ interface DemoContentSource {
     fun gridTiles(): List<FileUi>
     fun tree(): List<TreeNodeUi>
     fun itemCount(): Int
-    fun transfers(): List<TransferUi>
     fun downloadFolder(): String
     fun diagnosticChecks(): List<DiagnosticCheckUi>
 }
@@ -35,7 +34,6 @@ class SampleContentSource : DemoContentSource {
     override fun gridTiles(): List<FileUi> = SampleData.gridTiles
     override fun tree(): List<TreeNodeUi> = SampleData.tree
     override fun itemCount(): Int = SampleData.GRID_ITEM_COUNT
-    override fun transfers(): List<TransferUi> = SampleData.transfers
     override fun downloadFolder(): String = SampleData.DOWNLOAD_FOLDER
     override fun diagnosticChecks(): List<DiagnosticCheckUi> = SampleData.diagnosticChecks
 }

@@ -13,7 +13,7 @@ fun EntryProviderScope<Destination>.onboardingEntry(
                 navigator.navigate(Destination.Connect)
             },
             navigateToSourcePick = {
-                navigator.navigate(Destination.Source.Pick)
+                navigator.navigate(Destination.Source.Setup.Pick)
             },
             navigateToFiles = {
                 navigator.navigate(Destination.Files.List)

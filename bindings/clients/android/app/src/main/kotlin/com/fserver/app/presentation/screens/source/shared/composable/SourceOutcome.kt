@@ -21,9 +21,9 @@ import com.fserver.app.presentation.designkit.DkSpacing
 
 @Composable
 fun SourceAccessFailure(
+    modifier: Modifier = Modifier,
     title: String,
     body: String,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier

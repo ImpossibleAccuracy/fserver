@@ -17,11 +17,11 @@ import com.fserver.app.presentation.designkit.DkSpacing
 
 @Composable
 fun SourceProgressStep(
+    modifier: Modifier = Modifier,
     title: String,
     body: String,
     progress: Float?,
     detail: String,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
@@ -44,10 +44,10 @@ fun SourceProgressStep(
             textAlign = TextAlign.Center,
         )
         DkProgressBar(
-            progress = progress,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = DkSpacing.xl),
+            progress = progress,
         )
         DkMonoCaption(
             modifier = Modifier.padding(top = DkSpacing.sm),

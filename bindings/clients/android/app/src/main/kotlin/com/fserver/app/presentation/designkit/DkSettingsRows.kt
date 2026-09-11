@@ -4,9 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -18,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -35,8 +39,9 @@ fun DkSettingsRow(
     supportingText: String? = null,
     accented: Boolean = false,
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
+    titleMinWidth: Dp = Dp.Unspecified,
     onClick: (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)? = null,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -46,7 +51,15 @@ fun DkSettingsRow(
         verticalAlignment = verticalAlignment,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = if (titleMinWidth == Dp.Unspecified) {
+                Modifier.weight(1f)
+            } else {
+                // Floor rather than a share: the trailing slot takes the rest, so a value long
+                // enough to fill the row cannot push the title it belongs to out of it.
+                Modifier.widthIn(min = titleMinWidth)
+            },
+        ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
@@ -160,22 +173,34 @@ fun DkNavigationRow(
     )
 }
 
-/** Row that only reports a value — no target, no control. */
+/**
+ * Row that only reports a value — no target, no control.
+ *
+ * The value wraps rather than shortening the title: these carry paths and addresses, and a row
+ * that reads "…" against an unlabelled column says nothing at all.
+ */
 @Composable
 fun DkValueRow(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
+    titleMinWidth: Dp = ValueRowTitleMinWidth,
 ) {
     DkSettingsRow(
         modifier = modifier,
         title = title,
+        titleMinWidth = titleMinWidth,
+        verticalAlignment = Alignment.Top,
         trailing = {
             Text(
+                modifier = Modifier.weight(1f),
                 text = value,
                 style = DkType.mono,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
             )
         },
     )
 }
+
+private val ValueRowTitleMinWidth: Dp = 88.dp

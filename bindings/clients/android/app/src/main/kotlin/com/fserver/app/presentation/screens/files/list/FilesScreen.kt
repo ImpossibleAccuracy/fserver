@@ -59,7 +59,7 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkTreeRow
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
-import com.fserver.app.presentation.screens.request.shared.composable.SyncRequestBanner
+import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
 import com.fserver.app.presentation.theme.FServerTheme

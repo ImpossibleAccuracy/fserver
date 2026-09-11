@@ -1,15 +1,14 @@
 package com.fserver.app.data
 
 import com.fserver.app.R
-import com.fserver.app.presentation.designkit.DkCheckState
+import com.fserver.app.presentation.composable.IncomingFileUi
+import com.fserver.app.presentation.composable.IncomingRequestUi
 import com.fserver.app.presentation.composable.model.DiagnosticCheckUi
 import com.fserver.app.presentation.composable.model.FileAvailabilityUi
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.FileUi
-import com.fserver.app.presentation.composable.IncomingFileUi
-import com.fserver.app.presentation.composable.IncomingRequestUi
-import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.composable.model.TreeNodeUi
+import com.fserver.app.presentation.designkit.DkCheckState
 
 /**
  * Fixtures the MVP screens render until `:core` is wired up. Kept in one place so the
@@ -135,21 +134,6 @@ object SampleData {
         ),
         TreeNodeUi("t-music", "Music", depth = 0, isFolder = true, childCountLabel = "210"),
         TreeNodeUi("t-projects", "Projects", depth = 0, isFolder = true, childCountLabel = "38"),
-    )
-
-    val transfers = listOf(
-        TransferUi.Running(
-            id = "tr-clip",
-            fileName = "clip_final.mp4",
-            progress = 0.62f,
-            transferredLabel = "1.1",
-            totalLabel = "1.8 GB",
-            speedLabel = "41 MB/s",
-            etaLabel = "18 s",
-        ),
-        TransferUi.Queued(id = "tr-interview", fileName = "interview_02.wav"),
-        TransferUi.Interrupted(id = "tr-raw", fileName = "IMG_4830.RAW", stoppedAtPercent = 74),
-        TransferUi.Completed(id = "tr-estimate", fileName = "estimate_final.pdf"),
     )
 
     /**

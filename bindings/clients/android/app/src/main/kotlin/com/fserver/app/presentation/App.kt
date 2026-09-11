@@ -38,16 +38,15 @@ import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
-import com.fserver.app.presentation.screens.request.details.syncRequestDetailsEntry
-import com.fserver.app.presentation.screens.request.done.syncRequestDoneEntry
-import com.fserver.app.presentation.screens.request.location.syncRequestLocationEntry
+import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
+import com.fserver.app.presentation.screens.source.request.location.syncRequestLocationEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
-import com.fserver.app.presentation.screens.source.access.sourceAccessEntry
-import com.fserver.app.presentation.screens.source.conditions.sourceConditionsEntry
-import com.fserver.app.presentation.screens.source.done.sourceDoneEntry
-import com.fserver.app.presentation.screens.source.mode.sourceModeEntry
-import com.fserver.app.presentation.screens.source.pick.sourcePickEntry
-import com.fserver.app.presentation.screens.source.upload.sourceUploadEntry
+import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
+import com.fserver.app.presentation.screens.source.setup.conditions.sourceConditionsEntry
+import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
+import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
+import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
+import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
 import com.fserver.app.presentation.screens.target.targetDeviceEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
@@ -215,12 +214,12 @@ private fun NavHostGraph(navigator: AppNavigator) {
             sourceAccessEntry(navigator)
             sourceModeEntry(navigator)
             sourceConditionsEntry(navigator)
-            sourceUploadEntry(navigator)
-            sourceDoneEntry(navigator)
 
             syncRequestDetailsEntry(navigator)
             syncRequestLocationEntry(navigator)
-            syncRequestDoneEntry(navigator)
+
+            sourceProgressEntry(navigator)
+            sourceDoneEntry(navigator)
         },
     )
 }

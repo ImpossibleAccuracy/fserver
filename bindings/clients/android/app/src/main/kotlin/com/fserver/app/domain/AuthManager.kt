@@ -7,6 +7,7 @@ interface AuthManager {
 
     suspend fun login(name: String)
 
+    // TODO: remove
     suspend fun ensureLoggedIn()
 
     data class Profile(

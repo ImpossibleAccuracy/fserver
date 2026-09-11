@@ -272,14 +272,20 @@
     <string name="transfers_title">Transfers</string>
     <string name="transfer_percent">%1$d %%</string>
     <string name="transfer_progress_meta">%1$s of %2$s · %3$s · ~%4$s</string>
+    <string name="transfer_speed">%1$s/s</string>
     <string name="transfer_queued">Queued</string>
-    <string name="transfer_paused">Paused</string>
-    <string name="transfer_paused_meta">%1$s of %2$s · paused</string>
     <string name="transfer_interrupted">Interrupted</string>
-    <string name="transfer_interrupted_meta">Stopped at %1$d %% · connection lost</string>
-    <string name="transfer_action_pause">Pause</string>
-    <string name="transfer_action_resume">Resume</string>
+    <string name="transfer_interrupted_meta">Stopped at %1$d %% · will resume next pass</string>
+    <string name="transfer_action_resume">Retry now</string>
     <string name="transfer_hash_verified">✓ hash verified</string>
+    <string name="transfer_direction_outgoing">Sending</string>
+    <string name="transfer_direction_incoming">Receiving</string>
+    <string name="transfers_empty">Nothing is moving right now. Files show up here while a sync pass runs.</string>
+
+    <string name="value_unknown">—</string>
+    <string name="duration_seconds">%1$d s</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_hours">%1$d h</string>
 
     <!-- Incoming files -->
     <plurals name="incoming_title">
@@ -408,9 +414,6 @@
     <string name="sync_request_location_folder_title">Folder on this device</string>
     <string name="sync_request_location_folder_subtitle">Pick a folder you can reach from any other app.</string>
     <string name="sync_request_location_note">Accepting tells the other device it can start sending. It can be undone later by removing the source.</string>
-    <string name="sync_request_done_title">Sync is on</string>
-    <string name="sync_request_done_body">This device now holds the other half of %1$s\'s source.</string>
-    <string name="sync_request_done_saved_to">Saved to</string>
 
     <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
     <string name="source_pick_title">What to connect?</string>
@@ -556,35 +559,43 @@
 
     <!-- Send flow: what was just turned on -->
     <string name="source_done_autoupload_title">Auto-upload is on</string>
-    <string name="source_done_autoupload_body">New files will travel to %1$s on their own. Originals stay on the phone.</string>
     <string name="source_done_offload_title">Offload is on</string>
-    <string name="source_done_offload_body">Files will move to %1$s as they are ready. They disappear from the gallery and stay visible here.</string>
-    <string name="source_done_offload_freed">will be freed · %1$s under the rule</string>
     <string name="source_done_sync_title">Sync is on</string>
-    <string name="source_done_sync_body">The first exchange is already running. After that the folders keep themselves level whenever both devices are online.</string>
     <string name="source_done_host_title">The folder is shared over the network</string>
-    <string name="source_done_host_body">Trusted devices will see it as a folder on %1$s.</string>
+    <string name="source_done_incoming_title">Sync is on</string>
+    <string name="source_done_body">The source is set up with %1$s. It runs on its own from here — closing the app does not stop it.</string>
     <string name="source_summary_source">Source</string>
     <string name="source_summary_target">Where</string>
     <string name="source_summary_conditions">Conditions</string>
-    <string name="source_summary_queued">Queued now</string>
     <string name="source_summary_rule">Rule</string>
     <string name="source_summary_pinned">Pinned</string>
-    <string name="source_summary_folder">Folder</string>
     <string name="source_summary_peer">With</string>
-    <string name="source_summary_contents">Now</string>
-    <string name="source_summary_rights">Rights</string>
-    <string name="source_summary_address">Address</string>
-    <!-- Send flow: registering the source, and the wait for the other device -->
+    <string name="source_summary_mode">Mode</string>
+    <string name="source_summary_saved_to">Saved to</string>
+    <string name="source_summary_sent_from">Sent from</string>
+    <string name="source_summary_location_media">Photos and videos</string>
+    <string name="source_summary_scope_new">New files only</string>
+    <string name="source_summary_scope_all">Everything in the source</string>
+    <string name="source_summary_rule_older">Older than %1$d days</string>
+    <string name="source_summary_rule_larger">Larger than %1$s</string>
+    <string name="source_summary_pinned_kept">never deleted</string>
+    <string name="source_summary_pinned_evicted">evicted like the rest</string>
+    <!-- Both halves of a source: the wait for the other device, and the first pass -->
     <string name="source_create_failed_title">The source was not registered</string>
-    <string name="source_upload_title">Setting up</string>
-    <string name="source_upload_waiting_title">Waiting for the other device…</string>
-    <string name="source_upload_waiting_body">The source is registered here. %1$s has to take on its half before anything is sent.</string>
-    <string name="source_upload_syncing_title">Sending files…</string>
-    <string name="source_upload_syncing_body">First exchange with %1$s. After it the source keeps itself level on its own.</string>
-    <string name="source_upload_refused_title">%1$s refused the source</string>
-    <string name="source_upload_background_note">You can close this — the setup and the transfer carry on without the screen.</string>
-    <string name="source_upload_close">Close</string>
+    <string name="source_progress_title">Setting up</string>
+    <string name="source_progress_waiting_title">Waiting for the other device…</string>
+    <string name="source_progress_waiting_body">The source is registered here. %1$s has to take on its half before anything is sent.</string>
+    <string name="source_progress_syncing_title">Sending files…</string>
+    <string name="source_progress_syncing_body">First exchange with %1$s. After it the source keeps itself level on its own.</string>
+    <string name="source_progress_incoming_waiting_title">Waiting for the other device…</string>
+    <string name="source_progress_incoming_waiting_body">This device holds its half of the source. %1$s starts sending as soon as both are online.</string>
+    <string name="source_progress_incoming_syncing_title">Receiving files…</string>
+    <string name="source_progress_detail">%1$d of %2$d</string>
+    <string name="source_progress_files_detail">%1$d files so far</string>
+    <string name="source_progress_scanning_detail">Reading the folder…</string>
+    <string name="source_progress_refused_title">%1$s refused the source</string>
+    <string name="source_progress_background_note">You can close this — the setup and the transfer carry on without the screen.</string>
+    <string name="source_progress_close">Close</string>
 
     <string name="source_done_to_files">To files</string>
     <string name="source_done_add_another">Add another source</string>

@@ -11,10 +11,11 @@ import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
-import com.fserver.app.presentation.screens.request.details.SyncRequestDetailsViewModel
-import com.fserver.app.presentation.screens.request.done.SyncRequestDoneViewModel
-import com.fserver.app.presentation.screens.request.location.SyncRequestLocationViewModel
-import com.fserver.app.presentation.screens.source.shared.SourceFlowViewModel
+import com.fserver.app.presentation.screens.source.request.details.SyncRequestDetailsViewModel
+import com.fserver.app.presentation.screens.source.request.location.SyncRequestLocationViewModel
+import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupViewModel
+import com.fserver.app.presentation.screens.source.shared.done.SourceDoneViewModel
+import com.fserver.app.presentation.screens.source.shared.progress.SourceProgressViewModel
 import com.fserver.app.presentation.screens.target.TargetDeviceViewModel
 import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewModel
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
@@ -44,15 +45,11 @@ val presentationModule = module {
     viewModelOf(::FilesViewModel)
     viewModelOf(::TargetDeviceViewModel)
 
-    // The send flow is one ViewModel across all five screens, scoped to the pick entry: the
-    // answers build up across them and no navigation key can carry a scan result.
-    viewModelOf(::SourceFlowViewModel)
-
-    // Answering a peer's ask: one ViewModel per screen, each keyed by the source id, so the flow
-    // is rebuilt from the engine rather than from state that a process death would take with it.
+    viewModelOf(::SourceSetupViewModel)
     viewModelOf(::SyncRequestDetailsViewModel)
     viewModelOf(::SyncRequestLocationViewModel)
-    viewModelOf(::SyncRequestDoneViewModel)
+    viewModelOf(::SourceProgressViewModel)
+    viewModelOf(::SourceDoneViewModel)
 
     viewModelOf(::TransfersViewModel)
     viewModelOf(::DiagnosticsViewModel)

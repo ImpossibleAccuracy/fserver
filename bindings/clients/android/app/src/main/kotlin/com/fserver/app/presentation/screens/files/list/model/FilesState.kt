@@ -3,7 +3,7 @@ package com.fserver.app.presentation.screens.files.list.model
 import com.fserver.app.presentation.composable.model.FileUi
 import com.fserver.app.presentation.composable.model.FilesViewModeUi
 import com.fserver.app.presentation.composable.model.TreeNodeUi
-import com.fserver.app.presentation.screens.request.shared.model.SyncRequestUi
+import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 
 data class FilesState(
     val serverName: String = "",

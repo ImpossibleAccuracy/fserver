@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
-import com.fserver.app.presentation.screens.request.shared.model.toUi
+import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.flow.MutableStateFlow

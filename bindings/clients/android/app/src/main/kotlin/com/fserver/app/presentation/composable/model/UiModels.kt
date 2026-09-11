@@ -3,6 +3,9 @@ package com.fserver.app.presentation.composable.model
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.designkit.DkCheckState
+import com.fserver.common.model.FileSize
+import com.fserver.core.sync.progress.FileTransfer
+import kotlin.time.Duration
 
 /**
  * Presentation-layer models for the MVP screens.
@@ -55,43 +58,43 @@ sealed interface TransferUi {
     val id: String
     val fileName: String
 
+    /** Which way the bytes go. The row draws it, and the two directions never merge. */
+    val direction: FileTransfer.Direction
+
     data class Running(
         override val id: String,
         override val fileName: String,
-        val progress: Float,
-        val transferredLabel: String,
-        val totalLabel: String,
-        val speedLabel: String,
-        val etaLabel: String,
+        override val direction: FileTransfer.Direction,
+        /** `null` while the size is unknown, so the bar runs indeterminate. */
+        val progress: Float?,
+        val transferred: FileSize,
+        val total: FileSize,
+        val bytesPerSecond: Long?,
+        val eta: Duration?,
     ) : TransferUi
 
+    /** Planned by the current pass, nothing sent yet. */
     data class Queued(
         override val id: String,
         override val fileName: String,
-    ) : TransferUi
-
-    /** Paused by the user. Same resumable position as an interruption, different cause. */
-    data class Paused(
-        override val id: String,
-        override val fileName: String,
-        val progress: Float,
-        val transferredLabel: String,
-        val totalLabel: String,
+        override val direction: FileTransfer.Direction,
     ) : TransferUi
 
     /**
-     * A dropped connection is an ordinary state here, not an error: the transfer resumes
-     * from where it stopped and the hash is checked at the end.
+     * Stopped short. Not an error state: the next pass re-plans the file from wherever the
+     * index got to, and the hash is checked at the end either way.
      */
     data class Interrupted(
         override val id: String,
         override val fileName: String,
+        override val direction: FileTransfer.Direction,
         val stoppedAtPercent: Int,
     ) : TransferUi
 
     data class Completed(
         override val id: String,
         override val fileName: String,
+        override val direction: FileTransfer.Direction,
     ) : TransferUi
 }
 

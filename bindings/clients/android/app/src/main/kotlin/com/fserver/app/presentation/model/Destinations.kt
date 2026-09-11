@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
-import com.fserver.app.presentation.screens.source.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
@@ -48,63 +48,70 @@ sealed interface Destination : NavKey {
     data object TargetDevice : Destination
 
     /**
-     * Setting up a source: what the app may see on this phone, what to do with it, and where it
-     * goes. Every screen carries the whole answer so far, so the flow has no state of its own
-     * between them.
+     * Everything that happens to a source, both halves of it.
+     *
+     * [Setup] is this device asking a peer to host one of its folders; [Request] is answering the
+     * same ask from the other side. They converge on [Progress] and [Done], which are keyed by the
+     * source id alone and so read the same whichever half opened them.
      */
     @Serializable
     data object Source {
 
-        /** Screen 0 — the one question the flow starts with. */
-        @Serializable
-        data object Pick : Destination
-
-        /** Explains the branch's access, asks the system for it, and reports the outcome. */
-        @Serializable
-        data class Access(val kind: SourceKindUi) : Destination
-
-        /** One mode per source, once access is in hand. */
-        @Serializable
-        data class Mode(
-            val kind: SourceKindUi,
-            val access: SourceAccessUi = SourceAccessUi.Full,
-        ) : Destination
-
-        /** Whatever the chosen mode still needs to know, then the work before it is on. */
-        @Serializable
-        data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
-
         /**
-         * Registered, and waiting: first on the peer to take on its half of the source, then on
-         * the first pass. Neither is the user's to drive, so this screen only offers to leave.
+         * Registering a source here: what the app may see on this phone, what to do with it, and
+         * where it goes. The answers build up in a ViewModel scoped to [Setup.Pick], so these keys
+         * carry only what a screen needs to draw itself.
          */
         @Serializable
-        data object Upload : Destination
+        data object Setup {
+
+            /** Screen 0 — the one question the flow starts with. */
+            @Serializable
+            data object Pick : Destination
+
+            /** Explains the branch's access, asks the system for it, and reports the outcome. */
+            @Serializable
+            data class Access(val kind: SourceKindUi) : Destination
+
+            /** One mode per source, once access is in hand. */
+            @Serializable
+            data class Mode(
+                val kind: SourceKindUi,
+                val access: SourceAccessUi = SourceAccessUi.Full,
+            ) : Destination
+
+            /** Whatever the chosen mode still needs to know, then the work before it is on. */
+            @Serializable
+            data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
+        }
+
+        /**
+         * Answering a peer's ask to host one of its sources here.
+         *
+         * Every key carries the source id rather than the request itself: the ask lives in the
+         * engine until it is answered, so each screen re-reads it and the flow survives process
+         * death without a shared ViewModel behind it.
+         */
+        @Serializable
+        data object Request {
+
+            /** Who asked, for what, and under which mode. */
+            @Serializable
+            data class Details(val sourceId: String) : Destination
+
+            /** Where the files this device takes on will be written. */
+            @Serializable
+            data class Location(val sourceId: String) : Destination
+        }
+
+        /**
+         * Registered, and waiting: first on the peer, then on the first pass. Neither is the
+         * user's to drive, so this screen only offers to leave.
+         */
+        @Serializable
+        data class Progress(val sourceId: String) : Destination
 
         /** What was just turned on, in four lines. */
-        @Serializable
-        data object Done : Destination
-    }
-
-    /**
-     * Answering a peer's ask to host one of its sources here - the receiving half of [Source].
-     *
-     * Every key carries the source id rather than the request itself: the ask lives in the engine
-     * until it is answered, so each screen re-reads it and the flow survives process death without
-     * a shared ViewModel behind it.
-     */
-    @Serializable
-    data object SyncRequest {
-
-        /** Who asked, for what, and under which mode. */
-        @Serializable
-        data class Details(val sourceId: String) : Destination
-
-        /** Where the files this device takes on will be written. */
-        @Serializable
-        data class Location(val sourceId: String) : Destination
-
-        /** Accepted, and what that turned on. */
         @Serializable
         data class Done(val sourceId: String) : Destination
     }
