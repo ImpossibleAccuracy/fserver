@@ -13,7 +13,7 @@ fun EntryProviderScope<Destination>.pairingEntry(
             navigateNext = {
                 // Navigate to next screen in current flow. Both flows that pair mid-way wait on
                 // the target screen, so returning to it is the same move for either.
-                val returnedToTarget = navigator.popTo { it is Destination.TargetDevice }
+                val returnedToTarget = navigator.popTo { it is Destination.Source.Setup.Target }
                 if (!returnedToTarget) {
                     // Not a sending flow, navigate to the file list
                     navigator.navigateByBackstack(listOf(Destination.Files.List))

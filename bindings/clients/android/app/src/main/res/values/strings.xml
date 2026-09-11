@@ -252,21 +252,30 @@
     <string name="picker_entry_selected">Selected</string>
     <string name="picker_entries_title">Selected entries (%1$d)</string>
 
-    <!-- Target device: who receives the selection, or a source's output -->
+    <!-- Source target: which device receives a source's output -->
     <string name="target_device_title">Send to</string>
-    <string name="target_device_devices_label">Connected devices</string>
-    <string name="target_device_empty_title">No connected devices</string>
-    <string name="target_device_empty_hint">Connect one to send the selection to it</string>
+    <string name="source_target_connected_label">Connected devices</string>
+    <string name="source_target_empty_title">No connected devices</string>
+    <string name="source_target_empty_hint">Connect one to send the selection to it</string>
     <string name="target_device_selection_lost">The selection is no longer available. Pick the files again.</string>
     <plurals name="send_confirm_title">
         <item quantity="one">Send %1$d file?</item>
         <item quantity="other">Send %1$d files?</item>
     </plurals>
     <string name="send_confirm_body">They will be sent to %1$s.</string>
-    <string name="target_device_source_title">Where to send?</string>
-    <string name="target_device_source_body">Files will go to the device you pick. You can change it in the source settings.</string>
-    <string name="target_device_add_device">Add a device</string>
-    <string name="target_device_offline">Offline right now — cannot be picked</string>
+    <string name="source_target_title">Where to send?</string>
+    <string name="source_target_add_device">Add a device</string>
+    <string name="source_target_known_label">Previously connected</string>
+    <string name="source_target_discovered_label">Found nearby</string>
+    <string name="source_target_tag_connected">Connected</string>
+    <string name="source_target_reconnect_hint">Tap to reconnect</string>
+    <string name="source_target_connect_hint">Tap to connect</string>
+    <string name="source_target_searching">Looking for devices on this network…</string>
+    <string name="source_target_route_unknown">No saved address for this device. Add it again.</string>
+    <string name="source_target_reconnect_failed">Could not reconnect</string>
+    <string name="source_target_subnet_offer_hint">Extend scan area</string>
+    <string name="source_target_subnet_offer_action">Scan the subnet</string>
+    <string name="source_target_subnet_scanning">Scanning the subnet…</string>
 
     <!-- Transfers -->
     <string name="transfers_title">Transfers</string>

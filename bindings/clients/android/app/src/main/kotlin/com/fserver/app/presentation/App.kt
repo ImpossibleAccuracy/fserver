@@ -47,7 +47,7 @@ import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
 import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
 import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
 import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
-import com.fserver.app.presentation.screens.target.targetDeviceEntry
+import com.fserver.app.presentation.screens.source.setup.target.sourceTargetEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
@@ -208,11 +208,11 @@ private fun NavHostGraph(navigator: AppNavigator) {
 
             filesListEntry(navigator)
             filesActionsEntry(navigator)
-            targetDeviceEntry(navigator)
 
             sourcePickEntry(navigator)
             sourceAccessEntry(navigator)
             sourceModeEntry(navigator)
+            sourceTargetEntry(navigator)
             sourceConditionsEntry(navigator)
 
             syncRequestDetailsEntry(navigator)

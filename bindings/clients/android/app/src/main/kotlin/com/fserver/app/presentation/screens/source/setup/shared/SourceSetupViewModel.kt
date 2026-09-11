@@ -7,10 +7,12 @@ import com.fserver.app.presentation.screens.source.setup.access.SourceAccessHand
 import com.fserver.app.presentation.screens.source.setup.conditions.SourceConditionsHandler
 import com.fserver.app.presentation.screens.source.setup.mode.SourceModeHandler
 import com.fserver.app.presentation.screens.source.setup.pick.SourcePickHandler
+import com.fserver.app.presentation.screens.source.setup.target.SourceTargetHandler
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +27,7 @@ class SourceSetupViewModel(
     private val filesController: FilesController,
     private val devicesRepository: DevicesRepository,
     private val sourcesController: SourcesController,
+    private val trustedDevicesRepository: TrustedDevicesRepository,
 ) : ViewModel() {
 
     private val editable = MutableStateFlow(SourceSetupState())
@@ -45,6 +48,13 @@ class SourceSetupViewModel(
 
     val mode = SourceModeHandler(editable, viewModelScope)
 
+    val target = SourceTargetHandler(
+        devicesRepository = devicesRepository,
+        trustedDevicesRepository = trustedDevicesRepository,
+        flow = editable,
+        scope = viewModelScope,
+    )
+
     val conditions = SourceConditionsHandler(
         devicesRepository = devicesRepository,
         sourcesController = sourcesController,
@@ -55,11 +65,9 @@ class SourceSetupViewModel(
     fun start(kind: SourceKindUi) {
         access.reset()
         mode.reset()
+        target.reset()
         conditions.reset()
         editable.value = SourceSetupState(kind = kind)
     }
 
-    fun onDeviceSelected(deviceId: String) {
-        editable.update { it.copy(targetDeviceId = deviceId) }
-    }
 }

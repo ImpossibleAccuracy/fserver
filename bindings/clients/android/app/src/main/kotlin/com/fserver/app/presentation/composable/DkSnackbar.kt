@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.composable
 
+import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -8,6 +10,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -19,21 +22,29 @@ val LocalSnackbarController = compositionLocalOf<DkSnackbarController> {
 fun createSnackbarControllerState(
     snackbarHostState: SnackbarHostState,
 ): ProvidedValue<DkSnackbarController> {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
     val controller = remember(coroutineScope, snackbarHostState) {
-        DkSnackbarController(coroutineScope, snackbarHostState)
+        DkSnackbarController(context, coroutineScope, snackbarHostState)
     }
 
     return LocalSnackbarController provides controller
 }
 
 class DkSnackbarController(
+    private val context: Context,
     private val coroutineScope: CoroutineScope,
     private val snackbarHostState: SnackbarHostState,
 ) {
     fun showSnackbar(message: String) {
         coroutineScope.launch {
             snackbarHostState.showSnackbar(message)
+        }
+    }
+    fun showSnackbar(@StringRes resId: Int) {
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(context.getString(resId))
         }
     }
 }

@@ -43,10 +43,6 @@ sealed interface Destination : NavKey {
         data object Actions : Overlay
     }
 
-    /** Which connected device receives everything the source being configured will produce. */
-    @Serializable
-    data object TargetDevice : Destination
-
     /**
      * Everything that happens to a source, both halves of it.
      *
@@ -79,6 +75,10 @@ sealed interface Destination : NavKey {
                 val kind: SourceKindUi,
                 val access: SourceAccessUi = SourceAccessUi.Full,
             ) : Destination
+
+            /** Which connected device receives everything the source will produce. */
+            @Serializable
+            data object Target : Destination
 
             /** Whatever the chosen mode still needs to know, then the work before it is on. */
             @Serializable

@@ -12,12 +12,12 @@ val Destination.isSourceScreen: Boolean
     get() = this is Destination.Source.Setup.Pick ||
             this is Destination.Source.Setup.Access ||
             this is Destination.Source.Setup.Mode ||
+            this is Destination.Source.Setup.Target ||
             this is Destination.Source.Setup.Conditions ||
             this is Destination.Source.Request.Details ||
             this is Destination.Source.Request.Location ||
             this is Destination.Source.Progress ||
-            this is Destination.Source.Done ||
-            this is Destination.TargetDevice
+            this is Destination.Source.Done
 
 /**
  * Leaves the flow entirely, back to whatever screen it was started from.
