@@ -5,6 +5,8 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.device.model.DeviceMetadata
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -15,18 +17,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
 import com.fserver.core.storage.database.KnownRoute as DBKnownRoute
-import com.fserver.core.storage.database.TrustedDevice as DBTrustedDevice
 
 internal class TrustedDevicesStoreImpl(
-    database: FServerStorageDatabase,
+    private val database: FServerStorageDatabase,
 ) : TrustedDevicesStore, TrustedDevicesRepository {
     private val dao = database.trustedDeviceQueries
+    private val metadataDao = database.deviceMetadataQueries
     private val routeDao = database.knownRouteQueries
 
-    override val devices: Flow<List<TrustedDevice>> = dao.selectAll()
+    override val devices: Flow<List<TrustedDevice>> = dao.selectAll(::trustedDeviceOf)
         .asFlow()
         .mapToList(Dispatchers.IO)
-        .map { rows -> rows.map { it.toDomainModel() } }
 
     override val knownDeviceIds: Flow<Set<String>> = dao.selectDeviceIds()
         .asFlow()
@@ -34,25 +35,39 @@ internal class TrustedDevicesStoreImpl(
         .map { it.toSet() }
 
     override suspend fun findByKey(publicKey: ByteArray): TrustedDevice? =
-        dao.findByKey(publicKey).executeAsOneOrNull()?.toDomainModel()
+        dao.findByKey(publicKey, ::trustedDeviceOf).executeAsOneOrNull()
 
     override suspend fun findByDeviceId(deviceId: String): List<TrustedDevice> =
-        dao.findByDeviceId(deviceId).executeAsList().map { it.toDomainModel() }
+        dao.findByDeviceId(deviceId, ::trustedDeviceOf).executeAsList()
 
+    /**
+     * The key's own record and the device's, in one transaction: a screen reading half of a pin is
+     * a device that has a name but no kind, or a kind stamped against no key at all.
+     */
     override suspend fun upsert(record: TrustedDevice) {
-        dao.upsert(
-            publicKey = record.publicKey,
-            deviceId = record.deviceId,
-            displayName = record.displayName,
-            method = record.method.name,
-            strength = record.strength,
-            lastSeenEpochMs = record.lastSeen.toEpochMilliseconds(),
-            lastNetworkId = record.lastNetworkId,
-        )
+        database.transaction {
+            dao.upsert(
+                publicKey = record.publicKey,
+                deviceId = record.deviceId,
+                displayName = record.displayName,
+                method = record.method.name,
+                strength = record.strength,
+            )
+
+            record.metadata?.let { metadata ->
+                metadataDao.pinClaims(
+                    deviceId = record.deviceId,
+                    kind = metadata.kind?.name,
+                    dictionaryId = metadata.dictionaryId,
+                    dictionaryVersion = metadata.dictionaryVersion?.toLong(),
+                    lastSeenEpochMs = metadata.lastSeen?.toEpochMilliseconds(),
+                )
+            }
+        }
     }
 
     override suspend fun recordLastNetwork(deviceId: String, networkId: String?) {
-        dao.updateLastNetwork(lastNetworkId = networkId, deviceId = deviceId)
+        metadataDao.updateLastNetwork(deviceId = deviceId, lastNetworkId = networkId)
     }
 
     // TODO: this solution needs full rewrite, starting from usage TransportKind as transport, and finishing multiple upsert calls
@@ -89,20 +104,47 @@ internal class TrustedDevicesStoreImpl(
             .mapToOneOrNull(Dispatchers.IO)
             .map { it?.toDomainModel() }
 
-    /** The trigger on `trustedDevice` drops the route once the device has no keys left. */
+    /** The trigger on `trustedDevice` drops the route and the metadata with the last key. */
     override suspend fun forget(deviceId: String) {
         dao.deleteByDeviceId(deviceId)
     }
 }
 
-private fun DBTrustedDevice.toDomainModel() = TrustedDevice(
+/**
+ * One mapper for every read on `trustedDevice`: they all select the same joined columns in the same
+ * order, so the argument list below is the contract those queries have to keep.
+ *
+ * [metadataDeviceId] is the join marker - null means no `deviceMetadata` row, which is not the same
+ * as a row whose every column happens to be null.
+ */
+private fun trustedDeviceOf(
+    publicKey: ByteArray,
+    deviceId: String,
+    displayName: String,
+    method: String,
+    strength: String,
+    metadataDeviceId: String?,
+    kind: String?,
+    dictionaryId: String?,
+    dictionaryVersion: Long?,
+    lastSeenEpochMs: Long?,
+    lastNetworkId: String?,
+) = TrustedDevice(
     publicKey = publicKey,
     deviceId = deviceId,
     displayName = displayName,
     method = AuthMethod.valueOf(method),
     strength = strength,
-    lastSeen = Instant.fromEpochMilliseconds(lastSeenEpochMs),
-    lastNetworkId = lastNetworkId,
+    metadata = metadataDeviceId?.let {
+        DeviceMetadata(
+            // Tolerates a kind written by a newer build, which is not a reason to fail a read.
+            kind = DeviceKind.entries.firstOrNull { it.name == kind },
+            dictionaryId = dictionaryId,
+            dictionaryVersion = dictionaryVersion?.toInt(),
+            lastSeen = lastSeenEpochMs?.let(Instant::fromEpochMilliseconds),
+            lastNetworkId = lastNetworkId,
+        )
+    },
 )
 
 private enum class KnownRouteKind { Ip, Nearby }

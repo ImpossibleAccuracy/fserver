@@ -4,6 +4,7 @@ import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
 import com.fserver.core.store.sync.FileIndexStore
+import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
@@ -24,6 +25,9 @@ interface FServerStorage {
 
     /** What each source has already worked through. */
     val index: FileIndexStore
+
+    /** The last index each source's peer reported. A cache - see [RemoteIndexStore]. */
+    val remoteIndex: RemoteIndexStore
 
     /** The registry of sources the engine syncs. */
     val sources: SourcesStore

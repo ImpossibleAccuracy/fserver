@@ -1,7 +1,9 @@
 package com.fserver.core.network.dictionary.dto
 
 import com.fserver.common.model.ContentHash
+import com.fserver.common.model.FileSize
 import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.Revision
@@ -104,6 +106,28 @@ internal fun FileRecordDto.toFileRecord(): FileRecord = FileRecord(
         },
     ),
 )
+
+/** What a peer reported, as the remote index records it. [seenAt] is when we heard it, not when it happened. */
+internal fun FileRecordDto.toRemoteIndexed(seenAt: Instant): RemoteIndexedFile = RemoteIndexedFile(
+    fileId = id,
+    path = path,
+    state = state.toIndexed(),
+    size = FileSize(metadata.size),
+    modifiedAt = metadata.lastModified,
+    hash = content?.let { ContentHash(value = it.value, algorithm = it.algorithm) },
+    revision = metadata.revision?.let {
+        IndexedFile.Revision(originDevice = it.originDevice, counter = it.counter)
+    },
+    seenAt = seenAt,
+)
+
+private fun FileRecordDto.State.toIndexed(): IndexedFile.State = when (this) {
+    is FileRecordDto.State.Present -> IndexedFile.State.Present(pinned)
+
+    is FileRecordDto.State.Evicted -> IndexedFile.State.Evicted(evictedAt)
+
+    is FileRecordDto.State.Deleted -> IndexedFile.State.Deleted(deletedAt)
+}
 
 private fun IndexedFile.State.toDto(): FileRecordDto.State = when (this) {
     is IndexedFile.State.Present -> FileRecordDto.State.Present(pinned)

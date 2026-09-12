@@ -2,13 +2,14 @@ package com.fserver.app.presentation.screens.settings.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.app.presentation.composable.model.labelRes
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
+import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.storage.TrustedDevicesRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,14 +49,15 @@ class DeviceDetailsViewModel(
         trustedDevices.observeKnownRoute(key.deviceId),
         trustedKeys,
     ) { device, knownRoute, trusted ->
-        val record = trusted.maxByOrNull { it.lastSeen }
+        // Records of one device share their metadata, so any key of it answers for the device.
+        val record = trusted.latest()
 
         DeviceDetailsState(
             name = device?.displayName ?: record?.displayName.orEmpty(),
             isConnected = device?.hasSession == true,
             address = device?.routes?.firstOrNull()?.address ?: knownRoute?.address,
             fingerprintGroups = device?.handshake?.fingerprint?.split(" ").orEmpty(),
-            lastSeen = record?.lastSeen?.formatted(),
+            lastSeen = record?.metadata?.lastSeen?.formatted(),
             methodLabel = record?.method?.labelRes,
             protocolVersion = device?.handshake?.protocolVersion,
             isTrusted = record != null,

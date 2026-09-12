@@ -5,9 +5,11 @@ import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
+import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.PeerRequestServer
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
@@ -29,12 +31,14 @@ internal val syncModule = module {
     singleOf(::SyncProgressReporter)
 
     singleOf(::PeerIndexFetcher)
+    singleOf(::IndexPublisher)
     singleOf(::SourceSetupExchange)
 
     // The answering half: one handler per request family behind the listener.
     singleOf(::PeerRequestServer)
     singleOf(::SourceAuthorizer)
     singleOf(::FetchFilesHandler)
+    singleOf(::PublishIndexHandler)
     singleOf(::SyncLeaseHandler)
     singleOf(::FileOperationHandler)
     singleOf(::FileUploadHandler)

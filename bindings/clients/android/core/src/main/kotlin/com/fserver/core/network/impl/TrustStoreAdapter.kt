@@ -1,6 +1,8 @@
 package com.fserver.core.network.impl
 
 import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.device.model.DeviceMetadata
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.currentNetworkId
@@ -27,23 +29,33 @@ internal class TrustStoreAdapter(
      * record current: a reconnect from a different Wi-Fi overwrites the one before it.
      */
     override suspend fun pin(record: TrustRecord) {
-        trustedDevicesStore.upsert(
-            record.toDevice(
-                lastSeen = timeProvider.now(),
-                lastNetworkId = networkInfoRepository.currentNetworkId(),
-            )
+        trustedDevicesStore.upsert(record.toDevice(lastSeen = timeProvider.now()))
+
+        // Device-level, and written on its own so a connect that lands either side of the
+        // handshake does not have to know the peer's claims to record the network.
+        trustedDevicesStore.recordLastNetwork(
+            deviceId = record.deviceId,
+            networkId = networkInfoRepository.currentNetworkId(),
         )
     }
 }
 
-private fun TrustRecord.toDevice(lastSeen: Instant, lastNetworkId: String?) = TrustedDevice(
+/** [lastSeen] is this pin's own moment; `lastNetworkId` is written separately - see [TrustStoreAdapter.pin]. */
+private fun TrustRecord.toDevice(lastSeen: Instant) = TrustedDevice(
     deviceId = deviceId,
     displayName = displayName,
     publicKey = publicKey,
     method = AuthMethod.fromId(method) ?: error("Unknown auth method $method"),
     strength = strength.name,
-    lastSeen = lastSeen,
-    lastNetworkId = lastNetworkId,
+    metadata = descriptor?.let {
+        DeviceMetadata(
+            kind = DeviceKind.fromSerialized(it.kind),
+            dictionaryId = it.dictionary.id,
+            dictionaryVersion = it.dictionary.version,
+            lastSeen = lastSeen,
+            lastNetworkId = null,
+        )
+    },
 )
 
 private fun TrustedDevice.toRecord() = TrustRecord(
@@ -52,4 +64,5 @@ private fun TrustedDevice.toRecord() = TrustRecord(
     publicKey = publicKey,
     method = method.authMethodId,
     strength = AuthStrength.valueOf(strength),
+    descriptor = null,
 )

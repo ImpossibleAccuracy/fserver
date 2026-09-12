@@ -1,0 +1,48 @@
+-- What is known about a device rather than about one of its keys: what it claimed to be, and when
+-- and where it was last reached.
+--
+-- Its own table rather than columns on trustedDevice: that one is keyed by public key and holds
+-- several rows per device, so device-level facts written there duplicate and can disagree between
+-- a device's own keys. Same deviceId keying as knownRoute, and the trigger in TrustedDevice.sq
+-- stands in for the cascade both of them are missing.
+--
+-- Every column is nullable and every write merges: the claims arrive from the handshake, the
+-- network from a connect that may land either side of it, and neither writer knows the rest.
+CREATE TABLE deviceMetadata (
+    deviceId          TEXT NOT NULL PRIMARY KEY,
+    kind              TEXT,
+    dictionaryId      TEXT,
+    dictionaryVersion INTEGER,
+    lastSeenEpochMs   INTEGER,
+    lastNetworkId     TEXT
+);
+
+-- INSERT OR IGNORE + UPDATE rather than an upsert: `ON CONFLICT DO UPDATE` wants SQLite 3.24 and
+-- minSdk 24 ships 3.9. Grouped, so SQLDelight runs the pair in one transaction.
+
+-- What a handshake leaves: the peer's claims, stamped with the moment it completed. Leaves
+-- lastNetworkId alone, which a connect writes on its own.
+pinClaims {
+    INSERT OR IGNORE INTO deviceMetadata(deviceId) VALUES (:deviceId);
+
+    UPDATE deviceMetadata
+    SET kind              = :kind,
+        dictionaryId      = :dictionaryId,
+        dictionaryVersion = :dictionaryVersion,
+        lastSeenEpochMs   = :lastSeenEpochMs
+    WHERE deviceId = :deviceId;
+}
+
+-- Called on every connect, which may be the first thing this device ever recorded for the peer.
+updateLastNetwork {
+    INSERT OR IGNORE INTO deviceMetadata(deviceId) VALUES (:deviceId);
+
+    UPDATE deviceMetadata
+    SET lastNetworkId = :lastNetworkId
+    WHERE deviceId = :deviceId;
+}
+
+selectByDeviceId:
+SELECT *
+FROM deviceMetadata
+WHERE deviceId = ?;

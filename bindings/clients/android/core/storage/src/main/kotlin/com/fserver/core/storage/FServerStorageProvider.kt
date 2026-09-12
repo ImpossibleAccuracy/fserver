@@ -11,6 +11,7 @@ import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
 import com.fserver.core.storage.internal.FileIndexStoreImpl
+import com.fserver.core.storage.internal.RemoteIndexStoreImpl
 import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
 import com.fserver.core.storage.internal.SyncStoreImpl
@@ -20,6 +21,7 @@ import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
 import com.fserver.core.store.sync.FileIndexStore
+import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
@@ -63,7 +65,10 @@ class FServerStorageProvider private constructor(
     private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
     private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
     private val fileIndexStore by lazy { FileIndexStoreImpl() }
-    private val sourcesStore by lazy { SourcesStoreImpl(fileIndexStore, timeProvider) }
+    private val remoteIndexStore by lazy { RemoteIndexStoreImpl(database) }
+    private val sourcesStore by lazy {
+        SourcesStoreImpl(fileIndexStore, remoteIndexStore, timeProvider)
+    }
     private val sourceRequestsStore by lazy { SourceRequestsStoreImpl() }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
 
@@ -84,6 +89,7 @@ class FServerStorageProvider private constructor(
         override val auth: AuthSettingsStore get() = authStore
         override val trust: TrustedDevicesStore get() = trustStore
         override val index: FileIndexStore get() = fileIndexStore
+        override val remoteIndex: RemoteIndexStore get() = remoteIndexStore
         override val sources: SourcesStore get() = sourcesStore
         override val sourceRequests: SourceRequestsStore get() = sourceRequestsStore
         override val preferences: SyncStore get() = syncStore

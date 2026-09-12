@@ -1,66 +1,83 @@
 -- What a completed handshake leaves behind, so the same peer does not have to be re-verified.
 -- Keyed by public key: one device may rotate keys or present several, and the key is what the
 -- handshake actually proves possession of.
+--
+-- Only what is true of *this key* lives here. What is true of the device - when it was last seen,
+-- what it says it is - is in deviceMetadata, and every query below joins it back in.
 CREATE TABLE trustedDevice (
     publicKey       BLOB    NOT NULL PRIMARY KEY,
     deviceId        TEXT    NOT NULL,
     displayName     TEXT    NOT NULL,
     method          TEXT    NOT NULL,
-    strength        TEXT    NOT NULL,
-    lastSeenEpochMs INTEGER NOT NULL,
-    lastNetworkId   TEXT
+    strength        TEXT    NOT NULL
 );
 
 CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
 
--- Stands in for ON DELETE CASCADE, which knownRoute cannot declare: it is keyed by deviceId and
--- that is not unique here. Forgetting the last key for a device must take its route with it, or
--- the device stays dialable from a screen that says it was forgotten.
+-- Stands in for ON DELETE CASCADE, which neither side table can declare: both are keyed by
+-- deviceId and that is not unique here. Forgetting the last key for a device must take its route
+-- and its metadata with it, or the device stays dialable from a screen that says it was forgotten.
 CREATE TRIGGER trustedDevice_dropOrphanedRoute
 AFTER DELETE ON trustedDevice
 WHEN NOT EXISTS (SELECT 1 FROM trustedDevice WHERE deviceId = old.deviceId)
 BEGIN
     DELETE FROM knownRoute WHERE deviceId = old.deviceId;
+    DELETE FROM deviceMetadata WHERE deviceId = old.deviceId;
 END;
 
+-- Every read below selects the same columns in the same order, so one mapper serves all of them.
+-- metadataDeviceId is what tells "no metadata row" from "a row whose every column is null".
 selectAll:
-SELECT *
+SELECT trustedDevice.*,
+       deviceMetadata.deviceId AS metadataDeviceId,
+       deviceMetadata.kind,
+       deviceMetadata.dictionaryId,
+       deviceMetadata.dictionaryVersion,
+       deviceMetadata.lastSeenEpochMs,
+       deviceMetadata.lastNetworkId
 FROM trustedDevice
-ORDER BY lastSeenEpochMs DESC;
+LEFT JOIN deviceMetadata ON deviceMetadata.deviceId = trustedDevice.deviceId
+ORDER BY deviceMetadata.lastSeenEpochMs DESC;
 
 findByKey:
-SELECT *
+SELECT trustedDevice.*,
+       deviceMetadata.deviceId AS metadataDeviceId,
+       deviceMetadata.kind,
+       deviceMetadata.dictionaryId,
+       deviceMetadata.dictionaryVersion,
+       deviceMetadata.lastSeenEpochMs,
+       deviceMetadata.lastNetworkId
 FROM trustedDevice
+LEFT JOIN deviceMetadata ON deviceMetadata.deviceId = trustedDevice.deviceId
 WHERE publicKey = ?;
 
 findByDeviceId:
-SELECT *
+SELECT trustedDevice.*,
+       deviceMetadata.deviceId AS metadataDeviceId,
+       deviceMetadata.kind,
+       deviceMetadata.dictionaryId,
+       deviceMetadata.dictionaryVersion,
+       deviceMetadata.lastSeenEpochMs,
+       deviceMetadata.lastNetworkId
 FROM trustedDevice
-WHERE deviceId = ?
-ORDER BY lastSeenEpochMs DESC;
+LEFT JOIN deviceMetadata ON deviceMetadata.deviceId = trustedDevice.deviceId
+WHERE trustedDevice.deviceId = ?;
 
 upsert:
-INSERT OR REPLACE INTO trustedDevice(publicKey, deviceId, displayName, method, strength, lastSeenEpochMs, lastNetworkId)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO trustedDevice(publicKey, deviceId, displayName, method, strength)
+VALUES (?, ?, ?, ?, ?);
 
 -- One row per device, however many keys it has presented.
 selectDeviceIds:
 SELECT DISTINCT deviceId
 FROM trustedDevice;
 
--- Every key the device presented moves with it: the network is a property of the device, not of
--- whichever key the last handshake happened to run under.
-updateLastNetwork:
-UPDATE trustedDevice
-SET lastNetworkId = ?
-WHERE deviceId = ?;
-
 deleteByKey:
 DELETE FROM trustedDevice
 WHERE publicKey = ?;
 
 -- Forgetting a device means dropping every key it ever presented; leaving one behind would let it
--- reconnect without a prompt. The trigger above takes its route with them.
+-- reconnect without a prompt. The trigger above takes its route and metadata with them.
 deleteByDeviceId:
 DELETE FROM trustedDevice
 WHERE deviceId = ?;

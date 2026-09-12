@@ -29,6 +29,19 @@ internal sealed interface FileServerMessages {
         ) : FetchFiles, Response
     }
 
+    /**
+     * This device's whole index for [sourceId], pushed once its pass is done.
+     *
+     * Deliberately not a request/[Response] pair, and deliberately not the answer to anything: the
+     * receiver's copy is a cache, so a push that never lands costs it a [FetchFiles] round trip and
+     * nothing more. The sender does not wait for it and does not retry.
+     */
+    @Serializable
+    data class PublishIndex(
+        val sourceId: String,
+        val files: List<FileRecordDto>,
+    ) : FileServerMessages
+
     /** Asks the peer to hold the pass over [Request.sourceId] while we run ours. */
     @Serializable
     sealed interface AcquireSyncLease : FileServerMessages {

@@ -123,6 +123,7 @@ internal class TrustGate(
                         displayName = descriptor.displayName,
                         method = best?.method ?: method.id,
                         strength = best?.strength ?: method.strength,
+                        descriptor = descriptor,
                     )
                 )
             } catch (e: CancellationException) {

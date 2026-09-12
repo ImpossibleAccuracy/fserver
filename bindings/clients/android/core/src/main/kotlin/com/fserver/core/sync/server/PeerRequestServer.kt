@@ -8,6 +8,7 @@ import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
+import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.setup.SourceSetupExchange
@@ -44,6 +45,7 @@ internal class PeerRequestServer(
     private val leaseRegistry: SyncLeaseRegistry,
     private val sourceSetup: SourceSetupExchange,
     private val fetchFiles: FetchFilesHandler,
+    private val publishedIndexes: PublishIndexHandler,
     private val leases: SyncLeaseHandler,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
@@ -200,6 +202,9 @@ internal class PeerRequestServer(
 
             is FileServerMessages.FetchFiles.Request ->
                 fetchFiles.handle(event, message, session)
+
+            is FileServerMessages.PublishIndex ->
+                publishedIndexes.handle(message, session)
 
             is FileServerMessages.AcquireSyncLease.Request ->
                 leases.answer(event, message, session)

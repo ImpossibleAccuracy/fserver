@@ -16,14 +16,12 @@ fun SourceEntry.Role.toUi(): SourceRoleUi = when (this) {
     SourceEntry.Role.Follower -> SourceRoleUi.Follower
 }
 
-/**
- * The peer's name as the trust records know it, falling back to its id.
- *
- * Trust rather than the online list: a source outlives any one session, so the device it is
- * paired with is usually not on the network while a screen naming it is open.
- */
-fun List<TrustedDevice>.nameOf(deviceId: String): String = this
-    .filter { it.deviceId == deviceId }
-    .maxByOrNull { it.lastSeen }
-    ?.displayName
-    ?: deviceId
+fun List<TrustedDevice>.latest(deviceId: String): TrustedDevice? =
+    filter { it.deviceId == deviceId }.latest()
+
+fun List<TrustedDevice>.latest(): TrustedDevice? = this
+    .filter { it.metadata?.lastSeen != null }
+    .maxByOrNull { it.metadata!!.lastSeen!! }
+
+fun List<TrustedDevice>.nameOf(deviceId: String): String =
+    latest(deviceId)?.displayName ?: deviceId

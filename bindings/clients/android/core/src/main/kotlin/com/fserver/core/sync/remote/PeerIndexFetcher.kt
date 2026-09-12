@@ -5,8 +5,10 @@ import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toFileRecord
+import com.fserver.core.network.dictionary.dto.toRemoteIndexed
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
 
@@ -14,6 +16,7 @@ internal class PeerIndexFetcher(
     private val storage: FServerStorage,
     private val networkController: NetworkController,
     private val devicesRepository: DevicesRepository,
+    private val timeProvider: TimeProvider,
 ) {
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
         val device = connectToDevice(source)
@@ -22,7 +25,18 @@ internal class PeerIndexFetcher(
             .getOrThrow()
 
         return when (response) {
-            is FileServerMessages.FetchFiles.FilesList -> response.files.map { it.toFileRecord() }
+            is FileServerMessages.FetchFiles.FilesList -> {
+                // Written through rather than read back: the pass plans on the answer it just got,
+                // and the cache is what a later change - or a restart - starts from.
+                val seenAt = timeProvider.now()
+                storage.remoteIndex.replace(
+                    sourceId = source.id,
+                    deviceId = source.deviceId,
+                    files = response.files.map { it.toRemoteIndexed(seenAt) },
+                )
+
+                response.files.map { it.toFileRecord() }
+            }
 
             is FileServerMessages.FetchFiles.Failed -> throw SyncException.RemoteRejectedException(
                 "Device ${source.deviceId} would not list source ${source.id}: ${response.reason}"

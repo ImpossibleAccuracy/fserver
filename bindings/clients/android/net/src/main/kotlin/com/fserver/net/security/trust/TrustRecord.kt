@@ -1,5 +1,6 @@
 package com.fserver.net.security.trust
 
+import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.identity.Fingerprint
 
@@ -14,6 +15,7 @@ data class TrustRecord(
     /** The strongest method this key has authenticated with, and what it counts for. */
     val method: AuthMethodId,
     val strength: AuthStrength,
+    val descriptor: PeerDescriptor?,
 ) {
     val fingerprint: Fingerprint get() = Fingerprint.of(publicKey)
 
@@ -22,13 +24,15 @@ data class TrustRecord(
             deviceId == other.deviceId &&
             displayName == other.displayName &&
             method == other.method &&
-            strength == other.strength
+            strength == other.strength &&
+            descriptor == other.descriptor
 
     override fun hashCode(): Int {
         var result = publicKey.contentHashCode()
         result = result * 31 + deviceId.hashCode()
         result = result * 31 + displayName.hashCode()
         result = result * 31 + method.hashCode()
-        return result * 31 + strength.hashCode()
+        result = result * 31 + strength.hashCode()
+        return result * 31 + descriptor.hashCode()
     }
 }

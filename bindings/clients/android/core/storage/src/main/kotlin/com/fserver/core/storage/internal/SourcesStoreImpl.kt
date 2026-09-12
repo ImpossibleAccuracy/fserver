@@ -20,11 +20,12 @@ import kotlinx.coroutines.sync.withLock
  *  `MutableStateFlow` for the SQLDelight `fileSource` table once the shape settles.
  *  `SourceLocation` and `SyncMode` both need column adapters, which is why this is not written yet.
  *
- * [index] is held so [delete] can drop a source's processed records with it: unregistering must
- * leave no orphan bookkeeping behind. It still touches no bytes on disk.
+ * [index] and [remoteIndex] are held so [delete] can drop both sides' records with the source:
+ * unregistering must leave no orphan bookkeeping behind. It still touches no bytes on disk.
  */
 internal class SourcesStoreImpl(
     private val index: FileIndexStoreImpl,
+    private val remoteIndex: RemoteIndexStoreImpl,
     private val timeProvider: TimeProvider,
 ) : SourcesStore, RegisteredSourcesRepository {
     private val writeLock = Mutex()
@@ -78,6 +79,7 @@ internal class SourcesStoreImpl(
             }
         }
         index.clearProcessed(id)
+        remoteIndex.clear(id)
     }
 
     override suspend fun findTombstone(id: String): SourceTombstone? = tombstones.value[id]

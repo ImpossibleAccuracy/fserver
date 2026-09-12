@@ -1,0 +1,49 @@
+-- The last index each source's peer reported. A cache of what the *other* device holds - never a
+-- claim about bytes here, and nothing plans from it today.
+--
+-- Keyed by (sourceId, fileId): fileId is cross-device identity, so it names a file only once paired
+-- with the source it was reported under. deviceId is carried for the record rather than for lookup,
+-- so a row says whose claim it is without a join back to the source.
+--
+-- state / hash / revision are flattened into columns instead of one packed string, for the reason
+-- knownRoute gives: a value that has to be split apart again is a value that stops round-tripping
+-- the moment a field can contain the separator.
+CREATE TABLE remoteIndexedFile (
+    sourceId             TEXT    NOT NULL,
+    fileId               TEXT    NOT NULL,
+    deviceId             TEXT    NOT NULL,
+    path                 TEXT    NOT NULL,
+    -- Present | Evicted | Deleted. Evicted must never read back as Deleted: one freed space, the
+    -- other is the user's deletion, and only the second one propagates.
+    state                TEXT    NOT NULL,
+    -- Present only: pinned files are exempt from eviction.
+    pinned               INTEGER NOT NULL DEFAULT 0,
+    -- Evicted / Deleted only: when it happened, as the peer reported it.
+    stateChangedEpochMs  INTEGER,
+    size                 INTEGER NOT NULL,
+    modifiedAtEpochMs    INTEGER NOT NULL,
+    hashValue            TEXT,
+    hashAlgorithm        TEXT,
+    revisionOriginDevice TEXT,
+    revisionCounter      INTEGER,
+    -- When this device last heard the peer say so.
+    seenAtEpochMs        INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, fileId)
+);
+
+selectBySource:
+SELECT *
+FROM remoteIndexedFile
+WHERE sourceId = ?;
+
+insert:
+INSERT OR REPLACE INTO remoteIndexedFile(
+    sourceId, fileId, deviceId, path, state, pinned, stateChangedEpochMs,
+    size, modifiedAtEpochMs, hashValue, hashAlgorithm,
+    revisionOriginDevice, revisionCounter, seenAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteBySource:
+DELETE FROM remoteIndexedFile
+WHERE sourceId = ?;

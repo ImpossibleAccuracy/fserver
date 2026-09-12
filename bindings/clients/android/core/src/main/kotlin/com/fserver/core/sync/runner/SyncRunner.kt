@@ -10,6 +10,7 @@ import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
@@ -30,6 +31,7 @@ internal class SyncRunner(
     private val storage: FServerStorage,
     private val localIndexer: LocalChangesIndexer,
     private val remoteFetcher: PeerIndexFetcher,
+    private val indexPublisher: IndexPublisher,
     private val uploadStrategySelector: UploadStrategySelector,
     private val actionRunner: FileActionRunner,
     private val constraintChecker: DeviceConstraintChecker,
@@ -109,6 +111,9 @@ internal class SyncRunner(
 
             progress.localPassFinished(source.id, null)
         }
+
+        // Off the pass on purpose: the loop moves to the next source without waiting on a message nobody answers
+        backgroundScope.launch { indexPublisher.publish(source) }
     }
 
     /**
