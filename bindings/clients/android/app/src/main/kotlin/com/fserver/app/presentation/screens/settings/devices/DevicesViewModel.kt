@@ -28,10 +28,10 @@ class DevicesViewModel(
 ) : ViewModel() {
 
     val state: StateFlow<DevicesState> = combine(
-        devicesRepository.onlineDevices,
+        devicesRepository.devices.connected,
+        devicesRepository.devices.known,
         trustedDevices.devices,
-    ) { online, trusted ->
-        val connected = online.filter(ForeignDevice::hasSession)
+    ) { connected, visibleTrusted, trusted ->
         val connectedIds = connected.mapTo(mutableSetOf()) { it.deviceId }
 
         DevicesState(
@@ -39,7 +39,7 @@ class DevicesViewModel(
             trusted = trusted
                 .distinctBy { it.deviceId }
                 .filterNot { it.deviceId in connectedIds }
-                .map { it.toUi(online) },
+                .map { it.toUi(visibleTrusted) },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -55,10 +55,14 @@ private fun ForeignDevice.toUi() = DevicesState.DeviceUi(
     kind = kind,
 )
 
-/** The kind is never persisted with the trust record, so it comes from the live list when there. */
-private fun TrustedDevice.toUi(online: List<ForeignDevice>) = DevicesState.DeviceUi(
+/**
+ * The kind is never persisted with the trust record, so it comes off the visible-and-trusted feed
+ * when the device happens to be around, and is left out when it is not.
+ */
+private fun TrustedDevice.toUi(visible: List<ForeignDevice>) = DevicesState.DeviceUi(
     deviceId = deviceId,
     name = displayName,
     subtitle = null,
-    kind = online.firstOrNull { it.deviceId == deviceId }?.kind,
+    // TODO: remember metadata for each known device
+    kind = visible.firstOrNull { it.deviceId == deviceId }?.kind,
 )

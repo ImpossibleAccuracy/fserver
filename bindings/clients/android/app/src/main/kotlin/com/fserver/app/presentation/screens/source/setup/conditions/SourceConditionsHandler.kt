@@ -48,7 +48,7 @@ class SourceConditionsHandler(
     private val targetDevice = flow.map { it.targetDeviceId }
         .flatMapLatest {
             if (it == null) flowOf(null)
-            else devicesRepository.device(it)
+            else devicesRepository.devices.device(it)
         }
 
     val state: StateFlow<SourceConditionsState?> =

@@ -7,7 +7,8 @@ CREATE TABLE trustedDevice (
     displayName     TEXT    NOT NULL,
     method          TEXT    NOT NULL,
     strength        TEXT    NOT NULL,
-    lastSeenEpochMs INTEGER NOT NULL
+    lastSeenEpochMs INTEGER NOT NULL,
+    lastNetworkId   TEXT
 );
 
 CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
@@ -39,8 +40,20 @@ WHERE deviceId = ?
 ORDER BY lastSeenEpochMs DESC;
 
 upsert:
-INSERT OR REPLACE INTO trustedDevice(publicKey, deviceId, displayName, method, strength, lastSeenEpochMs)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO trustedDevice(publicKey, deviceId, displayName, method, strength, lastSeenEpochMs, lastNetworkId)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- One row per device, however many keys it has presented.
+selectDeviceIds:
+SELECT DISTINCT deviceId
+FROM trustedDevice;
+
+-- Every key the device presented moves with it: the network is a property of the device, not of
+-- whichever key the last handshake happened to run under.
+updateLastNetwork:
+UPDATE trustedDevice
+SET lastNetworkId = ?
+WHERE deviceId = ?;
 
 deleteByKey:
 DELETE FROM trustedDevice

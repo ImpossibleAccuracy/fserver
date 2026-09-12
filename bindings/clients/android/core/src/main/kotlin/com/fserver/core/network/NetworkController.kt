@@ -9,6 +9,7 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.IdentityStoreAdapter
 import com.fserver.core.network.impl.TimberNetLogger
 import com.fserver.core.network.impl.TrustStoreAdapter
+import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.net.NetworkNode
@@ -39,6 +40,7 @@ internal class NetworkController(
     private val config: FServerConfig,
     private val storage: FServerStorage,
     private val authenticator: PeerAuthenticator,
+    private val networkInfoRepository: NetworkInfoRepository,
     private val coroutineScope: BackgroundScope,
 ) {
     private val crypto = X25519CryptoProvider
@@ -109,7 +111,11 @@ internal class NetworkController(
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
         networkConfig(dictionary = FileServerDictionary()) {
             identityStore = IdentityStoreAdapter(storage.identity)
-            trustStore = TrustStoreAdapter(storage.trust, config.timeProvider)
+            trustStore = TrustStoreAdapter(
+                trustedDevicesStore = storage.trust,
+                networkInfoRepository = networkInfoRepository,
+                timeProvider = config.timeProvider,
+            )
             authenticator = null // this@NetworkController.authenticator
             crypto = PassthroughCryptoProvider // this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope

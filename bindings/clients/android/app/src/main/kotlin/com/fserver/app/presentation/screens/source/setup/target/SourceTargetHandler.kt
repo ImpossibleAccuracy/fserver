@@ -40,28 +40,39 @@ class SourceTargetHandler(
 
     private var awaitedDeviceId: String? = null
 
+    /**
+     * The three live feeds this screen draws, folded into one so the [combine] below still fits.
+     *
+     * `unknown` is what the "discovered" bucket is made of rather than everything visible: a
+     * trusted device belongs under "known", which is read out of the trust records instead, so it
+     * is listed whether it is around or not. `known` is only there to fill in what a trust record
+     * does not store - the device kind.
+     */
+    private val visible = combine(
+        devicesRepository.devices.connected,
+        devicesRepository.devices.known,
+        devicesRepository.devices.unknown,
+        ::Triple,
+    )
+
     val state: StateFlow<SourceTargetState> = combine(
-        devicesRepository.onlineDevices,
+        visible,
         trustedDevicesRepository.devices,
-        devicesRepository.runningScanningMethods,
+        devicesRepository.discovery.runningMethods,
         flow,
         editable,
-    ) { online, trusted, running, shared, local ->
-        val connected = online.filter(ForeignDevice::hasSession)
+    ) { (connected, visibleTrusted, discovered), trusted, running, shared, local ->
         val sessionIds = connected.mapTo(mutableSetOf()) { it.deviceId }
 
         val known = trusted
             .distinctBy { it.deviceId }
             .filterNot { it.deviceId in sessionIds }
-        val knownIds = known.mapTo(mutableSetOf()) { it.deviceId }
-
-        val discovered = online.filterNot { it.hasSession || it.deviceId in knownIds }
 
         SourceTargetState(
             connected = connected.map { it.toUi() },
             known = known.map {
                 it.toUi(
-                    online,
+                    visibleTrusted,
                     isBusy = it.deviceId == local.reconnectingDeviceId
                 )
             },
@@ -74,9 +85,7 @@ class SourceTargetHandler(
 
     init {
         scope.launch {
-            devicesRepository.onlineDevices
-                .map { devices -> devices.filter(ForeignDevice::hasSession) }
-                .collect(::onConnectedChanged)
+            devicesRepository.devices.connected.collect(::onConnectedChanged)
         }
     }
 
@@ -129,7 +138,7 @@ class SourceTargetHandler(
 
         scanJobs[method] = scope.launch {
             try {
-                devicesRepository.startDetection(method)
+                devicesRepository.discovery.start(method)
                     .onFailure { Timber.w(it, "could not start $method") }
             } finally {
                 scanJobs.remove(method)
@@ -188,11 +197,12 @@ private fun ForeignDevice.toUi() = SourceTargetState.DeviceUi(
     address = routes.firstOrNull()?.address,
 )
 
+/** [visible] is the visible-and-trusted feed: what a trust record cannot say, it fills in. */
 private fun TrustedDevice.toUi(
-    online: List<ForeignDevice>,
+    visible: List<ForeignDevice>,
     isBusy: Boolean,
 ): SourceTargetState.DeviceUi {
-    val live = online.firstOrNull { it.deviceId == deviceId }
+    val live = visible.firstOrNull { it.deviceId == deviceId }
 
     return SourceTargetState.DeviceUi(
         id = deviceId,

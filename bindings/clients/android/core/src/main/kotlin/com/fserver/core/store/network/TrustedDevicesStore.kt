@@ -3,6 +3,7 @@ package com.fserver.core.store.network
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.store.FServerStorageApi
+import kotlinx.coroutines.flow.Flow
 
 /**
  * What a completed handshake leaves behind. Lookups and writes only - listing and forgetting are
@@ -10,6 +11,8 @@ import com.fserver.core.store.FServerStorageApi
  */
 @SubclassOptInRequired(FServerStorageApi::class)
 interface TrustedDevicesStore {
+    val knownDeviceIds: Flow<Set<String>>
+
     suspend fun findByKey(publicKey: ByteArray): TrustedDevice?
 
     suspend fun findByDeviceId(deviceId: String): List<TrustedDevice>
@@ -27,4 +30,7 @@ interface TrustedDevicesStore {
 
     /** null when nothing dialable was ever recorded for [deviceId], or the device was forgotten. */
     suspend fun findKnownRoute(deviceId: String): KnownRoute?
+
+    /** Remembers the network [deviceId] was last reached over, replacing whatever was recorded for it. */
+    suspend fun recordLastNetwork(deviceId: String, networkId: String?)
 }

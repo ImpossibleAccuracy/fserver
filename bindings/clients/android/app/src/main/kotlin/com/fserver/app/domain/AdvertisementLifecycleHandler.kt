@@ -68,7 +68,7 @@ class AdvertisementLifecycleHandler(
         combine(
             isAppVisible,
             appSettings.discoverable,
-            devicesRepository.advertisingMethods,
+            devicesRepository.advertising.runningMethods,
             networkInfoRepository.networkInfo,
             recheckRequirements,
         ) { visible, discoverable, onAir, network, _ ->
@@ -91,7 +91,7 @@ class AdvertisementLifecycleHandler(
     }
 
     /** Takes this device off the air, whatever the setting says. */
-    suspend fun stop() = devicesRepository.stopAdvertising()
+    suspend fun stop() = devicesRepository.advertising.stopAll()
 
     /**
      * Brings what is on the air in line with what should be: ready methods go up, methods that
@@ -104,7 +104,7 @@ class AdvertisementLifecycleHandler(
      */
     private suspend fun reconcile(state: Advertisement) {
         if (!state.wanted) {
-            if (state.onAir.isNotEmpty()) devicesRepository.stopAdvertising()
+            if (state.onAir.isNotEmpty()) devicesRepository.advertising.stopAll()
             advertisedOn = null
             return
         }
@@ -113,7 +113,7 @@ class AdvertisementLifecycleHandler(
         // can reach, so it comes down whole; the emptied set brings this straight back to start it
         // again.
         if (state.onAir.isNotEmpty() && state.network != advertisedOn) {
-            devicesRepository.stopAdvertising()
+            devicesRepository.advertising.stopAll()
             return
         }
 
@@ -122,10 +122,10 @@ class AdvertisementLifecycleHandler(
 
             when {
                 isReady && method !in state.onAir ->
-                    devicesRepository.startAdvertising(method)
+                    devicesRepository.advertising.start(method)
                         .onFailure { Timber.d(it, "not advertising over $method") }
 
-                !isReady && method in state.onAir -> devicesRepository.stopAdvertising(method)
+                !isReady && method in state.onAir -> devicesRepository.advertising.stop(method)
             }
         }
 

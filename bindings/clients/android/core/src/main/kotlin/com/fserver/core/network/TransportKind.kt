@@ -6,7 +6,7 @@ package com.fserver.core.network
  * [Automatic] describes cost, not scheduling: automatic kinds are quiet and cheap enough to run
  * together, the rest are slow, loud, or need the user to supply something. Neither starts on its
  * own - every scan is begun by an explicit
- * [com.fserver.core.network.device.DevicesRepository.startDetection] call, because a kind that
+ * [com.fserver.core.network.device.DeviceDiscovery.start] call, because a kind that
  * starts itself turns a permission the user was never asked for into "found nothing".
  */
 sealed interface TransportKind {

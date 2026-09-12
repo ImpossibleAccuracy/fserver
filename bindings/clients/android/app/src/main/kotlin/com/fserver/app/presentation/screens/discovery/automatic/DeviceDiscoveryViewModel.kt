@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -69,17 +68,25 @@ class DeviceDiscoveryViewModel(
 
     private val participation = combine(selected, startedMethods, ::Pair)
 
-    private val devices = devicesRepository.onlineDevices
-        .map { list ->
-            list.filterNot {
-                // Hide connected devices
-                it.hasSession
-            }
-        }
+    /**
+     * What the search has turned up and not paired with yet: heard over a scan, or handshaken
+     * earlier in this process and since let go.
+     * Connected devices are counted apart - a method's "found" count is about what it is finding now.
+     */
+    private val unpaired = combine(
+        devicesRepository.devices.discovered,
+        devicesRepository.devices.handshaken,
+    ) { discovered, handshaken -> discovered + handshaken }
+
+    /** Everything on the list, paired ones first - they carry the marker that says so. */
+    private val visible = combine(
+        devicesRepository.devices.connected,
+        unpaired,
+    ) { connected, rest -> connected + rest }
 
     private val methodsUi = combine(
-        devices,
-        devicesRepository.runningScanningMethods,
+        unpaired,
+        devicesRepository.discovery.runningMethods,
         participation,
         reports,
     ) { devices, running, (selectedMethods, started), reportByMethod ->
@@ -111,7 +118,7 @@ class DeviceDiscoveryViewModel(
 
     val state: StateFlow<DeviceDiscoveryState> = combine(
         networkCard,
-        devicesRepository.onlineDevices,
+        visible,
         methodsUi,
         setupUi,
         searchStarted,
@@ -213,7 +220,7 @@ class DeviceDiscoveryViewModel(
             scanJobs[method] = viewModelScope.launch {
                 try {
                     // TODO: surface the failed Result instead of dropping it
-                    devicesRepository.startDetection(method)
+                    devicesRepository.discovery.start(method)
                 } finally {
                     scanJobs.remove(method)
                 }
@@ -225,9 +232,9 @@ class DeviceDiscoveryViewModel(
      * Stops the scanners and nothing else — the search screen, and everything already found on
      * it, stays exactly where it is. Each stopped method can be started again on its own.
      *
-     * `DeviceDetectionRepository` has no stop of its own: `startDetection` is a suspend function
-     * that runs until the scan ends, so cancelling its coroutine *is* the stop. The repository
-     * clears the method from `runningScanningMethods` in a `finally`, so the UI follows.
+     * Cancelling the job *is* the stop: `DeviceDiscovery.start` is a suspend function that runs
+     * until the scan ends, and it clears the method from `runningMethods` on its way out, so the
+     * UI follows. `DeviceDiscovery.stop` is for stopping a scan this screen did not start.
      */
     private fun stopSearch() {
         scanJobs.values.toList().forEach(Job::cancel)

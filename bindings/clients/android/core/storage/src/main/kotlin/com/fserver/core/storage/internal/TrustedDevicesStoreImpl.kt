@@ -28,6 +28,11 @@ internal class TrustedDevicesStoreImpl(
         .mapToList(Dispatchers.IO)
         .map { rows -> rows.map { it.toDomainModel() } }
 
+    override val knownDeviceIds: Flow<Set<String>> = dao.selectDeviceIds()
+        .asFlow()
+        .mapToList(Dispatchers.IO)
+        .map { it.toSet() }
+
     override suspend fun findByKey(publicKey: ByteArray): TrustedDevice? =
         dao.findByKey(publicKey).executeAsOneOrNull()?.toDomainModel()
 
@@ -42,7 +47,12 @@ internal class TrustedDevicesStoreImpl(
             method = record.method.name,
             strength = record.strength,
             lastSeenEpochMs = record.lastSeen.toEpochMilliseconds(),
+            lastNetworkId = record.lastNetworkId,
         )
+    }
+
+    override suspend fun recordLastNetwork(deviceId: String, networkId: String?) {
+        dao.updateLastNetwork(lastNetworkId = networkId, deviceId = deviceId)
     }
 
     // TODO: this solution needs full rewrite, starting from usage TransportKind as transport, and finishing multiple upsert calls
@@ -92,6 +102,7 @@ private fun DBTrustedDevice.toDomainModel() = TrustedDevice(
     method = AuthMethod.valueOf(method),
     strength = strength,
     lastSeen = Instant.fromEpochMilliseconds(lastSeenEpochMs),
+    lastNetworkId = lastNetworkId,
 )
 
 private enum class KnownRouteKind { Ip, Nearby }

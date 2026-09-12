@@ -53,7 +53,7 @@ class PairingViewModel(
     private val greeting = MutableStateFlow<Greeting?>(null)
 
     private val device: Flow<ForeignDevice?> = knownDeviceId
-        ?.let { id -> devicesRepository.device(id).debounce(200.milliseconds) }
+        ?.let { id -> devicesRepository.devices.device(id).debounce(200.milliseconds) }
         ?: flowOf(null)
 
     val state: StateFlow<PairingState> = combine(
@@ -82,7 +82,7 @@ class PairingViewModel(
         // meaningful once there is a known id to watch, which manual/QR targets don't have yet.
         knownDeviceId?.let { id ->
             viewModelScope.launch {
-                devicesRepository.device(id).filterNotNull().first { it.hasSession }
+                devicesRepository.devices.device(id).filterNotNull().first { it.hasSession }
                 ensureLoggedIn()
                 effects.send(PairingUiEffect.NavigateNext)
             }

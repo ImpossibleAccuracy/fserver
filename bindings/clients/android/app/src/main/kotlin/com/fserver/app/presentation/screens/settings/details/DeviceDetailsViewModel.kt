@@ -44,7 +44,7 @@ class DeviceDetailsViewModel(
         .map { records -> records.filter { it.deviceId == key.deviceId } }
 
     val state: StateFlow<DeviceDetailsState> = combine(
-        devicesRepository.device(key.deviceId),
+        devicesRepository.devices.device(key.deviceId),
         trustedDevices.observeKnownRoute(key.deviceId),
         trustedKeys,
     ) { device, knownRoute, trusted ->

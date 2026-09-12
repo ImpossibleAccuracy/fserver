@@ -1,6 +1,7 @@
 package com.fserver.core.network.device.model
 
 import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.info.model.NetworkInfo
 import kotlin.time.Instant
 
 /**
@@ -18,17 +19,20 @@ class TrustedDevice(
     val method: AuthMethod,
     val strength: String,
     val lastSeen: Instant,
+    /** Network the last connection to this device ran over, as [NetworkInfo.id] reports it */
+    val lastNetworkId: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is TrustedDevice) return false
 
         return publicKey.contentEquals(other.publicKey) &&
-            deviceId == other.deviceId &&
-            displayName == other.displayName &&
-            method == other.method &&
-            strength == other.strength &&
-            lastSeen == other.lastSeen
+                deviceId == other.deviceId &&
+                displayName == other.displayName &&
+                method == other.method &&
+                strength == other.strength &&
+                lastSeen == other.lastSeen &&
+                lastNetworkId == other.lastNetworkId
     }
 
     override fun hashCode(): Int {
@@ -38,10 +42,11 @@ class TrustedDevice(
         result = 31 * result + method.hashCode()
         result = 31 * result + strength.hashCode()
         result = 31 * result + lastSeen.hashCode()
+        result = 31 * result + lastNetworkId.hashCode()
         return result
     }
 
     override fun toString(): String =
         "TrustedDevice(deviceId=$deviceId, displayName=$displayName, method=$method, " +
-            "strength=$strength, lastSeen=$lastSeen)"
+                "strength=$strength, lastSeen=$lastSeen, lastNetworkId=$lastNetworkId)"
 }
