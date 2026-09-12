@@ -12,7 +12,7 @@ import kotlin.time.Instant
  * implementation detail of `:core`, and a storage backend implementing [
  * com.fserver.core.store.sync.FileIndexStore] must compile without it on the classpath.
  */
-data class IndexedFile(
+data class LocalIndexedFile(
     /** Row key, unique within this device's index. Assigned by whoever writes the record. */
     val id: String,
     val sourceId: String,

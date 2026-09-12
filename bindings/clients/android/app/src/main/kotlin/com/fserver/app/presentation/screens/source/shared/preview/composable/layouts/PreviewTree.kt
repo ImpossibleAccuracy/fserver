@@ -215,7 +215,7 @@ private fun EntryListItem(
         is SourcePreviewUi.File -> DkListRow(
             title = row.name,
             titleMaxLines = 2,
-            subtitle = row.size.formatted(),
+            subtitle = row.size?.formatted(),
             onClick = { onFileClick(row) },
             leading = {
                 DkThumbnail(
@@ -293,6 +293,7 @@ private val SampleVolumes = listOf(
         isVolume = true,
     ),
     SourcePreviewUi.File(
+        id = "1",
         path = "primary/DCIM/Camera/IMG_0001.jpg",
         name = "IMG_0001.jpg",
         kind = FileKindUi.Image,

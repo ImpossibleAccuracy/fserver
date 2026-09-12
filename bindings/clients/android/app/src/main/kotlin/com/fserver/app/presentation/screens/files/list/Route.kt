@@ -13,13 +13,9 @@ fun EntryProviderScope<Destination>.filesListEntry(
             navigateToConnect = { navigator.navigate(Destination.Connect) },
             navigateToSourcePick = { navigator.navigate(Destination.Source.Setup.Pick) },
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },
-            navigateToFolder = { entry ->
+            navigateToFolder = { folder ->
                 navigator.navigate(
-                    Destination.Files.Folder(
-                        folderId = entry.id,
-                        title = entry.file.name,
-                        mediaCollection = entry.mediaCollection,
-                    )
+                    Destination.Files.Folder(folderPath = folder)
                 )
             },
             navigateToDeviceSettings = {

@@ -4,7 +4,7 @@ import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.runner.FileUploader
@@ -47,7 +47,7 @@ internal class FileOperationHandler(
 
                 storage.index.updateFileState(
                     key = operation.key,
-                    state = IndexedFile.State.Deleted(deletedAt = timeProvider.now()),
+                    state = LocalIndexedFile.State.Deleted(deletedAt = timeProvider.now()),
                 )
 
                 Timber.i("Deleted file ${file.path} from source ${source.id} as requested by peer ${session.identity.deviceId}")

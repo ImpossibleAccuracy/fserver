@@ -1,11 +1,16 @@
 package com.fserver.core.storage.internal
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.RemoteIndexStore
-import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
 import com.fserver.core.storage.database.RemoteIndexedFile as DBRemoteIndexedFile
 
@@ -13,6 +18,11 @@ internal class RemoteIndexStoreImpl(
     private val database: FServerStorageDatabase,
 ) : RemoteIndexStore {
     private val dao = database.remoteIndexedFileQueries
+
+    override val all: Flow<List<RemoteIndexedFile>> = dao.selectAll()
+        .asFlow()
+        .mapToList(Dispatchers.IO)
+        .map { rows -> rows.map { it.toDomainModel() } }
 
     override suspend fun files(sourceId: String): List<RemoteIndexedFile> =
         dao.selectBySource(sourceId).executeAsList().map { it.toDomainModel() }
@@ -56,6 +66,7 @@ internal class RemoteIndexStoreImpl(
 }
 
 private fun DBRemoteIndexedFile.toDomainModel() = RemoteIndexedFile(
+    sourceId = sourceId,
     fileId = fileId,
     path = path,
     state = FileStates.read(
@@ -69,7 +80,7 @@ private fun DBRemoteIndexedFile.toDomainModel() = RemoteIndexedFile(
         hashAlgorithm?.let { ContentHash(value = value, algorithm = it) }
     },
     revision = revisionOriginDevice?.let { origin ->
-        revisionCounter?.let { IndexedFile.Revision(originDevice = origin, counter = it) }
+        revisionCounter?.let { LocalIndexedFile.Revision(originDevice = origin, counter = it) }
     },
     seenAt = Instant.fromEpochMilliseconds(seenAtEpochMs),
 )

@@ -39,7 +39,7 @@ fun PreviewList(
         items(preview.files, key = { it.path }) { file ->
             DkListRow(
                 title = file.name,
-                subtitle = file.size.formatted(),
+                subtitle = file.size?.formatted(),
                 onClick = { onFileClick(file) },
                 leading = { DkThumbnail(icon = file.kind.icon()) },
                 trailing = {
@@ -91,6 +91,7 @@ private fun SourcePreviewSelectableListPreview() {
 }
 
 private val SampleImage = SourcePreviewUi.File(
+    id = "1",
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
     kind = FileKindUi.Image,
@@ -100,6 +101,7 @@ private val SampleImage = SourcePreviewUi.File(
 )
 
 private val SampleDocument = SourcePreviewUi.File(
+    id = "2",
     path = "primary/Documents/report.pdf",
     name = "report.pdf",
     kind = FileKindUi.Document,

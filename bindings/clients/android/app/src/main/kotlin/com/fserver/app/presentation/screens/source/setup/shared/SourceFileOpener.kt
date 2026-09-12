@@ -23,15 +23,24 @@ import java.io.File
  * path, which no other app may read. The second one is handed out through the app's `FileProvider`
  * with a one-shot read grant, so the viewer sees the file and nothing else.
  */
+fun interface SourceFileOpener {
+    fun open(file: SourcePreviewUi.File)
+}
+
 @Composable
-fun rememberSourceFileOpener(): (SourcePreviewUi.File) -> Unit {
+fun rememberSourceFileOpener(): SourceFileOpener {
     val context = LocalContext.current
 
-    return remember(context) { { file -> context.openInSystemViewer(file) } }
+    return remember(context) {
+        SourceFileOpener { context.openInSystemViewer(it) }
+    }
 }
 
 private fun Context.openInSystemViewer(file: SourcePreviewUi.File) {
-    val uri = shareableUri(file.locator)
+    val locator = file.locator
+        ?: throw IllegalArgumentException("Cannot open file with no locator")
+
+    val uri = shareableUri(locator)
     if (uri == null) {
         Toast.makeText(this, R.string.source_preview_open_failed, Toast.LENGTH_SHORT).show()
         return

@@ -9,10 +9,10 @@ import com.fserver.core.network.dictionary.codec.UploadChunkCodec
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransferKey
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
@@ -67,7 +67,7 @@ internal class FileUploader(
             session.runRemoteOperation(
                 operation = RemoteOperation.Upload.Init(
                     sourceId = source.id,
-                    file = file.toDto(),
+                    file = file.toDto(source.id),
                 )
             )
         }

@@ -6,22 +6,20 @@ import com.fserver.app.presentation.designkit.DkCheckState
 import com.fserver.common.model.FileSize
 import com.fserver.core.sync.progress.FileTransfer
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * Presentation-layer models for the MVP screens.
  *
- * These are UI shapes only — they carry pre-formatted labels, not domain values. When
- * `:core` starts producing real discovery/index/transfer state, a mapper feeds these;
- * the screens do not move.
+ * These are UI shapes only. Values that need a locale or a Context to read — sizes, dates,
+ * durations — stay domain values here and are formatted where they are drawn.
  */
 
 enum class FileKindUi {
-    @Deprecated("folder is not a file kind, delete")
-    Folder,
-    Image, Video, Audio, Document, Other;
+    Folder, Image, Video, Audio, Document, Other;
 
     val isMedia: Boolean
-        get() = this == Image || this == Video
+        get() = this == Image || this == Video || this == Audio
 }
 
 /**
@@ -47,8 +45,8 @@ data class FileUi(
     val id: String,
     val name: String,
     val kind: FileKindUi,
-    val sizeLabel: String? = null,
-    val dateLabel: String? = null,
+    val size: FileSize? = null,
+    val modifiedAt: Instant? = null,
     val childCount: Int? = null,
     val availability: FileAvailabilityUi = FileAvailabilityUi.OnServer,
     val extensionLabel: String? = null,

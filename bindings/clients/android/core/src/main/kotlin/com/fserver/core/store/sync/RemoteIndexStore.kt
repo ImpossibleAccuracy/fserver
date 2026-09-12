@@ -2,6 +2,7 @@ package com.fserver.core.store.sync
 
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.index.RemoteIndexedFile
+import kotlinx.coroutines.flow.Flow
 
 /**
  * The last index each source's peer reported, as this device heard it. [FileIndexStore] is the same
@@ -16,6 +17,8 @@ import com.fserver.core.sync.index.RemoteIndexedFile
  */
 @SubclassOptInRequired(FServerStorageApi::class)
 interface RemoteIndexStore {
+    val all: Flow<List<RemoteIndexedFile>>
+
     /** What [sourceId]'s peer last reported, or empty when nothing has been heard yet. */
     suspend fun files(sourceId: String): List<RemoteIndexedFile>
 

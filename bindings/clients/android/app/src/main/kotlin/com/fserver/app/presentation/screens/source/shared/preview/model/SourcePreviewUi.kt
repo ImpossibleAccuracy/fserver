@@ -70,15 +70,22 @@ sealed interface SourcePreviewUi {
 
     @Immutable
     data class File(
+        val id: String,
         override val path: String,
         override val name: String,
         val kind: FileKindUi,
         /** Device-local address, for handing the file to a system viewer. */
-        val locator: String,
-        val size: FileSize,
+        val locator: String?,
+        val size: FileSize?,
+        val location: Location? = null,
         /** Set on a non-media file, which has no thumbnail to fall back on in the gallery. */
         val extensionLabel: String?,
-    ) : PreviewContentEntry
+    ) : PreviewContentEntry {
+        enum class Location {
+            Local,
+            Remote,
+        }
+    }
 
     @Immutable
     data class Directory(
@@ -92,21 +99,7 @@ sealed interface SourcePreviewUi {
         val isVolume: Boolean = false,
     ) : PreviewContentEntry {
         val isMediaDirectory: Boolean
-            get() {
-                var mediaItems = 0
-                var filesCount = 0
-
-                for (entry in contents) {
-                    if (entry is File) {
-                        filesCount += 1
-                        if (entry.kind.isMedia) mediaItems += 1
-                    }
-                }
-
-                if (filesCount == 0) return false
-
-                return mediaItems / filesCount.toDouble() >= MediaRatioThreshold
-            }
+            get() = isMediaCollection(contents)
 
         fun filesCount(): Int = files + contents.sumOf {
             when (it) {
@@ -140,6 +133,6 @@ sealed interface SourcePreviewUi {
     }
 
     companion object {
-        private const val MediaRatioThreshold = 0.7
+        const val MediaRatioThreshold = 0.7
     }
 }

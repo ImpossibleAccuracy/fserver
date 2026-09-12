@@ -38,7 +38,7 @@ fun rememberSourceThumbnail(file: SourcePreviewUi.File): State<ImageBitmap?> {
         return remember(file.path) { mutableStateOf(null) }
     }
 
-    return produceState<ImageBitmap?>(initialValue = null, file.locator) {
+    return produceState(initialValue = null, file.locator) {
         value = withContext(Dispatchers.IO) {
             context.decodeThumbnail(file)?.asImageBitmap()
         }
@@ -47,6 +47,7 @@ fun rememberSourceThumbnail(file: SourcePreviewUi.File): State<ImageBitmap?> {
 
 private fun Context.decodeThumbnail(file: SourcePreviewUi.File): Bitmap? = runCatching {
     when {
+        file.locator == null -> null
         !file.locator.startsWith('/') -> contentThumbnail(file)
         file.kind == FileKindUi.Video -> videoThumbnail(File(file.locator))
         else -> sampledImage(File(file.locator))
@@ -54,7 +55,8 @@ private fun Context.decodeThumbnail(file: SourcePreviewUi.File): Bitmap? = runCa
 }.onFailure { Timber.v(it, "No thumbnail for %s", file.name) }.getOrNull()
 
 private fun Context.contentThumbnail(file: SourcePreviewUi.File): Bitmap? {
-    val uri = file.locator.toUri()
+    val uri = file.locator?.toUri()
+        ?: return null
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         return contentResolver.loadThumbnail(uri, Size(ThumbnailSize, ThumbnailSize), null)

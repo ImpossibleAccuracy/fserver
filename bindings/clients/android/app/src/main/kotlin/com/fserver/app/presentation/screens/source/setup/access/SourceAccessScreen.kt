@@ -36,9 +36,10 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessUiEffect
+import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceScanResult
-import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
@@ -46,7 +47,6 @@ import com.fserver.app.presentation.screens.source.shared.preview.composable.Sou
 import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
 import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.displayLabel
 import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
-import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.scan.DirectoryScanProgress
@@ -58,6 +58,7 @@ fun SourceAccessScreen(
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
+    val fileOpener = rememberSourceFileOpener()
     val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     val requester = rememberSourceAccessRequester { grant ->
@@ -77,7 +78,7 @@ fun SourceAccessScreen(
         state = state,
         newIntent = handler::onIntent,
         onRequestAccess = { requester.request(state.kind) },
-        onFileClick = rememberSourceFileOpener(),
+        onFileClick = { fileOpener.open(it) },
         onContinue = {
             if (state.isPickingDirectory) {
                 handler.onIntent(SourceAccessIntent.DirectoryConfirmed)
@@ -120,7 +121,7 @@ private fun SourceAccessScreenContent(
                         selected.size.formatted(),
                     )
 
-                    is SourcePreviewUi.File -> selected.size.formatted()
+                    is SourcePreviewUi.File -> selected.size?.formatted()
 
                     else -> null
                 },
@@ -508,6 +509,7 @@ private fun SourceAccessPreviewPreview() {
                 preview = SourcePreviewUi.PlainList(
                     files = listOf(
                         SourcePreviewUi.File(
+                            id = "1",
                             path = "IMG_0001.jpg",
                             name = "IMG_0001.jpg",
                             kind = FileKindUi.Image,
@@ -516,6 +518,7 @@ private fun SourceAccessPreviewPreview() {
                             extensionLabel = null,
                         ),
                         SourcePreviewUi.File(
+                            id = "2",
                             path = "notes.pdf",
                             name = "notes.pdf",
                             kind = FileKindUi.Document,

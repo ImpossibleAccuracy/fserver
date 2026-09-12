@@ -1,6 +1,7 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.common.exception.MalformedQrException
+import com.fserver.common.utils.chainWith
 import com.fserver.core.Constants
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.AuthCredentials
@@ -11,6 +12,8 @@ import com.fserver.core.network.device.DeviceDiscovery
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import com.fserver.core.network.device.OnlineDevices
+import com.fserver.core.network.device.impl.mapper.toDomain
+import com.fserver.core.network.device.impl.mapper.toKnownRoute
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -18,7 +21,6 @@ import com.fserver.core.network.info.currentNetworkId
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
-import com.fserver.common.utils.chainWith
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.pake.PakeAuthMethod
@@ -26,6 +28,7 @@ import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
+import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsTransportEndpoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -82,13 +85,20 @@ internal class DevicesRepositoryImpl(
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
                 ?.let { network.requestManager.probe(it) }
                 ?: Result.failure(MalformedQrException())
+
+            is PeerLocator.NearbyEndpoint -> {
+                val peer = findNearbyEndpoint(arguments)
+                    ?: return Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
+
+                network.requestManager.probe(peer)
+            }
         }
             .onSuccess { probed ->
                 if (probed.route.deviceId != PeerRef.UNKNOWN_DEVICE_ID) {
                     rememberRoute(probed.route.deviceId, probed.route.endpoint)
                 }
             }
-            .map { it.greeting.toDomain() }
+            .map { it.toDomain() }
 
     override suspend fun connect(
         arguments: PeerLocator,
@@ -116,6 +126,13 @@ internal class DevicesRepositoryImpl(
             is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
                 ?.let { network.requestManager.connect(peer = it, request = request) }
                 ?: Result.failure(MalformedQrException())
+
+            is PeerLocator.NearbyEndpoint -> {
+                val peer = findNearbyEndpoint(arguments)
+                    ?: return Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
+
+                network.requestManager.connect(peer = peer, request = request)
+            }
         }
 
         return result
@@ -165,7 +182,7 @@ internal class DevicesRepositoryImpl(
      * and a storage failure must not turn an operation that succeeded into a failure.
      */
     private suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
-        val route = endpoint.toKnownRoute() ?: return
+        val route = endpoint.toKnownRoute()
 
         runCatching { storage.trust.recordKnownRoute(deviceId, route) }
             .onFailure { Timber.w(it, "could not remember route for $deviceId") }
@@ -183,6 +200,14 @@ internal class DevicesRepositoryImpl(
             storage.trust.recordLastNetwork(deviceId, networkInfoRepository.currentNetworkId())
         }.onFailure { Timber.w(it, "could not remember network for $deviceId") }
     }
+
+    private fun findNearbyEndpoint(arguments: PeerLocator.NearbyEndpoint): PeerRef? =
+        network.peerDiscovery.peers.value
+            .firstNotNullOfOrNull { peer ->
+                peer.routes.find {
+                    (it.endpoint as? NearbyConnectionsTransportEndpoint)?.endpointId == arguments.endpointId
+                }
+            }
 
     private fun PeerLocator.Ip.toPeerRef(): PeerRef = PeerRef.build(
         DirectIpEndpoint(host = host, port = port ?: Constants.DEFAULT_PORT)

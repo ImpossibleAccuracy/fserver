@@ -12,6 +12,11 @@ fun EntryProviderScope<Destination>.filesFolderEntry(
     entry<Destination.Files.Folder> { key ->
         FolderScreen(
             viewModel = koinViewModel { parametersOf(key) },
+            navigateToFolder = { folder ->
+                navigator.navigate(
+                    Destination.Files.Folder(folderPath = folder)
+                )
+            },
             navigateUp = { navigator.navigateUp() },
         )
     }

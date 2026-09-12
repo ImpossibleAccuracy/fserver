@@ -10,20 +10,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Smartphone
-import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,8 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.DkFab
-import com.fserver.app.presentation.designkit.DkFadingDivider
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
@@ -45,12 +45,15 @@ import com.fserver.app.presentation.designkit.DkSegmentedControl
 import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.files.list.composable.ContentEntryRow
 import com.fserver.app.presentation.screens.files.list.composable.DeviceDetailsCard
 import com.fserver.app.presentation.screens.files.list.composable.DeviceStrip
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
+import com.fserver.app.presentation.screens.files.list.model.FilesUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
+import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
+import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
+import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -64,10 +67,19 @@ fun FilesScreen(
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateToSyncRequests: () -> Unit,
-    navigateToFolder: (FilesState.EntryUi) -> Unit,
+    navigateToFolder: (String) -> Unit,
     navigateToDeviceSettings: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val fileOpener = rememberSourceFileOpener()
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                is FilesUiEffect.OpenFile -> fileOpener.open(effect.file)
+            }
+        }
+    }
 
     FilesScreenContent(
         modifier = modifier,
@@ -77,7 +89,7 @@ fun FilesScreen(
         navigateToConnect = navigateToConnect,
         navigateToSourcePick = navigateToSourcePick,
         navigateToSyncRequests = navigateToSyncRequests,
-        navigateToFolder = navigateToFolder,
+        navigateToFolder = { navigateToFolder(it.path) },
         navigateToDeviceSettings = navigateToDeviceSettings,
     )
 }
@@ -91,7 +103,7 @@ private fun FilesScreenContent(
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateToSyncRequests: () -> Unit,
-    navigateToFolder: (FilesState.EntryUi) -> Unit,
+    navigateToFolder: (SourcePreviewUi.File) -> Unit,
     navigateToDeviceSettings: (String) -> Unit,
 ) {
     DkScaffold(
@@ -121,7 +133,7 @@ private fun FilesScreenContent(
                 icon = Icons.Default.Add,
                 label = stringResource(R.string.files_send_file),
                 onClick = navigateToActions,
-                visible = !state.isEmpty && state.expandedDevice == null,
+                visible = state.expandedDevice == null,
             )
         },
     ) { innerPadding ->
@@ -172,7 +184,7 @@ private fun FilesFeed(
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateToSyncRequests: () -> Unit,
-    navigateToFolder: (FilesState.EntryUi) -> Unit,
+    navigateToFolder: (SourcePreviewUi.File) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         if (state.showsSyncRequestHint) {
@@ -190,51 +202,65 @@ private fun FilesFeed(
             }
         }
 
-        if (state.isEmpty) {
-            FilesEmptyState(
-                modifier = Modifier.weight(1f),
-                navigateToConnect = navigateToConnect,
-                navigateToSourcePick = navigateToSourcePick,
+        if (state.devices.isNotEmpty()) {
+            DeviceStrip(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = DkSpacing.md),
+                devices = state.devices,
+                selectedDeviceId = state.selectedDeviceId,
+                onDeviceClick = { onIntent(FilesIntent.DeviceClicked(it)) },
+                onDeviceLongClick = { onIntent(FilesIntent.DeviceExpanded(it)) },
             )
-            return@Column
         }
 
-        DeviceStrip(
-            modifier = Modifier.padding(bottom = DkSpacing.md),
-            devices = state.devices,
-            selectedDeviceId = state.selectedDeviceId,
-            onDeviceClick = { onIntent(FilesIntent.DeviceClicked(it)) },
-            onDeviceLongClick = { onIntent(FilesIntent.DeviceExpanded(it)) },
-        )
-
-        val selected = state.selectedDevice
-        if (selected == null) {
-            FilterChips(
-                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                filter = state.filter,
-                onSelect = { onIntent(FilesIntent.FilterSelected(it)) },
-            )
+        if (state.entries == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                DkInlineSpinner()
+            }
         } else {
-            SelectionSummary(
-                modifier = Modifier.padding(start = DkSpacing.screenPadding),
-                device = selected,
-                onClear = { onIntent(FilesIntent.FilterCleared) },
-            )
-        }
+            val selected = state.selectedDevice
+            if (selected == null) {
+                FilterChips(
+                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                    filter = state.filter,
+                    onSelect = { onIntent(FilesIntent.FilterSelected(it)) },
+                )
+            } else {
+                SelectionSummary(
+                    modifier = Modifier.padding(start = DkSpacing.screenPadding),
+                    device = selected,
+                    onClear = { onIntent(FilesIntent.FilterCleared) },
+                )
+            }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(state.entries, key = { it.id }) { entry ->
-                ContentEntryRow(
-                    entry = entry,
-                    onClick = {
-                        if (entry.isFolder) {
+            if (state.entries.isEmpty) {
+                FilesEmptyState(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    navigateToConnect = navigateToConnect,
+                    navigateToSourcePick = navigateToSourcePick,
+                )
+            } else {
+                SourcePreview(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    preview = state.entries,
+                    onFileClick = { entry ->
+                        if (entry.kind == FileKindUi.Folder) {
                             navigateToFolder(entry)
                         } else {
                             onIntent(FilesIntent.EntryClicked(entry.id))
                         }
-                    },
+                    }
                 )
-                DkFadingDivider()
             }
         }
     }
@@ -304,8 +330,8 @@ private fun FilesEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         DkPlaceholderBox(
-            label = stringResource(R.string.files_empty_illustration),
             modifier = Modifier.height(120.dp),
+            label = stringResource(R.string.files_empty_illustration),
         )
         Text(
             modifier = Modifier.padding(top = DkSpacing.xl),
@@ -344,7 +370,6 @@ private fun FilesScreenPreview() {
         FilesScreenContent(
             state = FilesState(
                 devices = FilesState.SampleDevices,
-                entries = FilesState.SampleEntries,
             ),
             onIntent = {},
             navigateToActions = {},
@@ -365,7 +390,6 @@ private fun FilesScreenFilteredPreview() {
             state = FilesState(
                 devices = FilesState.SampleDevices,
                 selectedDeviceId = "server",
-                entries = FilesState.SampleEntries,
             ),
             onIntent = {},
             navigateToActions = {},
@@ -385,7 +409,6 @@ private fun FilesScreenExpandedPreview() {
         FilesScreenContent(
             state = FilesState(
                 devices = FilesState.SampleDevices,
-                entries = FilesState.SampleEntries,
                 expandedDevice = FilesState.sampleDetailsOf(FilesState.SampleDevices[1]),
             ),
             onIntent = {},

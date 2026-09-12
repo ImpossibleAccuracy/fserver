@@ -106,6 +106,7 @@ private fun SourcePreviewGalleryPreview() {
 }
 
 private val SampleImage = SourcePreviewUi.File(
+    id = "1",
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
     kind = FileKindUi.Image,
@@ -115,6 +116,7 @@ private val SampleImage = SourcePreviewUi.File(
 )
 
 private val SampleDocument = SourcePreviewUi.File(
+    id = "2",
     path = "primary/Documents/report.pdf",
     name = "report.pdf",
     kind = FileKindUi.Document,

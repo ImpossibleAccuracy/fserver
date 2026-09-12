@@ -1,10 +1,10 @@
 package com.fserver.core.storage.internal
 
-import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.LocalIndexedFile
 import kotlin.time.Instant
 
 /**
- * How an [IndexedFile.State] is stored, for both indexes - what this device holds and what a peer
+ * How an [LocalIndexedFile.State] is stored, for both indexes - what this device holds and what a peer
  * reported holding. Shared so the two cannot spell the same state differently and stop comparing.
  *
  * Three columns rather than one packed value: a discriminator, the flag only `Present` carries, and
@@ -15,20 +15,20 @@ internal object FileStates {
     private const val Evicted = "Evicted"
     private const val Deleted = "Deleted"
 
-    fun nameOf(state: IndexedFile.State): String = when (state) {
-        is IndexedFile.State.Present -> Present
-        is IndexedFile.State.Evicted -> Evicted
-        is IndexedFile.State.Deleted -> Deleted
+    fun nameOf(state: LocalIndexedFile.State): String = when (state) {
+        is LocalIndexedFile.State.Present -> Present
+        is LocalIndexedFile.State.Evicted -> Evicted
+        is LocalIndexedFile.State.Deleted -> Deleted
     }
 
-    fun pinnedOf(state: IndexedFile.State): Long =
-        if ((state as? IndexedFile.State.Present)?.pinned == true) 1 else 0
+    fun pinnedOf(state: LocalIndexedFile.State): Long =
+        if ((state as? LocalIndexedFile.State.Present)?.pinned == true) 1 else 0
 
     /** The one timestamp a state carries, or null for `Present`, which carries none. */
-    fun changedAtOf(state: IndexedFile.State): Long? = when (state) {
-        is IndexedFile.State.Present -> null
-        is IndexedFile.State.Evicted -> state.evictedAt.toEpochMilliseconds()
-        is IndexedFile.State.Deleted -> state.deletedAt.toEpochMilliseconds()
+    fun changedAtOf(state: LocalIndexedFile.State): Long? = when (state) {
+        is LocalIndexedFile.State.Present -> null
+        is LocalIndexedFile.State.Evicted -> state.evictedAt.toEpochMilliseconds()
+        is LocalIndexedFile.State.Deleted -> state.deletedAt.toEpochMilliseconds()
     }
 
     /**
@@ -38,17 +38,17 @@ internal object FileStates {
      * A discriminator written by a newer build reads as `Present` for the same reason - the safe
      * wrong answer is "the file is still here".
      */
-    fun read(state: String, pinned: Long, changedAtEpochMs: Long?): IndexedFile.State {
+    fun read(state: String, pinned: Long, changedAtEpochMs: Long?): LocalIndexedFile.State {
         val changedAt = changedAtEpochMs?.let(Instant::fromEpochMilliseconds)
 
         return when (state) {
-            Evicted -> changedAt?.let { IndexedFile.State.Evicted(evictedAt = it) }
-                ?: IndexedFile.State.Present()
+            Evicted -> changedAt?.let { LocalIndexedFile.State.Evicted(evictedAt = it) }
+                ?: LocalIndexedFile.State.Present()
 
-            Deleted -> changedAt?.let { IndexedFile.State.Deleted(deletedAt = it) }
-                ?: IndexedFile.State.Present()
+            Deleted -> changedAt?.let { LocalIndexedFile.State.Deleted(deletedAt = it) }
+                ?: LocalIndexedFile.State.Present()
 
-            else -> IndexedFile.State.Present(pinned = pinned == 1L)
+            else -> LocalIndexedFile.State.Present(pinned = pinned == 1L)
         }
     }
 }

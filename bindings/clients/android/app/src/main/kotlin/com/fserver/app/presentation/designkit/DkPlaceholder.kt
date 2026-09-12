@@ -17,8 +17,8 @@ import androidx.compose.ui.graphics.Color
  */
 @Composable
 fun DkPlaceholderBox(
-    label: String,
     modifier: Modifier = Modifier,
+    label: String,
     dashedBorder: Boolean = true,
     content: @Composable (() -> Unit)? = null,
 ) {

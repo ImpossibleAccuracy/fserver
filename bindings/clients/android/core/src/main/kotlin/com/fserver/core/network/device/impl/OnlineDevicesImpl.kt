@@ -2,6 +2,7 @@ package com.fserver.core.network.device.impl
 
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.OnlineDevices
+import com.fserver.core.network.device.impl.mapper.toDomain
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.impl.asTransportKind

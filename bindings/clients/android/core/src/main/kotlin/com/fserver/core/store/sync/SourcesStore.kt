@@ -5,7 +5,7 @@ import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.LocalIndexedFile
 
 /**
  * The registered sources, as the engine needs them: enumerate them to work through, stamp what a
@@ -30,7 +30,7 @@ interface SourcesStore {
     suspend fun updateStatus(id: String, status: SourceEntry.Status)
 
     /**
-     * Drops the source and every [IndexedFile] recorded against it, leaving a [SourceTombstone]
+     * Drops the source and every [LocalIndexedFile] recorded against it, leaving a [SourceTombstone]
      * behind.
      *
      * The tombstone is not optional bookkeeping: it is the only thing that later tells the peer to

@@ -36,16 +36,10 @@ sealed interface Destination : NavKey {
         @Serializable
         data object List : Destination
 
-        /**
-         * One folder of the feed. [mediaCollection] is decided when the folder is opened, not by
-         * the user: a folder that is mostly photos and video opens as a grid, everything else as
-         * a list, and the top bar offers the other shape.
-         */
+        /** One folder of the feed */
         @Serializable
         data class Folder(
-            val folderId: String,
-            val title: String,
-            val mediaCollection: Boolean,
+            val folderPath: String,
         ) : Destination
 
         /**

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.composable.model
 
+import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.sync.progress.FileTransfer
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 @get:StringRes
 val AuthMethod.labelRes: Int
@@ -69,6 +71,16 @@ fun FileSize.formatted(): String {
     return remember(this) {
         Formatter.formatShortFileSize(context, bytes)
     }
+}
+
+/** "yesterday", "3 days ago", then a plain date once that stops being useful. */
+@Composable
+fun Instant.formatted(): String = remember(this) {
+    DateUtils.getRelativeTimeSpanString(
+        toEpochMilliseconds(),
+        System.currentTimeMillis(),
+        DateUtils.DAY_IN_MILLIS,
+    ).toString()
 }
 
 val FileTransfer.Direction.icon: ImageVector

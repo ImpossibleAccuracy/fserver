@@ -34,6 +34,10 @@ CREATE TABLE indexedFile (
 
 CREATE UNIQUE INDEX indexedFile_id ON indexedFile(id);
 
+selectAll:
+SELECT *
+FROM indexedFile;
+
 selectBySource:
 SELECT *
 FROM indexedFile

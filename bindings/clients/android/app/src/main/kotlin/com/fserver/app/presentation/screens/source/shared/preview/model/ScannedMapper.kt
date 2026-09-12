@@ -1,6 +1,8 @@
 package com.fserver.app.presentation.screens.source.shared.preview.model
 
 import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.composable.model.fileExtension
+import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
@@ -28,10 +30,11 @@ fun List<ScannedFile>.toPreview(
 
 private fun ScannedFile.toPreviewFile(): SourcePreviewUi.File {
     val name = path.substringAfterLast('/')
-    val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-    val kind = extension.toFileKind()
+    val extension = name.fileExtension
+    val kind = fileKindOf(name)
 
     return SourcePreviewUi.File(
+        id = locator,
         path = path,
         name = name,
         kind = kind,
@@ -143,21 +146,3 @@ private class DirectoryNode(val label: String) {
         )
     }
 }
-
-private fun String.toFileKind(): FileKindUi = when (this) {
-    in ImageExtensions -> FileKindUi.Image
-    in VideoExtensions -> FileKindUi.Video
-    in AudioExtensions -> FileKindUi.Audio
-    in DocumentExtensions -> FileKindUi.Document
-    else -> FileKindUi.Other
-}
-
-private val ImageExtensions =
-    setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "avif", "dng")
-
-private val VideoExtensions = setOf("mp4", "mkv", "mov", "avi", "webm", "3gp", "m4v", "mpg")
-
-private val AudioExtensions = setOf("mp3", "aac", "flac", "wav", "ogg", "m4a", "opus", "amr")
-
-private val DocumentExtensions =
-    setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "rtf", "odt", "epub")

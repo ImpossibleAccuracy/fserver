@@ -1,12 +1,13 @@
 package com.fserver.core.storage.internal
 
 import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.FileIndexStore
-import com.fserver.core.sync.index.IndexedFile
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -25,16 +26,21 @@ internal class FileIndexStoreImpl(
 ) : FileIndexStore {
     private val dao = database.indexedFileQueries
 
-    override suspend fun findFile(key: IndexedFileKey): IndexedFile? =
+    override val all: Flow<List<LocalIndexedFile>> = dao.selectAll()
+        .asFlow()
+        .mapToList(Dispatchers.IO)
+        .map { rows -> rows.map { it.toDomainModel() } }
+
+    override suspend fun findFile(key: IndexedFileKey): LocalIndexedFile? =
         dao.findByKey(sourceId = key.sourceId, fileId = key.fileId)
             .executeAsOneOrNull()
             ?.toDomainModel()
 
-    override suspend fun processedFiles(sourceId: String): List<IndexedFile> =
+    override suspend fun processedFiles(sourceId: String): List<LocalIndexedFile> =
         dao.selectBySource(sourceId).executeAsList().map { it.toDomainModel() }
 
     /** One transaction: a pass that died halfway through must not leave half its files marked done. */
-    override suspend fun markProcessed(indexed: Collection<IndexedFile>) {
+    override suspend fun markProcessed(indexed: Collection<LocalIndexedFile>) {
         database.transaction {
             for (file in indexed) {
                 dao.upsert(
@@ -67,7 +73,7 @@ internal class FileIndexStoreImpl(
         )
     }
 
-    override suspend fun updateFileState(key: IndexedFileKey, state: IndexedFile.State) {
+    override suspend fun updateFileState(key: IndexedFileKey, state: LocalIndexedFile.State) {
         dao.updateState(
             state = FileStates.nameOf(state),
             pinned = FileStates.pinnedOf(state),
@@ -81,7 +87,7 @@ internal class FileIndexStoreImpl(
      * Row by row inside one transaction rather than a single `IN`: the keys may span sources, and a
      * statement matching fileId alone would move a file of another source into the same state.
      */
-    override suspend fun updateStateBatch(keys: List<IndexedFileKey>, state: IndexedFile.State) {
+    override suspend fun updateStateBatch(keys: List<IndexedFileKey>, state: LocalIndexedFile.State) {
         val name = FileStates.nameOf(state)
         val pinned = FileStates.pinnedOf(state)
         val changedAt = FileStates.changedAtOf(state)
@@ -110,7 +116,7 @@ internal class FileIndexStoreImpl(
         .map { it.toInt() }
 }
 
-private fun DBIndexedFile.toDomainModel() = IndexedFile(
+private fun DBIndexedFile.toDomainModel() = LocalIndexedFile(
     id = id,
     sourceId = sourceId,
     fileId = fileId,
@@ -127,7 +133,7 @@ private fun DBIndexedFile.toDomainModel() = IndexedFile(
         hashAlgorithm?.let { ContentHash(value = value, algorithm = it) }
     },
     revision = revisionOriginDevice?.let { origin ->
-        revisionCounter?.let { IndexedFile.Revision(originDevice = origin, counter = it) }
+        revisionCounter?.let { LocalIndexedFile.Revision(originDevice = origin, counter = it) }
     },
     processedAt = Instant.fromEpochMilliseconds(processedAtEpochMs),
 )

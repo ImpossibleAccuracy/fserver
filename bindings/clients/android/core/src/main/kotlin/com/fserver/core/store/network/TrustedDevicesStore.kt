@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
  */
 @SubclassOptInRequired(FServerStorageApi::class)
 interface TrustedDevicesStore {
+    /** Every key trusted on this device, most recently seen first. */
+    val devices: Flow<List<TrustedDevice>>
+
     val knownDeviceIds: Flow<Set<String>>
 
     suspend fun findByKey(publicKey: ByteArray): TrustedDevice?

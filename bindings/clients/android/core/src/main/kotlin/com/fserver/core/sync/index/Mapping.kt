@@ -7,7 +7,7 @@ import com.fserver.files.upload.Revision
 import kotlin.time.Instant
 
 /** This device's side of a file, as a strategy wants to see it. */
-internal fun IndexedFile.toFileRecord(): FileRecord = FileRecord(
+internal fun LocalIndexedFile.toFileRecord(): FileRecord = FileRecord(
     id = FileId(fileId),
     path = path,
     locator = locator,
@@ -25,7 +25,7 @@ internal fun FileRecord.toIndexed(
     sourceId: String,
     locator: String,
     currentTime: Instant,
-): IndexedFile = IndexedFile(
+): LocalIndexedFile = LocalIndexedFile(
     id = id,
     sourceId = sourceId,
     fileId = this.id.value,
@@ -36,7 +36,7 @@ internal fun FileRecord.toIndexed(
     size = FileSize(metadata.size),
     modifiedAt = metadata.lastModified,
     revision = metadata.revision?.let {
-        IndexedFile.Revision(
+        LocalIndexedFile.Revision(
             originDevice = it.originDevice,
             counter = it.counter
         )
@@ -44,18 +44,18 @@ internal fun FileRecord.toIndexed(
     processedAt = currentTime,
 )
 
-private fun IndexedFile.State.toFiles(): FileRecord.State = when (this) {
-    is IndexedFile.State.Present -> FileRecord.State.Present(pinned)
+private fun LocalIndexedFile.State.toFiles(): FileRecord.State = when (this) {
+    is LocalIndexedFile.State.Present -> FileRecord.State.Present(pinned)
 
-    is IndexedFile.State.Evicted -> FileRecord.State.Evicted(evictedAt)
+    is LocalIndexedFile.State.Evicted -> FileRecord.State.Evicted(evictedAt)
 
-    is IndexedFile.State.Deleted -> FileRecord.State.Deleted(deletedAt)
+    is LocalIndexedFile.State.Deleted -> FileRecord.State.Deleted(deletedAt)
 }
 
-private fun FileRecord.State.toIndexed(): IndexedFile.State = when (this) {
-    is FileRecord.State.Present -> IndexedFile.State.Present(pinned)
+private fun FileRecord.State.toIndexed(): LocalIndexedFile.State = when (this) {
+    is FileRecord.State.Present -> LocalIndexedFile.State.Present(pinned)
 
-    is FileRecord.State.Evicted -> IndexedFile.State.Evicted(evictedAt)
+    is FileRecord.State.Evicted -> LocalIndexedFile.State.Evicted(evictedAt)
 
-    is FileRecord.State.Deleted -> IndexedFile.State.Deleted(deletedAt)
+    is FileRecord.State.Deleted -> LocalIndexedFile.State.Deleted(deletedAt)
 }

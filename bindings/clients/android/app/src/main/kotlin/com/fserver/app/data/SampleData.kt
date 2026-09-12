@@ -9,6 +9,9 @@ import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.FileUi
 import com.fserver.app.presentation.composable.model.TreeNodeUi
 import com.fserver.app.presentation.designkit.DkCheckState
+import com.fserver.common.model.FileSize
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 /**
  * Fixtures the MVP screens render until `:core` is wired up. Kept in one place so the
@@ -25,6 +28,8 @@ object SampleData {
     /** What the demo reticle "decodes" until a camera is bound. */
     const val QR_PAYLOAD = """{"ip":"192.168.1.42","port":8384}"""
 
+    private val now = Clock.System.now()
+
     val files = listOf(
         FileUi(
             id = "drafts",
@@ -36,32 +41,32 @@ object SampleData {
             id = "img4831",
             name = "IMG_4831.RAW",
             kind = FileKindUi.Image,
-            sizeLabel = "28.4 MB",
-            dateLabel = "yesterday",
+            size = FileSize(28_400_000),
+            modifiedAt = now - 1.days,
             availability = FileAvailabilityUi.OnServer,
         ),
         FileUi(
             id = "interview",
             name = "interview_02.wav",
             kind = FileKindUi.Audio,
-            sizeLabel = "112 MB",
-            dateLabel = "Jul 28",
+            size = FileSize(112_000_000),
+            modifiedAt = now - 5.days,
             availability = FileAvailabilityUi.OnDevice,
         ),
         FileUi(
             id = "estimate",
             name = "estimate_final.pdf",
             kind = FileKindUi.Document,
-            sizeLabel = "1.2 MB",
-            dateLabel = "Jul 26",
+            size = FileSize(1_200_000),
+            modifiedAt = now - 7.days,
             availability = FileAvailabilityUi.OnDevice,
         ),
         FileUi(
             id = "clip",
             name = "clip_final.mp4",
             kind = FileKindUi.Video,
-            sizeLabel = "1.8 GB",
-            dateLabel = "Jul 24",
+            size = FileSize(1_800_000_000),
+            modifiedAt = now - 9.days,
             availability = FileAvailabilityUi.OnServer,
         ),
     )

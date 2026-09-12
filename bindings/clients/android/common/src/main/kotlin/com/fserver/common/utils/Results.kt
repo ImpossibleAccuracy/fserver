@@ -10,3 +10,9 @@ inline fun <T> Result<T>?.chainWith(other: () -> Result<T>?): Result<T>? {
 
     return other() ?: this
 }
+
+inline fun <T> Result<T>.chainWith(other: () -> Result<T>?): Result<T> {
+    if (isSuccess) return this
+
+    return other() ?: this
+}

@@ -31,6 +31,10 @@ CREATE TABLE remoteIndexedFile (
     PRIMARY KEY (sourceId, fileId)
 );
 
+selectAll:
+SELECT *
+FROM remoteIndexedFile;
+
 selectBySource:
 SELECT *
 FROM remoteIndexedFile

@@ -32,10 +32,10 @@ internal class LocalChangesIndexer(
      * Serialized per source: a local pass and a peer's index request both land here, and two
      * scans writing the same rows interleave into double-bumped revision counters.
      */
-    suspend fun refresh(source: SourceEntry): List<IndexedFile> =
+    suspend fun refresh(source: SourceEntry): List<LocalIndexedFile> =
         refreshLocks.computeIfAbsent(source.id) { Mutex() }.withLock { runRefresh(source) }
 
-    private suspend fun runRefresh(source: SourceEntry): List<IndexedFile> {
+    private suspend fun runRefresh(source: SourceEntry): List<LocalIndexedFile> {
         val currentTime = timeProvider.now()
         val device = store.identity.localDevice()
 
@@ -49,7 +49,7 @@ internal class LocalChangesIndexer(
             .result().getOrThrow()
 
         val new = mutableListOf<FoundFile>()
-        val updated = mutableMapOf<IndexedFile, FoundFile>()
+        val updated = mutableMapOf<LocalIndexedFile, FoundFile>()
 
         for (file in actualState) {
             val saved = savedByPath.remove(file.path)
@@ -57,23 +57,23 @@ internal class LocalChangesIndexer(
                 new += file
             } else if (file.lastModified != saved.modifiedAt || file.size != saved.size) {
                 updated[saved] = file
-            } else if (saved.state !is IndexedFile.State.Present) {
+            } else if (saved.state !is LocalIndexedFile.State.Present) {
                 // File was deleted but now is back
                 updated[saved] = file
             }
         }
 
-        val toSave = ArrayList<IndexedFile>(new.size + updated.size).apply {
+        val toSave = ArrayList<LocalIndexedFile>(new.size + updated.size).apply {
             for (file in new) {
                 this += file.toIndexed(
                     id = IdGenerator.nextId,
                     sourceId = source.id,
                     fileId = SourcePaths.fileId(file.path),
-                    state = IndexedFile.State.Present(
+                    state = LocalIndexedFile.State.Present(
                         pinned = false,
                     ),
                     hash = null,
-                    revision = IndexedFile.Revision(
+                    revision = LocalIndexedFile.Revision(
                         originDevice = device.deviceId,
                         counter = InitialRevisionCounter,
                     ),
@@ -95,12 +95,12 @@ internal class LocalChangesIndexer(
                     fileId = saved.fileId,
                     state =
                         // Restore file if it was deleted and now is back
-                        saved.state as? IndexedFile.State.Present
-                            ?: IndexedFile.State.Present(
+                        saved.state as? LocalIndexedFile.State.Present
+                            ?: LocalIndexedFile.State.Present(
                                 pinned = false,
                             ),
                     hash = null,
-                    revision = IndexedFile.Revision(
+                    revision = LocalIndexedFile.Revision(
                         originDevice = device.deviceId,
                         counter = counter,
                     ),
@@ -110,14 +110,14 @@ internal class LocalChangesIndexer(
         }
 
         val toDelete = savedByPath.values.filter {
-            it.state is IndexedFile.State.Present
+            it.state is LocalIndexedFile.State.Present
         }
 
         store.index.markProcessed(toSave)
 
         store.index.updateStateBatch(
             keys = toDelete.map { IndexedFileKey(fileId = it.fileId, sourceId = it.sourceId) },
-            state = IndexedFile.State.Deleted(
+            state = LocalIndexedFile.State.Deleted(
                 deletedAt = currentTime,
             )
         )
@@ -136,7 +136,7 @@ internal class LocalChangesIndexer(
     }
 
     /** Run hash computation for indexed file */
-    suspend fun hashFile(source: SourceEntry, local: IndexedFile) {
+    suspend fun hashFile(source: SourceEntry, local: LocalIndexedFile) {
         val locator = local.locator
 
         val key = IndexedFileKey(fileId = local.fileId, sourceId = source.id)
@@ -185,11 +185,11 @@ private fun FoundFile.toIndexed(
     id: String,
     sourceId: String,
     fileId: String,
-    state: IndexedFile.State,
+    state: LocalIndexedFile.State,
     hash: ContentHash?,
-    revision: IndexedFile.Revision?,
+    revision: LocalIndexedFile.Revision?,
     currentTime: Instant,
-) = IndexedFile(
+) = LocalIndexedFile(
     id = id,
     sourceId = sourceId,
     fileId = fileId,
