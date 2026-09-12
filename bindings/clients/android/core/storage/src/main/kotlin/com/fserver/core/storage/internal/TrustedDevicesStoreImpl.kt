@@ -71,7 +71,7 @@ internal class TrustedDevicesStoreImpl(
     }
 
     // TODO: this solution needs full rewrite, starting from usage TransportKind as transport, and finishing multiple upsert calls
-    override suspend fun recordKnownRoute(deviceId: String, route: KnownRoute) {
+    override suspend fun recordKnownRoute(deviceId: String, route: KnownRoute, networkId: String?) {
         when (route) {
             is KnownRoute.Ip -> routeDao.upsert(
                 deviceId = deviceId,
@@ -91,6 +91,8 @@ internal class TrustedDevicesStoreImpl(
                 line2 = null,
             )
         }
+
+        metadataDao.updateLastNetwork(deviceId = deviceId, lastNetworkId = networkId)
     }
 
     override suspend fun findKnownRoute(deviceId: String): KnownRoute? =

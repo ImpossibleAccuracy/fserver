@@ -29,7 +29,7 @@ interface TrustedDevicesStore {
      * Called on every connection, probe, and accepted inbound session, so it must be cheap and
      * must tolerate being handed the same route again.
      */
-    suspend fun recordKnownRoute(deviceId: String, route: KnownRoute)
+    suspend fun recordKnownRoute(deviceId: String, route: KnownRoute, networkId: String?)
 
     /** null when nothing dialable was ever recorded for [deviceId], or the device was forgotten. */
     suspend fun findKnownRoute(deviceId: String): KnownRoute?

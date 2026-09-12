@@ -111,15 +111,20 @@ internal class DevicesRepositoryImpl(
 
         return dial(
             arguments = arguments,
-            byDeviceId = { connectKnown(deviceId = it, request = request).verifiedAs(expected ?: it) },
-            byRoute = { network.requestManager.connect(peer = it, request = request).verifiedAs(expected) },
+            byDeviceId = {
+                connectKnown(deviceId = it, request = request).verifiedAs(
+                    expected ?: it
+                )
+            },
+            byRoute = {
+                network.requestManager.connect(peer = it, request = request).verifiedAs(expected)
+            },
         )
             .onSuccess { session ->
                 rememberRoute(
                     deviceId = session.identity.deviceId,
                     endpoint = session.route.endpoint
                 )
-                rememberNetwork(session.identity.deviceId)
             }
             .map { }
     }
@@ -247,21 +252,13 @@ internal class DevicesRepositoryImpl(
     private suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
         val route = endpoint.toKnownRoute()
 
-        runCatching { storage.trust.recordKnownRoute(deviceId, route) }
-            .onFailure { Timber.w(it, "could not remember route for $deviceId") }
-    }
-
-    /**
-     * Writes down which network this session came up on, so a later "last seen on your home
-     * Wi-Fi" is answerable without the device being around.
-     *
-     * A handshake pins the same thing on its way through `TrustStoreAdapter`; this covers the
-     * reconnect that reuses an existing session and never runs one. Best-effort, as [rememberRoute].
-     */
-    private suspend fun rememberNetwork(deviceId: String) {
         runCatching {
-            storage.trust.recordLastNetwork(deviceId, networkInfoRepository.currentNetworkId())
-        }.onFailure { Timber.w(it, "could not remember network for $deviceId") }
+            storage.trust.recordKnownRoute(
+                deviceId = deviceId,
+                route = route,
+                networkId = networkInfoRepository.currentNetworkId()
+            )
+        }.onFailure { Timber.w(it, "could not remember route for $deviceId") }
     }
 
     private fun findNearbyEndpoint(arguments: PeerLocator.NearbyEndpoint): PeerRef? =
