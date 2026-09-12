@@ -21,9 +21,11 @@ import kotlin.time.Instant
  * job.
  */
 internal object SourceRecords {
-    // Attribute owners. A source and the tombstone that replaces it share an id, never an owner.
+    // Attribute owners. A source, the request that became it and the tombstone that replaces it all
+    // share an id, never an owner.
     const val OwnerSource = "source"
     const val OwnerTombstone = "source_tombstone"
+    const val OwnerRequest = "source_request"
 
     const val Location = "location"
     const val Mode = "mode"
@@ -101,6 +103,11 @@ internal object SourceRecords {
         .apply { writeLocation(location) }
         .rows
 
+    /** The `mode` attributes alone, for a parked request, which carries nothing else variant. */
+    fun modeAttributesOf(mode: SyncMode): List<Attribute> = Writer()
+        .apply { writeMode(mode) }
+        .rows
+
     // ---------------- reading ----------------
 
     /**
@@ -142,6 +149,10 @@ internal object SourceRecords {
         attributes: Reader
     ): SourceLocation.Persistable? =
         readLocation(sourceId, location, attributes)
+
+    /** Rebuilds a parked request's mode, or null when it cannot be read. */
+    fun modeOf(sourceId: String, mode: String, attributes: Reader): SyncMode? =
+        readMode(sourceId, mode, attributes)
 
     fun tombstoneOf(
         sourceId: String,

@@ -66,12 +66,12 @@ class FServerStorageProvider private constructor(
     private val identityStore by lazy { DeviceIdentityStoreImpl(dataStore) }
     private val authStore by lazy { AuthSettingsStoreImpl(dataStore, scope) }
     private val trustStore by lazy { TrustedDevicesStoreImpl(database) }
-    private val fileIndexStore by lazy { FileIndexStoreImpl() }
+    private val fileIndexStore by lazy { FileIndexStoreImpl(database) }
     private val remoteIndexStore by lazy { RemoteIndexStoreImpl(database) }
     private val sourcesStore by lazy {
         SourcesStoreImpl(database, fileIndexStore, remoteIndexStore, timeProvider)
     }
-    private val sourceRequestsStore by lazy { SourceRequestsStoreImpl() }
+    private val sourceRequestsStore by lazy { SourceRequestsStoreImpl(database) }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
 
     val identity: DeviceIdentityRepository get() = identityStore

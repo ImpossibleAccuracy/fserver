@@ -1,0 +1,43 @@
+-- A peer's ask to host one of its sources here, parked until this device's user answers.
+--
+-- On disk rather than in memory because the ask arrives whenever the peer's user registers the
+-- source and has to survive until someone opens the app - a request lost to a restart strands the
+-- asking side waiting on a verdict that will never come.
+--
+-- Its mode is split the same way a source's is: discriminator here, fields in `attribute` under the
+-- 'source_request' owner.
+CREATE TABLE sourceRequest (
+    -- Chosen by the peer. Both halves of a source answer to the same id.
+    sourceId          TEXT    NOT NULL PRIMARY KEY,
+    deviceId          TEXT    NOT NULL,
+    label             TEXT    NOT NULL,
+    -- Mirror | AutoUpload | Offload
+    mode              TEXT    NOT NULL,
+    receivedAtEpochMs INTEGER NOT NULL
+);
+
+CREATE TRIGGER sourceRequestAttributeCleanup
+AFTER DELETE ON sourceRequest
+BEGIN
+    DELETE FROM attribute
+    WHERE owner = 'source_request' AND ownerId = old.sourceId;
+END;
+
+-- Oldest first, so the newest is the one a screen surfaces.
+selectAll:
+SELECT *
+FROM sourceRequest
+ORDER BY receivedAtEpochMs ASC;
+
+selectById:
+SELECT *
+FROM sourceRequest
+WHERE sourceId = ?;
+
+upsert:
+INSERT OR REPLACE INTO sourceRequest(sourceId, deviceId, label, mode, receivedAtEpochMs)
+VALUES (?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM sourceRequest
+WHERE sourceId = ?;

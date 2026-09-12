@@ -1,0 +1,72 @@
+-- What each source has already worked through on this device. `remoteIndexedFile` is the same
+-- bookkeeping for what the peer reported, and the two are shaped alike on purpose.
+--
+-- Every row is a record of a handoff the engine already made - never a claim about bytes on disk.
+--
+-- state / hash / revision are flattened into columns rather than pushed into `attribute`: a file's
+-- state is a closed three-way split carrying at most one field, and a feed that pages and counts
+-- needs them queryable. The attribute table is for the parts of a record that keep changing shape.
+CREATE TABLE indexedFile (
+    -- Assigned by whoever wrote the record. Unique across this device's whole index.
+    id                  TEXT    NOT NULL,
+    sourceId            TEXT    NOT NULL,
+    -- Cross-device identity: the peer names the same file by the same value.
+    fileId              TEXT    NOT NULL,
+    path                TEXT    NOT NULL,
+    -- Where the file lives in the local source. Local only - a peer addresses it differently.
+    locator             TEXT    NOT NULL,
+    -- Present | Evicted | Deleted. Evicted must never read back as Deleted: one freed space, the
+    -- other is the user's deletion, and only the second one propagates.
+    state               TEXT    NOT NULL,
+    pinned              INTEGER NOT NULL DEFAULT 0,
+    stateChangedEpochMs INTEGER,
+    size                INTEGER NOT NULL,
+    modifiedAtEpochMs   INTEGER NOT NULL,
+    hashValue           TEXT,
+    hashAlgorithm       TEXT,
+    revisionOriginDevice TEXT,
+    revisionCounter     INTEGER,
+    processedAtEpochMs  INTEGER NOT NULL,
+    -- What actually names a record: fileId alone is cross-device, so it identifies a row only
+    -- paired with the source it was indexed under.
+    PRIMARY KEY (sourceId, fileId)
+);
+
+CREATE UNIQUE INDEX indexedFile_id ON indexedFile(id);
+
+selectBySource:
+SELECT *
+FROM indexedFile
+WHERE sourceId = ?;
+
+countBySource:
+SELECT count(*)
+FROM indexedFile
+WHERE sourceId = ?;
+
+findByKey:
+SELECT *
+FROM indexedFile
+WHERE sourceId = ? AND fileId = ?;
+
+upsert:
+INSERT OR REPLACE INTO indexedFile(
+    id, sourceId, fileId, path, locator, state, pinned, stateChangedEpochMs,
+    size, modifiedAtEpochMs, hashValue, hashAlgorithm,
+    revisionOriginDevice, revisionCounter, processedAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateHash:
+UPDATE indexedFile
+SET hashValue = ?, hashAlgorithm = ?
+WHERE sourceId = ? AND fileId = ?;
+
+updateState:
+UPDATE indexedFile
+SET state = ?, pinned = ?, stateChangedEpochMs = ?
+WHERE sourceId = ? AND fileId = ?;
+
+deleteBySource:
+DELETE FROM indexedFile
+WHERE sourceId = ?;

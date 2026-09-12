@@ -1,39 +1,111 @@
 package com.fserver.core.storage.internal
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
+import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.sync.setup.IncomingSourceRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.combine
+import kotlin.time.Instant
+import com.fserver.core.storage.database.Attribute as DBAttribute
+import com.fserver.core.storage.database.SourceRequest as DBSourceRequest
 
 /**
- * TODO: in-memory scaffolding, and the one store where that is actually wrong - a request is meant
- *  to outlive the process it arrived in. Swap the `MutableStateFlow` for a SQLDelight
- *  `sourceRequest` table once `SyncMode` has the column adapter `SourcesStoreImpl` is waiting on.
+ * Parked requests over the `sourceRequest` row plus the `attribute` rows its mode needs, the same
+ * split a source uses. [SourceRecords] owns the translation both ways.
  */
-internal class SourceRequestsStoreImpl : SourceRequestsStore {
-    private val writeLock = Mutex()
+internal class SourceRequestsStoreImpl(
+    private val database: FServerStorageDatabase,
+) : SourceRequestsStore {
+    private val dao = database.sourceRequestQueries
+    private val attributeDao = database.attributeQueries
 
-    /** Oldest first, so the newest is the one a screen surfaces. */
-    private val state = MutableStateFlow<List<IncomingSourceRequest>>(emptyList())
+    override fun pending(): Flow<List<IncomingSourceRequest>> = combine(
+        dao.selectAll().asFlow().mapToList(Dispatchers.IO),
+        attributeDao.selectAllOf(SourceRecords.OwnerRequest).asFlow().mapToList(Dispatchers.IO),
+    ) { rows, attributes -> rows.assemble(attributes) }
 
-    override fun pending(): Flow<List<IncomingSourceRequest>> = state.asStateFlow()
+    override suspend fun findById(sourceId: String): IncomingSourceRequest? {
+        val row = dao.selectById(sourceId).executeAsOneOrNull() ?: return null
 
-    override suspend fun findById(sourceId: String): IncomingSourceRequest? =
-        state.value.find { it.sourceId == sourceId }
+        val attributes = attributeDao
+            .selectByOwner(owner = SourceRecords.OwnerRequest, ownerId = sourceId)
+            .executeAsList()
 
-    override suspend fun upsert(request: IncomingSourceRequest) = writeLock.withLock {
-        state.update { current ->
-            val position = current.indexOfFirst { it.sourceId == request.sourceId }
-            if (position < 0) current + request
-            else current.toMutableList().apply { this[position] = request }
+        return listOf(row).assemble(attributes).firstOrNull()
+    }
+
+    /**
+     * Row first, then attributes, and the old attributes dropped in between: `INSERT OR REPLACE`
+     * leaves whatever the previous mode wrote, and a narrower one would inherit fields it does not
+     * own.
+     */
+    override suspend fun upsert(request: IncomingSourceRequest) {
+        database.transaction {
+            dao.upsert(
+                sourceId = request.sourceId,
+                deviceId = request.deviceId,
+                label = request.label,
+                mode = SourceRecords.discriminatorOf(request.syncMode),
+                receivedAtEpochMs = request.receivedAt.toEpochMilliseconds(),
+            )
+
+            attributeDao.deleteByOwnerId(
+                owner = SourceRecords.OwnerRequest,
+                ownerId = request.sourceId,
+            )
+
+            for (attribute in SourceRecords.modeAttributesOf(request.syncMode)) {
+                attributeDao.insert(
+                    owner = SourceRecords.OwnerRequest,
+                    ownerId = request.sourceId,
+                    type = attribute.type,
+                    fieldName = attribute.field,
+                    fieldValue = attribute.value,
+                )
+            }
         }
     }
 
-    override suspend fun delete(sourceId: String) = writeLock.withLock {
-        state.update { current -> current.filterNot { it.sourceId == sourceId } }
+    override suspend fun delete(sourceId: String) {
+        database.transaction {
+            // The trigger on `sourceRequest` covers this too; done here as well so the rows go even
+            // if a migration rebuilt the table and dropped its triggers with it.
+            attributeDao.deleteByOwnerId(
+                owner = SourceRecords.OwnerRequest,
+                ownerId = sourceId,
+            )
+            dao.delete(sourceId)
+        }
+    }
+}
+
+/**
+ * A request whose mode will not rebuild is dropped, not defaulted: accepting it would register a
+ * source running under a mode nobody asked for.
+ */
+private fun List<DBSourceRequest>.assemble(
+    attributes: List<DBAttribute>,
+): List<IncomingSourceRequest> {
+    val byRequest = attributes.groupBy { it.ownerId }
+
+    return mapNotNull { row ->
+        val reader = SourceRecords.Reader(
+            byRequest[row.sourceId]
+                ?.associate { (it.type to it.fieldName) to it.fieldValue }
+                .orEmpty()
+        )
+
+        val mode = SourceRecords.modeOf(row.sourceId, row.mode, reader) ?: return@mapNotNull null
+
+        IncomingSourceRequest(
+            sourceId = row.sourceId,
+            deviceId = row.deviceId,
+            label = row.label,
+            syncMode = mode,
+            receivedAt = Instant.fromEpochMilliseconds(row.receivedAtEpochMs),
+        )
     }
 }

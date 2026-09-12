@@ -35,9 +35,9 @@ internal class RemoteIndexStoreImpl(
                     fileId = file.fileId,
                     deviceId = deviceId,
                     path = file.path,
-                    state = file.state.dbName,
-                    pinned = if ((file.state as? IndexedFile.State.Present)?.pinned == true) 1 else 0,
-                    stateChangedEpochMs = file.state.changedAt?.toEpochMilliseconds(),
+                    state = FileStates.nameOf(file.state),
+                    pinned = FileStates.pinnedOf(file.state),
+                    stateChangedEpochMs = FileStates.changedAtOf(file.state),
                     size = file.size.bytes,
                     modifiedAtEpochMs = file.modifiedAt.toEpochMilliseconds(),
                     hashValue = file.hash?.value,
@@ -55,27 +55,14 @@ internal class RemoteIndexStoreImpl(
     }
 }
 
-private enum class RemoteFileState { Present, Evicted, Deleted }
-
-private val IndexedFile.State.dbName: String
-    get() = when (this) {
-        is IndexedFile.State.Present -> RemoteFileState.Present.name
-        is IndexedFile.State.Evicted -> RemoteFileState.Evicted.name
-        is IndexedFile.State.Deleted -> RemoteFileState.Deleted.name
-    }
-
-/** The one timestamp a state carries, or null for [IndexedFile.State.Present], which carries none. */
-private val IndexedFile.State.changedAt: Instant?
-    get() = when (this) {
-        is IndexedFile.State.Present -> null
-        is IndexedFile.State.Evicted -> evictedAt
-        is IndexedFile.State.Deleted -> deletedAt
-    }
-
 private fun DBRemoteIndexedFile.toDomainModel() = RemoteIndexedFile(
     fileId = fileId,
     path = path,
-    state = readState(),
+    state = FileStates.read(
+        state = state,
+        pinned = pinned,
+        changedAtEpochMs = stateChangedEpochMs,
+    ),
     size = FileSize(size),
     modifiedAt = Instant.fromEpochMilliseconds(modifiedAtEpochMs),
     hash = hashValue?.let { value ->
@@ -86,23 +73,3 @@ private fun DBRemoteIndexedFile.toDomainModel() = RemoteIndexedFile(
     },
     seenAt = Instant.fromEpochMilliseconds(seenAtEpochMs),
 )
-
-/**
- * A row missing the timestamp its state needs reads as [IndexedFile.State.Present] rather than
- * guessing one: an invented `deletedAt` is a deletion this device would go on to propagate.
- */
-private fun DBRemoteIndexedFile.readState(): IndexedFile.State {
-    val changedAt = stateChangedEpochMs?.let(Instant::fromEpochMilliseconds)
-
-    return when (RemoteFileState.valueOf(state)) {
-        RemoteFileState.Present -> IndexedFile.State.Present(pinned = pinned == 1L)
-
-        RemoteFileState.Evicted -> changedAt
-            ?.let { IndexedFile.State.Evicted(evictedAt = it) }
-            ?: IndexedFile.State.Present()
-
-        RemoteFileState.Deleted -> changedAt
-            ?.let { IndexedFile.State.Deleted(deletedAt = it) }
-            ?: IndexedFile.State.Present()
-    }
-}
