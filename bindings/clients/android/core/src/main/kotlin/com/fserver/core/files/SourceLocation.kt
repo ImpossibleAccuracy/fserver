@@ -3,11 +3,14 @@ package com.fserver.core.files
 import com.fserver.common.utils.SourcePaths
 
 sealed interface SourceLocation {
+    /** App can store this location as valid files source for sync */
+    sealed interface Persistable : SourceLocation
+
     /** The locations a user may point a source at. */
-    sealed interface Selectable : SourceLocation
+    sealed interface Selectable : Persistable
 
     /** Where files a peer sends may be written */
-    sealed interface Hostable : SourceLocation
+    sealed interface Hostable : Persistable
 
     /**
      * Whole storage volumes. Scannable only - a source is one directory, so a user pointing at

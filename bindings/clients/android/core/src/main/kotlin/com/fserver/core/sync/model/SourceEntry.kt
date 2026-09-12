@@ -17,7 +17,7 @@ data class SourceEntry(
      */
     val deviceId: String,
     /** What to walk. */
-    val location: SourceLocation,
+    val location: SourceLocation.Persistable,
     /** What to do with the files found there. */
     val syncMode: SyncMode,
     val role: Role,

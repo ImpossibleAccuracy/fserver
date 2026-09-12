@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.sqldelight.android.driver)
     implementation(libs.sqldelight.coroutines.extensions)
+    implementation(libs.timber)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

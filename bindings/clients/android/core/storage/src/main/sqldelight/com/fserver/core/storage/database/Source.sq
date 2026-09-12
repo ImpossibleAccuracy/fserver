@@ -1,0 +1,58 @@
+CREATE TABLE source (
+    id                  TEXT    NOT NULL PRIMARY KEY,
+    deviceId            TEXT    NOT NULL,
+    role                TEXT    NOT NULL,
+    label               TEXT    NOT NULL,
+    createdAtEpochMs    INTEGER NOT NULL,
+    lastSyncedAtEpochMs INTEGER,
+    -- Tree | Media | Directory | Internal
+    location            TEXT    NOT NULL,
+    -- Mirror | AutoUpload | Offload
+    mode                TEXT    NOT NULL,
+    -- Pending | Active | Disabled
+    status              TEXT    NOT NULL
+);
+
+CREATE INDEX source_deviceId ON source(deviceId);
+
+CREATE TRIGGER sourceAttributeCleanup
+AFTER DELETE ON source
+BEGIN
+    DELETE FROM attribute
+    WHERE owner = 'source' AND ownerId = old.id;
+END;
+
+selectAll:
+SELECT *
+FROM source
+ORDER BY createdAtEpochMs DESC;
+
+selectById:
+SELECT *
+FROM source
+WHERE id = ?;
+
+selectByLocationAndMode:
+SELECT *
+FROM source
+WHERE location = ? AND mode = ?;
+
+upsert:
+INSERT OR REPLACE INTO source(
+    id, deviceId, role, label, createdAtEpochMs, lastSyncedAtEpochMs, location, mode, status
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateStatus:
+UPDATE source
+SET status = ?
+WHERE id = ?;
+
+updateLabel:
+UPDATE source
+SET label = ?
+WHERE id = ?;
+
+delete:
+DELETE FROM source
+WHERE id = ?;

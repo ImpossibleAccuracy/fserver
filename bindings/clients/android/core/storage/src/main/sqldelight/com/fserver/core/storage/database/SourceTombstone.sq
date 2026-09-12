@@ -1,0 +1,23 @@
+CREATE TABLE sourceTombstone (
+    sourceId         TEXT    NOT NULL PRIMARY KEY,
+    deviceId         TEXT    NOT NULL,
+    removedAtEpochMs INTEGER NOT NULL,
+    -- Tree | Media | Directory | Internal
+    location         TEXT    NOT NULL
+);
+
+CREATE TRIGGER sourceTombstoneAttributeCleanup
+AFTER DELETE ON sourceTombstone
+BEGIN
+    DELETE FROM attribute
+    WHERE owner = 'source_tombstone' AND ownerId = old.sourceId;
+END;
+
+selectById:
+SELECT *
+FROM sourceTombstone
+WHERE sourceId = ?;
+
+upsert:
+INSERT OR REPLACE INTO sourceTombstone(sourceId, deviceId, removedAtEpochMs, location)
+VALUES (?, ?, ?, ?);

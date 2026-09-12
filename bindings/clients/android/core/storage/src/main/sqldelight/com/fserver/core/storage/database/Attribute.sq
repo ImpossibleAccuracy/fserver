@@ -1,0 +1,51 @@
+-- The variant fields of whatever owns them, one row per field.
+--
+-- [owner] names the kind of record the row hangs off - 'source', 'source_tombstone' - and [ownerId]
+-- which one. [type] names the part of that record the field belongs to - 'location', 'mode',
+-- 'status' - and [fieldName] the field inside it, so a mode and a location may both carry a 'path'
+-- without colliding. A variant with no fields of its own (Media, Mirror, Active) writes no rows.
+--
+-- [owner] is part of the key, not decoration: a source and the tombstone that replaces it share an
+-- id, and during a delete both sets exist at once. Without it the tombstone's 'location'/'path'
+-- would REPLACE the live source's identical row, and the delete that follows would take the
+-- tombstone's location with it - leaving nothing to tell the peer to stop asking for the id.
+--
+-- A renamed or dropped field is a schema migration, not something read-time code repairs.
+CREATE TABLE attribute (
+    -- 'source' | 'source_tombstone'
+    owner      TEXT NOT NULL,
+    ownerId    TEXT NOT NULL,
+    type       TEXT NOT NULL,
+    fieldName  TEXT NOT NULL,
+    fieldValue TEXT NOT NULL,
+    PRIMARY KEY (owner, ownerId, type, fieldName)
+);
+
+-- Every read filters on owner first, so the primary key doubles as their index.
+
+selectByOwner:
+SELECT *
+FROM attribute
+WHERE owner = ? AND ownerId = ?;
+
+selectByOwnerIds:
+SELECT *
+FROM attribute
+WHERE owner = ? AND ownerId IN ?;
+
+selectAllOf:
+SELECT *
+FROM attribute
+WHERE owner = ?;
+
+insert:
+INSERT OR REPLACE INTO attribute(owner, ownerId, type, fieldName, fieldValue)
+VALUES (?, ?, ?, ?, ?);
+
+deleteByOwnerId:
+DELETE FROM attribute
+WHERE owner = ? AND ownerId = ?;
+
+deleteByType:
+DELETE FROM attribute
+WHERE owner = ? AND ownerId = ? AND type = ?;

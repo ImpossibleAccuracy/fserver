@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.fserver.core.FServerConfig
 import com.fserver.core.storage.database.FServerStorageDatabase
@@ -57,6 +58,7 @@ class FServerStorageProvider private constructor(
                 schema = FServerStorageDatabase.Schema,
                 context = context,
                 name = DATABASE_NAME,
+                callback = ForeignKeysEnabled,
             )
         )
     }
@@ -67,7 +69,7 @@ class FServerStorageProvider private constructor(
     private val fileIndexStore by lazy { FileIndexStoreImpl() }
     private val remoteIndexStore by lazy { RemoteIndexStoreImpl(database) }
     private val sourcesStore by lazy {
-        SourcesStoreImpl(fileIndexStore, remoteIndexStore, timeProvider)
+        SourcesStoreImpl(database, fileIndexStore, remoteIndexStore, timeProvider)
     }
     private val sourceRequestsStore by lazy { SourceRequestsStoreImpl() }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
@@ -93,6 +95,18 @@ class FServerStorageProvider private constructor(
         override val sources: SourcesStore get() = sourcesStore
         override val sourceRequests: SourceRequestsStore get() = sourceRequestsStore
         override val preferences: SyncStore get() = syncStore
+    }
+
+    /**
+     * SQLite defaults `foreign_keys` to OFF, per connection and not persisted, so a declared foreign
+     * key enforces nothing without this. `onConfigure` is the one safe place for it - the pragma is a
+     * no-op inside a transaction, which is where `onCreate` and `onUpgrade` already are.
+     */
+    private object ForeignKeysEnabled : AndroidSqliteDriver.Callback(FServerStorageDatabase.Schema) {
+        override fun onConfigure(db: SupportSQLiteDatabase) {
+            super.onConfigure(db)
+            db.setForeignKeyConstraintsEnabled(true)
+        }
     }
 
     companion object {
