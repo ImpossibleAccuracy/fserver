@@ -9,12 +9,12 @@ import com.fserver.app.presentation.screens.settings.details.model.DeviceDetails
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.storage.TrustedDevicesRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -77,28 +77,19 @@ class DeviceDetailsViewModel(
             }
 
             DeviceDetailsIntent.Reconnect -> viewModelScope.launch {
-                val route = trustedDevices.observeKnownRoute(key.deviceId).firstOrNull()
-                    ?: return@launch
-
-                val peer = route.asPeerLocator()
-
-                if (!route.isDialable || peer == null) {
-                    effects.send(
-                        DeviceDetailsUiEffect.ShowMessage("Cannot reconnect using ${route.transport}")
-                    )
-                    return@launch
-                }
-
-                devicesRepository.probe(peer)
+                devicesRepository.probe(PeerLocator.KnownDevice(key.deviceId))
                     .fold(
                         onSuccess = {
                             effects.send(
-                                DeviceDetailsUiEffect.NavigatePairing(peer)
+                                DeviceDetailsUiEffect.NavigatePairing(it.peer)
                             )
                         },
                         onFailure = {
+                            Timber.w(it, "could not reconnect ${key.deviceId}")
                             effects.send(
-                                DeviceDetailsUiEffect.ShowMessage(it.localizedMessage!!)
+                                DeviceDetailsUiEffect.ShowMessage(
+                                    it.localizedMessage ?: "Could not reconnect to this device"
+                                )
                             )
                         },
                     )

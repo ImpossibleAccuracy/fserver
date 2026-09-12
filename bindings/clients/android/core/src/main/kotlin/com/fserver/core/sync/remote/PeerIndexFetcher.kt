@@ -6,6 +6,7 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.network.dictionary.dto.toRemoteIndexed
+import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
@@ -54,14 +55,9 @@ internal class PeerIndexFetcher(
             ?: tryToConnectByDeviceId(deviceId)
 
     private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
-        val known = storage.trust.findKnownRoute(deviceId)
-            ?: throw IllegalStateException("No known route to device $deviceId")
+        val peer = PeerLocator.KnownDevice(deviceId)
 
-        val peer = known.asPeerLocator()
-            ?: throw IllegalStateException("Saved route to device $deviceId doesn't allow to connect")
-
-        devicesRepository.connect(peer, null)
-            .getOrThrow()
+        devicesRepository.connect(peer, null).getOrThrow()
 
         return networkController.incomingConnections.session(deviceId)
             ?: throw IllegalStateException("Failed to establish session with device $deviceId")

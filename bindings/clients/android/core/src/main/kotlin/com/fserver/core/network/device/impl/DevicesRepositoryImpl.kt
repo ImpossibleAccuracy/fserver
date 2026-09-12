@@ -1,8 +1,10 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.common.exception.MalformedQrException
+import com.fserver.common.exception.NetworkException
 import com.fserver.common.utils.chainWith
 import com.fserver.core.Constants
+import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
@@ -69,30 +71,15 @@ internal class DevicesRepositoryImpl(
     }
 
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
-        when (arguments) {
-            is PeerLocator.DiscoveredDevice -> {
-                val device = network.peerDiscovery.peer(arguments.id).firstOrNull()
-
-                if (device == null) {
-                    Result.failure(IllegalArgumentException("Device ${arguments.id} not found"))
-                } else {
-                    network.requestManager.probe(device)
-                }
-            }
-
-            is PeerLocator.Ip -> network.requestManager.probe(arguments.toPeerRef())
-
-            is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-                ?.let { network.requestManager.probe(it) }
-                ?: Result.failure(MalformedQrException())
-
-            is PeerLocator.NearbyEndpoint -> {
-                val peer = findNearbyEndpoint(arguments)
-                    ?: return Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
-
-                network.requestManager.probe(peer)
-            }
-        }
+        dial(
+            arguments = arguments,
+            byDeviceId = { deviceId ->
+                network.peerDiscovery.peer(deviceId).firstOrNull()
+                    ?.let { network.requestManager.probe(it) }
+                    ?: Result.failure(IllegalArgumentException("Device $deviceId not found"))
+            },
+            byRoute = { network.requestManager.probe(it) },
+        )
             .onSuccess { probed ->
                 if (probed.route.deviceId != PeerRef.UNKNOWN_DEVICE_ID) {
                     rememberRoute(probed.route.deviceId, probed.route.endpoint)
@@ -112,30 +99,11 @@ internal class DevicesRepositoryImpl(
             }
         )
 
-        val result = when (arguments) {
-            is PeerLocator.DiscoveredDevice -> connectKnown(
-                deviceId = arguments.id,
-                request = request
-            )
-
-            is PeerLocator.Ip -> network.requestManager.connect(
-                peer = arguments.toPeerRef(),
-                request = request
-            )
-
-            is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-                ?.let { network.requestManager.connect(peer = it, request = request) }
-                ?: Result.failure(MalformedQrException())
-
-            is PeerLocator.NearbyEndpoint -> {
-                val peer = findNearbyEndpoint(arguments)
-                    ?: return Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
-
-                network.requestManager.connect(peer = peer, request = request)
-            }
-        }
-
-        return result
+        return dial(
+            arguments = arguments,
+            byDeviceId = { connectKnown(deviceId = it, request = request) },
+            byRoute = { network.requestManager.connect(peer = it, request = request) },
+        )
             .onSuccess { session ->
                 rememberRoute(
                     deviceId = session.identity.deviceId,
@@ -144,6 +112,73 @@ internal class DevicesRepositoryImpl(
                 rememberNetwork(session.identity.deviceId)
             }
             .map { }
+    }
+
+    /**
+     * Turns a [PeerLocator] into an actual attempt:
+     * - everything that is already a route goes to [byRoute],
+     * - anything that only names a device goes to [byDeviceId].
+     */
+    private suspend fun <T> dial(
+        arguments: PeerLocator,
+        byDeviceId: suspend (String) -> Result<T>,
+        byRoute: suspend (PeerRef) -> Result<T>,
+    ): Result<T> = when (arguments) {
+        is PeerLocator.DiscoveredDevice -> byDeviceId(arguments.id)
+
+        is PeerLocator.Ip -> byRoute(arguments.toPeerRef())
+
+        is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
+            ?.let { byRoute(it) }
+            ?: Result.failure(MalformedQrException())
+
+        is PeerLocator.NearbyEndpoint -> findNearbyEndpoint(arguments)
+            ?.let { byRoute(it) }
+            ?: Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
+
+        is PeerLocator.KnownDevice -> dialKnown(arguments.id, byDeviceId, byRoute)
+    }
+
+    /**
+     * A device out of the trust records: discovery first - it answers with the session that is
+     * already open, and with the route the device is on now rather than the one it was on last
+     * time - then the route written down last time.
+     *
+     * Falling through to the next candidate is for a transport that could not carry the attempt.
+     * A peer that answered and refused stays refused: asking again over another route would only
+     * make it refuse twice, and prompt its user twice.
+     */
+    private suspend fun <T> dialKnown(
+        deviceId: String,
+        byDeviceId: suspend (String) -> Result<T>,
+        byRoute: suspend (PeerRef) -> Result<T>,
+    ): Result<T> {
+        val known = storage.trust.findKnownRoute(deviceId)
+
+        // A stored route that names a device again would loop straight back into here.
+        val stored = known?.asPeerLocator()?.takeUnless { it is PeerLocator.KnownDevice }
+
+        // Try discovery first, because it is more likely to succeed and gives a more up-to-date route
+        val discovered = dial(
+            arguments = PeerLocator.DiscoveredDevice(deviceId),
+            byDeviceId = byDeviceId,
+            byRoute = byRoute,
+        )
+
+        // Nothing left to dial: say so in terms of the route, not of the failed discovery lookup.
+        if (stored == null) {
+            return discovered.recoverCatching {
+                throw DeviceUnreachableException(deviceId, known?.transport, it)
+            }
+        }
+
+        if (discovered.isSuccess || discovered.refusedByPeer()) return discovered
+
+        return dial(
+            arguments = stored,
+            byDeviceId = byDeviceId,
+            byRoute = byRoute,
+        )
     }
 
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
@@ -218,3 +253,7 @@ internal class DevicesRepositoryImpl(
             PeerRef.build(DirectIpEndpoint(host = it.ip, port = it.port ?: Constants.DEFAULT_PORT))
         }
 }
+
+/** The peer answered and turned the attempt down, so another route would repeat the refusal. */
+private fun Result<*>.refusedByPeer(): Boolean =
+    exceptionOrNull() is NetworkException.Handshake

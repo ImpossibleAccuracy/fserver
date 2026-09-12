@@ -4,7 +4,6 @@ import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetu
 import com.fserver.app.presentation.screens.source.setup.target.model.SourceTargetIntent
 import com.fserver.app.presentation.screens.source.setup.target.model.SourceTargetState
 import com.fserver.app.presentation.screens.source.setup.target.model.SourceTargetUiEffect
-import com.fserver.common.utils.chainWith
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -151,31 +149,23 @@ class SourceTargetHandler(
 
         scope.launch {
             editable.update { it.copy(reconnectingDeviceId = deviceId) }
+
             try {
-                val knownPeer = trustedDevicesRepository.observeKnownRoute(deviceId).firstOrNull()
-                    ?.asPeerLocator()
-
-                val result = if (knownPeer == null) {
-                    devicesRepository.probe(PeerLocator.DiscoveredDevice(deviceId))
-                } else {
-                    devicesRepository.probe(knownPeer)
-                        .chainWith {
-                            // Route might have changed since the last time we saw it, so try probing the discovered route as a fallback
-                            devicesRepository.probe(PeerLocator.DiscoveredDevice(deviceId))
-                        }
-                }
-
-                result.fold(
-                    onSuccess = {
-                        awaitedDeviceId = deviceId
-                        effectChannel.send(SourceTargetUiEffect.NavigatePairing(it.peer))
-                    },
-                    onFailure = { t ->
-                        Timber.w(t, "could not reconnect $deviceId")
-                        effectChannel.send(SourceTargetUiEffect.ReconnectFailed(t.localizedMessage))
-                    },
-                )
+                devicesRepository.probe(PeerLocator.KnownDevice(deviceId))
+                    .fold(
+                        onSuccess = {
+                            awaitedDeviceId = deviceId
+                            effectChannel.send(SourceTargetUiEffect.NavigatePairing(it.peer))
+                        },
+                        onFailure = { t ->
+                            Timber.w(t, "could not reconnect $deviceId")
+                            effectChannel.send(
+                                SourceTargetUiEffect.ReconnectFailed(t.localizedMessage)
+                            )
+                        },
+                    )
             } finally {
+                // The row stays busy forever if this is missed - reconnect() refuses to run again.
                 editable.update { it.copy(reconnectingDeviceId = null) }
             }
         }

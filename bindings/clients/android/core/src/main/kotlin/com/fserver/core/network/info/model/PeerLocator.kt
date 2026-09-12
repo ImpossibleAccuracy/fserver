@@ -11,6 +11,10 @@ sealed interface PeerLocator {
     @Serializable
     data class DiscoveredDevice(val id: String) : PeerLocator
 
+    /** Device known to this device, with its ID from the trust records. */
+    @Serializable
+    data class KnownDevice(val id: String) : PeerLocator
+
     /** Device discovered by a nearby connection method, with its ID from the discovery protocol. */
     @Serializable
     data class NearbyEndpoint(val endpointId: String) : PeerLocator
