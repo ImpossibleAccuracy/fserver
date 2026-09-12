@@ -16,7 +16,9 @@ import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardTitle
+import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
+import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
@@ -31,6 +33,10 @@ import com.fserver.app.presentation.theme.FServerTheme
  *
  * [waiting] is how many asks are parked in total; anything above the one shown is named rather
  * than stacked, so the list keeps one banner however many arrive.
+ *
+ * With [onDismiss] the card spells its two ways out as buttons instead of a chevron — what the
+ * content feed needs, where the banner sits above the user's own files rather than in a list of
+ * things asking for a decision.
  */
 @Composable
 fun SyncRequestBanner(
@@ -38,8 +44,13 @@ fun SyncRequestBanner(
     request: SyncRequestUi,
     waiting: Int,
     onClick: () -> Unit,
+    onDismiss: (() -> Unit)? = null,
 ) {
-    DkCard(modifier = modifier, outlined = true, onClick = onClick) {
+    DkCard(
+        modifier = modifier,
+        outlined = true,
+        onClick = onClick.takeIf { onDismiss == null },
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             DkThumbnail(icon = Icons.Default.SyncAlt)
             Column(
@@ -65,7 +76,22 @@ fun SyncRequestBanner(
                     )
                 }
             }
-            DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
+            if (onDismiss == null) {
+                DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
+            }
+        }
+
+        if (onDismiss != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
+                DkSecondaryButton(
+                    text = stringResource(R.string.sync_request_action_show),
+                    onClick = onClick,
+                )
+                DkGhostButton(
+                    text = stringResource(R.string.action_later),
+                    onClick = onDismiss,
+                )
+            }
         }
     }
 }
@@ -83,6 +109,24 @@ private fun SyncRequestBannerPreview() {
             ),
             waiting = 2,
             onClick = {},
+        )
+    }
+}
+
+@Preview(name = "With actions", showBackground = true, widthDp = 360)
+@Composable
+private fun SyncRequestBannerActionsPreview() {
+    FServerTheme {
+        SyncRequestBanner(
+            request = SyncRequestUi(
+                sourceId = "3f2a",
+                deviceName = "MacBook-Pro",
+                label = "DCIM/Projects",
+                mode = SourceModeUi.Sync,
+            ),
+            waiting = 3,
+            onClick = {},
+            onDismiss = {},
         )
     }
 }

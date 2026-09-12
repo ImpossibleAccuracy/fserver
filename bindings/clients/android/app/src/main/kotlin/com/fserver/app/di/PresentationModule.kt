@@ -3,15 +3,18 @@ package com.fserver.app.di
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
 import com.fserver.app.presentation.navigation.AppViewModel
+import com.fserver.app.presentation.screens.activity.ActivityViewModel
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
 import com.fserver.app.presentation.screens.discovery.automatic.DeviceDiscoveryViewModel
 import com.fserver.app.presentation.screens.discovery.hub.ConnectHubViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
+import com.fserver.app.presentation.screens.files.folder.FolderViewModel
 import com.fserver.app.presentation.screens.files.list.FilesViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
 import com.fserver.app.presentation.screens.source.request.details.SyncRequestDetailsViewModel
+import com.fserver.app.presentation.screens.source.list.SyncRequestListViewModel
 import com.fserver.app.presentation.screens.source.request.location.SyncRequestLocationViewModel
 import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupViewModel
 import com.fserver.app.presentation.screens.source.shared.done.SourceDoneViewModel
@@ -20,7 +23,6 @@ import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewMo
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
 import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
 import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
-import com.fserver.app.presentation.screens.transfers.TransfersViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -42,14 +44,16 @@ val presentationModule = module {
     viewModelOf(::ManualAddressViewModel)
     viewModelOf(::PairingViewModel)
     viewModelOf(::FilesViewModel)
+    viewModelOf(::FolderViewModel)
 
     viewModelOf(::SourceSetupViewModel)
+    viewModelOf(::SyncRequestListViewModel)
     viewModelOf(::SyncRequestDetailsViewModel)
     viewModelOf(::SyncRequestLocationViewModel)
     viewModelOf(::SourceProgressViewModel)
     viewModelOf(::SourceDoneViewModel)
 
-    viewModelOf(::TransfersViewModel)
+    viewModelOf(::ActivityViewModel)
     viewModelOf(::DiagnosticsViewModel)
 
     // Settings subtree; the root itself is stateless and has no ViewModel.

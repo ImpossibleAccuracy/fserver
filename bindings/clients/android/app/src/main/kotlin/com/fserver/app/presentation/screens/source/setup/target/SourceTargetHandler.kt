@@ -49,15 +49,22 @@ class SourceTargetHandler(
     ) { online, trusted, running, shared, local ->
         val connected = online.filter(ForeignDevice::hasSession)
         val sessionIds = connected.mapTo(mutableSetOf()) { it.deviceId }
+
         val known = trusted
             .distinctBy { it.deviceId }
             .filterNot { it.deviceId in sessionIds }
         val knownIds = known.mapTo(mutableSetOf()) { it.deviceId }
+
         val discovered = online.filterNot { it.hasSession || it.deviceId in knownIds }
 
         SourceTargetState(
             connected = connected.map { it.toUi() },
-            known = known.map { it.toUi(online, isBusy = it.deviceId == local.reconnectingDeviceId) },
+            known = known.map {
+                it.toUi(
+                    online,
+                    isBusy = it.deviceId == local.reconnectingDeviceId
+                )
+            },
             discovered = discovered.map { it.toUi() },
             selectedDeviceId = local.selectedDeviceId ?: shared.targetDeviceId,
             isSearching = TransportKind.MulticastDns in running,

@@ -18,6 +18,9 @@
     <string name="action_decline">Decline</string>
     <string name="action_continue">Continue</string>
     <string name="action_retry">Retry</string>
+    <string name="action_later">Later</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_undo">Undo</string>
     <string name="action_connect">Connect</string>
 
     <!-- Onboarding -->
@@ -200,22 +203,29 @@
 
     <!-- Bottom navigation -->
     <string name="tab_files">Files</string>
-    <string name="tab_transfers">Transfers</string>
+    <string name="tab_activity">Activity</string>
     <string name="tab_settings">Settings</string>
 
     <!-- Files browser -->
-    <string name="files_breadcrumb_items">%1$s · %2$d items</string>
-    <plurals name="files_folder_count">
-        <item quantity="one">%1$d file</item>
-        <item quantity="other">%1$d files</item>
-    </plurals>
     <string name="files_send_file">Send file</string>
     <string name="files_view_mode">View mode</string>
-    <string name="files_view_list">List</string>
-    <string name="files_view_grid">Grid</string>
-    <string name="files_view_tree">Tree</string>
     <string name="files_state_remote">On the server, tap to download</string>
     <string name="files_state_local">Already on this device</string>
+    <string name="files_state_offloaded">Offloaded, kept on the target device</string>
+    <string name="files_state_on_peer">Lives on another device</string>
+    <string name="files_state_conflict">Version conflict</string>
+    <string name="files_state_pinned">Pinned, never offloaded</string>
+    <string name="files_filter_all">All</string>
+    <string name="files_filter_local">Local</string>
+    <string name="files_filter_cloud">Cloud</string>
+    <string name="files_device_items">%1$s · %2$d items</string>
+    <string name="files_device_folders">Folders and modes</string>
+    <string name="files_device_add_folder">Add folder</string>
+    <string name="files_device_configure">Configure</string>
+    <string name="files_device_fingerprint">Key fingerprint: %1$s</string>
+    <string name="files_folder_cloud_notice">Cloud items open once the target device is reachable.</string>
+    <string name="device_state_online">online</string>
+    <string name="device_state_offline">offline</string>
     <string name="files_title">Files</string>
     <string name="files_actions">What next?</string>
     <string name="files_empty_illustration">empty</string>
@@ -277,19 +287,29 @@
     <string name="source_target_subnet_offer_action">Scan the subnet</string>
     <string name="source_target_subnet_scanning">Scanning the subnet…</string>
 
-    <!-- Transfers -->
-    <string name="transfers_title">Transfers</string>
+    <!-- Activity -->
+    <string name="activity_title">Activity</string>
+    <string name="activity_section_attention">Needs attention</string>
+    <string name="activity_section_now">Now</string>
+    <string name="activity_section_today">Today</string>
+    <string name="activity_total_freed">Freed this month</string>
+    <string name="activity_total_quota">Quota on the server</string>
+    <string name="activity_batch_outgoing">Sending to %1$s</string>
+    <string name="activity_batch_incoming">Receiving from %1$s</string>
+    <string name="activity_batch_counter">%1$d of %2$d</string>
+    <string name="activity_interrupted_meta">Stopped at %1$d %% · resumes when the link is back</string>
+    <string name="activity_conflict_title">Conflict: %1$s</string>
+    <string name="activity_conflict_compare">Compare</string>
+    <string name="activity_conflict_keep_mine">Keep mine</string>
+    <string name="activity_full_history">Full history</string>
     <string name="transfer_percent">%1$d %%</string>
     <string name="transfer_progress_meta">%1$s of %2$s · %3$s · ~%4$s</string>
     <string name="transfer_speed">%1$s/s</string>
     <string name="transfer_queued">Queued</string>
-    <string name="transfer_interrupted">Interrupted</string>
     <string name="transfer_interrupted_meta">Stopped at %1$d %% · will resume next pass</string>
-    <string name="transfer_action_resume">Retry now</string>
-    <string name="transfer_hash_verified">✓ hash verified</string>
     <string name="transfer_direction_outgoing">Sending</string>
     <string name="transfer_direction_incoming">Receiving</string>
-    <string name="transfers_empty">Nothing is moving right now. Files show up here while a sync pass runs.</string>
+    <string name="activity_empty">Nothing is moving right now. Passes, offloads and deletions show up here.</string>
 
     <string name="value_unknown">—</string>
     <string name="duration_seconds">%1$d s</string>
@@ -407,6 +427,15 @@
     <string name="sync_request_banner_title">Sync request</string>
     <string name="sync_request_banner_body">%1$s asks to sync \"%2$s\"</string>
     <string name="sync_request_banner_more">%1$d more waiting</string>
+    <string name="sync_request_action_show">Show requests</string>
+    <string name="sync_requests_title">Requests</string>
+    <string name="sync_requests_decline_all">Decline all</string>
+    <string name="sync_requests_count">%1$d waiting for a decision</string>
+    <string name="sync_requests_footnote">Declined requests do not come back for a day.</string>
+    <string name="sync_requests_empty">Nothing is waiting for a decision.</string>
+    <string name="sync_requests_card_title">%1$s · %2$s</string>
+    <string name="sync_requests_card_body">Folder \"%1$s\"</string>
+    <string name="sync_requests_card_trusted">Trusted device</string>
     <string name="sync_request_title">Sync request</string>
     <string name="sync_request_heading">%1$s wants to sync with this device</string>
     <string name="sync_request_body">Accepting registers this device as the other half of that source. Files arrive here; nothing on this phone is sent back unless you set up a source of your own.</string>

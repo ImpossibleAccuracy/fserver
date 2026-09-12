@@ -1,10 +1,12 @@
 package com.fserver.app.presentation.screens.files.list.model
 
-import com.fserver.app.presentation.composable.model.FileUi
-import com.fserver.app.presentation.composable.model.FilesViewModeUi
-
 sealed interface FilesIntent {
-    data class ViewModeSelected(val mode: FilesViewModeUi) : FilesIntent
-    data class FileClicked(val file: FileUi) : FilesIntent
+    data class DeviceClicked(val deviceId: String) : FilesIntent
+    data class DeviceExpanded(val deviceId: String) : FilesIntent
+    data object DeviceCollapsed : FilesIntent
+    data class FilterSelected(val filter: FilesState.FilterUi) : FilesIntent
+    data object FilterCleared : FilesIntent
+    data class EntryClicked(val entryId: String) : FilesIntent
     data object SearchClicked : FilesIntent
+    data object SyncRequestHintDismissed : FilesIntent
 }

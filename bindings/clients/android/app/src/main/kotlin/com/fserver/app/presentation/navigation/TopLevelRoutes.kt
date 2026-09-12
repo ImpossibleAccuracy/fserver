@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.fserver.app.R
 import com.fserver.app.presentation.model.Destination
@@ -19,10 +19,10 @@ enum class TopLevelDestination(
         label = R.string.tab_files,
         icon = Icons.Default.Folder,
     ),
-    Transfers(
-        destination = Destination.Transfers,
-        label = R.string.tab_transfers,
-        icon = Icons.Default.SwapVert,
+    Activity(
+        destination = Destination.Activity,
+        label = R.string.tab_activity,
+        icon = Icons.Default.Timeline,
     ),
     Settings(
         destination = Destination.Settings,

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +81,7 @@ fun DkListRow(
     titleMaxLines: Int = 1,
     subtitle: String? = null,
     subtitleStyle: TextStyle? = null,
+    subtitleColor: Color? = null,
     subtitleMaxLines: Int = 1,
     dimmed: Boolean = false,
     onClick: (() -> Unit)? = null,
@@ -114,7 +116,8 @@ fun DkListRow(
                 Text(
                     text = subtitle,
                     style = subtitleStyle ?: MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                    color = (subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+                        .copy(alpha = alpha),
                     maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis,
                 )

@@ -24,8 +24,23 @@ enum class FileKindUi {
         get() = this == Image || this == Video
 }
 
-/** Whether the bytes are here or still on the server. Drives the row's trailing marker. */
-enum class FileAvailabilityUi { OnServer, OnDevice }
+/**
+ * Where the bytes are. One feed lists every source, so the trailing marker is the only thing
+ * telling a local file from an offloaded one from a file living on someone else's device.
+ */
+enum class FileAvailabilityUi {
+    /** Here, nothing to fetch. */
+    OnDevice,
+
+    /** Freed locally; the copy sits on the device that took it. */
+    Offloaded,
+
+    /** Lives on another device and is not mirrored here. */
+    OnPeer,
+
+    /** Not here yet; a tap fetches it. */
+    OnServer,
+}
 
 @Immutable
 data class FileUi(
@@ -71,6 +86,22 @@ sealed interface TransferUi {
         val total: FileSize,
         val bytesPerSecond: Long?,
         val eta: Duration?,
+    ) : TransferUi
+
+    /**
+     * A whole pass, as one line. The activity feed shows the pass rather than its files —
+     * thirty rows that all say the same thing are not thirty pieces of information.
+     */
+    data class Batch(
+        override val id: String,
+        override val fileName: String,
+        override val direction: FileTransfer.Direction,
+        val peerName: String,
+        val doneCount: Int,
+        val totalCount: Int,
+        /** `null` while the size is unknown, so the bar runs indeterminate. */
+        val progress: Float?,
+        val bytesPerSecond: Long?,
     ) : TransferUi
 
     /** Planned by the current pass, nothing sent yet. */

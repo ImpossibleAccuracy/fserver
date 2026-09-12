@@ -1,110 +1,105 @@
 package com.fserver.app.presentation.screens.files.list
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.data.SampleData
 import com.fserver.app.presentation.composable.DkFab
-import com.fserver.app.presentation.composable.model.FileAvailabilityUi
-import com.fserver.app.presentation.composable.model.FileKindUi
-import com.fserver.app.presentation.composable.model.FileUi
-import com.fserver.app.presentation.composable.model.FilesViewModeUi
-import com.fserver.app.presentation.composable.model.TreeNodeUi
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
-import com.fserver.app.presentation.designkit.DkListRow
-import com.fserver.app.presentation.designkit.DkMediaTile
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSegmentedControl
 import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.designkit.DkTreeRow
+import com.fserver.app.presentation.screens.files.list.composable.ContentEntryRow
+import com.fserver.app.presentation.screens.files.list.composable.DeviceDetailsCard
+import com.fserver.app.presentation.screens.files.list.composable.DeviceStrip
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
-import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.screens.files.list.model.FilesState
-import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
+import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
+private const val DimmedFeedAlpha = 0.14f
+
 @Composable
 fun FilesScreen(
+    modifier: Modifier = Modifier,
     viewModel: FilesViewModel = koinViewModel(),
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
-    navigateToSyncRequest: (String) -> Unit,
+    navigateToSyncRequests: () -> Unit,
+    navigateToFolder: (FilesState.EntryUi) -> Unit,
+    navigateToDeviceSettings: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     FilesScreenContent(
+        modifier = modifier,
         state = state,
         onIntent = viewModel::onIntent,
         navigateToActions = navigateToActions,
         navigateToConnect = navigateToConnect,
         navigateToSourcePick = navigateToSourcePick,
-        navigateToSyncRequest = navigateToSyncRequest,
+        navigateToSyncRequests = navigateToSyncRequests,
+        navigateToFolder = navigateToFolder,
+        navigateToDeviceSettings = navigateToDeviceSettings,
     )
 }
 
-/**
- * The server's tree, in whichever of the three shapes the user picked.
- *
- * `↓` means the bytes are still on the server and a tap fetches them; `✓` means the file
- * is already here. That distinction is also where offload placeholders will land later.
- */
 @Composable
 private fun FilesScreenContent(
+    modifier: Modifier = Modifier,
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
-    navigateToSyncRequest: (String) -> Unit,
+    navigateToSyncRequests: () -> Unit,
+    navigateToFolder: (FilesState.EntryUi) -> Unit,
+    navigateToDeviceSettings: (String) -> Unit,
 ) {
     DkScaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
-                title = state.serverName.ifEmpty { stringResource(R.string.files_title) },
+                modifier = Modifier.alpha(if (state.expandedDevice != null) 0.35f else 1f),
+                title = stringResource(R.string.files_title),
                 actions = {
                     IconButton(onClick = { onIntent(FilesIntent.SearchClicked) }) {
                         Icon(
@@ -112,26 +107,75 @@ private fun FilesScreenContent(
                             contentDescription = stringResource(R.string.action_search),
                         )
                     }
+                    IconButton(onClick = navigateToActions) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.action_more),
+                        )
+                    }
                 },
             )
         },
         floatingActionButton = {
-            // With nothing to show, the two ways out are already in the middle of the screen —
-            // a button offering the same fork on top of them would be the third copy of it.
-            if (!state.isEmpty) {
-                DkFab(
-                    icon = Icons.Default.Add,
-                    label = stringResource(R.string.files_send_file),
-                    onClick = navigateToActions,
-                )
-            }
+            DkFab(
+                icon = Icons.Default.Add,
+                label = stringResource(R.string.files_send_file),
+                onClick = navigateToActions,
+                visible = !state.isEmpty && state.expandedDevice == null,
+            )
         },
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            FilesFeed(
+                modifier = Modifier.alpha(if (state.expandedDevice != null) DimmedFeedAlpha else 1f),
+                state = state,
+                onIntent = onIntent,
+                navigateToConnect = navigateToConnect,
+                navigateToSourcePick = navigateToSourcePick,
+                navigateToSyncRequests = navigateToSyncRequests,
+                navigateToFolder = navigateToFolder,
+            )
+
+            state.expandedDevice?.let { device ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onIntent(FilesIntent.DeviceCollapsed) },
+                        )
+                ) {
+                    DeviceDetailsCard(
+                        modifier = Modifier.padding(DkSpacing.md),
+                        device = device,
+                        onClose = { onIntent(FilesIntent.DeviceCollapsed) },
+                        onFolderClick = { onIntent(FilesIntent.EntryClicked(it)) },
+                        onAddFolder = navigateToSourcePick,
+                        onConfigure = { navigateToDeviceSettings(device.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilesFeed(
+    modifier: Modifier = Modifier,
+    state: FilesState,
+    onIntent: (FilesIntent) -> Unit,
+    navigateToConnect: () -> Unit,
+    navigateToSourcePick: () -> Unit,
+    navigateToSyncRequests: () -> Unit,
+    navigateToFolder: (FilesState.EntryUi) -> Unit,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        if (state.showsSyncRequestHint) {
             state.syncRequest?.let { request ->
                 SyncRequestBanner(
                     modifier = Modifier.padding(
@@ -140,86 +184,117 @@ private fun FilesScreenContent(
                     ),
                     request = request,
                     waiting = state.syncRequestsWaiting,
-                    onClick = { navigateToSyncRequest(request.sourceId) },
+                    onClick = navigateToSyncRequests,
+                    onDismiss = { onIntent(FilesIntent.SyncRequestHintDismissed) },
                 )
             }
+        }
 
-            if (state.isEmpty) {
-                FilesEmptyState(
-                    navigateToConnect = navigateToConnect,
-                    navigateToSourcePick = navigateToSourcePick,
-                    modifier = Modifier.weight(1f),
-                )
-                return@Column
-            }
+        if (state.isEmpty) {
+            FilesEmptyState(
+                modifier = Modifier.weight(1f),
+                navigateToConnect = navigateToConnect,
+                navigateToSourcePick = navigateToSourcePick,
+            )
+            return@Column
+        }
 
-            Column(
+        DeviceStrip(
+            modifier = Modifier.padding(bottom = DkSpacing.md),
+            devices = state.devices,
+            selectedDeviceId = state.selectedDeviceId,
+            onDeviceClick = { onIntent(FilesIntent.DeviceClicked(it)) },
+            onDeviceLongClick = { onIntent(FilesIntent.DeviceExpanded(it)) },
+        )
+
+        val selected = state.selectedDevice
+        if (selected == null) {
+            FilterChips(
                 modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-            ) {
-                DkMonoCaption(
-                    text = if (state.viewMode == FilesViewModeUi.Grid) {
-                        stringResource(
-                            R.string.files_breadcrumb_items,
-                            state.breadcrumb,
-                            state.itemCount,
-                        )
-                    } else {
-                        state.breadcrumb
+                filter = state.filter,
+                onSelect = { onIntent(FilesIntent.FilterSelected(it)) },
+            )
+        } else {
+            SelectionSummary(
+                modifier = Modifier.padding(start = DkSpacing.screenPadding),
+                device = selected,
+                onClear = { onIntent(FilesIntent.FilterCleared) },
+            )
+        }
+
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(state.entries, key = { it.id }) { entry ->
+                ContentEntryRow(
+                    entry = entry,
+                    onClick = {
+                        if (entry.isFolder) {
+                            navigateToFolder(entry)
+                        } else {
+                            onIntent(FilesIntent.EntryClicked(entry.id))
+                        }
                     },
                 )
-                DkSegmentedControl(
-                    options = listOf(
-                        DkSegmentedOption(
-                            value = FilesViewModeUi.List,
-                            label = stringResource(R.string.files_view_list),
-                            icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-                        ),
-                        DkSegmentedOption(
-                            value = FilesViewModeUi.Grid,
-                            label = stringResource(R.string.files_view_grid),
-                            icon = Icons.Default.GridView,
-                        ),
-                        DkSegmentedOption(
-                            value = FilesViewModeUi.Tree,
-                            label = stringResource(R.string.files_view_tree),
-                            icon = Icons.Default.AccountTree,
-                        ),
-                    ),
-                    selected = state.viewMode,
-                    onSelect = { onIntent(FilesIntent.ViewModeSelected(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            when (state.viewMode) {
-                FilesViewModeUi.List -> FilesListView(
-                    files = state.files,
-                    onFileClick = { onIntent(FilesIntent.FileClicked(it)) },
-                )
-
-                FilesViewModeUi.Grid -> FilesGridView(
-                    tiles = state.gridTiles,
-                    onFileClick = { onIntent(FilesIntent.FileClicked(it)) },
-                )
-
-                FilesViewModeUi.Tree -> FilesTreeView(nodes = state.tree)
+                DkFadingDivider()
             }
         }
     }
 }
 
-/**
- * Where a skipped onboarding lands, and where the app sits until something is connected.
- *
- * It carries the same fork the "+" button opens, so the tab is never a dead end — the bottom
- * bar stays usable underneath it.
- */
+@Composable
+private fun FilterChips(
+    modifier: Modifier = Modifier,
+    filter: FilesState.FilterUi,
+    onSelect: (FilesState.FilterUi) -> Unit,
+) {
+    DkSegmentedControl(
+        modifier = modifier.fillMaxWidth(),
+        options = listOf(
+            DkSegmentedOption(
+                value = FilesState.FilterUi.All,
+                label = stringResource(R.string.files_filter_all),
+                icon = Icons.AutoMirrored.Filled.ViewList,
+            ),
+            DkSegmentedOption(
+                value = FilesState.FilterUi.Local,
+                label = stringResource(R.string.files_filter_local),
+                icon = Icons.Default.Smartphone,
+            ),
+            DkSegmentedOption(
+                value = FilesState.FilterUi.Cloud,
+                label = stringResource(R.string.files_filter_cloud),
+                icon = Icons.Default.Cloud,
+            ),
+        ),
+        selected = filter,
+        onSelect = onSelect,
+    )
+}
+
+@Composable
+private fun SelectionSummary(
+    modifier: Modifier = Modifier,
+    device: FilesState.DeviceUi,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            modifier = Modifier.weight(1f),
+            text = stringResource(R.string.files_device_items, device.name, device.itemCount),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        DkGhostButton(text = stringResource(R.string.action_reset), onClick = onClear)
+    }
+}
+
 @Composable
 private fun FilesEmptyState(
+    modifier: Modifier = Modifier,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
@@ -262,150 +337,69 @@ private fun FilesEmptyState(
     }
 }
 
-@Composable
-private fun FilesListView(
-    files: List<FileUi>,
-    onFileClick: (FileUi) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(modifier = modifier.fillMaxSize()) {
-        items(files, key = { it.id }) { file ->
-            DkListRow(
-                title = file.name,
-                subtitle = file.subtitleLabel(),
-                onClick = { onFileClick(file) },
-                leading = {
-                    DkThumbnail(
-                        icon = if (file.kind == FileKindUi.Folder) {
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight
-                        } else {
-                            file.kind.icon()
-                        }
-                    )
-                },
-                trailing = { AvailabilityMarker(file) },
-            )
-            DkFadingDivider()
-        }
-    }
-}
-
-@Composable
-private fun FilesGridView(
-    tiles: List<FileUi>,
-    onFileClick: (FileUi) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            horizontal = DkSpacing.screenPadding,
-            vertical = DkSpacing.sm,
-        ),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        items(tiles, key = { it.id }) { tile ->
-            DkMediaTile(
-                extensionLabel = tile.extensionLabel,
-                durationLabel = tile.durationLabel,
-                remote = tile.availability == FileAvailabilityUi.OnServer,
-                onClick = { onFileClick(tile) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun FilesTreeView(nodes: List<TreeNodeUi>, modifier: Modifier = Modifier) {
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = DkSpacing.md, vertical = DkSpacing.xs),
-    ) {
-        items(nodes, key = { it.id }) { node ->
-            DkTreeRow(
-                title = node.name,
-                expandable = node.isFolder,
-                trailingText = node.childCountLabel,
-                onClick = {},
-                trailing = {
-                    when (node.availability) {
-                        FileAvailabilityUi.OnServer -> Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = stringResource(R.string.files_state_remote),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp),
-                        )
-
-                        FileAvailabilityUi.OnDevice -> Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = stringResource(R.string.files_state_local),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp),
-                        )
-
-                        null -> Unit
-                    }
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun AvailabilityMarker(file: FileUi) {
-    if (file.kind == FileKindUi.Folder) return
-    when (file.availability) {
-        FileAvailabilityUi.OnServer -> Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = stringResource(R.string.files_state_remote),
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp),
-        )
-
-        FileAvailabilityUi.OnDevice -> Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = stringResource(R.string.files_state_local),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
-        )
-    }
-}
-
-@Composable
-private fun FileUi.subtitleLabel(): String? = when {
-    kind == FileKindUi.Folder && childCount != null ->
-        pluralStringResource(R.plurals.files_folder_count, childCount, childCount)
-
-    sizeLabel != null && dateLabel != null -> "$sizeLabel · $dateLabel"
-    else -> sizeLabel ?: dateLabel
-}
-
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun FilesScreenPreview() {
     FServerTheme {
         FilesScreenContent(
             state = FilesState(
-                serverName = SampleData.CURRENT_SERVER,
-                breadcrumb = SampleData.BREADCRUMB,
-                files = SampleData.files,
-                gridTiles = SampleData.gridTiles,
-                tree = SampleData.tree,
-                itemCount = SampleData.GRID_ITEM_COUNT,
+                devices = FilesState.SampleDevices,
+                entries = FilesState.SampleEntries,
             ),
             onIntent = {},
             navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
-            navigateToSyncRequest = {},
+            navigateToSyncRequests = {},
+            navigateToFolder = {},
+            navigateToDeviceSettings = {},
         )
     }
 }
 
-@Preview(name = "Nothing connected", showBackground = true)
+@Preview(name = "Device selected", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun FilesScreenFilteredPreview() {
+    FServerTheme {
+        FilesScreenContent(
+            state = FilesState(
+                devices = FilesState.SampleDevices,
+                selectedDeviceId = "server",
+                entries = FilesState.SampleEntries,
+            ),
+            onIntent = {},
+            navigateToActions = {},
+            navigateToConnect = {},
+            navigateToSourcePick = {},
+            navigateToSyncRequests = {},
+            navigateToFolder = {},
+            navigateToDeviceSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Device expanded", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun FilesScreenExpandedPreview() {
+    FServerTheme {
+        FilesScreenContent(
+            state = FilesState(
+                devices = FilesState.SampleDevices,
+                entries = FilesState.SampleEntries,
+                expandedDevice = FilesState.sampleDetailsOf(FilesState.SampleDevices[1]),
+            ),
+            onIntent = {},
+            navigateToActions = {},
+            navigateToConnect = {},
+            navigateToSourcePick = {},
+            navigateToSyncRequests = {},
+            navigateToFolder = {},
+            navigateToDeviceSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Nothing connected", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun FilesScreenEmptyPreview() {
     FServerTheme {
@@ -415,7 +409,9 @@ private fun FilesScreenEmptyPreview() {
             navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
-            navigateToSyncRequest = {},
+            navigateToSyncRequests = {},
+            navigateToFolder = {},
+            navigateToDeviceSettings = {},
         )
     }
 }

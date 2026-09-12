@@ -5,8 +5,11 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.DeviceUnknown
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Storage
@@ -39,6 +42,24 @@ val DeviceKind?.icon: ImageVector
         DeviceKind.Tablet -> Icons.Default.TabletMac
         DeviceKind.Nas -> Icons.Default.Storage
         null -> Icons.Default.DeviceUnknown
+    }
+
+/** `null` for a file that is simply here: the common case earns no marker. */
+val FileAvailabilityUi.icon: ImageVector?
+    get() = when (this) {
+        FileAvailabilityUi.OnDevice -> null
+        FileAvailabilityUi.Offloaded -> Icons.Default.Cloud
+        FileAvailabilityUi.OnPeer -> Icons.Default.Lock
+        FileAvailabilityUi.OnServer -> Icons.Default.CloudDownload
+    }
+
+@get:StringRes
+val FileAvailabilityUi.labelRes: Int
+    get() = when (this) {
+        FileAvailabilityUi.OnDevice -> R.string.files_state_local
+        FileAvailabilityUi.Offloaded -> R.string.files_state_offloaded
+        FileAvailabilityUi.OnPeer -> R.string.files_state_on_peer
+        FileAvailabilityUi.OnServer -> R.string.files_state_remote
     }
 
 @Composable

@@ -32,8 +32,21 @@ sealed interface Destination : NavKey {
 
     @Serializable
     data object Files {
+        /** The content feed: every device in a row, everything they hold in one list. */
         @Serializable
         data object List : Destination
+
+        /**
+         * One folder of the feed. [mediaCollection] is decided when the folder is opened, not by
+         * the user: a folder that is mostly photos and video opens as a grid, everything else as
+         * a list, and the top bar offers the other shape.
+         */
+        @Serializable
+        data class Folder(
+            val folderId: String,
+            val title: String,
+            val mediaCollection: Boolean,
+        ) : Destination
 
         /**
          * The fork behind the "+" button: open someone else's files, or share your own. Both
@@ -95,6 +108,10 @@ sealed interface Destination : NavKey {
         @Serializable
         data object Request {
 
+            /** Everything parked, one card per decision. Both places that nag about a request lead here. */
+            @Serializable
+            data object List : Destination
+
             /** Who asked, for what, and under which mode. */
             @Serializable
             data class Details(val sourceId: String) : Destination
@@ -116,8 +133,12 @@ sealed interface Destination : NavKey {
         data class Done(val sourceId: String) : Destination
     }
 
+    /**
+     * What is moving now and what already happened, in one stream. Transfers are not a place of
+     * their own: a finished upload and an offload pass are the same kind of news.
+     */
     @Serializable
-    data object Transfers : Destination
+    data object Activity : Destination
 
     /**
      * Settings root. It holds no state of its own — every row leads into one of the screens

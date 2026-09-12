@@ -35,10 +35,13 @@ import com.fserver.app.presentation.screens.discovery.hub.connectHubEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
+import com.fserver.app.presentation.screens.activity.activityEntry
+import com.fserver.app.presentation.screens.files.folder.filesFolderEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
 import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
+import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
 import com.fserver.app.presentation.screens.source.request.location.syncRequestLocationEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
 import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
@@ -53,7 +56,6 @@ import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntr
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
-import com.fserver.app.presentation.screens.transfers.transfersEntry
 import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
 
@@ -197,7 +199,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             qrScanEntry(navigator)
             manualAddressEntry(navigator)
             pairingEntry(navigator)
-            transfersEntry()
+            activityEntry(navigator)
             settingsEntry(navigator)
             settingsDevicesEntry(navigator)
             settingsDeviceDetailsEntry(navigator)
@@ -207,6 +209,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             diagnosticEntry(navigator)
 
             filesListEntry(navigator)
+            filesFolderEntry(navigator)
             filesActionsEntry(navigator)
 
             sourcePickEntry(navigator)
@@ -215,6 +218,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             sourceTargetEntry(navigator)
             sourceConditionsEntry(navigator)
 
+            syncRequestListEntry(navigator)
             syncRequestDetailsEntry(navigator)
             syncRequestLocationEntry(navigator)
 

@@ -1,32 +1,60 @@
-package com.fserver.app.presentation.screens.transfers
+package com.fserver.app.presentation.screens.activity
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.TransferUi
-import com.fserver.app.presentation.screens.transfers.model.TransfersIntent
-import com.fserver.app.presentation.screens.transfers.model.TransfersState
+import com.fserver.app.presentation.screens.activity.model.ActivityIntent
+import com.fserver.app.presentation.screens.activity.model.ActivityState
+import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.common.model.FileSize
+import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.progress.FileTransfer
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-class TransfersViewModel(
+class ActivityViewModel(
     private val sourcesController: SourcesController,
+    private val trustedDevices: TrustedDevicesRepository,
 ) : ViewModel() {
 
-    val state: StateFlow<TransfersState> = sourcesController.progress.transfers
-        .map { transfers -> TransfersState(transfers = transfers.map { it.toUi() }) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransfersState())
+    val state: StateFlow<ActivityState> = combine(
+        sourcesController.progress.transfers,
+        sourcesController.incomingRequests,
+        trustedDevices.devices,
+    ) { transfers, requests, devices ->
+        ActivityState(
+            freedLabel = SampleFreed,
+            quotaLabel = SampleQuota,
+            syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(devices),
+            syncRequestsWaiting = requests.size,
+            conflicts = ActivityState.SampleConflicts,
+            running = transfers.map { it.toUi() }.filterNot { it is TransferUi.Completed },
+            history = ActivityState.SampleHistory,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ActivityState(
+            freedLabel = SampleFreed,
+            quotaLabel = SampleQuota,
+            conflicts = ActivityState.SampleConflicts,
+            history = ActivityState.SampleHistory,
+        ),
+    )
 
-    fun onIntent(intent: TransfersIntent) {
+    fun onIntent(intent: ActivityIntent) {
         when (intent) {
-            TransfersIntent.RetryClicked -> retry()
-            TransfersIntent.ClearClicked -> sourcesController.progress.clearFinished()
+            ActivityIntent.ClearClicked -> sourcesController.progress.clearFinished()
+            is ActivityIntent.RetryClicked -> retry()
+            is ActivityIntent.ConflictCompareClicked -> Unit
+            is ActivityIntent.ConflictKeepMineClicked -> Unit
+            is ActivityIntent.UndoClicked -> Unit
+            ActivityIntent.FullHistoryClicked -> Unit
         }
     }
 
@@ -72,5 +100,10 @@ class TransfersViewModel(
                 stoppedAtPercent = ((progress ?: 0f) * 100).toInt(),
             )
         }
+    }
+
+    private companion object {
+        const val SampleFreed = "12.4 GB"
+        const val SampleQuota = "61 %"
     }
 }
