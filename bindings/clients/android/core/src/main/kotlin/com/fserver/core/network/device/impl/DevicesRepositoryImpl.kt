@@ -6,6 +6,7 @@ import com.fserver.common.utils.chainWith
 import com.fserver.core.Constants
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
@@ -70,6 +71,12 @@ internal class DevicesRepositoryImpl(
         network.incomingConnections.session(deviceId)?.close(CloseReason.Normal)
     }
 
+    /**
+     * A greeting is advisory and the device id behind it is whatever the advertisement claimed, so
+     * nothing here is written down: a route recorded from a probe would let anyone announcing a
+     * trusted device's id replace that device's stored address. Routes are recorded in [connect],
+     * against the identity the handshake proved.
+     */
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
         dial(
             arguments = arguments,
@@ -80,11 +87,6 @@ internal class DevicesRepositoryImpl(
             },
             byRoute = { network.requestManager.probe(it) },
         )
-            .onSuccess { probed ->
-                if (probed.route.deviceId != PeerRef.UNKNOWN_DEVICE_ID) {
-                    rememberRoute(probed.route.deviceId, probed.route.endpoint)
-                }
-            }
             .map { it.toDomain() }
 
     override suspend fun connect(
@@ -99,10 +101,18 @@ internal class DevicesRepositoryImpl(
             }
         )
 
+        // What the caller asked for, when it named a device at all. A bare address does not: which
+        // device is behind it is not known until the handshake says so.
+        val expected = when (arguments) {
+            is PeerLocator.DiscoveredDevice -> arguments.id
+            is PeerLocator.KnownDevice -> arguments.id
+            else -> null
+        }
+
         return dial(
             arguments = arguments,
-            byDeviceId = { connectKnown(deviceId = it, request = request) },
-            byRoute = { network.requestManager.connect(peer = it, request = request) },
+            byDeviceId = { connectKnown(deviceId = it, request = request).verifiedAs(expected ?: it) },
+            byRoute = { network.requestManager.connect(peer = it, request = request).verifiedAs(expected) },
         )
             .onSuccess { session ->
                 rememberRoute(
@@ -181,6 +191,24 @@ internal class DevicesRepositoryImpl(
         )
     }
 
+    /**
+     * Fails the attempt unless the peer that completed the handshake is the one that was dialled,
+     * closing the session it opened. Everything that named [expectedDeviceId] before the handshake
+     * - an advertisement, a stored route - was unauthenticated.
+     */
+    private suspend fun Result<PeerSession<FileServerMessages>>.verifiedAs(
+        expectedDeviceId: String?,
+    ): Result<PeerSession<FileServerMessages>> = mapCatching { session ->
+        val actual = session.identity.deviceId
+
+        if (expectedDeviceId != null && actual != expectedDeviceId) {
+            session.close(CloseReason.Local("dialled $expectedDeviceId"))
+            throw PeerIdentityMismatchException(expected = expectedDeviceId, actual = actual)
+        }
+
+        session
+    }
+
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
     private suspend fun connectKnown(
         deviceId: String,
@@ -254,6 +282,13 @@ internal class DevicesRepositoryImpl(
         }
 }
 
-/** The peer answered and turned the attempt down, so another route would repeat the refusal. */
-private fun Result<*>.refusedByPeer(): Boolean =
-    exceptionOrNull() is NetworkException.Handshake
+/**
+ * The peer answered and turned the attempt down, so another route would repeat the refusal.
+ *
+ * A device that answered under the wrong identity is not that refusal: it is someone else holding
+ * the route, and the device actually being dialled may still be reachable on another one.
+ */
+private fun Result<*>.refusedByPeer(): Boolean = when (val e = exceptionOrNull()) {
+    is PeerIdentityMismatchException -> false
+    else -> e is NetworkException.Handshake
+}

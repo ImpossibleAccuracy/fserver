@@ -19,7 +19,7 @@ import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.auth.sas.SasAuthMethod
-import com.fserver.net.security.crypto.PassthroughCryptoProvider
+import com.fserver.net.security.auth.transport.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
@@ -106,7 +106,11 @@ internal class NetworkController(
                 loadSavedPassword = { method.password },
             )
         }
-    }
+    }.plus(
+        // Transport-gated: a transport that keys its own link admits nothing else, and no other
+        // transport will offer it, so it needs no entry in [OfferedAuthMethod].
+        TransportConfirmationAuthMethod(crypto)
+    )
 
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
         networkConfig(dictionary = FileServerDictionary()) {
@@ -116,8 +120,8 @@ internal class NetworkController(
                 networkInfoRepository = networkInfoRepository,
                 timeProvider = config.timeProvider,
             )
-            authenticator = null // this@NetworkController.authenticator
-            crypto = PassthroughCryptoProvider // this@NetworkController.crypto
+            authenticator = this@NetworkController.authenticator
+            crypto = this@NetworkController.crypto
             scope = this@NetworkController.coroutineScope
             logger = TimberNetLogger
             policy = ConnectionPolicy(

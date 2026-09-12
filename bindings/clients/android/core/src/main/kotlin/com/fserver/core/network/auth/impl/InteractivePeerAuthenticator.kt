@@ -1,7 +1,9 @@
 package com.fserver.core.network.auth.impl
 
+import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.identity.Fingerprint
 import com.fserver.net.security.trust.TrustPrompt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +33,8 @@ internal class InteractivePeerAuthenticator : PeerAuthenticator {
                 if (trimmed.length < GroupSize * 2) listOf(trimmed)
                 else trimmed.chunked(GroupSize)
             }.orEmpty(),
+            fingerprintGroups = prompt.candidate.fingerprint.groups(),
+            reason = prompt.reason.toDomain(),
         )
 
         val accepted = try {
@@ -51,6 +55,18 @@ internal class InteractivePeerAuthenticator : PeerAuthenticator {
     fun resolve(accept: Boolean) {
         answer?.complete(accept)
     }
+
+    private fun TrustPrompt.Reason.toDomain(): PendingConfirmation.Reason = when (this) {
+        TrustPrompt.Reason.FirstContact -> PendingConfirmation.Reason.FirstContact
+
+        is TrustPrompt.Reason.Downgrade ->
+            PendingConfirmation.Reason.Downgrade(AuthMethod.fromId(pinned.method))
+
+        is TrustPrompt.Reason.KeyChanged ->
+            PendingConfirmation.Reason.KeyChanged(pinned.map { it.fingerprint.groups() })
+    }
+
+    private fun Fingerprint.groups(): List<String> = value.split(" ").filter { it.isNotBlank() }
 
     companion object {
         const val GroupSize = 4

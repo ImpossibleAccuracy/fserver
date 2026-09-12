@@ -11,11 +11,12 @@ import com.fserver.net.handshake.HandshakeNegotiator
 import com.fserver.net.peer.PublicGreeting
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
-import com.fserver.net.security.impl.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.EphemeralIdentityStore
+import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.security.trust.PeerTrustStore
 import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.Transport
@@ -52,7 +53,13 @@ internal fun negotiator(
             dictionary = dictionary,
             identityStore = identityStore,
             authMethods = authMethods?.plus(TestingAuthMethod(crypto)) ?: listOf(
-                TransportConfirmationAuthMethod(),
+                // Stands in for the transport-backed method, which lives in `:net:security`.
+                TestingAuthMethod(
+                    crypto = crypto,
+                    strength = AuthStrength.ChannelBound,
+                    id = AuthMethodId.TransportConfirmation,
+                    requiresChannelSecurity = true,
+                ),
                 TestingAuthMethod(crypto),
             ),
             authenticator = authenticator,

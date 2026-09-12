@@ -1,6 +1,7 @@
 package com.fserver.core.network
 
 import com.fserver.common.exception.DetectionFailedException
+import com.fserver.common.exception.NetworkException
 import com.fserver.core.requirement.RequirementReport
 
 /**
@@ -24,3 +25,15 @@ class DeviceUnreachableException(
     transport?.let { "Cannot reconnect using $it" } ?: "No known route to device $deviceId",
     cause,
 )
+
+/**
+ * The device that completed the handshake is not the device that was dialled.
+ *
+ * Anything that names a device before the handshake - an advertisement, a written-down route - is
+ * unauthenticated, so a caller asking for one device can be answered by another. Only the identity
+ * the handshake proved counts, and a session under the wrong one is closed rather than returned.
+ */
+class PeerIdentityMismatchException(
+    val expected: String,
+    val actual: String,
+) : NetworkException.Handshake("dialled $expected but $actual answered")

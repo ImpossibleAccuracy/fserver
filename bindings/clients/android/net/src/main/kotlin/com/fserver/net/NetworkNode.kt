@@ -10,8 +10,6 @@ import com.fserver.net.connection.impl.RequestManagerImpl
 import com.fserver.net.discovery.PeerDiscovery
 import com.fserver.net.discovery.PeerDiscoveryImpl
 import com.fserver.net.handshake.HandshakeNegotiator
-import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.impl.TransportConfirmationAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -158,9 +156,18 @@ private fun <M : Any> fillConfig(config: NetworkConfig<M>): NetworkConfig<M> {
         config.logger.warn("crypto suite '${config.crypto.suite.name}' does not encrypt - frames go out in the clear")
     }
 
-    val authMethods = config.authMethods
-        .filterNot { it.id == AuthMethodId.TransportConfirmation }
-        .plus(TransportConfirmationAuthMethod())
+    // A transport that keys its own link admits exactly the one method it names. Substituting one
+    // here would be this module deciding how a peer gets proven, which is the host's call and the
+    // reason an unproven identity ever reaches a pin - so this only says what is missing.
+    config.transports
+        .mapNotNull { it.capabilities.security }
+        .distinct()
+        .filterNot { id -> config.authMethods.any { it.id == id } }
+        .forEach { id ->
+            config.logger.warn(
+                "no auth method '$id' installed - transports that key their own link cannot authenticate"
+            )
+        }
 
-    return config.copy(authMethods = authMethods)
+    return config
 }

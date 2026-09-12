@@ -16,6 +16,7 @@ class TestingAuthMethod(
     private val crypto: CryptoProvider = PassthroughCryptoProvider,
     override val strength: AuthStrength = AuthStrength.UserCompared,
     override val id: AuthMethodId = ID,
+    override val requiresChannelSecurity: Boolean = false,
     /** Plays a method that forgets the gate, so the handshake's own check is visible. */
     private val skipTrust: Boolean = false,
 ) : AuthMethod {
