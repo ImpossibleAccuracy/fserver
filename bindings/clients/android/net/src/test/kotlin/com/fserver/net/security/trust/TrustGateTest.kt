@@ -151,19 +151,19 @@ class TrustGateTest {
     }
 
     @Test
-    fun `a method that never asks is gated by the handshake anyway`() = runBlocking {
-        // §7.2 trusts SPIs, but a method that returns a peer without going through the gate would
-        // otherwise mean "trusted" - so the handshake runs the check itself before it seals.
+    fun `a method that derives nothing to compare is gated anyway`() = runBlocking {
+        // §7.2 trusts SPIs, but a method is never what decides trust: the handshake proves the
+        // peer and runs the check itself, with or without a string for a person to look at.
         val prompts = mutableListOf<TrustPrompt>()
 
         scope.handshake(
             initiator = negotiator(
                 "alice",
-                authMethods = listOf(TestingAuthMethod(skipTrust = true))
+                authMethods = listOf(TestingAuthMethod(derivesCode = false))
             ),
             responder = negotiator(
                 "bob",
-                authMethods = listOf(TestingAuthMethod(skipTrust = true)),
+                authMethods = listOf(TestingAuthMethod(derivesCode = false)),
                 authenticator = record(prompts),
                 trustStore = InMemoryTrustStore(),
             ),

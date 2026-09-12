@@ -21,7 +21,8 @@ import com.fserver.net.wire.ByteWriter
  * replace it with a real SPAKE2/OPAQUE implementation before release.
  *
  * Passive attackers still learn nothing (the key agreement covers that), and a wrong password
- * fails at [confirmKey] rather than silently producing a broken session.
+ * fails rather than silently producing a broken session: the handshake's identity exchange is
+ * sealed under the derived key and will not open, and [confirmKey] catches the case where it did.
  */
 class PakeAuthMethod(
     private val crypto: CryptoProvider,
@@ -52,20 +53,19 @@ class PakeAuthMethod(
             AuthHelper.deriveKey(secretWithPrologue, HANDSHAKE_KEY_INFO), context.role
         )
 
-        confirmKey(io, aead)
-
-        val peer = AuthHelper.receivePeerIdentity(context, context.prologue, io, aead)
-
-        // Holding the password is not the same as being trusted: a first contact still surfaces,
-        // and a peer already pinned goes through without a prompt.
-        context.trust.check(peer, null)
-
+        // Holding the password is not the same as being trusted, so nothing here decides that:
+        // the handshake still puts the proven peer in front of the gate.
         return AuthOutcome(
-            sharedSecret = AuthHelper.deriveKey(
-                secretWithPrologue,
-                SESSION_KEY_INFO,
-            ),
-            peer = peer,
+            sharedSecret = {
+                AuthHelper.deriveKey(
+                    secretWithPrologue,
+                    SESSION_KEY_INFO,
+                )
+            },
+            aead = aead,
+            transcript = context.prologue,
+            confirmationCode = null,
+            confirm = { confirmKey(io, aead) },
         )
     }
 
@@ -101,8 +101,7 @@ class PakeAuthMethod(
     /**
      * Explicit key-confirmation round.
      * The exchange above does not fail on its own when the password differs - both sides just end
-     * up with different keys. So each side proves it holds the same key as the other before
-     * anything is trusted on top of it.
+     * up with different keys, and nothing before this proves the two agree in that direction.
      */
     private suspend fun confirmKey(io: HandshakeIo, aead: CryptoProvider.Aead) {
         val receivedFrame = try {

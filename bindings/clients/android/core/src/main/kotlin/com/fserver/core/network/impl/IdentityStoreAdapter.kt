@@ -26,6 +26,11 @@ internal class IdentityStoreAdapter(
             sign()
         }
     }
+
+    override suspend fun verify(publicKey: ByteArray, data: ByteArray, signature: ByteArray) =
+        withContext(Dispatchers.Default) {
+            IdentitySignature.verify(publicKey = publicKey, data = data, signature = signature)
+        }
 }
 
 private fun LocalDevice.toIdentity(

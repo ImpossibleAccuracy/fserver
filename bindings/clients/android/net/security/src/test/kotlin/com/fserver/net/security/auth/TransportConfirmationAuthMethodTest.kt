@@ -4,8 +4,10 @@ import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.transport.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
+import com.fserver.net.security.crypto.IdentitySignature
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.security.identity.LocalIdentity
-import com.fserver.net.security.trust.TrustCheck
+import com.fserver.net.security.identity.PeerIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -22,7 +24,7 @@ import java.security.spec.ECGenParameterSpec
 
 class TransportConfirmationAuthMethodTest {
 
-    private val trustAll = TrustCheck { _, _ -> }
+    private val trustAll: TrustCheck = { _, _ -> }
 
     @Test
     fun `both sides derive the same session key and resolve each other's identity`() = runTest {
@@ -72,42 +74,48 @@ class TransportConfirmationAuthMethodTest {
         val failure = runCatching {
             TransportConfirmationAuthMethod(X25519CryptoProvider).run(
                 io = aliceIo,
-                context = context(CryptoProvider.Role.Initiator, alice, alice.identity, null),
+                context = context(CryptoProvider.Role.Initiator, alice.identity, null),
             )
         }.exceptionOrNull()
 
         assertTrue(failure is NetworkException.Handshake)
     }
 
+    /**
+     * One side of a handshake: the method, then what the handshake itself does with what the
+     * method reached - prove the identities, gate the peer, run the confirmation.
+     */
     private fun CoroutineScope.runSide(
         io: HandshakeIo,
         role: CryptoProvider.Role,
         peer: TestPeer,
         claimed: LocalIdentity = peer.identity,
         trust: TrustCheck = trustAll,
-    ): Deferred<Result<AuthOutcome>> = async {
+    ): Deferred<Result<SideResult>> = async {
         runCatching {
-            TransportConfirmationAuthMethod(X25519CryptoProvider).run(
-                io = io,
-                context = context(role, peer, claimed, CODE, trust),
-            )
+            val context = context(role, claimed, CODE)
+            val outcome = TransportConfirmationAuthMethod(X25519CryptoProvider).run(io, context)
+            val proven = IdentityExchange.run(io, context, outcome, peer.store(claimed))
+
+            trust(proven, outcome.confirmationCode)
+            outcome.confirm()
+
+            SideResult(sharedSecret = outcome.sharedSecret(), peer = proven)
         }
     }
 
+    private class SideResult(val sharedSecret: ByteArray, val peer: PeerIdentity)
+
     private fun context(
         role: CryptoProvider.Role,
-        peer: TestPeer,
         claimed: LocalIdentity,
         code: String?,
-        trust: TrustCheck = trustAll,
     ) = AuthContext(
         role = role,
         request = null,
         prologue = PROLOGUE,
         confirmationCode = code,
         local = claimed,
-        sign = { peer.sign(it) },
-        trust = trust,
     )
 
     /** A device with a real P-256 identity pair, signing the way a KeyStore-backed store would. */
@@ -126,6 +134,19 @@ class TransportConfirmationAuthMethodTest {
             initSign(keys.private)
             update(data)
             sign()
+        }
+
+        /** Signs with this device's key while stating whatever [claimed] says it is. */
+        fun store(claimed: LocalIdentity = identity): IdentityStore = object : IdentityStore {
+            override suspend fun local(): LocalIdentity = claimed
+
+            override suspend fun sign(data: ByteArray): ByteArray = this@TestPeer.sign(data)
+
+            override suspend fun verify(
+                publicKey: ByteArray,
+                data: ByteArray,
+                signature: ByteArray,
+            ) = IdentitySignature.verify(publicKey, data, signature)
         }
 
         private fun ECPublicKey.uncompressedPoint(): ByteArray =

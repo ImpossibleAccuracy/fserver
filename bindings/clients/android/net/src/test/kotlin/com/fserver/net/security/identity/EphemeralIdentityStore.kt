@@ -1,9 +1,13 @@
 package com.fserver.net.security.identity
 
+import com.fserver.common.exception.NetworkException
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.Signature
 import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
+import java.security.spec.ECPoint
+import java.security.spec.ECPublicKeySpec
 import java.util.UUID
 
 /**
@@ -35,6 +39,31 @@ class EphemeralIdentityStore(
             update(data)
             sign()
         }
+
+    override suspend fun verify(publicKey: ByteArray, data: ByteArray, signature: ByteArray) {
+        val valid = try {
+            Signature.getInstance("SHA256withECDSA").run {
+                initVerify(publicKey.toPublicKey())
+                update(data)
+                verify(signature)
+            }
+        } catch (e: Exception) {
+            throw NetworkException.AuthenticationRejected("identity proof failed", e)
+        }
+
+        if (!valid) throw NetworkException.AuthenticationRejected("identity proof failed")
+    }
+
+    /** Uncompressed SEC1 point back into a JCA key, using this store's own curve parameters. */
+    private fun ByteArray.toPublicKey() = KeyFactory.getInstance("EC").generatePublic(
+        ECPublicKeySpec(
+            ECPoint(
+                java.math.BigInteger(1, copyOfRange(1, 1 + COORDINATE_SIZE)),
+                java.math.BigInteger(1, copyOfRange(1 + COORDINATE_SIZE, size)),
+            ),
+            (keys.public as ECPublicKey).params,
+        )
+    )
 
     private fun ECPublicKey.uncompressedPoint(): ByteArray =
         byteArrayOf(0x04) + w.affineX.toByteArray().fitTo(COORDINATE_SIZE) +

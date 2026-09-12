@@ -23,8 +23,8 @@ import java.security.SecureRandom
  * Allows two peers to verify each other's identity by comparing a short code derived from their public keys.
  * This method is suitable for scenarios where users can manually compare codes, such as in a mobile app or web interface.
  *
- * The peer identity travels sealed and is proven: each side signs the transcript with its
- * identity key, so a completed handshake vouches for the claimed key, not just the channel.
+ * It reaches an agreed key and a short code and stops there: the identity exchange that proves
+ * the key, and the gate the code is put in front of, belong to the handshake.
  */
 class SasAuthMethod(
     private val crypto: CryptoProvider,
@@ -82,28 +82,23 @@ class SasAuthMethod(
             peerNonce = revealed.nonce,
         )
 
-        val peer = AuthHelper.receivePeerIdentity(context, transcript, io, aead)
-
-        // Compute short code
-        val sas = deriveSas(
-            sharedSecret = sharedSecret,
-            transcript = transcript,
-        )
-
-        // Confirm that both sides saw the same SAS code
-        context.trust.check(peer, sas)
-
-        if (!aead.open(io.exchange(aead.seal(CONFIRMED))).contentEquals(CONFIRMED)) {
-            throw NetworkException.AuthenticationRejected("peer did not confirm SAS")
-        }
-
-        // Everything OK - return findings
         return AuthOutcome(
-            sharedSecret = AuthHelper.deriveKey(
-                secretWithPrologue,
-                SESSION_KEY_INFO,
-            ),
-            peer = peer,
+            sharedSecret = {
+                AuthHelper.deriveKey(
+                    secretWithPrologue,
+                    SESSION_KEY_INFO,
+                )
+            },
+            aead = aead,
+            transcript = transcript,
+            confirmationCode = deriveSas(sharedSecret = sharedSecret, transcript = transcript),
+            // Both ends say so under the handshake key, so a peer whose user said no cannot be
+            // taken for one whose user said yes.
+            confirm = {
+                if (!aead.open(io.exchange(aead.seal(CONFIRMED))).contentEquals(CONFIRMED)) {
+                    throw NetworkException.AuthenticationRejected("peer did not confirm SAS")
+                }
+            },
         )
     }
 

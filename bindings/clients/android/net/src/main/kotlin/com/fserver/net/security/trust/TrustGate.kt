@@ -22,26 +22,27 @@ internal class TrustGate(
     /** One connection's worth of state. Not reusable - the pin it commits is that handshake's. */
     fun open(method: AuthMethod): Session = Session(method)
 
-    inner class Session(private val method: AuthMethod) : TrustCheck {
+    inner class Session(private val method: AuthMethod) {
         private var checked: PeerIdentity? = null
         private var pinned: TrustRecord? = null
 
         /** Whether this peer was already pinned before this handshake ran. */
         val wasKnown: Boolean get() = pinned != null
 
-        override suspend fun check(peer: PeerIdentity, confirmationCode: String?) =
-            gate(peer, confirmationCode) {
-                "auth method ${method.id} asked about two different peers in one handshake"
-            }
-
-        private suspend fun gate(
-            peer: PeerIdentity,
-            confirmationCode: String?,
-            onMismatch: (earlier: PeerIdentity) -> String,
-        ) {
+        /**
+         * Run by the handshake once the peer's key is proven, and by nothing else: what is asked
+         * about is what the identity exchange verified, never what a method chose to report.
+         *
+         * @param peer what the handshake proved, not what the peer claimed.
+         * @param confirmationCode the string the two ends compare, when the method derived one.
+         * @throws NetworkException.AuthenticationRejected when the peer is not to be talked to.
+         */
+        suspend fun check(peer: PeerIdentity, confirmationCode: String?) {
             checked?.let { earlier ->
                 if (earlier != peer) {
-                    throw NetworkException.Handshake(onMismatch(earlier))
+                    throw NetworkException.Handshake(
+                        "the gate was asked about two different peers in one handshake"
+                    )
                 }
                 return
             }
@@ -80,23 +81,6 @@ internal class TrustGate(
             }
 
             checked = peer
-        }
-
-        /**
-         * The check the handshake runs itself once a method returns, so a method that never called
-         * [check] cannot silently mean "trusted", and one that vouched for a different peer than
-         * it returned cannot get past the seal.
-         */
-        suspend fun ensureChecked(peer: PeerIdentity) {
-            if (checked == null) {
-                configHolder.current.logger.warn(
-                    "auth method ${method.id} returned without a trust check - running one with no confirmation string"
-                )
-            }
-            gate(peer, null) { earlier ->
-                "auth method ${method.id} vouched for ${earlier.fingerprint.value} " +
-                        "but returned ${peer.fingerprint.value}"
-            }
         }
 
         /**

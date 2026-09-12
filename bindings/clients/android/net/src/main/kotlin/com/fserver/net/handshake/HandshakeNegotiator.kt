@@ -156,7 +156,7 @@ internal class HandshakeNegotiator(
         val identity = config.identityStore.local()
         val trust = trustGate.open(method)
 
-        val outcome = authPhase.run(
+        val authenticated = authPhase.run(
             identity = identity,
             wire = wire,
             method = method,
@@ -174,7 +174,7 @@ internal class HandshakeNegotiator(
             remainingFrames = pump::remaining,
             writer = pump::send,
             closer = pump::close,
-            aead = config.crypto.aead(outcome.sharedSecret, role),
+            aead = config.crypto.aead(authenticated.sharedSecret, role),
         )
         val sealed = Wire(secure::send, secure::next)
 
@@ -201,7 +201,7 @@ internal class HandshakeNegotiator(
                 dictionaryVersion = dictionaryVersion,
                 cipherSuite = config.crypto.suite,
                 maxFrameSize = minOf(capabilities.maxFrameSize, peerDescriptor.maxFrameSize),
-                peer = outcome.peer,
+                peer = authenticated.peer,
                 peerDescriptor = peerDescriptor,
                 authMethodId = method.id,
                 peerWasKnown = trust.wasKnown,

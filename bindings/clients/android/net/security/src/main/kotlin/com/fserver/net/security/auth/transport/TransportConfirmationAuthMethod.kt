@@ -12,12 +12,14 @@ import com.fserver.net.security.trust.AuthStrength
 import com.fserver.net.wire.ByteWriter
 
 /**
- * Defers to a transport that already encrypted the link and
+ * Defers to transport that already encrypted the link and
  * derived a short string from that key exchange (e.g. Nearby's digits).
  *
- * The identity still travels signed. The transport proves the channel and never the device, so a
- * peer that only reached the other end of the link could otherwise replay a public key it has seen
- * before - a public key is not a secret - and land on that key's pin without a prompt.
+ * The link is keyed by the transport, so all this contributes is the code and a key to seal the
+ * handshake's identity exchange under. That exchange is what keeps it honest: the transport proves
+ * the channel and never the device, so a peer that only reached the other end of the link could
+ * otherwise replay a public key it has seen before - a public key is not a secret - and land on
+ * that key's pin without a prompt.
  */
 class TransportConfirmationAuthMethod(
     private val crypto: CryptoProvider,
@@ -41,18 +43,14 @@ class TransportConfirmationAuthMethod(
             .toByteArray()
 
         // Handshake and session must never share AEAD keys - see the same note in SasAuthMethod.
-        val aead = crypto.aead(AuthHelper.deriveKey(secret, HANDSHAKE_KEY_INFO), context.role)
-        val peer = AuthHelper.receivePeerIdentity(context, transcript, io, aead)
-
-        context.trust.check(peer, code)
-
-        // Comparing digits is a person's work, so it happens between two auth frames - the peer
-        // waits on the auth deadline, not the much shorter handshake one.
-        io.exchange(EMPTY)
-
         return AuthOutcome(
-            sharedSecret = AuthHelper.deriveKey(secret, SESSION_KEY_INFO),
-            peer = peer,
+            sharedSecret = { AuthHelper.deriveKey(secret, SESSION_KEY_INFO) },
+            aead = crypto.aead(AuthHelper.deriveKey(secret, HANDSHAKE_KEY_INFO), context.role),
+            transcript = transcript,
+            confirmationCode = code,
+            // There is nothing left to prove - the digits were compared by a person, and this is
+            // the frame that waits for them on the auth deadline rather than the handshake one.
+            confirm = { io.exchange(EMPTY) },
         )
     }
 

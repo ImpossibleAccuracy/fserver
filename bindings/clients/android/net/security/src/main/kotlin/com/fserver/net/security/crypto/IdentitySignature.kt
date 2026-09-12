@@ -26,6 +26,7 @@ object IdentitySignature {
     private val curve = SECNamedCurves.getByName("secp256r1")
     private val domain = ECDomainParameters(curve.curve, curve.g, curve.n, curve.h)
 
+    /** Verifies a peer's proof of possession of [publicKey] over [data] with [signature]. */
     fun verify(publicKey: ByteArray, data: ByteArray, signature: ByteArray) {
         if (publicKey.size != PUBLIC_KEY_SIZE || publicKey[0].toInt() != 0x04) {
             throw NetworkException.AuthenticationRejected("identity proof failed")

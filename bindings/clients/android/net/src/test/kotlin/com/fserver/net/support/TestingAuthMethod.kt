@@ -8,7 +8,6 @@ import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.Fingerprint
-import com.fserver.net.security.identity.PeerIdentityCodec
 import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 
@@ -17,8 +16,8 @@ class TestingAuthMethod(
     override val strength: AuthStrength = AuthStrength.UserCompared,
     override val id: AuthMethodId = ID,
     override val requiresChannelSecurity: Boolean = false,
-    /** Plays a method that forgets the gate, so the handshake's own check is visible. */
-    private val skipTrust: Boolean = false,
+    /** False plays a method with nothing for a person to compare. */
+    private val derivesCode: Boolean = true,
 ) : AuthMethod {
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
@@ -27,19 +26,14 @@ class TestingAuthMethod(
         val secret = bind(exchange.sharedSecret(peerEphemeral), context.prologue)
 
         val aead = crypto.aead(secret, context.role)
-        val peer = PeerIdentityCodec.decode(
-            aead.open(io.exchange(aead.seal(PeerIdentityCodec.encode(context.local))))
-        )
-
-        val code = pairFingerprint(context.local.publicKey, peer.publicKey)
-
-        if (!skipTrust) context.trust.check(peer, code)
-
-        io.exchange(ACCEPTED)
 
         return AuthOutcome(
-            sharedSecret = secret,
-            peer = peer,
+            sharedSecret = { secret },
+            aead = aead,
+            transcript = context.prologue,
+            confirmationCode = pairFingerprint(exchange.publicKey, peerEphemeral)
+                .takeIf { derivesCode },
+            confirm = { io.exchange(ACCEPTED) },
         )
     }
 

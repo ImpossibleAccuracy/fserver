@@ -7,12 +7,13 @@ import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
+import com.fserver.net.security.auth.IdentityExchange
 import com.fserver.net.security.auth.offeredMethods
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
+import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.security.trust.TrustGate
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.wire.ByteWriter
@@ -55,6 +56,11 @@ internal class AuthPhase(
             )
     }
 
+    /**
+     * The chosen method, then the part no method is trusted to do for itself: state this device's
+     * identity and prove it, check the peer's, and put what was proven in front of the gate. Only
+     * a peer that got through all of it reaches the method's own confirmation exchange.
+     */
     suspend fun run(
         identity: LocalIdentity,
         wire: Wire,
@@ -66,7 +72,7 @@ internal class AuthPhase(
         policy: ConnectionPolicy,
         firstIncoming: ByteArray?,
         trust: TrustGate.Session,
-    ): AuthOutcome {
+    ): AuthResult {
         val io = AuthIo(
             wire = wire,
             // Only the side that picked the method announces it, and only on its first frame.
@@ -81,14 +87,15 @@ internal class AuthPhase(
             prologue = prologue,
             confirmationCode = confirmationCode,
             local = identity,
-            sign = config.identityStore::sign,
-            trust = trust,
         )
         return wire.guarded {
             val outcome = method.run(io, context)
-            // Confirm auth called `check` on returned peer
-            trust.ensureChecked(outcome.peer)
-            outcome
+            val peer = IdentityExchange.run(io, context, outcome, config.identityStore)
+
+            trust.check(peer, outcome.confirmationCode)
+            outcome.confirm()
+
+            AuthResult(sharedSecret = outcome.sharedSecret(), peer = peer)
         }
     }
 
@@ -136,3 +143,9 @@ internal class AuthPhase(
         const val METHOD_ID_HEADROOM = 64
     }
 }
+
+/** What the whole `AUTH` phase concluded: the key the session runs on, and who is on the far end. */
+internal class AuthResult(
+    val sharedSecret: ByteArray,
+    val peer: PeerIdentity,
+)

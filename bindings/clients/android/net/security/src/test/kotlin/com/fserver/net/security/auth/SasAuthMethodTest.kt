@@ -4,8 +4,10 @@ import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.X25519CryptoProvider
+import com.fserver.net.security.crypto.IdentitySignature
+import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.security.identity.LocalIdentity
-import com.fserver.net.security.trust.TrustCheck
+import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.wire.ByteWriter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -29,7 +31,7 @@ import java.security.spec.ECGenParameterSpec
 
 class SasAuthMethodTest {
 
-    private val trustAll = TrustCheck { _, _ -> }
+    private val trustAll: TrustCheck = { _, _ -> }
 
     @Test
     fun `both sides derive the same session key and resolve each other's identity`() = runTest {
@@ -464,22 +466,13 @@ class SasAuthMethodTest {
         val bob = TestPeer("bob")
 
         // Bob trusts and then waits for a confirmation that never comes - cancelled at the end.
-        val bobJob = launch {
-            runCatching {
-                SasAuthMethod(X25519CryptoProvider).run(
-                    io = bobIo,
-                    context = AuthContext(
-                        role = CryptoProvider.Role.Responder,
-                        request = null,
-                        prologue = prologue,
-                        confirmationCode = null,
-                        local = bob.identity,
-                        sign = { bob.sign(it) },
-                        trust = trustAll,
-                    )
-                )
-            }
-        }
+        val bobJob = runSide(
+            method = SasAuthMethod(X25519CryptoProvider),
+            io = bobIo,
+            role = CryptoProvider.Role.Responder,
+            prologue = prologue,
+            peer = bob,
+        )
 
         val aliceOutcome = runSide(
             method = SasAuthMethod(X25519CryptoProvider),
@@ -568,30 +561,39 @@ class SasAuthMethodTest {
         assertTrue(runCatching { bobSessionAead.open(sealedIdentity) }.isFailure)
     }
 
+    /**
+     * One side of a handshake: the method, then what the handshake itself does with what the
+     * method reached - prove the identities, gate the peer, run the confirmation.
+     */
     private fun CoroutineScope.runSide(
-        method: SasAuthMethod,
+        method: AuthMethod,
         io: HandshakeIo,
         role: CryptoProvider.Role,
         prologue: ByteArray,
         peer: TestPeer,
         claimed: LocalIdentity = peer.identity,
         trust: TrustCheck = trustAll,
-    ): Deferred<Result<AuthOutcome>> = async {
+    ): Deferred<Result<SideResult>> = async {
         runCatching {
-            method.run(
-                io = io,
-                context = AuthContext(
-                    role = role,
-                    request = null,
-                    prologue = prologue,
-                    confirmationCode = null,
-                    local = claimed,
-                    sign = { peer.sign(it) },
-                    trust = trust,
-                )
+            val context = AuthContext(
+                role = role,
+                request = null,
+                prologue = prologue,
+                confirmationCode = null,
+                local = claimed,
             )
+
+            val outcome = method.run(io, context)
+            val proven = IdentityExchange.run(io, context, outcome, peer.store(claimed))
+
+            trust(proven, outcome.confirmationCode)
+            outcome.confirm()
+
+            SideResult(sharedSecret = outcome.sharedSecret(), peer = proven)
         }
     }
+
+    private class SideResult(val sharedSecret: ByteArray, val peer: PeerIdentity)
 
     /**
      * Commits to one key, then reveals a different one - the substitution the commit-then-reveal
@@ -676,6 +678,19 @@ class SasAuthMethodTest {
             initSign(keys.private)
             update(data)
             sign()
+        }
+
+        /** Signs with this device's key while stating whatever [claimed] says it is. */
+        fun store(claimed: LocalIdentity = identity): IdentityStore = object : IdentityStore {
+            override suspend fun local(): LocalIdentity = claimed
+
+            override suspend fun sign(data: ByteArray): ByteArray = this@TestPeer.sign(data)
+
+            override suspend fun verify(
+                publicKey: ByteArray,
+                data: ByteArray,
+                signature: ByteArray,
+            ) = IdentitySignature.verify(publicKey, data, signature)
         }
 
         private fun ECPublicKey.uncompressedPoint(): ByteArray =

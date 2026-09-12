@@ -2,15 +2,18 @@ package com.fserver.net.security.auth
 
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
-import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.security.trust.AuthStrength
-import com.fserver.net.security.trust.TrustCheck
 
 /**
  * One way of proving who is on the other end. The handshake owns the frames; a method owns the
- * cryptography and, when there is one, the question put to the user.
+ * cryptography and, when there is one, the string the user is asked about.
  *
- * Everything a method needs arrives in [AuthContext]; everything the session needs comes back in
+ * What a method does **not** own is the part every method has to get right: stating this device's
+ * identity, proving possession of its key, checking the peer's proof, and putting the result in
+ * front of the trust gate. That is the handshake's work - see [AuthOutcome]. A method reaches a
+ * key and a transcript and stops there.
+ *
+ * Everything a method needs arrives in [AuthContext]; everything the handshake needs comes back in
  * [AuthOutcome]. That is the whole seam - swapping SPAKE2 in later replaces a class here and
  * nothing above it.
  */
@@ -71,25 +74,32 @@ class AuthContext(
     val confirmationCode: String?,
 
     /**
-     * This device. Nothing above states who this is anymore - the public hello carries no
-     * identity at all - so a method sends this itself, and is the reason the peer's answer counts
-     * for something.
+     * This device. The handshake is what states it to the peer and proves it - a method only needs
+     * it to bind it into a transcript.
      */
     val local: LocalIdentity,
-
-    /** Signs with [local]'s identity key; a method uses it to prove possession of the claimed key. */
-    val sign: suspend (ByteArray) -> ByteArray,
-
-    /**
-     * Where a proven peer is turned into a yes or a no.
-     * Call it once the peer's key is proven and before acting on it.
-     */
-    val trust: TrustCheck,
 )
 
+/**
+ * What one method run reached: a key, and enough for the handshake to finish the job.
+ *
+ * The handshake takes it from here - it seals the identity exchange under [aead], binds the
+ * proof of possession to [transcript], puts the proven peer in front of the trust gate with
+ * [confirmationCode], and only then runs [confirm].
+ */
 class AuthOutcome(
-    /** Keys the session. */
-    val sharedSecret: ByteArray,
-    /** The peer this method is willing to vouch for. */
-    val peer: PeerIdentity,
+    /** Keys the session. Never the same key as [aead]'s: the session restarts nonces at zero. */
+    val sharedSecret: suspend () -> ByteArray,
+
+    /** Seals the identity exchange. */
+    val aead: CryptoProvider.Aead,
+
+    /** Everything this run depended on, in bytes. */
+    val transcript: ByteArray,
+
+    /** The string the two ends are meant to compare, when this method derived one. */
+    val confirmationCode: String?,
+
+    /** The last exchange, run once the peer is proven and trusted. */
+    val confirm: suspend () -> Unit,
 )

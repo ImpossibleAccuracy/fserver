@@ -5,7 +5,7 @@ import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
-import com.fserver.net.security.identity.PeerIdentity
+import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 
@@ -21,8 +21,18 @@ class PrologueBound(private val tampered: Boolean = false) : AuthMethod {
         io.exchange(ByteArray(0))
         val prologue = context.prologue.copyOf().also { if (tampered) it[0]++ }
         return AuthOutcome(
-            sharedSecret = MessageDigest.getInstance("SHA-256").digest(prologue),
-            peer = PeerIdentity(context.local.deviceId, context.local.publicKey),
+            sharedSecret = { MessageDigest.getInstance("SHA-256").digest(prologue) },
+            aead = Passthrough,
+            transcript = prologue,
+            confirmationCode = null,
+            confirm = {},
         )
+    }
+
+    /** The identity exchange has to travel somehow; what protects it is not what is under test. */
+    private object Passthrough : CryptoProvider.Aead {
+        override val overhead: Int = 0
+        override fun seal(plaintext: ByteArray): ByteArray = plaintext
+        override fun open(ciphertext: ByteArray): ByteArray = ciphertext
     }
 }
