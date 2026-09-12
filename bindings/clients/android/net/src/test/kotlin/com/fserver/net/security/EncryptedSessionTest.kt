@@ -87,6 +87,10 @@ class EncryptedSessionTest {
                 .getOrThrow()
         }
 
+        // `connect` returns once the session is up; registering it is the node's own work, so the
+        // exchange is only certainly over once it shows up here.
+        withTimeout(TIMEOUT) { while (alice.incoming.sessions.value.isEmpty()) delay(10) }
+
         // The name is descriptor data, so it may only ever travel sealed. Seeing it here would
         // mean the exchange slipped back ahead of the seal.
         assertFalse(network.wireFrames.any { it.readable().contains(DESCRIBED) })

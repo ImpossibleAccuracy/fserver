@@ -94,6 +94,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(platform(libs.koin.bom))
     testImplementation(libs.koin.test)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
 }
 
 // -------------- CODEGEN TASKS --------------

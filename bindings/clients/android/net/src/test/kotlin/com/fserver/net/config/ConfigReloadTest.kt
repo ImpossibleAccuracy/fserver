@@ -152,10 +152,14 @@ class ConfigReloadTest {
     fun `a transport the reload kept is not made to listen again`() = runBlocking {
         val kept = RecordingTransport(network.transport("alice"))
         val alice = node("alice", transports = listOf(kept))
-        assertEquals(1, kept.listens.get())
+
+        // The node binds its listeners on its own scope, so "already answering" has to be waited
+        // for rather than assumed - reading the counter straight after `node` races the bind.
+        withTimeout(TIMEOUT) { while (kept.listens.get() < 1) delay(10) }
 
         // Adding a transport must not unbind the one that was already answering.
         alice.reloadConfig(alice.config.copy(transports = listOf(kept, DeadTransport())))
+        delay(SETTLE)
 
         assertEquals(1, kept.listens.get())
     }
