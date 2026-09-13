@@ -56,7 +56,8 @@ class DeviceDetailsViewModel(
             name = device?.displayName ?: record?.displayName.orEmpty(),
             isConnected = device?.hasSession == true,
             address = device?.routes?.firstOrNull()?.address ?: knownRoute?.address,
-            fingerprintGroups = device?.handshake?.fingerprint?.split(" ").orEmpty(),
+            fingerprintGroups = device?.handshake?.fingerprint?.split(" ")
+                ?: record?.fingerprint?.groups.orEmpty(),
             lastSeen = record?.metadata?.lastSeen?.formatted(),
             methodLabel = record?.method?.labelRes,
             protocolVersion = device?.handshake?.protocolVersion,

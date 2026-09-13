@@ -1,5 +1,6 @@
 package com.fserver.core.network.device.model
 
+import com.fserver.common.model.Fingerprint
 import com.fserver.core.network.auth.AuthMethod
 
 /**
@@ -22,6 +23,12 @@ class TrustedDevice(
     /** Shared by every key of [deviceId]. null for a device nothing has recorded yet. */
     val metadata: DeviceMetadata? = null,
 ) {
+    /**
+     * The same rendering a live handshake shows, computed from the key on record - so a device
+     * the user can only see offline still has a fingerprint to compare against.
+     */
+    val fingerprint: Fingerprint get() = Fingerprint.of(publicKey)
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is TrustedDevice) return false

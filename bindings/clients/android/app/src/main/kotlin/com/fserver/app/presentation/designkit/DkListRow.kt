@@ -1,7 +1,9 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,7 +75,11 @@ fun DkIcon(
 /**
  * Generic list row: thumbnail (or any leading slot), title, one line of secondary text,
  * trailing slot. Devices, folders and files all reduce to this shape in the deck.
+ *
+ * [onLongClick] is the row's secondary gesture - what a row *is about* stays on [onClick], and
+ * what can be *done to it* hangs off the long press.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DkListRow(
     modifier: Modifier = Modifier,
@@ -85,6 +91,7 @@ fun DkListRow(
     subtitleMaxLines: Int = 1,
     dimmed: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     contentPaddings: PaddingValues = PaddingValues(
@@ -95,7 +102,17 @@ fun DkListRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                when {
+                    onLongClick != null -> Modifier.combinedClickable(
+                        onClick = onClick ?: {},
+                        onLongClick = onLongClick,
+                    )
+
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    else -> Modifier
+                }
+            )
             .padding(contentPaddings),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),

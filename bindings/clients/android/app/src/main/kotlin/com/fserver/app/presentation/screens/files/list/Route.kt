@@ -18,6 +18,9 @@ fun EntryProviderScope<Destination>.filesListEntry(
                     Destination.Files.Folder(folderPath = folder)
                 )
             },
+            navigateToSourceActions = {
+                navigator.navigate(Destination.Files.SourceActions(sourceId = it))
+            },
             navigateToDeviceSettings = {
                 navigator.navigate(Destination.Settings.DeviceDetails(it))
             },

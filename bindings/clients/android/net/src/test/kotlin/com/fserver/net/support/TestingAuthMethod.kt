@@ -7,7 +7,7 @@ import com.fserver.net.security.auth.AuthOutcome
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
-import com.fserver.net.security.identity.Fingerprint
+import com.fserver.common.model.Fingerprint
 import com.fserver.net.security.trust.AuthStrength
 import java.security.MessageDigest
 

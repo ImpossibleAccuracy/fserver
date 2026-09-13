@@ -48,6 +48,10 @@ sealed interface Destination : NavKey {
          */
         @Serializable
         data object Actions : Overlay
+
+        /** What can be done to one registered source: rename it, or stop syncing it. */
+        @Serializable
+        data class SourceActions(val sourceId: String) : Overlay
     }
 
     /**

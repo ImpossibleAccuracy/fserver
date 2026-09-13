@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
@@ -16,12 +17,17 @@ data class FilesState(
     val syncRequest: SyncRequestUi? = null,
     val syncRequestsWaiting: Int = 0,
     val syncRequestHintDismissed: Boolean = false,
+    val isSyncing: Boolean = false,
+    val networkWarning: NetworkWarningUi? = null,
 ) {
     val selectedDevice: DeviceUi?
         get() = devices.firstOrNull { it.id == selectedDeviceId }
 
     val showsSyncRequestHint: Boolean
         get() = syncRequest != null && !syncRequestHintDismissed && selectedDevice == null
+
+    val hasDevices: Boolean
+        get() = devices.isNotEmpty()
 
     @Immutable
     data class DeviceUi(
@@ -39,7 +45,9 @@ data class FilesState(
         val kind: DeviceKind?,
         val online: Boolean,
         val addressLabel: String?,
-        val fingerprintLabel: String,
+        val fingerprintLabel: String?,
+        val foundBy: TransportKind?,
+        val lastSeenLabel: String?,
         val folders: List<FolderUi>,
     )
 
@@ -47,10 +55,20 @@ data class FilesState(
     data class FolderUi(
         val id: String,
         val name: String,
+        val path: String?,
         val mode: SourceModeUi,
-        val detail: String,
-        val accented: Boolean = false,
-    )
+        val status: FolderStatusUi,
+        val statusDetail: String? = null,
+        val itemCount: Int = 0,
+        val progress: Float? = null,
+    ) {
+        val accented: Boolean
+            get() = status == FolderStatusUi.Syncing
+    }
+
+    enum class FolderStatusUi { Pending, Active, Syncing, Disabled }
+
+    enum class NetworkWarningUi { NoNetwork, NoLocalNetwork, DifferentNetwork }
 
     enum class FilterUi { All, Local, Cloud }
 
@@ -62,9 +80,32 @@ data class FilesState(
         )
 
         val SampleFolders = listOf(
-            FolderUi("camera", "Camera", SourceModeUi.Offload, "grid", accented = true),
-            FolderUi("documents", "Documents", SourceModeUi.Sync, "list"),
-            FolderUi("movies", "Movies", SourceModeUi.Host, "read only"),
+            FolderUi(
+                id = "camera",
+                name = "Camera",
+                path = "/Camera",
+                mode = SourceModeUi.Offload,
+                status = FolderStatusUi.Syncing,
+                itemCount = 240,
+                progress = 0.4f,
+            ),
+            FolderUi(
+                id = "documents",
+                name = "Documents",
+                path = "/Documents",
+                mode = SourceModeUi.Sync,
+                status = FolderStatusUi.Active,
+                statusDetail = "yesterday",
+                itemCount = 62,
+            ),
+            FolderUi(
+                id = "movies",
+                name = "Movies",
+                path = null,
+                mode = SourceModeUi.AutoUpload,
+                status = FolderStatusUi.Disabled,
+                statusDetail = "declined by the peer",
+            ),
         )
 
         fun sampleDetailsOf(device: DeviceUi): DeviceDetailsUi = DeviceDetailsUi(
@@ -73,7 +114,9 @@ data class FilesState(
             kind = device.kind,
             online = device.online,
             addressLabel = "192.168.1.40".takeIf { device.online },
-            fingerprintLabel = "9f:2a:c1…",
+            fingerprintLabel = "9f2c 4a01 b7d3 e820",
+            foundBy = TransportKind.MulticastDns,
+            lastSeenLabel = "yesterday",
             folders = SampleFolders,
         )
     }

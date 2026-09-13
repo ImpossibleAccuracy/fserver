@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -34,7 +34,6 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.theme.FServerTheme
 
-private val CardWidth = 84.dp
 private val StatusDot = 5.dp
 
 /**
@@ -51,18 +50,43 @@ fun DeviceStrip(
     onDeviceClick: (String) -> Unit,
     onDeviceLongClick: (String) -> Unit,
 ) {
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = DkSpacing.screenPadding),
-        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-    ) {
-        items(devices, key = { it.id }) { device ->
-            DeviceCard(
-                device = device,
-                selected = device.id == selectedDeviceId,
-                onClick = { onDeviceClick(device.id) },
-                onLongClick = { onDeviceLongClick(device.id) },
-            )
+    when {
+        devices.isEmpty() -> {}
+
+        devices.size <= 3 -> {
+            Row(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = DkSpacing.screenPadding),
+                horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+            ) {
+                devices.forEach { device ->
+                    DeviceCard(
+                        modifier = Modifier.weight(1f, fill = false),
+                        device = device,
+                        selected = device.id == selectedDeviceId,
+                        onClick = { onDeviceClick(device.id) },
+                        onLongClick = { onDeviceLongClick(device.id) },
+                    )
+                }
+            }
+        }
+
+        else -> {
+            LazyRow(
+                modifier = modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = DkSpacing.screenPadding),
+                horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+            ) {
+                items(devices, key = { it.id }) { device ->
+                    DeviceCard(
+                        device = device,
+                        selected = device.id == selectedDeviceId,
+                        onClick = { onDeviceClick(device.id) },
+                        onLongClick = { onDeviceLongClick(device.id) },
+                    )
+                }
+            }
         }
     }
 }
@@ -81,12 +105,12 @@ private fun DeviceCard(
 
     Column(
         modifier = modifier
-            .width(CardWidth)
+            .widthIn(min = 100.dp, max = 200.dp)
             .clip(shape)
             .background(if (selected) colors.primaryContainer else Color.Transparent)
             .border(1.dp, if (selected) colors.primary else colors.outline, shape)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = DkSpacing.sm, vertical = DkSpacing.sm),
+            .padding(horizontal = DkSpacing.md, vertical = DkSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(DkSpacing.xs),
     ) {
         Icon(
@@ -109,7 +133,17 @@ private fun DeviceCard(
             Box(
                 modifier = Modifier
                     .size(StatusDot)
-                    .background(if (device.online) colors.primary else colors.outline, CircleShape)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            selected -> colors.onPrimaryContainer.copy(
+                                alpha = if (device.online) 1f else 0.2f
+                            )
+
+                            device.online -> colors.primary
+                            else -> colors.outline
+                        }
+                    )
             )
             Text(
                 text = stringResource(

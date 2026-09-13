@@ -239,6 +239,25 @@
         <item quantity="one">%1$d photo</item>
         <item quantity="other">%1$d photos</item>
     </plurals>
+    <string name="files_folder_status_pending">waiting for the other device</string>
+    <string name="files_folder_status_syncing">syncing now</string>
+    <string name="files_folder_status_disabled">off — %1$s</string>
+    <string name="files_folder_status_synced">synced %1$s</string>
+    <string name="files_folder_status_never">not synced yet</string>
+    <string name="files_device_found_by">over %1$s</string>
+    <string name="files_device_seen">seen %1$s</string>
+    <string name="files_network_offline">No network. Nothing can be reached until this device is back online.</string>
+    <string name="files_network_no_lan">Mobile data only. Devices on your home network stay out of reach.</string>
+    <string name="files_network_other">This is not the network your devices were last seen on.</string>
+    <string name="files_empty_no_files_title">No files yet</string>
+    <string name="files_empty_no_files_body">Nothing has been synced from these devices so far. Add a folder to start.</string>
+    <string name="files_source_actions_title">Folder settings</string>
+    <string name="files_source_name_label">Folder name</string>
+    <string name="files_source_mode_label">Mode</string>
+    <string name="files_source_mode_note">Switching modes means registering the folder again.</string>
+    <string name="files_source_remove">Stop syncing this folder</string>
+    <string name="files_source_remove_confirm">Yes, stop syncing</string>
+    <string name="files_source_remove_note">Files already on either device stay where they are.</string>
     <string name="files_folder_cloud_notice">Cloud items open once the target device is reachable.</string>
     <string name="device_state_online">online</string>
     <string name="device_state_offline">offline</string>

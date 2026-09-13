@@ -2,7 +2,7 @@ package com.fserver.net.security.trust
 
 import com.fserver.net.peer.PeerDescriptor
 import com.fserver.net.security.auth.AuthMethodId
-import com.fserver.net.security.identity.Fingerprint
+import com.fserver.common.model.Fingerprint
 
 /**
  * What a completed handshake leaves behind, so the next one with the same device does not have to

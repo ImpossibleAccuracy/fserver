@@ -3,7 +3,7 @@ package com.fserver.core.network.auth.impl
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.net.security.PeerAuthenticator
-import com.fserver.net.security.identity.Fingerprint
+import com.fserver.common.model.Fingerprint
 import com.fserver.net.security.trust.TrustPrompt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,23 +1,7 @@
 package com.fserver.net.security.identity
 
+import com.fserver.common.model.Fingerprint
 import com.fserver.net.peer.PeerDescriptor
-import java.security.MessageDigest
-
-/**
- * Short, human-comparable form of a public key. What the pairing screen shows and what a QR code
- * carries, so a user can tell "the right device" from "a device".
- */
-@JvmInline
-value class Fingerprint(val value: String) {
-    companion object {
-        /** First 8 bytes of SHA-256, in hex, grouped in fours: `9f2c 4a01 b7d3 e820`. */
-        fun of(publicKey: ByteArray): Fingerprint {
-            val digest = MessageDigest.getInstance("SHA-256").digest(publicKey)
-            val hex = digest.take(8).joinToString("") { "%02x".format(it) }
-            return Fingerprint(hex.chunked(4).joinToString(" "))
-        }
-    }
-}
 
 /**
  * This device, as other devices see it.
