@@ -12,6 +12,7 @@ import com.fserver.app.presentation.screens.source.shared.preview.model.asPrevie
 import com.fserver.app.presentation.screens.source.shared.preview.model.directoryName
 import com.fserver.app.presentation.screens.source.shared.preview.model.isMediaCollection
 import com.fserver.core.files.FilesController
+import com.fserver.core.storage.RegisteredSourcesRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 
 class FolderViewModel(
     private val key: Destination.Files.Folder,
+    private val registeredSourcesRepository: RegisteredSourcesRepository,
     private val filesController: FilesController,
 ) : ViewModel() {
     private val effects = Channel<FolderUiEffect>(Channel.BUFFERED)
@@ -31,6 +33,7 @@ class FolderViewModel(
 
     private val filesProviderHandler = FilesProviderHandler(
         filesController = filesController,
+        registeredSourcesRepository = registeredSourcesRepository,
         openFile = {
             viewModelScope.launch {
                 effects.send(FolderUiEffect.OpenFile(it.asPreviewFile()))

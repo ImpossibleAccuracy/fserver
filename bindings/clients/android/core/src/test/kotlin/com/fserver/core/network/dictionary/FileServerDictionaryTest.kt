@@ -50,6 +50,7 @@ class FileServerDictionaryTest {
         val message = FileServerMessages.ConfigureSource.Request(
             sourceId = "5f7c0f2e",
             label = "DCIM/Projects",
+            originPath = "/DCIM/Projects",
             syncMode = SyncModeDto.Mirror,
         )
 

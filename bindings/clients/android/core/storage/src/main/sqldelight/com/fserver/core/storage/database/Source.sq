@@ -3,6 +3,7 @@ CREATE TABLE source (
     deviceId            TEXT    NOT NULL,
     role                TEXT    NOT NULL,
     label               TEXT    NOT NULL,
+    originPath          TEXT    NOT NULL,
     createdAtEpochMs    INTEGER NOT NULL,
     lastSyncedAtEpochMs INTEGER,
     -- Tree | Media | Directory | Internal
@@ -39,9 +40,10 @@ WHERE location = ? AND mode = ?;
 
 upsert:
 INSERT OR REPLACE INTO source(
-    id, deviceId, role, label, createdAtEpochMs, lastSyncedAtEpochMs, location, mode, status
+    id, deviceId, role, label, originPath, createdAtEpochMs, lastSyncedAtEpochMs, location, mode,
+    status
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateStatus:
 UPDATE source

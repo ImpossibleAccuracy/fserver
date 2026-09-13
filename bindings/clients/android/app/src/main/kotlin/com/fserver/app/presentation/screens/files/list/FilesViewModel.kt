@@ -216,6 +216,9 @@ class FilesViewModel(
         val itemCounts = itemCountsByDevice(sources, content)
 
         return (trusted.map { it.deviceId } + online.keys)
+            .filter { id ->
+                sources.any { it.deviceId == id }
+            }
             .distinct()
             .map { deviceId ->
                 val record = trusted.latest(deviceId)

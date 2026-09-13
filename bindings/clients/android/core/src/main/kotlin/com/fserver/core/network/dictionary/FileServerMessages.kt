@@ -92,12 +92,15 @@ internal sealed interface FileServerMessages {
     sealed interface ConfigureSource : FileServerMessages {
         /**
          * @property sourceId chosen by the sender. Both halves of a source answer to the same id.
+         * @property originPath the sender's directory as a person reads it. Stored verbatim - it
+         * says where the files come from, not where the receiver puts them.
          * @property syncMode what the sender runs the source under.
          */
         @Serializable
         data class Request(
             val sourceId: String,
             val label: String,
+            val originPath: String,
             val syncMode: SyncModeDto,
         ) : ConfigureSource
 

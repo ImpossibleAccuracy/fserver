@@ -11,6 +11,7 @@ CREATE TABLE sourceRequest (
     sourceId          TEXT    NOT NULL PRIMARY KEY,
     deviceId          TEXT    NOT NULL,
     label             TEXT    NOT NULL,
+    originPath        TEXT    NOT NULL,
     -- Mirror | AutoUpload | Offload
     mode              TEXT    NOT NULL,
     receivedAtEpochMs INTEGER NOT NULL
@@ -35,8 +36,8 @@ FROM sourceRequest
 WHERE sourceId = ?;
 
 upsert:
-INSERT OR REPLACE INTO sourceRequest(sourceId, deviceId, label, mode, receivedAtEpochMs)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO sourceRequest(sourceId, deviceId, label, originPath, mode, receivedAtEpochMs)
+VALUES (?, ?, ?, ?, ?, ?);
 
 delete:
 DELETE FROM sourceRequest

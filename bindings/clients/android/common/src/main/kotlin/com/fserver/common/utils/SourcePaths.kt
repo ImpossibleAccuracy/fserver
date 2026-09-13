@@ -1,5 +1,6 @@
 package com.fserver.common.utils
 
+import java.net.URLDecoder
 import java.security.MessageDigest
 import java.text.Normalizer
 
@@ -43,6 +44,27 @@ object SourcePaths {
     }
 
     fun canonical(volume: String?, path: String): String = canonical(volume, listOf(path))
+
+    private const val ContentScheme = "content://"
+
+    /**
+     * A directory locator as a person reads it: "/DCIM/Projects".
+     *
+     * A tree grant is addressed by an opaque `content://` uri, so it is decoded back to the
+     * document id the picker displayed. Anything else is already a path and is returned as is.
+     */
+    fun readable(path: String): String {
+        if (!path.startsWith(ContentScheme)) return path
+
+        val encoded = path.substringAfterLast('/')
+        val documentId = runCatching { URLDecoder.decode(encoded, Charsets.UTF_8.name()) }
+            .getOrDefault(encoded)
+
+        // "primary:DCIM/Projects" - the volume prefix means nothing outside the provider that issued it.
+        val relative = documentId.substringAfter(':', "")
+
+        return if (relative.isEmpty()) documentId else "/$relative"
+    }
 
     /**
      * Cross-device file identity: two devices holding the same file derive the same value.

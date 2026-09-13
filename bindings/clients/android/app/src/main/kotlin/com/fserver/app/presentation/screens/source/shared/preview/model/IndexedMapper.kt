@@ -21,24 +21,39 @@ fun isMediaCollection(files: List<SourcePreviewUi.PreviewContentEntry>): Boolean
 fun List<SyncFileEntry>.toFlatPreview(
     directory: String = "/",
 ): List<SourcePreviewUi.File> {
-    val all = associateWith { it.directory }
+    val allFiles = associateWith { it.directory }
 
-    val foundFiles = all
-        .filter { (_, fileDirectory) ->
-            isDirectoriesMatching(fileDirectory, directory)
+    val allDirectories = allFiles.values
+        .flatMap { dir ->
+            dir ?: return@flatMap listOf("/")
+
+            dir.split('/')
+                .filter { it.isNotEmpty() }
+                .runningFold("") { acc, part ->
+                    "$acc/$part".normalizeDirectory()
+                }
         }
+        .filter { it.isNotEmpty() }
+        .toSet()
 
-    val foundDirectories = all.values.toSet()
-        .filterNotNull()
-        .filter { path ->
-            if (path == directory) return@filter false
+    //Remark: directories and files are filtered separately
+    // Normally, we should create full virtual directory structure
+    // But it costs too much time and memory, so we just filter files and directories separately
 
-            // Find only the immediate subdirectories of the current directory
-            val substring = path.substringAfter(directory, missingDelimiterValue = "")
-            if (substring.isBlank()) return@filter false
+    val foundFiles = allFiles.filter { (_, fileDirectory) ->
+        isDirectoriesMatching(fileDirectory, directory)
+    }
 
-            substring.none { it == '/' }
-        }
+    val foundDirectories = allDirectories.filter { path ->
+        if (path == directory) return@filter false
+
+        // Find only the immediate subdirectories of the current directory
+        val substring = path.substringAfter(directory, missingDelimiterValue = "")
+        if (substring.isBlank()) return@filter false
+
+        // Check if the substring contains any additional slashes, indicating it's a subdirectory
+        !substring.drop(1).contains("/")
+    }
 
     return buildList(foundFiles.size + foundDirectories.size) {
         for (directory in foundDirectories) {

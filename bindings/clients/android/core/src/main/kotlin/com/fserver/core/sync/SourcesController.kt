@@ -4,6 +4,7 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.toOriginPath
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -66,6 +67,7 @@ class SourcesController internal constructor(
             id = UUID.randomUUID().toString(),
             deviceId = deviceId,
             location = location,
+            originPath = location.toOriginPath(),
             syncMode = syncMode,
             // Asking is what makes this side the initiator, and one-way modes travel from here.
             role = SourceEntry.Role.Initiator,

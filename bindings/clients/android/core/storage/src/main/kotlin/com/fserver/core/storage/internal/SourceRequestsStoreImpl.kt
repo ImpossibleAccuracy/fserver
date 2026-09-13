@@ -48,6 +48,7 @@ internal class SourceRequestsStoreImpl(
                 sourceId = request.sourceId,
                 deviceId = request.deviceId,
                 label = request.label,
+                originPath = request.originPath,
                 mode = SourceRecords.discriminatorOf(request.syncMode),
                 receivedAtEpochMs = request.receivedAt.toEpochMilliseconds(),
             )
@@ -104,6 +105,7 @@ private fun List<DBSourceRequest>.assemble(
             sourceId = row.sourceId,
             deviceId = row.deviceId,
             label = row.label,
+            originPath = row.originPath,
             syncMode = mode,
             receivedAt = Instant.fromEpochMilliseconds(row.receivedAtEpochMs),
         )

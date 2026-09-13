@@ -36,6 +36,7 @@ internal class SourceSetupExchange(
                 FileServerMessages.ConfigureSource.Request(
                     sourceId = source.id,
                     label = source.label,
+                    originPath = source.originPath,
                     syncMode = source.syncMode.toDto(),
                 )
             )
@@ -86,6 +87,7 @@ internal class SourceSetupExchange(
                 sourceId = message.sourceId,
                 deviceId = peer.deviceId,
                 label = message.label,
+                originPath = message.originPath,
                 syncMode = message.syncMode.toDomain(),
                 receivedAt = timeProvider.now(),
             )
@@ -112,6 +114,8 @@ internal class SourceSetupExchange(
             id = request.sourceId,
             deviceId = request.deviceId,
             location = location,
+            // The asker's path, not ours: it is what the source is, and this side only hosts it.
+            originPath = request.originPath,
             syncMode = request.syncMode,
             role = SourceEntry.Role.Follower,
             // Accepting is this side's half of the setup: nothing is left to wait for.

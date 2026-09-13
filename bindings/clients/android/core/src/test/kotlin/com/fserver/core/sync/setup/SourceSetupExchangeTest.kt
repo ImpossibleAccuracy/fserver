@@ -209,6 +209,7 @@ class SourceSetupExchangeTest {
     private fun request() = FileServerMessages.ConfigureSource.Request(
         sourceId = SourceId,
         label = "Peer's photos",
+        originPath = "/DCIM/Camera",
         syncMode = SyncModeDto.Mirror,
     )
 

@@ -116,12 +116,15 @@ fun PendingConfirmationDialog(
                 DkFingerprintBlock(groups = request.codeGroups)
             }
 
-            DkSectionLabel(text = stringResource(R.string.peer_confirm_offered_key))
-            DkFingerprintBlock(groups = request.fingerprintGroups)
+            if (request.reason != PendingConfirmationUi.Reason.FirstContact) {
+                DkSectionLabel(text = stringResource(R.string.peer_confirm_offered_key))
+                DkFingerprintBlock(groups = request.fingerprintGroups)
 
-            (request.reason as? PendingConfirmationUi.Reason.KeyChanged)?.let { changed ->
-                DkSectionLabel(text = stringResource(R.string.peer_confirm_known_key))
-                changed.knownFingerprints.forEach { DkFingerprintBlock(groups = it) }
+                if (request.reason is PendingConfirmationUi.Reason.KeyChanged) {
+                    DkSectionLabel(text = stringResource(R.string.peer_confirm_known_key))
+
+                    request.reason.knownFingerprints.forEach { DkFingerprintBlock(groups = it) }
+                }
             }
 
             Text(
@@ -134,8 +137,6 @@ fun PendingConfirmationDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm, Alignment.End),
             ) {
-                // A contradicted peer leads with the refusal: accepting one is a deliberate act,
-                // never the button a user reaches for without reading.
                 if (request.isContradicted) {
                     DkGhostButton(
                         text = stringResource(R.string.peer_confirm_accept_anyway),

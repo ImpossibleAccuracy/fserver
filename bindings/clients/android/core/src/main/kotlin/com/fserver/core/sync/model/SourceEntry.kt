@@ -18,6 +18,8 @@ data class SourceEntry(
     val deviceId: String,
     /** What to walk. */
     val location: SourceLocation.Persistable,
+    /** The initiator's directory as a person reads it. */
+    val originPath: String,
     /** What to do with the files found there. */
     val syncMode: SyncMode,
     val role: Role,

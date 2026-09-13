@@ -13,6 +13,8 @@ data class IncomingSourceRequest(
     val deviceId: String,
     /** Display name the asking side registered. */
     val label: String,
+    /** The asking side's directory as a person reads it. Kept verbatim, never re-derived here. */
+    val originPath: String,
     /** What the asking side runs the source under. */
     val syncMode: SyncMode,
     val receivedAt: Instant,
