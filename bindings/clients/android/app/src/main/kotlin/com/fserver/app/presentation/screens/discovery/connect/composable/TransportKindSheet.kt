@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.discovery.automatic.composable
+package com.fserver.app.presentation.screens.discovery.connect.composable
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -35,12 +35,12 @@ import com.fserver.app.presentation.composable.model.descriptionRes
 import com.fserver.app.presentation.composable.model.titleRes
 import com.fserver.app.presentation.permission.RequirementAction
 import com.fserver.app.presentation.permission.RequirementResolver
-import com.fserver.app.presentation.screens.discovery.automatic.model.DeviceDiscoveryState
+import com.fserver.app.presentation.screens.discovery.connect.model.ConnectState
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.TransportKind
 
 /**
- * Screen 03 — one method and what it is still waiting on.
+ * One method and what it is still waiting on.
  *
  * Only unmet requirements appear: `RequirementReport` reports nothing else, and a list of things
  * already granted would be reassurance rather than information.
@@ -48,7 +48,7 @@ import com.fserver.core.network.TransportKind
 @Composable
 fun TransportKindSheet(
     modifier: Modifier = Modifier,
-    setup: DeviceDiscoveryState.MethodSetupUi,
+    setup: ConnectState.MethodSetupUi,
     resolver: RequirementResolver?,
 ) {
     Column(
@@ -169,7 +169,7 @@ private fun TransportKindSheetPreview() {
     FServerTheme {
         DkSurfacePreview {
             TransportKindSheet(
-                setup = DeviceDiscoveryState.MethodSetupUi(
+                setup = ConnectState.MethodSetupUi(
                     method = TransportKind.NearbyConnections,
                     solvable = listOf(
                         RequirementRowUi(
@@ -194,7 +194,7 @@ private fun TransportKindSheetBlockedPreview() {
     FServerTheme {
         DkSurfacePreview {
             TransportKindSheet(
-                setup = DeviceDiscoveryState.MethodSetupUi(
+                setup = ConnectState.MethodSetupUi(
                     method = TransportKind.MulticastDns,
                     solvable = emptyList(),
                     blockers = listOf(

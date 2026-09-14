@@ -31,7 +31,6 @@ import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.discovery.shared.ConnectRouteCard
 import com.fserver.app.presentation.screens.onboarding.model.OnboardingIntent
 import com.fserver.app.presentation.screens.onboarding.model.OnboardingState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -45,7 +44,7 @@ private data class OnboardingPage(
 )
 
 /**
- * Why the app exists, where the bytes actually go, and the fork. No permission is mentioned:
+ * Why the app exists, where the bytes actually go, and what to do with it. No permission is mentioned:
  * each path explains and requests its own, so asking here would be asking for something the
  * user has not chosen to do yet.
  */
@@ -70,8 +69,6 @@ private val onboardingPages = listOf(
 @Composable
 fun OnboardingScreen(
     viewModel: OnboardingViewModel = koinViewModel(),
-    navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
     navigateToFiles: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,8 +83,6 @@ fun OnboardingScreen(
     OnboardingScreen(
         state = state,
         pagerState = pagerState,
-        navigateToConnect = navigateToConnect,
-        navigateToSourcePick = navigateToSourcePick,
         navigateToFiles = navigateToFiles,
     )
 }
@@ -95,8 +90,6 @@ fun OnboardingScreen(
 @Composable
 private fun OnboardingScreen(
     state: OnboardingState,
-    navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
     navigateToFiles: () -> Unit,
     pagerState: PagerState = rememberPagerState { onboardingPages.size },
 ) {
@@ -118,21 +111,7 @@ private fun OnboardingScreen(
                     horizontal = DkSpacing.screenPadding,
                 )
             ) { pageIndex ->
-                OnboardingPageContent(
-                    page = onboardingPages[pageIndex],
-                    // The fork's two ways out live inside the page: swiping back to step 2 must
-                    // take them with it, not leave them under a different explanation.
-                    fork = if (pageIndex == onboardingPages.lastIndex) {
-                        {
-                            OnboardingFork(
-                                navigateToConnect = navigateToConnect,
-                                navigateToSourcePick = navigateToSourcePick,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                )
+                OnboardingPageContent(page = onboardingPages[pageIndex])
             }
 
             DkPageIndicator(
@@ -150,22 +129,28 @@ private fun OnboardingScreen(
                     .padding(horizontal = DkSpacing.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)
             ) {
-                if (!state.isFork) {
-                    DkPrimaryButton(
-                        text = stringResource(R.string.action_next),
-                        onClick = {
+                DkPrimaryButton(
+                    text = stringResource(
+                        if (state.isLast) R.string.action_done else R.string.action_next
+                    ),
+                    onClick = {
+                        if (state.isLast) {
+                            navigateToFiles()
+                        } else {
                             scope.launch { pagerState.animateScrollToPage(state.pageIndex + 1) }
-                        },
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // Both ways in - opening someone's files, sharing your own - are on the file list
+                // the tour ends at, so skipping loses nothing but the explanation.
+                if (!state.isLast) {
+                    DkGhostButton(
+                        text = stringResource(R.string.action_skip),
+                        onClick = navigateToFiles,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                // Skipping is not a dead end: it lands on the empty file list, which offers the
-                // same two exits the fork does.
-                DkGhostButton(
-                    text = stringResource(R.string.action_skip),
-                    onClick = navigateToFiles,
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
     }
@@ -175,7 +160,6 @@ private fun OnboardingScreen(
 private fun OnboardingPageContent(
     page: OnboardingPage,
     modifier: Modifier = Modifier,
-    fork: @Composable (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier.fillMaxSize(),
@@ -183,7 +167,7 @@ private fun OnboardingPageContent(
     ) {
         DkPlaceholderBox(
             label = stringResource(page.illustration),
-            modifier = Modifier.height(if (fork == null) 200.dp else 132.dp),
+            modifier = Modifier.height(200.dp),
         )
         Spacer(modifier = Modifier.height(DkSpacing.xs))
         Text(
@@ -196,33 +180,6 @@ private fun OnboardingPageContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (fork != null) {
-            fork()
-        }
-    }
-}
-
-/** The two things the app can do, as peers — neither is the lesser path. */
-@Composable
-private fun OnboardingFork(
-    navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
-    ) {
-        ConnectRouteCard(
-            title = stringResource(R.string.fork_connect_title),
-            description = stringResource(R.string.fork_connect_subtitle),
-            onClick = navigateToConnect,
-        )
-        ConnectRouteCard(
-            title = stringResource(R.string.fork_send_title),
-            description = stringResource(R.string.fork_send_subtitle),
-            onClick = navigateToSourcePick,
-        )
     }
 }
 
@@ -232,22 +189,18 @@ private fun OnboardingScreenPreview() {
     FServerTheme {
         OnboardingScreen(
             state = OnboardingState(),
-            navigateToConnect = {},
-            navigateToSourcePick = {},
             navigateToFiles = {},
         )
     }
 }
 
-@Preview(name = "Fork", showBackground = true)
+@Preview(name = "Last page", showBackground = true)
 @Composable
-private fun OnboardingForkPreview() {
+private fun OnboardingLastPagePreview() {
     FServerTheme {
         OnboardingScreen(
             state = OnboardingState(pageIndex = 2),
             pagerState = rememberPagerState(initialPage = 2) { onboardingPages.size },
-            navigateToConnect = {},
-            navigateToSourcePick = {},
             navigateToFiles = {},
         )
     }

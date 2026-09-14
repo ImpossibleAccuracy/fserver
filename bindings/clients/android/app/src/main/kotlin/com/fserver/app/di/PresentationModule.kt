@@ -5,8 +5,7 @@ import com.fserver.app.data.SampleContentSource
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.screens.activity.ActivityViewModel
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
-import com.fserver.app.presentation.screens.discovery.automatic.DeviceDiscoveryViewModel
-import com.fserver.app.presentation.screens.discovery.hub.ConnectHubViewModel
+import com.fserver.app.presentation.screens.discovery.connect.ConnectViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
 import com.fserver.app.presentation.screens.files.folder.FolderViewModel
@@ -39,8 +38,7 @@ val presentationModule = module {
     viewModelOf(::AppViewModel)
 
     viewModelOf(::OnboardingViewModel)
-    viewModelOf(::ConnectHubViewModel)
-    viewModelOf(::DeviceDiscoveryViewModel)
+    viewModelOf(::ConnectViewModel)
     viewModelOf(::QrScanViewModel)
     viewModelOf(::ManualAddressViewModel)
     viewModelOf(::PairingViewModel)

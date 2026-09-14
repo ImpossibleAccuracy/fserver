@@ -87,10 +87,6 @@ sealed interface Destination : NavKey {
                 val access: SourceAccessUi = SourceAccessUi.Full,
             ) : Destination
 
-            /** Which connected device receives everything the source will produce. */
-            @Serializable
-            data object Target : Destination
-
             /** Whatever the chosen mode still needs to know, then the work before it is on. */
             @Serializable
             data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
@@ -164,15 +160,13 @@ sealed interface Destination : NavKey {
     }
 
     /**
-     * The fork: every way of reaching a server starts here. Nothing is scanned or requested
-     * until the user picks one of them.
+     * Picking a device: the ones already met, whatever the network turns up, and the ways of
+     * reaching one that no scan can find. Answers with a device that has a session, over
+     * [com.fserver.app.presentation.navigation.ResultEventBus], so both the first connection and
+     * "where does this source go?" are the same screen.
      */
     @Serializable
     data object Connect : Destination
-
-    /** Search on the local network — picking methods, granting what they need, and scanning. */
-    @Serializable
-    data object DeviceDiscovery : Destination
 
     /**
      * Confirm and connect. Every way of finding a device ends here — the list, the scanner,

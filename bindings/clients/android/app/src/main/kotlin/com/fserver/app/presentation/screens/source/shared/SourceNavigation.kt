@@ -5,14 +5,12 @@ import com.fserver.app.presentation.navigation.AppNavigator
 
 /**
  * Every screen either half of a source puts on the stack — setting one up here, or answering a
- * peer's ask — including the target picker in the middle of the first. Leaving drops all of them
- * at once, whichever half the user is on.
+ * peer's ask. Leaving drops all of them at once, whichever half the user is on.
  */
 val Destination.isSourceScreen: Boolean
     get() = this is Destination.Source.Setup.Pick ||
             this is Destination.Source.Setup.Access ||
             this is Destination.Source.Setup.Mode ||
-            this is Destination.Source.Setup.Target ||
             this is Destination.Source.Setup.Conditions ||
             this is Destination.Source.Request.Details ||
             this is Destination.Source.Request.Location ||

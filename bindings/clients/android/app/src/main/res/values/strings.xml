@@ -36,12 +36,15 @@
 
     <!-- Connection — the fork every route to a server starts from -->
     <string name="connect_title">Connection</string>
-    <string name="connect_intro">Your phone connects straight to your computer. Choose how to find it.</string>
-    <string name="connect_find_title">Find on the network</string>
-    <string name="connect_find_description">Automatic search by several methods. Some will ask for permissions.</string>
-    <string name="connect_scan_description">The code on your computer screen carries the address and the fingerprint at once. No permissions needed.</string>
-    <string name="connect_manual_description">If you know the server\'s IP address and port.</string>
-    <string name="connect_footer">Nothing has been started or requested yet.</string>
+    <string name="connect_methods_action">Search methods</string>
+    <string name="connect_known_label">Your devices</string>
+    <string name="connect_discovered_label">Found nearby</string>
+    <string name="connect_tag_connected">Connected</string>
+    <string name="connect_reconnect_hint">Tap to reconnect</string>
+    <string name="connect_connect_hint">Tap to connect</string>
+    <string name="connect_searching">Looking for devices on this network…</string>
+    <string name="connect_reconnect_failed">Could not reconnect</string>
+    <string name="connect_empty_hint">Nothing here yet. Start a search, scan a QR code, or type an address.</string>
 
     <!-- The network card, shared by the connection and search screens -->
     <string name="network_wifi_connected">Wi-Fi connected</string>
@@ -59,27 +62,12 @@
     <string name="discovery_network_hint_offline">No network connection. Only nearby devices can be found.</string>
 
     <!-- Search on the network — picking methods, then scanning with them -->
-    <string name="discovery_title_idle">Find on the network</string>
-    <string name="discovery_title_searching">Searching</string>
-    <string name="discovery_title_results">Search results</string>
     <string name="discovery_methods_label">Search methods</string>
+    <string name="discovery_methods_hint">Tap a method to start it, tap again to stop.</string>
     <string name="discovery_methods_running">running %1$d / %2$d</string>
     <string name="discovery_method_ready">Ready</string>
     <string name="discovery_method_ready_subtitle">Nothing else needed</string>
     <string name="discovery_method_blocked">Not available on this phone or network</string>
-    <string name="discovery_method_add">Add</string>
-    <string name="discovery_method_retry">Retry</string>
-    <string name="discovery_found_label">Found</string>
-    <string name="discovery_start_search_empty">Start search</string>
-    <string name="discovery_start_hint">Pick at least one method that has its permissions</string>
-    <string name="discovery_first_devices_hint">Devices usually show up within 2–3 seconds</string>
-    <string name="discovery_continues_hint">The search continues, the list keeps filling</string>
-    <string name="discovery_finished_hint">Every method has finished. Retry one, or add another.</string>
-    <string name="action_stop">Stop</string>
-    <plurals name="discovery_methods_selected">
-        <item quantity="one">%d selected</item>
-        <item quantity="other">%d selected</item>
-    </plurals>
     <plurals name="method_requirements_left">
         <item quantity="one">%d left</item>
         <item quantity="other">%d left</item>
@@ -87,10 +75,6 @@
     <plurals name="discovery_method_needs_permissions">
         <item quantity="one">Needs %d permission</item>
         <item quantity="other">Needs %d permissions</item>
-    </plurals>
-    <plurals name="discovery_start_search">
-        <item quantity="one">Start search · %d method</item>
-        <item quantity="other">Start search · %d methods</item>
     </plurals>
 
     <!-- Detection methods, named for what they buy the user rather than for their transport -->
@@ -206,7 +190,6 @@
     <string name="fork_connect_title">Connect to a computer</string>
     <string name="fork_connect_subtitle">Find a device on the network and open its files</string>
     <string name="fork_send_title">Send files from here</string>
-    <string name="fork_send_subtitle">Choose what the app can see on this phone</string>
     <string name="fork_send_sheet_subtitle">Photos and videos, a folder, or the whole device</string>
 
     <!-- Bottom navigation -->
@@ -299,28 +282,12 @@
 
     <!-- Source target: which device receives a source's output -->
     <string name="target_device_title">Send to</string>
-    <string name="source_target_connected_label">Connected devices</string>
-    <string name="source_target_empty_title">No connected devices</string>
-    <string name="source_target_empty_hint">Connect one to send the selection to it</string>
     <string name="target_device_selection_lost">The selection is no longer available. Pick the files again.</string>
     <plurals name="send_confirm_title">
         <item quantity="one">Send %1$d file?</item>
         <item quantity="other">Send %1$d files?</item>
     </plurals>
     <string name="send_confirm_body">They will be sent to %1$s.</string>
-    <string name="source_target_title">Where to send?</string>
-    <string name="source_target_add_device">Add a device</string>
-    <string name="source_target_known_label">Previously connected</string>
-    <string name="source_target_discovered_label">Found nearby</string>
-    <string name="source_target_tag_connected">Connected</string>
-    <string name="source_target_reconnect_hint">Tap to reconnect</string>
-    <string name="source_target_connect_hint">Tap to connect</string>
-    <string name="source_target_searching">Looking for devices on this network…</string>
-    <string name="source_target_route_unknown">No saved address for this device. Add it again.</string>
-    <string name="source_target_reconnect_failed">Could not reconnect</string>
-    <string name="source_target_subnet_offer_hint">Extend scan area</string>
-    <string name="source_target_subnet_offer_action">Scan the subnet</string>
-    <string name="source_target_subnet_scanning">Scanning the subnet…</string>
 
     <!-- Activity -->
     <string name="activity_title">Activity</string>

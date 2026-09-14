@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,12 +27,13 @@ import com.fserver.app.presentation.composable.PendingConfirmationDialog
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.navigation.model.AppRootIntent
+import com.fserver.app.presentation.navigation.LocalResultEventBus
 import com.fserver.app.presentation.navigation.rememberAppNavigator
+import com.fserver.app.presentation.navigation.rememberResultEventBus
 import com.fserver.app.presentation.navigation.rememberSharedViewModelStoreNavEntryDecorator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
-import com.fserver.app.presentation.screens.discovery.automatic.deviceDiscoveryEntry
-import com.fserver.app.presentation.screens.discovery.hub.connectHubEntry
+import com.fserver.app.presentation.screens.discovery.connect.connectEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
@@ -51,7 +53,6 @@ import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
 import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
 import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
 import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
-import com.fserver.app.presentation.screens.source.setup.target.sourceTargetEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
@@ -150,82 +151,84 @@ fun FServerApp(
 
 @Composable
 private fun NavHostGraph(navigator: AppNavigator) {
-    NavDisplay(
-        backStack = navigator.activeBackStack,
-        onBack = { navigator.navigateUp() },
-        sceneStrategies = listOf(
-            remember { BottomSheetSceneStrategy() }
-        ),
-        entryDecorators = listOf(
-            rememberSaveableStateHolderNavEntryDecorator(),
-            rememberSharedViewModelStoreNavEntryDecorator(),
-        ),
+    // Around the display rather than inside one entry: a result outlives the screen that produced
+    // it, and has to still be there when the screen that asked comes back on top.
+    CompositionLocalProvider(LocalResultEventBus provides rememberResultEventBus()) {
+        NavDisplay(
+            backStack = navigator.activeBackStack,
+            onBack = { navigator.navigateUp() },
+            sceneStrategies = listOf(
+                remember { BottomSheetSceneStrategy() }
+            ),
+            entryDecorators = listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberSharedViewModelStoreNavEntryDecorator(),
+            ),
 
-        transitionSpec = {
-            slideInVertically(
-                animationSpec = tween(400, easing = EmphasizedDecelerate),
-                initialOffsetY = ::smallOffset
-            )
-                .plus(fadeIn(tween(250, delayMillis = 50, easing = EmphasizedDecelerate)))
-                .togetherWith(
-                    fadeOut(tween(200, easing = EmphasizedAccelerate))
+            transitionSpec = {
+                slideInVertically(
+                    animationSpec = tween(400, easing = EmphasizedDecelerate),
+                    initialOffsetY = ::smallOffset
                 )
-        },
-        popTransitionSpec = {
-            fadeIn(tween(250, easing = EmphasizedDecelerate))
-                .togetherWith(
-                    slideOutVertically(
-                        animationSpec = tween(400, easing = EmphasizedAccelerate),
-                        targetOffsetY = ::smallOffset
-                    ).plus(fadeOut(tween(200, easing = EmphasizedAccelerate)))
+                    .plus(fadeIn(tween(250, delayMillis = 50, easing = EmphasizedDecelerate)))
+                    .togetherWith(
+                        fadeOut(tween(200, easing = EmphasizedAccelerate))
+                    )
+            },
+            popTransitionSpec = {
+                fadeIn(tween(250, easing = EmphasizedDecelerate))
+                    .togetherWith(
+                        slideOutVertically(
+                            animationSpec = tween(400, easing = EmphasizedAccelerate),
+                            targetOffsetY = ::smallOffset
+                        ).plus(fadeOut(tween(200, easing = EmphasizedAccelerate)))
+                    )
+            },
+            predictivePopTransitionSpec = {
+                scaleIn(
+                    initialScale = 0.9f,
+                    animationSpec = tween(400, easing = EmphasizedDecelerate)
                 )
-        },
-        predictivePopTransitionSpec = {
-            scaleIn(
-                initialScale = 0.9f,
-                animationSpec = tween(400, easing = EmphasizedDecelerate)
-            )
-                .plus(fadeIn(tween(250, easing = EmphasizedDecelerate)))
-                .togetherWith(
-                    scaleOut(
-                        targetScale = 0.9f,
-                        animationSpec = tween(400, easing = EmphasizedAccelerate)
-                    ).plus(fadeOut(tween(250, easing = EmphasizedAccelerate)))
-                )
-        },
-        entryProvider = entryProvider {
-            onboardingEntry(navigator)
-            connectHubEntry(navigator)
-            deviceDiscoveryEntry(navigator)
-            qrScanEntry(navigator)
-            manualAddressEntry(navigator)
-            pairingEntry(navigator)
-            activityEntry(navigator)
-            settingsEntry(navigator)
-            settingsDevicesEntry(navigator)
-            settingsDeviceDetailsEntry(navigator)
-            settingsSecurityEntry(navigator)
-            settingsPinChangeEntry(navigator)
-            settingsAboutEntry(navigator)
-            diagnosticEntry(navigator)
+                    .plus(fadeIn(tween(250, easing = EmphasizedDecelerate)))
+                    .togetherWith(
+                        scaleOut(
+                            targetScale = 0.9f,
+                            animationSpec = tween(400, easing = EmphasizedAccelerate)
+                        ).plus(fadeOut(tween(250, easing = EmphasizedAccelerate)))
+                    )
+            },
+            entryProvider = entryProvider {
+                onboardingEntry(navigator)
+                connectEntry(navigator)
+                qrScanEntry(navigator)
+                manualAddressEntry(navigator)
+                pairingEntry(navigator)
+                activityEntry(navigator)
+                settingsEntry(navigator)
+                settingsDevicesEntry(navigator)
+                settingsDeviceDetailsEntry(navigator)
+                settingsSecurityEntry(navigator)
+                settingsPinChangeEntry(navigator)
+                settingsAboutEntry(navigator)
+                diagnosticEntry(navigator)
 
-            filesListEntry(navigator)
-            filesFolderEntry(navigator)
-            filesActionsEntry(navigator)
-            filesSourceActionsEntry(navigator)
+                filesListEntry(navigator)
+                filesFolderEntry(navigator)
+                filesActionsEntry(navigator)
+                filesSourceActionsEntry(navigator)
 
-            sourcePickEntry(navigator)
-            sourceAccessEntry(navigator)
-            sourceModeEntry(navigator)
-            sourceTargetEntry(navigator)
-            sourceConditionsEntry(navigator)
+                sourcePickEntry(navigator)
+                sourceAccessEntry(navigator)
+                sourceModeEntry(navigator)
+                sourceConditionsEntry(navigator)
 
-            syncRequestListEntry(navigator)
-            syncRequestDetailsEntry(navigator)
-            syncRequestLocationEntry(navigator)
+                syncRequestListEntry(navigator)
+                syncRequestDetailsEntry(navigator)
+                syncRequestLocationEntry(navigator)
 
-            sourceProgressEntry(navigator)
-            sourceDoneEntry(navigator)
-        },
-    )
+                sourceProgressEntry(navigator)
+                sourceDoneEntry(navigator)
+            },
+        )
+    }
 }
