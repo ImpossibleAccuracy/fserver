@@ -7,6 +7,7 @@ import com.fserver.core.network.TransportKind
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.DeviceMetadata
+import com.fserver.core.network.device.model.FailedContact
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
+import com.fserver.core.storage.database.FailedContact as DBFailedContact
 import com.fserver.core.storage.database.KnownRoute as DBKnownRoute
 
 internal class TrustedDevicesStoreImpl(
@@ -24,6 +26,7 @@ internal class TrustedDevicesStoreImpl(
     private val dao = database.trustedDeviceQueries
     private val metadataDao = database.deviceMetadataQueries
     private val routeDao = database.knownRouteQueries
+    private val failedContactDao = database.failedContactQueries
 
     override val devices: Flow<List<TrustedDevice>> = dao.selectAll(::trustedDeviceOf)
         .asFlow()
@@ -106,7 +109,34 @@ internal class TrustedDevicesStoreImpl(
             .mapToOneOrNull(Dispatchers.IO)
             .map { it?.toDomainModel() }
 
-    /** The trigger on `trustedDevice` drops the route and the metadata with the last key. */
+    override val failedContacts: Flow<List<FailedContact>> = failedContactDao.selectAll()
+        .asFlow()
+        .mapToList(Dispatchers.IO)
+        .map { rows -> rows.mapNotNull { it.toDomainModel() } }
+
+    override suspend fun findFailedContact(deviceId: String): FailedContact? =
+        failedContactDao.selectByDeviceId(deviceId)
+            .executeAsOneOrNull()
+            ?.toDomainModel()
+
+    /** The query writes nothing for a device with no key on record - see `FailedContact.sq`. */
+    override suspend fun recordFailedContact(contact: FailedContact) {
+        failedContactDao.upsert(
+            deviceId = contact.deviceId,
+            reason = contact.reason.name,
+            failedAtEpochMs = contact.failedAt.toEpochMilliseconds(),
+            sinceEpochMs = contact.since.toEpochMilliseconds(),
+            attempts = contact.attempts.toLong(),
+            transport = contact.transport?.dbName,
+            detail = contact.detail,
+        )
+    }
+
+    override suspend fun clearFailedContact(deviceId: String) {
+        failedContactDao.deleteByDeviceId(deviceId)
+    }
+
+    /** The trigger on `trustedDevice` drops the route, the metadata and the run with the last key. */
     override suspend fun forget(deviceId: String) {
         dao.deleteByDeviceId(deviceId)
     }
@@ -148,6 +178,24 @@ private fun trustedDeviceOf(
         )
     },
 )
+
+/**
+ * null for a reason written by a newer build: a run nothing here can describe is no more use than
+ * no run at all, and dropping it reads as "reached, or never tried" rather than as a broken row.
+ */
+private fun DBFailedContact.toDomainModel(): FailedContact? {
+    val parsed = FailedContact.Reason.entries.firstOrNull { it.name == reason } ?: return null
+
+    return FailedContact(
+        deviceId = deviceId,
+        reason = parsed,
+        failedAt = Instant.fromEpochMilliseconds(failedAtEpochMs),
+        since = Instant.fromEpochMilliseconds(sinceEpochMs),
+        attempts = attempts.toInt(),
+        transport = transport?.let { name -> TransportKind.entries.firstOrNull { it.dbName == name } },
+        detail = detail,
+    )
+}
 
 private enum class KnownRouteKind { Ip, Nearby }
 

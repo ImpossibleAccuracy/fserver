@@ -185,13 +185,12 @@ class AppViewModel(
     }
 
     /**
-     * A pass that gave up is the only sign the user gets that a device could not be reached.
+     * The catch-all for a pass that gave up. Why a *device* could not be reached is answered on
+     * the files screen, off `DeviceReachability`; this is what is left over - a pass that broke
+     * for some other reason, over whatever screen the user is on.
      *
-     * TODO: a toast is a placeholder for the dead end, not the answer to it. What this should
-     *  become: `:core` reports why the pass failed - unreachable, refused, no lease - and the app
-     *  turns "unreachable" into something actionable, offering the ways of reaching a device that
-     *  do not need discovery (manual address, QR) and naming the device rather than the source.
-     *  See the reachability reporting entry in `docs/TODO_LIST.md`.
+     * TODO: a pass failure is still only a string, so this toasts the same line for every one of
+     *  them. Type it the way a dial is typed - see `docs/TODO_LIST.md`.
      */
     private suspend fun reportFailedPasses(passes: List<SourcePass>) {
         val failed = passes

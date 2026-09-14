@@ -4,8 +4,6 @@
 
 Major:
 
-- Update home screens design.
-- Add UI for incoming sync requests.
 - Create unified error parser;
 - Link security settings screen to :core and :net;
 - Find and localize raw strings (mostly in compose and VMs);
@@ -14,9 +12,9 @@ Minor:
 
 - Add sync worker.
 - Organize domain and data layers;
-- Files picker deserves better UI;
 - Check TODOs in code;
 - Needs a lot of UI/UX improvements;
+- Fix sync errors displaying;
 
 ## Core
 
@@ -41,6 +39,31 @@ App side of the same audit:
 - `SourceTargetHandler.startDetection`: `RequirementsNotMetException` goes to `Timber.w`, so the
   user sees "nothing found" instead of being asked for the permission.
 
+Reachability (auto-sync without a scan running):
+
+- Reachability reporting is in (`DeviceReachability`, the `failedContact` table, and the red device
+  card on Files), but it stops at telling the user. Left to do: the unreachable block names the ways
+  round a dead end in a sentence - manual address, QR - where it should offer them as buttons that
+  open those screens for that device.
+- Short targeted discovery session as the last resort, once every cheaper route has failed:
+  discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
+  without it at all - time-boxed, and looking only for known device ids.
+- Fixed port list for the mDNS transport. `MulticastDnsTransport.listen` binds port `0` today, so a
+  restart moves the listener and every stored route for it goes stale. Wanted: a short list of
+  preferred ports tried in order with an ephemeral fallback, a dial that retries the rest of the
+  list, and - separately - a port guess over the host of an inbound route, which is non-dialable
+  because `socket.port` is the peer's *source* port, something a port list does not fix.
+  Cross-platform: the numbers belong in `Connection Protocol.md`, not in an Android decision.
+
+Architecture:
+
+- Policy over the engine is piling up in `:core` - `PresenceController` decides when the radios
+  run, `AutoSyncCoordinator` decides when a pass starts. Both are default policy, not engine, and
+  belong in a `:core:lifecycle` module shaped like `:core:storage`: separate artifact, droppable by
+  a host that drives `FServerCore` itself. Presence needs only the public surface already; the
+  coordinator would need `SourcesController.runSync(deviceId)` and a narrow
+  `devicesWithActiveSources` published first - not a source listing, which stays a repository.
+
 Idea:
 
 - After the first confirmed synchronization, the devices can exchange randomly generated passwords,
@@ -51,14 +74,15 @@ Idea:
 
 Major:
 
-- Add sync mode x source location checks (e.g. deny mirror strategy for media source)
-- Bad files transferring speed.
+- Add sync mode x source location checks (e.g. deny mirror strategy for media source);
+- Bad files transferring speed;
+- Single connected device never goes back to offline;
 
 Minor:
 
-- It is necessary to decide on a spot where all incoming connections will be processed;
 - This module is a complete piece of crap, too many useless classes, too much trivial
-  mappings/proxying. Need to find a way to relieve it, at least partially;
+  mappings/proxying. Need to find a way to relieve it, at least partially (seems to be fixed by
+  migration to rust);
 
 # Files
 

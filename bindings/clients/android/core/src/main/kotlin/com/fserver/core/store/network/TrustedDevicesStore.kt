@@ -1,5 +1,6 @@
 package com.fserver.core.store.network
 
+import com.fserver.core.network.device.model.FailedContact
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.store.FServerStorageApi
@@ -36,4 +37,15 @@ interface TrustedDevicesStore {
 
     /** Remembers the network [deviceId] was last reached over, replacing whatever was recorded for it. */
     suspend fun recordLastNetwork(deviceId: String, networkId: String?)
+
+    /** The open runs of failed attempts, one per device. */
+    val failedContacts: Flow<List<FailedContact>>
+
+    suspend fun findFailedContact(deviceId: String): FailedContact?
+
+    /** Starts or extends the run for [FailedContact.deviceId]. */
+    suspend fun recordFailedContact(contact: FailedContact)
+
+    /** Ends the run: the device has been reached. Does nothing when there was no run. */
+    suspend fun clearFailedContact(deviceId: String)
 }

@@ -14,6 +14,7 @@ import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
 import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.connection.PeerRef
@@ -77,6 +78,7 @@ class DevicesRepositoryImplTest {
             jsonQrCodeParser = JsonQrCodeParser(),
             interactiveAuthenticator = InteractivePeerAuthenticator(),
             storage = storage,
+            reachability = ReachabilityTracker(storage, MutableTimeProvider()),
         )
     }
 

@@ -1,0 +1,27 @@
+CREATE TABLE failedContact (
+    deviceId        TEXT    NOT NULL PRIMARY KEY,
+    reason          TEXT    NOT NULL,
+    failedAtEpochMs INTEGER NOT NULL,
+    sinceEpochMs    INTEGER NOT NULL,
+    attempts        INTEGER NOT NULL,
+    transport       TEXT,
+    detail          TEXT
+);
+
+selectAll:
+SELECT *
+FROM failedContact;
+
+selectByDeviceId:
+SELECT *
+FROM failedContact
+WHERE deviceId = ?;
+
+upsert:
+INSERT OR REPLACE INTO failedContact(deviceId, reason, failedAtEpochMs, sinceEpochMs, attempts, transport, detail)
+SELECT :deviceId, :reason, :failedAtEpochMs, :sinceEpochMs, :attempts, :transport, :detail
+WHERE EXISTS (SELECT 1 FROM trustedDevice WHERE deviceId = :deviceId);
+
+deleteByDeviceId:
+DELETE FROM failedContact
+WHERE deviceId = ?;

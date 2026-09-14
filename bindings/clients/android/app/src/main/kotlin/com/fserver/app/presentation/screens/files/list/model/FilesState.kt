@@ -36,6 +36,7 @@ data class FilesState(
         val kind: DeviceKind?,
         val online: Boolean,
         val itemCount: Int,
+        val unreachable: Boolean = false,
     )
 
     @Immutable
@@ -49,7 +50,18 @@ data class FilesState(
         val foundBy: TransportKind?,
         val lastSeenLabel: String?,
         val folders: List<FolderUi>,
+        val unreachable: UnreachableUi? = null,
     )
+
+    @Immutable
+    data class UnreachableUi(
+        val reason: ReasonUi,
+        val triedLabel: String?,
+        val transport: TransportKind?,
+        val onOtherNetwork: Boolean,
+    )
+
+    enum class ReasonUi { NoRoute, Unreachable, Refused, NotAllowed, Failed }
 
     @Immutable
     data class FolderUi(
@@ -76,7 +88,14 @@ data class FilesState(
         val SampleDevices = listOf(
             DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true, itemCount = 912),
             DeviceUi("server", "Server", DeviceKind.Nas, online = true, itemCount = 312),
-            DeviceUi("home-pc", "Home PC", DeviceKind.Desktop, online = false, itemCount = 74),
+            DeviceUi(
+                id = "home-pc",
+                name = "Home PC",
+                kind = DeviceKind.Desktop,
+                online = false,
+                itemCount = 74,
+                unreachable = true,
+            ),
         )
 
         val SampleFolders = listOf(
@@ -118,6 +137,12 @@ data class FilesState(
             foundBy = TransportKind.MulticastDns,
             lastSeenLabel = "yesterday",
             folders = SampleFolders,
+            unreachable = UnreachableUi(
+                reason = ReasonUi.Unreachable,
+                triedLabel = "5 minutes ago",
+                transport = TransportKind.MulticastDns,
+                onOtherNetwork = true,
+            ).takeIf { device.unreachable },
         )
     }
 }

@@ -103,12 +103,20 @@ private fun DeviceCard(
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.medium
 
+    // A device nothing could reach is the one thing on this row the user has to act on, so it
+    // keeps the error colour even while selected - being picked is not news, being unreachable is.
+    val accent = when {
+        device.unreachable -> colors.error
+        selected -> colors.primary
+        else -> colors.outline
+    }
+
     Column(
         modifier = modifier
             .widthIn(min = 100.dp, max = 200.dp)
             .clip(shape)
             .background(if (selected) colors.primaryContainer else Color.Transparent)
-            .border(1.dp, if (selected) colors.primary else colors.outline, shape)
+            .border(1.dp, accent, shape)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = DkSpacing.md, vertical = DkSpacing.sm),
         verticalArrangement = Arrangement.spacedBy(DkSpacing.xs),
@@ -117,7 +125,11 @@ private fun DeviceCard(
             modifier = Modifier.size(16.dp),
             imageVector = device.kind.icon,
             contentDescription = null,
-            tint = if (selected) colors.primary else colors.onSurfaceVariant,
+            tint = when {
+                device.unreachable -> colors.error
+                selected -> colors.primary
+                else -> colors.onSurfaceVariant
+            },
         )
         Text(
             text = device.name,
@@ -136,6 +148,8 @@ private fun DeviceCard(
                     .clip(CircleShape)
                     .background(
                         when {
+                            device.unreachable -> colors.error
+
                             selected -> colors.onPrimaryContainer.copy(
                                 alpha = if (device.online) 1f else 0.2f
                             )
@@ -147,10 +161,14 @@ private fun DeviceCard(
             )
             Text(
                 text = stringResource(
-                    if (device.online) R.string.device_state_online else R.string.device_state_offline
+                    when {
+                        device.unreachable -> R.string.files_device_unreachable_state
+                        device.online -> R.string.device_state_online
+                        else -> R.string.device_state_offline
+                    }
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = colors.onSurfaceVariant,
+                color = if (device.unreachable) colors.error else colors.onSurfaceVariant,
                 maxLines = 1,
             )
         }

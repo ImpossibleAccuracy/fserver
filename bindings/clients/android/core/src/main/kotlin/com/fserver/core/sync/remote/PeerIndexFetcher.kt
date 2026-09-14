@@ -3,6 +3,7 @@ package com.fserver.core.sync.remote
 import com.fserver.common.exception.SyncException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.network.dictionary.dto.toRemoteIndexed
@@ -12,11 +13,13 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
+import kotlinx.coroutines.CancellationException
 
 internal class PeerIndexFetcher(
     private val storage: FServerStorage,
     private val networkController: NetworkController,
     private val devicesRepository: DevicesRepository,
+    private val reachability: ReachabilityTracker,
     private val timeProvider: TimeProvider,
 ) {
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
@@ -50,9 +53,26 @@ internal class PeerIndexFetcher(
     suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =
         connectToDevice(source.deviceId)
 
-    suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> =
-        networkController.incomingConnections.session(deviceId)
-            ?: tryToConnectByDeviceId(deviceId)
+    /**
+     * The one place a pass turns a device id into a session, so it is also where the pass records
+     * whether the device could be reached at all - a failure here is what the user is shown
+     * instead of a source that silently stays as it was.
+     */
+    suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> {
+        networkController.incomingConnections.session(deviceId)?.let { session ->
+            reachability.recordSuccess(deviceId)
+            return session
+        }
+
+        return try {
+            tryToConnectByDeviceId(deviceId).also { reachability.recordSuccess(deviceId) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            reachability.recordFailure(deviceId, e)
+            throw e
+        }
+    }
 
     private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
         val peer = PeerLocator.KnownDevice(deviceId)

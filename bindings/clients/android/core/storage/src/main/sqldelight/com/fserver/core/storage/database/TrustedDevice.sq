@@ -14,15 +14,17 @@ CREATE TABLE trustedDevice (
 
 CREATE INDEX trustedDevice_deviceId ON trustedDevice(deviceId);
 
--- Stands in for ON DELETE CASCADE, which neither side table can declare: both are keyed by
--- deviceId and that is not unique here. Forgetting the last key for a device must take its route
--- and its metadata with it, or the device stays dialable from a screen that says it was forgotten.
+-- Stands in for ON DELETE CASCADE, which none of the side tables can declare: all are keyed by
+-- deviceId and that is not unique here. Forgetting the last key for a device must take its route,
+-- its metadata and its failed-contact run with it, or the device stays dialable from a screen that
+-- says it was forgotten.
 CREATE TRIGGER trustedDevice_dropOrphanedRoute
 AFTER DELETE ON trustedDevice
 WHEN NOT EXISTS (SELECT 1 FROM trustedDevice WHERE deviceId = old.deviceId)
 BEGIN
     DELETE FROM knownRoute WHERE deviceId = old.deviceId;
     DELETE FROM deviceMetadata WHERE deviceId = old.deviceId;
+    DELETE FROM failedContact WHERE deviceId = old.deviceId;
 END;
 
 -- Every read below selects the same columns in the same order, so one mapper serves all of them.

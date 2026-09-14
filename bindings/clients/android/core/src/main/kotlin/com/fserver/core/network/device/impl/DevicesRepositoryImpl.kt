@@ -44,6 +44,7 @@ internal class DevicesRepositoryImpl(
     private val jsonQrCodeParser: JsonQrCodeParser,
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
     private val storage: FServerStorage,
+    private val reachability: ReachabilityTracker,
 ) : DevicesRepository {
 
     override val discovery: DeviceDiscovery by lazy {
@@ -120,10 +121,15 @@ internal class DevicesRepositoryImpl(
             },
         )
             .onSuccess { session ->
+                reachability.recordSuccess(session.identity.deviceId)
+
                 rememberRoute(
                     deviceId = session.identity.deviceId,
                     endpoint = session.route.endpoint
                 )
+            }
+            .onFailure { failure ->
+                if (expected != null) reachability.recordFailure(expected, failure)
             }
             .map { }
     }

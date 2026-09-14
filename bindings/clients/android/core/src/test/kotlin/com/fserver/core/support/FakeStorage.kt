@@ -3,6 +3,7 @@ package com.fserver.core.support
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.auth.OfferedAuthMethod
+import com.fserver.core.network.device.model.FailedContact
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.LocalDevice
 import com.fserver.core.network.device.model.TrustedDevice
@@ -86,6 +87,9 @@ internal class FakeTrustedDevicesStore : TrustedDevicesStore {
     val routes: MutableMap<String, KnownRoute> = mutableMapOf()
     val networks: MutableMap<String, String?> = mutableMapOf()
 
+    private val contacts = MutableStateFlow<Map<String, FailedContact>>(emptyMap())
+    override val failedContacts: Flow<List<FailedContact>> = contacts.map { it.values.toList() }
+
     override suspend fun findByKey(publicKey: ByteArray): TrustedDevice? =
         _devices.value.find { it.publicKey.contentEquals(publicKey) }
 
@@ -107,6 +111,20 @@ internal class FakeTrustedDevicesStore : TrustedDevicesStore {
 
     override suspend fun recordLastNetwork(deviceId: String, networkId: String?) {
         networks[deviceId] = networkId
+    }
+
+    override suspend fun findFailedContact(deviceId: String): FailedContact? =
+        contacts.value[deviceId]
+
+    /** Same guard the real backend puts in SQL: nothing is kept for a device with no key on record. */
+    override suspend fun recordFailedContact(contact: FailedContact) {
+        if (_devices.value.none { it.deviceId == contact.deviceId }) return
+
+        contacts.update { it + (contact.deviceId to contact) }
+    }
+
+    override suspend fun clearFailedContact(deviceId: String) {
+        contacts.update { it - deviceId }
     }
 }
 

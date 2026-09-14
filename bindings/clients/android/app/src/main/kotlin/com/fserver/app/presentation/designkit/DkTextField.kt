@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.designkit
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,23 +59,54 @@ fun DkTextField(
     }
 }
 
-/** Bordered note block — the deck's quiet explanatory box, never an alert. */
+/** How loudly a [DkInfoBox] reads: an explanation, or something that went wrong. */
+enum class DkInfoTone { Quiet, Alert }
+
+/**
+ * Bordered note block.
+ *
+ * [DkInfoTone.Quiet] is the deck's explanatory box; [DkInfoTone.Alert] is the same shape in the
+ * error colour, for a state the user is expected to act on. [title] is optional and reads as the
+ * one-line summary above the body.
+ */
 @Composable
-fun DkInfoBox(text: String, modifier: Modifier = Modifier) {
-    Box(
+fun DkInfoBox(
+    text: String,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+    tone: DkInfoTone = DkInfoTone.Quiet,
+) {
+    val colors = MaterialTheme.colorScheme
+    val accent = when (tone) {
+        DkInfoTone.Quiet -> colors.outline
+        DkInfoTone.Alert -> colors.error
+    }
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
+                color = accent,
                 shape = MaterialTheme.shapes.medium,
             )
             .padding(horizontal = 13.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        title?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelLarge,
+                color = accent,
+            )
+        }
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = when (tone) {
+                DkInfoTone.Quiet -> colors.onSurfaceVariant
+                DkInfoTone.Alert -> colors.onSurface
+            },
         )
     }
 }

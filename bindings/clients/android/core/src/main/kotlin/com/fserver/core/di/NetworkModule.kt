@@ -2,9 +2,11 @@ package com.fserver.core.di
 
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
+import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.JsonQrCodeParser
+import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.impl.NetworkInfoRepositoryImpl
 import com.fserver.core.network.presence.PresenceController
@@ -23,6 +25,9 @@ internal val networkModule = module {
     singleOf(::InteractivePeerAuthenticator) bind PeerAuthenticator::class
 
     factoryOf(::JsonQrCodeParser)
+
+    // Bound under both types: whoever dials writes to the tracker, everyone else reads the SPI.
+    singleOf(::ReachabilityTracker) bind DeviceReachability::class
 
     singleOf(::DevicesRepositoryImpl) bind DevicesRepository::class
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class

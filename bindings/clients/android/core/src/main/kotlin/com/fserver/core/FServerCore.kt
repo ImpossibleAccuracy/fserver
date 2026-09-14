@@ -3,6 +3,7 @@ package com.fserver.core
 import com.fserver.core.di.coreModule
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.presence.PresenceController
@@ -54,6 +55,9 @@ class FServerCore private constructor(
 
     /** Discovery, connection attempts, and the list of devices currently reachable. */
     val deviceDetection: DevicesRepository by lazy { koin.get() }
+
+    /** Why devices this process tried to reach did not answer, until they answer again. */
+    val reachability: DeviceReachability by lazy { koin.get() }
 
     /** The network this device is on, as far as detection is concerned. */
     val networkInfo: NetworkInfoRepository by lazy { koin.get() }

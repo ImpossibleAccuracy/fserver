@@ -32,6 +32,8 @@ import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkIconButton
+import com.fserver.app.presentation.designkit.DkInfoBox
+import com.fserver.app.presentation.designkit.DkInfoTone
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkProgressBar
@@ -133,6 +135,14 @@ fun DeviceDetailsCard(
             DkIconButton(onClick = onClose, icon = Icons.Default.Close)
         }
 
+        device.unreachable?.let { unreachable ->
+            DkInfoBox(
+                title = stringResource(R.string.files_device_unreachable_title),
+                text = unreachable.explanation(),
+                tone = DkInfoTone.Alert,
+            )
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
             DkSectionLabel(text = stringResource(R.string.files_device_folders))
 
@@ -167,6 +177,38 @@ fun DeviceDetailsCard(
         }
     }
 }
+
+/**
+ * Why it could not be reached, when that was, and the ways left to reach it.
+ *
+ * Spelled out rather than reduced to "offline": the cases differ in what the user can do next, and
+ * the point of the block is the next step, not the diagnosis.
+ */
+@Composable
+private fun FilesState.UnreachableUi.explanation(): String = listOfNotNull(
+    when (reason) {
+        FilesState.ReasonUi.NoRoute -> stringResource(R.string.files_device_unreachable_no_route)
+
+        FilesState.ReasonUi.Unreachable -> transport
+            ?.let {
+                stringResource(
+                    R.string.files_device_unreachable_offline,
+                    stringResource(it.localizedName),
+                )
+            }
+            ?: stringResource(R.string.files_device_unreachable_offline_plain)
+
+        FilesState.ReasonUi.Refused -> stringResource(R.string.files_device_unreachable_refused)
+
+        FilesState.ReasonUi.NotAllowed ->
+            stringResource(R.string.files_device_unreachable_not_allowed)
+
+        FilesState.ReasonUi.Failed -> stringResource(R.string.files_device_unreachable_failed)
+    },
+    triedLabel?.let { stringResource(R.string.files_device_unreachable_tried, it) },
+    stringResource(R.string.files_device_unreachable_other_network).takeIf { onOtherNetwork },
+    stringResource(R.string.files_device_unreachable_hint),
+).joinToString(" ")
 
 @Composable
 private fun FolderRow(

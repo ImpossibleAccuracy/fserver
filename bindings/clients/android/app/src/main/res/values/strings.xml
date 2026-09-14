@@ -229,6 +229,17 @@
     <string name="files_folder_status_never">not synced yet</string>
     <string name="files_device_found_by">over %1$s</string>
     <string name="files_device_seen">seen %1$s</string>
+    <string name="files_device_unreachable_state">unreachable</string>
+    <string name="files_device_unreachable_title">Could not reach this device</string>
+    <string name="files_device_unreachable_no_route">There is no address on record for it, and nothing is announcing it right now.</string>
+    <string name="files_device_unreachable_offline">It was dialled over %1$s and did not answer.</string>
+    <string name="files_device_unreachable_offline_plain">It was dialled and did not answer.</string>
+    <string name="files_device_unreachable_refused">It answered and turned the request down.</string>
+    <string name="files_device_unreachable_not_allowed">Android is still withholding a permission or a radio this needs.</string>
+    <string name="files_device_unreachable_failed">The attempt broke before a session was up.</string>
+    <string name="files_device_unreachable_tried">Last tried %1$s.</string>
+    <string name="files_device_unreachable_other_network">This phone is on a different network from the one that device was last reached on.</string>
+    <string name="files_device_unreachable_hint">Reaching it without discovery: type its address, or scan its code.</string>
     <string name="files_network_offline">No network. Nothing can be reached until this device is back online.</string>
     <string name="files_network_no_lan">Mobile data only. Devices on your home network stay out of reach.</string>
     <string name="files_network_other">This is not the network your devices were last seen on.</string>

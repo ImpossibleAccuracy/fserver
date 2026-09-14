@@ -16,11 +16,15 @@ import com.fserver.app.presentation.screens.source.shared.preview.model.asPrevie
 import com.fserver.app.util.combineMany
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
+import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
+import com.fserver.core.network.device.model.FailedContact
+import com.fserver.core.network.device.model.ReachabilityFailure
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkCapability
+import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
@@ -50,6 +54,7 @@ class FilesViewModel(
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
     private val devicesRepository: DevicesRepository,
+    private val deviceReachability: DeviceReachability,
     private val networkInfoRepository: NetworkInfoRepository,
     private val filesController: FilesController,
 ) : ViewModel() {
@@ -102,8 +107,9 @@ class FilesViewModel(
         devicesRepository.devices.connected,
         registeredSourcesRepository.sources,
         filesController.overallContent,
-    ) { trusted, connected, sources, content ->
-        deviceList(trusted, connected, sources, content)
+        deviceReachability.failures,
+    ) { trusted, connected, sources, content, failures ->
+        deviceList(trusted, connected, sources, content, failures)
     }
 
     private val expandedDevice: Flow<FilesState.DeviceDetailsUi?> = editable
@@ -211,9 +217,12 @@ class FilesViewModel(
         connected: List<ForeignDevice>,
         sources: List<SourceEntry>,
         content: List<SyncFileEntry>,
+        failures: List<ReachabilityFailure>,
     ): List<FilesState.DeviceUi> {
         val online = connected.associateBy { it.deviceId }
         val itemCounts = itemCountsByDevice(sources, content)
+        // Only the failures worth reporting: the rest read as a device that is simply offline.
+        val unreachable = failures.filter { it.isWarning }.mapTo(mutableSetOf()) { it.deviceId }
 
         return (trusted.map { it.deviceId } + online.keys)
             .filter { id ->
@@ -230,6 +239,7 @@ class FilesViewModel(
                     kind = session?.kind ?: record?.metadata?.kind,
                     online = session != null,
                     itemCount = itemCounts[deviceId] ?: 0,
+                    unreachable = session == null && deviceId in unreachable,
                 )
             }
             .sortedWith(compareByDescending<FilesState.DeviceUi> { it.online }.thenBy { it.name })
@@ -254,7 +264,8 @@ class FilesViewModel(
         registeredSourcesRepository.sources,
         sourcesController.progress.passes,
         filesController.overallContent,
-    ) { trusted, device, knownRoute, sources, passes, content ->
+        reachability(deviceId),
+    ) { trusted, device, knownRoute, sources, passes, content, reach ->
         val record = trusted.latest(deviceId)
         val bySource = content.groupBy { it.sourceId }
 
@@ -267,6 +278,9 @@ class FilesViewModel(
             fingerprintLabel = device?.handshake?.fingerprint ?: record?.fingerprint?.value,
             foundBy = device?.foundBy ?: knownRoute?.transport,
             lastSeenLabel = record?.metadata?.lastSeen?.relative(),
+            unreachable = reach
+                ?.takeIf { device?.hasSession != true && it.failure.isWarning }
+                ?.toUi(lastNetworkId = record?.metadata?.lastNetworkId),
             folders = sources
                 .filter { it.deviceId == deviceId }
                 .map { source ->
@@ -276,6 +290,13 @@ class FilesViewModel(
                     )
                 },
         )
+    }
+
+    private fun reachability(deviceId: String): Flow<Reach?> = combine(
+        deviceReachability.device(deviceId),
+        networkInfoRepository.networkInfo,
+    ) { failure, network ->
+        failure?.let { Reach(failure = it, network = network) }
     }
 
     private fun networkWarning(): Flow<FilesState.NetworkWarningUi?> = combine(
@@ -296,6 +317,19 @@ class FilesViewModel(
 
             else -> null
         }
+    }
+
+    private data class Reach(
+        val failure: ReachabilityFailure,
+        val network: NetworkInfo?,
+    ) {
+        fun toUi(lastNetworkId: String?) = FilesState.UnreachableUi(
+            reason = failure.reason.toUi(),
+            triedLabel = failure.failedAt.relative(),
+            transport = failure.transport,
+            onOtherNetwork = lastNetworkId != null && network?.id != null &&
+                    lastNetworkId != network.id,
+        )
     }
 
     private data class Chrome(
@@ -352,6 +386,14 @@ private fun commonDirectoryOf(paths: List<String>): String? {
     }
 
     return shared.takeIf { it.isNotEmpty() }?.joinToString(separator = "/", prefix = "/")
+}
+
+private fun FailedContact.Reason.toUi(): FilesState.ReasonUi = when (this) {
+    FailedContact.Reason.NoRoute -> FilesState.ReasonUi.NoRoute
+    FailedContact.Reason.Unreachable -> FilesState.ReasonUi.Unreachable
+    FailedContact.Reason.Refused -> FilesState.ReasonUi.Refused
+    FailedContact.Reason.NotAllowed -> FilesState.ReasonUi.NotAllowed
+    FailedContact.Reason.Failed -> FilesState.ReasonUi.Failed
 }
 
 private fun Instant.relative(): String = DateUtils.getRelativeTimeSpanString(
