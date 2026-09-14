@@ -426,6 +426,7 @@
     <string name="diagnostics_copy_report">Copy report</string>
 
     <!-- Answering a peer's ask to host one of its sources on this device -->
+    <string name="sync_failed_toast">Could not sync with the device</string>
     <string name="sync_request_banner_title">Sync request</string>
     <string name="sync_request_banner_body">%1$s asks to sync \"%2$s\"</string>
     <string name="sync_request_banner_more">%1$d more waiting</string>

@@ -14,10 +14,10 @@ import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.PeerLocator
+import com.fserver.core.network.presence.PresenceController
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.storage.TrustedDevicesRepository
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,7 +46,10 @@ class ConnectViewModel(
     private val devicesRepository: DevicesRepository,
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val requirementsChecker: RequirementsChecker,
+    private val presence: PresenceController,
 ) : ViewModel() {
+    private var handover: PresenceController.Handover? = null
+
     private val effectChannel = Channel<ConnectUiEffect>(Channel.BUFFERED)
     val effects = effectChannel.receiveAsFlow()
 
@@ -61,8 +64,8 @@ class ConnectViewModel(
     /** Methods started at least once while this screen was open — the ones offered a retry. */
     private val startedMethods = MutableStateFlow<Set<TransportKind>>(emptySet())
 
-    /** One job per running method, so a single method can be stopped or restarted on its own. */
-    private val scanJobs = mutableMapOf<TransportKind, Job>()
+    /** What this screen currently asks `:core` to scan with. What actually runs is wider. */
+    private val requestedMethods = MutableStateFlow<Set<TransportKind>>(emptySet())
 
     /**
      * The device a handshake was started for, held until it shows up connected.
@@ -169,15 +172,21 @@ class ConnectViewModel(
      * app, so it is re-read whenever the screen comes back to the foreground.
      */
     fun onResumed() {
+        if (handover == null) handover = presence.handover()
+
         // Granting location changes nothing the platform reports on its own, so the network name
         // stays redacted until it is read again.
         networkInfoRepository.refresh()
         checkRequirements()
-        startDetection(TransportKind.MulticastDns)
+        request(TransportKind.MulticastDns, enabled = true)
     }
 
     fun onPaused() {
-        stopSearch()
+        release()
+    }
+
+    override fun onCleared() {
+        release()
     }
 
     fun onIntent(intent: ConnectIntent) {
@@ -254,12 +263,11 @@ class ConnectViewModel(
     }
 
     /**
-     * The row is the method's switch. Methods run independently, so stopping one leaves the rest
-     * scanning and what it already found on the list.
+     * The row is the method's switch. Methods are asked for independently, so dropping one leaves
+     * the rest scanning and what it already found on the list.
      */
     private fun toggle(method: TransportKind) {
-        val running = scanJobs.remove(method)
-        if (running != null) running.cancel() else startDetection(method)
+        request(method, enabled = method !in requestedMethods.value)
     }
 
     private fun checkRequirements() {
@@ -276,36 +284,33 @@ class ConnectViewModel(
             val open = openSetup.value
             if (open != null && next[open]?.isSatisfied == true) {
                 openSetup.value = null
-                startDetection(open)
-            }
-        }
-    }
-
-    private fun startDetection(method: TransportKind) {
-        if (scanJobs[method]?.isActive == true) return
-
-        startedMethods.update { it + method }
-        scanJobs[method] = viewModelScope.launch {
-            try {
-                devicesRepository.discovery.start(method)
-                    .onFailure { Timber.w(it, "could not start $method") }
-            } finally {
-                scanJobs.remove(method)
+                request(open, enabled = true)
             }
         }
     }
 
     /**
-     * Stops the scanners and nothing else — the list, and everything already on it, stays exactly
-     * where it is. Each stopped method can be started again on its own.
-     *
-     * Cancelling the job *is* the stop: `DeviceDiscovery.start` is a suspend function that runs
-     * until the scan ends, and it clears the method from `runningMethods` on its way out, so the
-     * UI follows. `DeviceDiscovery.stop` is for stopping a scan this screen did not start.
+     * Says what this screen wants and nothing more: a method someone else is also asking for keeps
+     * running when this screen drops it, and a method already scanning is not started twice.
      */
-    private fun stopSearch() {
-        scanJobs.values.toList().forEach(Job::cancel)
-        scanJobs.clear()
+    private fun request(method: TransportKind, enabled: Boolean) {
+        val handover = handover ?: return
+
+        requestedMethods.update { if (enabled) it + method else it - method }
+        if (enabled) startedMethods.update { it + method }
+
+        handover.setDiscovery(method, enabled)
+    }
+
+    /**
+     * Drops every ask this screen made, leaving the list and everything already on it exactly
+     * where it is.
+     */
+    private fun release() {
+        requestedMethods.value = emptySet()
+
+        handover?.close()
+        handover = null
     }
 
     private fun send(effect: ConnectUiEffect) {

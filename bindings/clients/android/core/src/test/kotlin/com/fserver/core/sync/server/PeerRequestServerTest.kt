@@ -235,6 +235,7 @@ class PeerRequestServerTest {
                 timeProvider = clock,
             ),
             uploads = FileUploadHandler(authorizer(), storage, node, clock, progress),
+            devicesRepository = mockk(relaxed = true),
             backgroundScope = background,
         )
 

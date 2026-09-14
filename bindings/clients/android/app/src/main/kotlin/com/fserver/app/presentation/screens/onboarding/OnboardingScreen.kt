@@ -83,7 +83,10 @@ fun OnboardingScreen(
     OnboardingScreen(
         state = state,
         pagerState = pagerState,
-        navigateToFiles = navigateToFiles,
+        navigateToFiles = {
+            viewModel.finish()
+            navigateToFiles()
+        },
     )
 }
 
@@ -129,26 +132,23 @@ private fun OnboardingScreen(
                     .padding(horizontal = DkSpacing.screenPadding),
                 verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)
             ) {
-                DkPrimaryButton(
-                    text = stringResource(
-                        if (state.isLast) R.string.action_done else R.string.action_next
-                    ),
-                    onClick = {
-                        if (state.isLast) {
-                            navigateToFiles()
-                        } else {
-                            scope.launch { pagerState.animateScrollToPage(state.pageIndex + 1) }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                // Both ways in - opening someone's files, sharing your own - are on the file list
-                // the tour ends at, so skipping loses nothing but the explanation.
-                if (!state.isLast) {
-                    DkGhostButton(
-                        text = stringResource(R.string.action_skip),
-                        onClick = navigateToFiles,
+                if (state.isLast) {
+                    DkPrimaryButton(
                         modifier = Modifier.fillMaxWidth(),
+                        text = stringResource(
+                            R.string.action_done
+                        ),
+                        onClick = {
+                            navigateToFiles()
+                        },
+                    )
+                } else {
+                    DkGhostButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = stringResource(R.string.action_next),
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(state.pageIndex + 1) }
+                        },
                     )
                 }
             }

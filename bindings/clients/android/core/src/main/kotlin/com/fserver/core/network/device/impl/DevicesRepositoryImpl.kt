@@ -112,9 +112,8 @@ internal class DevicesRepositoryImpl(
         return dial(
             arguments = arguments,
             byDeviceId = {
-                connectKnown(deviceId = it, request = request).verifiedAs(
-                    expected ?: it
-                )
+                connectKnown(deviceId = it, request = request)
+                    .verifiedAs(expected ?: it)
             },
             byRoute = {
                 network.requestManager.connect(peer = it, request = request).verifiedAs(expected)
@@ -159,7 +158,7 @@ internal class DevicesRepositoryImpl(
      * already open, and with the route the device is on now rather than the one it was on last
      * time - then the route written down last time.
      *
-     * Falling through to the next candidate is for a transport that could not carry the attempt.
+     * Falling through to the next candidate is for transport that could not carry the attempt.
      * A peer that answered and refused stays refused: asking again over another route would only
      * make it refuse twice, and prompt its user twice.
      */
@@ -249,7 +248,7 @@ internal class DevicesRepositoryImpl(
      * Best-effort on purpose: remembering a route is convenience,
      * and a storage failure must not turn an operation that succeeded into a failure.
      */
-    private suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
+    suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
         val route = endpoint.toKnownRoute()
 
         runCatching {
@@ -258,7 +257,10 @@ internal class DevicesRepositoryImpl(
                 route = route,
                 networkId = networkInfoRepository.currentNetworkId()
             )
-        }.onFailure { Timber.w(it, "could not remember route for $deviceId") }
+        }.fold(
+            onSuccess = { Timber.i("saved ${endpoint.address} for $deviceId") },
+            onFailure = { Timber.w(it, "could not remember route for $deviceId") }
+        )
     }
 
     private fun findNearbyEndpoint(arguments: PeerLocator.NearbyEndpoint): PeerRef? =

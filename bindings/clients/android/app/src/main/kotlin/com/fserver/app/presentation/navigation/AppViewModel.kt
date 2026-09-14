@@ -3,20 +3,26 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.domain.AdvertisementLifecycleHandler
+import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.composable.toUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
+import com.fserver.app.presentation.navigation.model.AppRootUiEffect
 import com.fserver.core.FServerCore
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
+import com.fserver.core.network.presence.PresenceController
+import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.progress.SourcePass
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,20 +33,30 @@ import timber.log.Timber
 /**
  * Owns where the app opens, and the connection prompts that can arrive over any screen.
  *
- * It used to start every automatic detection method as soon as the available capability set
- * changed. It no longer does: discovery belongs to the screen the user opened for it, which asks
- * for permissions per method and scans only once the user presses the button. A background pass
- * started here would turn a permission the user never saw asked into an empty list.
+ * Being findable and looking for others are decided by `:core`; this only feeds it the two things
+ * it cannot know - the user's settings, and whether anyone is in front of the app. Which methods
+ * run in the background is the engine's call, and the discovery screen takes discovery over while
+ * it is open, so a permission the user never saw asked never turns into an empty list.
  *
  * Incoming requests do live here, though, because they are not tied to a screen: the peer's
  * handshake is parked on the answer whatever the user happens to be looking at.
  */
 class AppViewModel(
+    private val sourcesController: SourcesController,
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
-    private val advertisement: AdvertisementLifecycleHandler,
+    private val appSettings: AppSettingsStore,
     private val fServerCore: FServerCore,
 ) : ViewModel() {
+    private val presence = fServerCore.presence
+
+    private val presenceHandover = presence.handover()
+
+    private val effectChannel = Channel<AppRootUiEffect>(Channel.BUFFERED)
+    val uiEffects = effectChannel.receiveAsFlow()
+
+    private val reportedFailures = mutableSetOf<String>()
+
     /** True while the app is in front of an authenticated user — advertising's other precondition. */
     private val isAppVisible = MutableStateFlow(false)
 
@@ -93,7 +109,31 @@ class AppViewModel(
             Timber.i("FServerCore finished serving: ${it?.message ?: "no error"}")
         }
 
-        advertisement.start(viewModelScope, isAppVisible)
+        // Paired device turning up on a scan syncs its sources without a tap.
+        fServerCore.startAutoSync()?.invokeOnCompletion {
+            Timber.i("FServerCore stopped auto-sync: ${it?.message ?: "no error"}")
+        }
+
+        viewModelScope.launch {
+            combine(
+                isAppVisible,
+                appSettings.discoverable,
+                appSettings.discoveryEnabled,
+                ::Triple,
+            ).collect { (visible, discoverable, discovery) ->
+                presenceHandover.setAdvertising(visible && discoverable)
+                presenceHandover.setDiscovery(
+                    // TODO: research, how to run nearby connections here too
+                    if (visible && discovery) PresenceController.BackgroundMethods else emptySet(),
+                )
+            }
+        }
+
+        viewModelScope.launch {
+            sourcesController.progress.passes.collect(::reportFailedPasses)
+        }
+
+        presence.start()
     }
 
     fun onIntent(intent: AppRootIntent) {
@@ -132,7 +172,7 @@ class AppViewModel(
         }
     }
 
-    /** Reports the precondition; [AdvertisementLifecycleHandler] decides what to do with it. */
+    /** Reports the precondition; `:core` decides what to do with it. */
     private fun handleForegroundState(intent: AppRootIntent.ForegroundStateChanged) {
         val isLifecycleForeground = intent.lifecycle.isAtLeast(Lifecycle.State.STARTED)
         val isAfterAuth = intent.destination != null &&
@@ -141,7 +181,30 @@ class AppViewModel(
         isAppVisible.value = isLifecycleForeground && isAfterAuth
 
         // Permissions changed/system toggle enabled, recheck
-        advertisement.recheck()
+        presence.recheck()
+    }
+
+    /**
+     * A pass that gave up is the only sign the user gets that a device could not be reached.
+     *
+     * TODO: a toast is a placeholder for the dead end, not the answer to it. What this should
+     *  become: `:core` reports why the pass failed - unreachable, refused, no lease - and the app
+     *  turns "unreachable" into something actionable, offering the ways of reaching a device that
+     *  do not need discovery (manual address, QR) and naming the device rather than the source.
+     *  See the reachability reporting entry in `docs/TODO_LIST.md`.
+     */
+    private suspend fun reportFailedPasses(passes: List<SourcePass>) {
+        val failed = passes
+            .filterIsInstance<SourcePass.Local>()
+            .filter { it.stage == SourcePass.Local.Stage.Failed }
+            .map { it.sourceId }
+
+        reportedFailures.retainAll(failed.toSet())
+
+        failed.filterNot(reportedFailures::contains).forEach { sourceId ->
+            reportedFailures.add(sourceId)
+            effectChannel.send(AppRootUiEffect.SyncFailed)
+        }
     }
 
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
@@ -151,6 +214,7 @@ class AppViewModel(
         }
 
     override fun onCleared() {
-        runBlocking { advertisement.stop() }
+        presenceHandover.close()
+        runBlocking { presence.stop() }
     }
 }

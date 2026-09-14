@@ -42,31 +42,42 @@ internal class SyncRunner(
     private val mutex = Mutex()
 
     /** One pass over every registered source. Waits for a pass already running. */
-    suspend fun runOnce() = mutex.withLock { runPass() }
+    suspend fun runOnce() = mutex.withLock { runPass(storage.sources.all()) }
 
     /**
      * One pass over every registered source, launched on the engine's background scope.
      * Skips if a pass is already running.
      */
-    fun runOnceAsync(): Job = backgroundScope.launch {
-        if (!mutex.tryLock()) {
-            Timber.w("One-off source pass skipped: another pass is still running")
-            return@launch
-        }
+    fun runOnceAsync(): Job = launchPass("one-off") { storage.sources.all() }
 
-        try {
-            runPass()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.w(e, "One-off source pass failed")
-        } finally {
-            mutex.unlock()
-        }
+    /**
+     * One pass over the sources paired with [deviceId] only, launched on the background scope.
+     * Skips if a pass is already running - that pass covers this device too.
+     */
+    fun runForDeviceAsync(deviceId: String): Job = launchPass("device $deviceId") {
+        storage.sources.all().filter { it.deviceId == deviceId }
     }
 
-    private suspend fun runPass() {
-        for (source in storage.sources.all()) {
+    private fun launchPass(label: String, select: suspend () -> List<SourceEntry>): Job =
+        backgroundScope.launch {
+            if (!mutex.tryLock()) {
+                Timber.w("Source pass ($label) skipped: another pass is still running")
+                return@launch
+            }
+
+            try {
+                runPass(select())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Source pass ($label) failed")
+            } finally {
+                mutex.unlock()
+            }
+        }
+
+    private suspend fun runPass(sources: List<SourceEntry>) {
+        for (source in sources) {
             try {
                 process(source)
 

@@ -37,6 +37,7 @@ class PresentationModuleTest {
                 String::class,
                 Context::class,
                 Destination.Files.Folder::class,
+                Destination.Files.SourceActions::class,
                 Destination.Pairing::class,
                 Destination.Settings.DeviceDetails::class,
                 Destination.Source.Done::class,

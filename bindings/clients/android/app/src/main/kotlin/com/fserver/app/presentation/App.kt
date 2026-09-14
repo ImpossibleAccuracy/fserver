@@ -1,5 +1,6 @@
 package com.fserver.app.presentation
 
+import android.widget.Toast
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -16,6 +17,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -26,7 +29,9 @@ import com.fserver.app.presentation.composable.IncomingFilesSheet
 import com.fserver.app.presentation.composable.PendingConfirmationDialog
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
+import com.fserver.app.R
 import com.fserver.app.presentation.navigation.model.AppRootIntent
+import com.fserver.app.presentation.navigation.model.AppRootUiEffect
 import com.fserver.app.presentation.navigation.LocalResultEventBus
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.rememberResultEventBus
@@ -74,6 +79,18 @@ fun FServerApp(
     viewModel: AppViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val syncFailedMessage = stringResource(R.string.sync_failed_toast)
+
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                AppRootUiEffect.SyncFailed ->
+                    Toast.makeText(context, syncFailedMessage, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val state = uiState ?: return
 
     val lifecycleOwner = LocalLifecycleOwner.current

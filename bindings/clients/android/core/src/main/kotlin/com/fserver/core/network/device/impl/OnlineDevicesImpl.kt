@@ -35,7 +35,8 @@ internal class OnlineDevicesImpl(
         network.requestManager.profiles,
     ) { peers, sessions, profiles -> merge(peers, sessions, profiles) }
 
-    private val all: Flow<List<ForeignDevice>> = snapshot.map { it.all }
+    override val all: Flow<List<ForeignDevice>> =
+        snapshot.map { it.all }.distinctUntilChanged()
 
     override val connected: Flow<List<ForeignDevice>> =
         snapshot.map { it.connected }.distinctUntilChanged()

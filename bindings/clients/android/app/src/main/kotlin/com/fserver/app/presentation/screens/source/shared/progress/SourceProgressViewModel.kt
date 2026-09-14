@@ -77,15 +77,7 @@ class SourceProgressViewModel(
     )
 
     init {
-        viewModelScope.launch {
-            entry.collect { source ->
-                if (source?.status == SourceEntry.Status.Active &&
-                    source.role == SourceEntry.Role.Initiator
-                ) {
-                    startSync()
-                }
-            }
-        }
+        startSync()
 
         viewModelScope.launch {
             pass.collect { pass ->

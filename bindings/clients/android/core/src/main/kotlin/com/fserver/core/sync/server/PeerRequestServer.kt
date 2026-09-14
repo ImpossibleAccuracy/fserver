@@ -3,6 +3,7 @@ package com.fserver.core.sync.server
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.sync.lease.SyncLeaseRegistry
@@ -49,6 +50,7 @@ internal class PeerRequestServer(
     private val leases: SyncLeaseHandler,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
+    private val devicesRepository: DevicesRepositoryImpl,
     private val backgroundScope: BackgroundScope,
 ) {
     private val isListening = AtomicBoolean(false)
@@ -110,6 +112,11 @@ internal class PeerRequestServer(
                 Timber.i("Device ${peer.deviceId} reconnected; dropping the previous session")
                 existing.job.cancel()
             }
+
+            devicesRepository.rememberRoute(
+                deviceId = session.identity.deviceId,
+                endpoint = session.route.endpoint,
+            )
 
             val job = backgroundScope.launch {
                 try {

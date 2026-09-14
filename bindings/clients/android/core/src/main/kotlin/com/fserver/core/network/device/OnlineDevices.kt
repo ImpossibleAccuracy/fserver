@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
  * The splits are disjoint - a device appears in exactly one of [connected], [handshaken] and [discovered].
  */
 interface OnlineDevices {
+    /** Every visible device, whatever the claim behind it - the union of the three splits. */
+    val all: Flow<List<ForeignDevice>>
+
     /** A session is up: requests can be sent without dialing anything. */
     val connected: Flow<List<ForeignDevice>>
 

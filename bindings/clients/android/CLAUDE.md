@@ -77,10 +77,10 @@ Always pass `--no-daemon`.
 # net tests
 ./gradlew --no-daemon :net:test
 
-# core tests
+# core tests (Android library: `:core:test` runs every variant but takes no `--tests`)
 ./gradlew --no-daemon :core:test
-./gradlew --no-daemon :core:test --tests "com.fserver.core.SyncEngineTest"
-./gradlew --no-daemon :core:test --tests "com.fserver.core.SyncEngineTest.evictDoesNotPropagateDelete"
+./gradlew --no-daemon :core:testDebugUnitTest --tests "com.fserver.core.SyncEngineTest"
+./gradlew --no-daemon :core:testDebugUnitTest --tests "com.fserver.core.SyncEngineTest.evictDoesNotPropagateDelete"
 
 # app tests
 ./gradlew --no-daemon :app:testDevDebugUnitTest

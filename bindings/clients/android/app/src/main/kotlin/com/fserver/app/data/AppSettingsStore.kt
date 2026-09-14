@@ -19,6 +19,9 @@ class AppSettingsStore(
     /** Whether the phone advertises itself, so trusted machines can find it. */
     val discoverable: Flow<Boolean> = flag(DISCOVERABLE, default = true)
 
+    /** Whether the phone looks for trusted devices on its own, so sync can start without a tap. */
+    val discoveryEnabled: Flow<Boolean> = flag(DISCOVERY, default = true)
+
     /**
      * TODO: nothing asks for the PIN yet — the launch-time lock screen is not built, and the PIN
      *  itself is never stored. This flag only drives what the settings screen shows.
@@ -32,6 +35,9 @@ class AppSettingsStore(
     val qrConnect: Flow<Boolean> = flag(QR_CONNECT, default = true)
 
     suspend fun setDiscoverable(enabled: Boolean) = set(DISCOVERABLE, enabled)
+
+    // TODO: no settings row drives this yet - the discovery toggle is still to be designed.
+    suspend fun setDiscoveryEnabled(enabled: Boolean) = set(DISCOVERY, enabled)
 
     suspend fun setPinEnabled(enabled: Boolean) = set(PIN_ENABLED, enabled)
 
@@ -52,6 +58,7 @@ class AppSettingsStore(
 
     private companion object {
         val DISCOVERABLE = booleanPreferencesKey("net_discoverable")
+        val DISCOVERY = booleanPreferencesKey("net_discovery")
         val PIN_ENABLED = booleanPreferencesKey("lock_pin_enabled")
         val BIOMETRIC = booleanPreferencesKey("lock_biometric")
         val QR_CONNECT = booleanPreferencesKey("auth_qr_connect")
