@@ -1,9 +1,11 @@
 package com.fserver.core.di
 
 import com.fserver.core.FServerConfig
+import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.store.FServerStorage
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 /** Work that must outlive the screen. Bound from the host config. */
@@ -21,6 +23,7 @@ internal fun coreModule(
     storage: FServerStorage,
 ): Module = module {
     includes(filesModule, networkModule, syncModule, requirementsModule)
+    singleOf(::LifecycleController)
 
     // From the host. The whole config is bound too: `:net` reads context and storage off it.
     single { storage }

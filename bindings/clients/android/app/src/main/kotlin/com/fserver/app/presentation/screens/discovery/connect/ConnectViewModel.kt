@@ -8,13 +8,14 @@ import com.fserver.app.presentation.screens.discovery.connect.model.ConnectInten
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectState
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectUiEffect
 import com.fserver.app.presentation.screens.discovery.shared.toCardUi
+import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.PeerLocator
-import com.fserver.core.network.presence.PresenceController
+import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -46,7 +47,7 @@ class ConnectViewModel(
     private val devicesRepository: DevicesRepository,
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val requirementsChecker: RequirementsChecker,
-    private val presence: PresenceController,
+    private val lifecycleController: LifecycleController,
 ) : ViewModel() {
     private var handover: PresenceController.Handover? = null
 
@@ -172,7 +173,7 @@ class ConnectViewModel(
      * app, so it is re-read whenever the screen comes back to the foreground.
      */
     fun onResumed() {
-        if (handover == null) handover = presence.handover()
+        if (handover == null) handover = lifecycleController.presenceHandover()
 
         // Granting location changes nothing the platform reports on its own, so the network name
         // stays redacted until it is read again.

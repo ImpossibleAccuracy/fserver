@@ -4,6 +4,7 @@ import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
+import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.sync.lease.SyncLeaseRegistry
@@ -48,6 +49,7 @@ internal class PeerRequestServer(
     private val fetchFiles: FetchFilesHandler,
     private val publishedIndexes: PublishIndexHandler,
     private val leases: SyncLeaseHandler,
+    private val reachability: ReachabilityTracker,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
     private val devicesRepository: DevicesRepositoryImpl,
@@ -117,6 +119,8 @@ internal class PeerRequestServer(
                 deviceId = session.identity.deviceId,
                 endpoint = session.route.endpoint,
             )
+
+            reachability.recordSuccess(peer.deviceId)
 
             val job = backgroundScope.launch {
                 try {

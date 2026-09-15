@@ -4,6 +4,8 @@ import com.fserver.common.exception.MalformedQrException
 import com.fserver.common.exception.NetworkException
 import com.fserver.common.utils.chainWith
 import com.fserver.core.Constants
+import com.fserver.core.di.BackgroundScope
+import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
@@ -33,8 +35,11 @@ import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsTransportEndpoint
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import timber.log.Timber
 
 internal class DevicesRepositoryImpl(
@@ -45,6 +50,8 @@ internal class DevicesRepositoryImpl(
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
     private val storage: FServerStorage,
     private val reachability: ReachabilityTracker,
+    private val autoAccept: AutoAcceptCoordinator,
+    private val backgroundScope: BackgroundScope,
 ) : DevicesRepository {
 
     override val discovery: DeviceDiscovery by lazy {
@@ -59,8 +66,17 @@ internal class DevicesRepositoryImpl(
         OnlineDevicesImpl(network = network, storage = storage)
     }
 
-    override val incoming: Flow<IncomingConnection>
-        get() = network.incomingConnections.incoming.map { IncomingConnectionWrapper(it) }
+    /**
+     * What the host has to ask its user about. A device the engine answers by itself never
+     * appears here - see [AutoAcceptCoordinator] for which ones those are.
+     */
+    override val incoming: Flow<IncomingConnection> = network.incomingConnections.incoming
+        .filterNot { autoAccept.handles(it) }
+        .map { IncomingConnectionWrapper(it) }
+        .shareIn(
+            scope = backgroundScope,
+            started = SharingStarted.Eagerly,
+        )
 
     override val pendingConfirmation: Flow<PendingConfirmation?>
         get() = interactiveAuthenticator.pending

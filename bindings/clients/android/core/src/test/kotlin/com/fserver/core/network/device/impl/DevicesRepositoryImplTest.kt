@@ -1,6 +1,7 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -79,6 +81,9 @@ class DevicesRepositoryImplTest {
             interactiveAuthenticator = InteractivePeerAuthenticator(),
             storage = storage,
             reachability = ReachabilityTracker(storage, MutableTimeProvider()),
+            // Never started, so every request goes to the host - which is what this suite is about.
+            autoAccept = AutoAcceptCoordinator(storage, backgroundScope = TestScope()),
+            backgroundScope = TestScope(),
         )
     }
 

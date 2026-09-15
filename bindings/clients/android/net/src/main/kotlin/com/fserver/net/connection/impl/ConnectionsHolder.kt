@@ -81,13 +81,18 @@ internal class ConnectionsHolder<M : Any>(
         // Only what this side dialed: an inbound socket's remote address is not a route back.
         if (relink != null) rememberProfile(route, link)
 
+        val dialled = relink != null
+
         registry.value[deviceId]?.let { existing ->
             val finished =
                 existing.state.value.let { it is PeerSession.State.Closed || it is PeerSession.State.Failed }
             if (!finished) {
-                // Raced with another caller; keep the first session and drop the spare link.
-                link.secure.close()
-                return@withLock existing
+                if (!supersedes(existing = existing, dialled = dialled, peerDeviceId = deviceId)) {
+                    // Raced with another caller; keep the first session and drop the spare link.
+                    link.secure.close()
+                    return@withLock existing
+                }
+                existing.close(CloseReason.Local("crossed with the link both ends keep"))
             }
             // A session that already died has not necessarily been unregistered yet.
             forgetDevice(deviceId)
@@ -106,12 +111,33 @@ internal class ConnectionsHolder<M : Any>(
             logger = config.logger,
             parentScope = scope,
             relink = relink,
-            onTerminated = { finished -> forgetDevice(finished.negotiated.peer.deviceId) },
+            onTerminated = ::forgetSession,
         )
 
         registry.update { it + (deviceId to session) }
         session.start(link)
         session
+    }
+
+    /**
+     * Two devices dialling each other at once end up with one link each and one registry slot, so
+     * one of the two links has to go. First-come-first-served cannot decide it: each end would
+     * keep whichever landed first there and close the other's, and when those disagree both links
+     * are closed and neither device is left with a session.
+     *
+     * The choice is therefore made from the device ids alone, which both ends read the same way:
+     * the link dialled by the lower id wins. Only a genuine crossing is decided this way - two
+     * links in the same direction are the plain race, where the one already in place stays.
+     */
+    private suspend fun supersedes(
+        existing: PeerSessionImpl<M>,
+        dialled: Boolean,
+        peerDeviceId: String,
+    ): Boolean {
+        if (existing.dialled == dialled) return false
+
+        val localDeviceId = config.identityStore.local().deviceId
+        return dialled == (localDeviceId < peerDeviceId)
     }
 
     /**
@@ -127,6 +153,16 @@ internal class ConnectionsHolder<M : Any>(
         )
         profileRegistry.update { it + (deviceId to profile) }
         return profile
+    }
+
+    /**
+     * A session that ended, clearing the slot only if it still holds it: a superseded session
+     * terminates after its replacement is in, and must not take that one out with it.
+     */
+    private fun forgetSession(session: PeerSessionImpl<M>) {
+        val deviceId = session.negotiated.peer.deviceId
+        if (registry.value[deviceId] !== session) return
+        forgetDevice(deviceId)
     }
 
     /** Removes a session and its profile from the registry. */

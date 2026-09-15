@@ -93,6 +93,9 @@ internal class PeerSessionImpl<M : Any>(
     val authMethodId: AuthMethodId
         get() = ((_state.value as? State.Ready)?.negotiated ?: negotiated).authMethodId
 
+    /** True when this side opened the link; an inbound session has nothing to dial back. */
+    val dialled: Boolean get() = relink != null
+
     private val incomingMessages =
         Channel<Inbound<M>>(capacity = policy.sessionConfig.incomingQueueCapacity)
     override val incoming: Flow<Inbound<M>> = incomingMessages.receiveAsFlow()

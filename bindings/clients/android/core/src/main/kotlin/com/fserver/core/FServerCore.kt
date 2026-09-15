@@ -2,15 +2,14 @@ package com.fserver.core
 
 import com.fserver.core.di.coreModule
 import com.fserver.core.files.FilesController
+import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
-import com.fserver.core.network.presence.PresenceController
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
-import com.fserver.core.sync.auto.AutoSyncCoordinator
 import com.fserver.core.sync.server.PeerRequestServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -62,11 +61,8 @@ class FServerCore private constructor(
     /** The network this device is on, as far as detection is concerned. */
     val networkInfo: NetworkInfoRepository by lazy { koin.get() }
 
-    /**
-     * When this device is findable and when it looks for others. Started by the host - see
-     * [PresenceController.start] - because only the host knows whether anyone is in front of it.
-     */
-    val presence: PresenceController by lazy { koin.get() }
+    /** Controls core's components lifecycle. */
+    val lifecycle: LifecycleController by lazy { koin.get() }
 
     /**
      * What the OS still demands - permissions, radios, hardware - before an operation can run.
@@ -99,28 +95,11 @@ class FServerCore private constructor(
         koin.get<PeerRequestServer>().stop()
 
     /**
-     * Starts watching whoever discovery finds: a device showing up with an active source
-     * registered against it gets a pass over those sources, and nothing else is disturbed.
-     *
-     * Starts no scan - the host does that through `deviceDetection.discovery` - so this only
-     * reacts while something is scanning or a peer dials in.
-     *
-     * @return `null` if already watching, a `Job` that completes when the watcher is canceled otherwise.
-     */
-    fun startAutoSync() =
-        koin.get<AutoSyncCoordinator>().start()
-
-    /** Stops the watcher. [startAutoSync] works again afterward. */
-    suspend fun stopAutoSync() =
-        koin.get<AutoSyncCoordinator>().stop()
-
-    /**
      * Tears down the internal graph and stops background work. After this the instance is dead -
      * build a new one rather than reusing it.
      */
     suspend fun shutdown() {
-        presence.stop()
-        stopAutoSync()
+        lifecycle.stopAll()
         stopServing()
         network.shutdown()
         koin.close()

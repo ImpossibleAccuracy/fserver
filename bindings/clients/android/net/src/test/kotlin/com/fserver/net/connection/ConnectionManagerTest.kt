@@ -25,6 +25,8 @@ import com.fserver.net.support.TestingAuthMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -38,6 +40,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -203,16 +206,47 @@ class ConnectionManagerTest {
         Unit
     }
 
+    @Test
+    fun `two devices dialling each other at once keep the same link`() = runBlocking {
+        // Ids fixed, because they are what decides the crossing: the lower one's dial survives.
+        val alice = node("alice", deviceId = "device-a")
+        val bob = node("bob", deviceId = "device-z")
+        acceptEverything(alice)
+        acceptEverything(bob)
+
+        withTimeout(TIMEOUT) {
+            listOf(
+                scope.async { connect(alice, "bob") },
+                scope.async { connect(bob, "alice") },
+            ).awaitAll()
+        }
+        delay(SETTLE)
+
+        val aliceSide = alice.incoming.sessions.value.single()
+        val bobSide = bob.incoming.sessions.value.single()
+
+        // Each end keeping its own dial would have it close the other's link, and neither would
+        // be left with a session at all.
+        assertTrue(aliceSide.state.value is PeerSession.State.Ready)
+        assertTrue(bobSide.state.value is PeerSession.State.Ready)
+
+        // What survived is alice's dial: a dialled session is routed by what was dialled, an
+        // accepted one by the id the peer proved.
+        assertEquals("peer-bob", aliceSide.route.deviceId)
+        assertEquals("device-a", bobSide.route.deviceId)
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private fun node(
         name: String,
         transports: List<Transport> = listOf(network.transport(name)),
         policy: ConnectionPolicy = POLICY,
+        deviceId: String = UUID.randomUUID().toString(),
     ): NetworkNode<TestMessage> = NetworkNode.create(
         NetworkConfig(
             dictionary = TestDictionary(),
-            identityStore = EphemeralIdentityStore(displayName = name),
+            identityStore = EphemeralIdentityStore(deviceId = deviceId, displayName = name),
             authMethods = listOf(TestingAuthMethod()),
             transports = transports,
             policy = policy,

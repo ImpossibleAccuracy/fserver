@@ -1,5 +1,6 @@
 package com.fserver.core.network.presence
 
+import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DeviceAdvertising
 import com.fserver.core.network.device.DeviceDiscovery

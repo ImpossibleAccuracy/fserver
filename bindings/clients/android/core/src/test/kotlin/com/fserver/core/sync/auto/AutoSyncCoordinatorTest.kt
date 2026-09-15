@@ -1,5 +1,6 @@
 package com.fserver.core.sync.auto
 
+import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.OnlineDevices
 import com.fserver.core.network.device.model.ForeignDevice

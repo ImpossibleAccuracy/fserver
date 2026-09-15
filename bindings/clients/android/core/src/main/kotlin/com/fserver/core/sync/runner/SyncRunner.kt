@@ -88,15 +88,13 @@ internal class SyncRunner(
                 Timber.e(e, "Source pass failed for ${source.id}")
             }
         }
-
-        //TODO:
-        // run remote setup on sources that are pending
     }
 
     /** One source, under a lease the peer agreed to. */
     private suspend fun process(source: SourceEntry) {
         // Allow sync only active sources
         if (source.status != SourceEntry.Status.Active) {
+            localIndexer.refresh(source) // refresh local index anyway
             Timber.i("Source ${source.id} skipped: ${source.status}")
             return
         }

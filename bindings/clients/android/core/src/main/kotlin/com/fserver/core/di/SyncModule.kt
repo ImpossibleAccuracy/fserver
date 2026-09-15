@@ -1,7 +1,7 @@
 package com.fserver.core.di
 
 import com.fserver.core.sync.SourcesController
-import com.fserver.core.sync.auto.AutoSyncCoordinator
+import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry

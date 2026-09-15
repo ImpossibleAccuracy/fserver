@@ -9,7 +9,8 @@ import com.fserver.core.network.device.impl.JsonQrCodeParser
 import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.impl.NetworkInfoRepositoryImpl
-import com.fserver.core.network.presence.PresenceController
+import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
+import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.net.security.PeerAuthenticator
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -33,4 +34,5 @@ internal val networkModule = module {
     singleOf(::NetworkInfoRepositoryImpl) bind NetworkInfoRepository::class
 
     singleOf(::PresenceController)
+    singleOf(::AutoAcceptCoordinator)
 }

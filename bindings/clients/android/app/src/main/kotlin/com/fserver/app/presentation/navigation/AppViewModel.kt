@@ -12,9 +12,10 @@ import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
 import com.fserver.app.presentation.navigation.model.AppRootUiEffect
 import com.fserver.core.FServerCore
+import com.fserver.core.lifecycle.LifecycleController
+import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
-import com.fserver.core.network.presence.PresenceController
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.channels.Channel
@@ -47,10 +48,9 @@ class AppViewModel(
     private val authManager: AuthManager,
     private val appSettings: AppSettingsStore,
     private val fServerCore: FServerCore,
+    private val lifecycleController: LifecycleController,
 ) : ViewModel() {
-    private val presence = fServerCore.presence
-
-    private val presenceHandover = presence.handover()
+    private val presenceHandover = lifecycleController.presenceHandover()
 
     private val effectChannel = Channel<AppRootUiEffect>(Channel.BUFFERED)
     val uiEffects = effectChannel.receiveAsFlow()
@@ -110,8 +110,17 @@ class AppViewModel(
         }
 
         // Paired device turning up on a scan syncs its sources without a tap.
-        fServerCore.startAutoSync()?.invokeOnCompletion {
+        lifecycleController.startAutoSync()?.invokeOnCompletion {
             Timber.i("FServerCore stopped auto-sync: ${it?.message ?: "no error"}")
+        }
+
+        // ...and one dialling in is answered without one either, so a pass does not wait on the
+        // user. Only for a device already trusted with a source registered against it; everyone
+        // else still arrives below as a prompt.
+        lifecycleController.startAutoAccept()
+
+        lifecycleController.presence.start()?.invokeOnCompletion {
+            Timber.i("FServerCore stopped presence: ${it?.message ?: "no error"}")
         }
 
         viewModelScope.launch {
@@ -132,8 +141,6 @@ class AppViewModel(
         viewModelScope.launch {
             sourcesController.progress.passes.collect(::reportFailedPasses)
         }
-
-        presence.start()
     }
 
     fun onIntent(intent: AppRootIntent) {
@@ -181,7 +188,7 @@ class AppViewModel(
         isAppVisible.value = isLifecycleForeground && isAfterAuth
 
         // Permissions changed/system toggle enabled, recheck
-        presence.recheck()
+        lifecycleController.presence.recheck()
     }
 
     /**
@@ -214,6 +221,6 @@ class AppViewModel(
 
     override fun onCleared() {
         presenceHandover.close()
-        runBlocking { presence.stop() }
+        runBlocking { lifecycleController.presence.stop() }
     }
 }

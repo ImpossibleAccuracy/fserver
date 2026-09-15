@@ -1,4 +1,4 @@
-package com.fserver.core.sync.auto
+package com.fserver.core.lifecycle.sync
 
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.device.DevicesRepository

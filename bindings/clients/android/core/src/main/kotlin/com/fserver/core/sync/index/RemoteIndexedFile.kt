@@ -19,4 +19,7 @@ data class RemoteIndexedFile(
     val revision: LocalIndexedFile.Revision? = null,
     /** When this device last heard the peer say so. */
     val seenAt: Instant,
-)
+) {
+    val isDeleted: Boolean
+        get() = state is LocalIndexedFile.State.Deleted
+}

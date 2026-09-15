@@ -32,6 +32,9 @@ data class LocalIndexedFile(
     val revision: Revision? = null,
     val processedAt: Instant,
 ) {
+    val isDeleted: Boolean
+        get() = state is State.Deleted
+
     /**
      * Whether a freshly scanned version of this file looks untouched, so a pass can skip it.
      *

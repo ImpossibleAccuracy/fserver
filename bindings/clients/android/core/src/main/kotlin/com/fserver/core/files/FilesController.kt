@@ -62,8 +62,8 @@ class FilesController internal constructor(
         val fileIds = localById.keys + remoteById.keys
 
         for (file in fileIds) {
-            val local = localById[file]
-            val remote = remoteById[file]
+            val local = localById[file]?.takeUnless { it.isDeleted }
+            val remote = remoteById[file]?.takeUnless { it.isDeleted }
 
             if (local != null && remote != null) {
                 result += local.toSyncEntry(

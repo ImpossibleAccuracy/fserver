@@ -1,11 +1,10 @@
-package com.fserver.core.network.presence
+package com.fserver.core.lifecycle.network
 
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
-import com.fserver.core.network.presence.PresenceController.Companion.RecheckInterval
 import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -21,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.forEach
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration.Companion.seconds
@@ -30,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
  *
  * One owner on purpose: both outlive any one screen, and whoever turns a radio on in passing does
  * it behind everyone else's back. The default policy, not the only one - a host that wants to drive
- * [DevicesRepository.advertising] and [DevicesRepository.discovery] itself simply never starts this.
+ * [com.fserver.core.network.device.DevicesRepository.advertising] and [com.fserver.core.network.device.DevicesRepository.discovery] itself simply never starts this.
  *
  * Nobody sets the state directly. Every caller that wants something running takes a [Handover] and
  * says what *it* wants; what runs is the union of every open handover, so a screen scanning for the

@@ -13,7 +13,6 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
-import kotlinx.coroutines.CancellationException
 
 internal class PeerIndexFetcher(
     private val storage: FServerStorage,
@@ -60,18 +59,10 @@ internal class PeerIndexFetcher(
      */
     suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> {
         networkController.incomingConnections.session(deviceId)?.let { session ->
-            reachability.recordSuccess(deviceId)
             return session
         }
 
-        return try {
-            tryToConnectByDeviceId(deviceId).also { reachability.recordSuccess(deviceId) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            reachability.recordFailure(deviceId, e)
-            throw e
-        }
+        return tryToConnectByDeviceId(deviceId)
     }
 
     private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
