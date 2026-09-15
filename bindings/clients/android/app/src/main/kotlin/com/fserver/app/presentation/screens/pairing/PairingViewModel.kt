@@ -2,8 +2,14 @@ package com.fserver.app.presentation.screens.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.R
 import com.fserver.app.domain.AuthManager
+import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.error.ErrorReporter
+import com.fserver.app.presentation.error.toAppError
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.model.UiText
+import com.fserver.app.presentation.permission.forLocator
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
@@ -14,6 +20,7 @@ import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.info.model.PeerLocator
+import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -38,6 +45,8 @@ class PairingViewModel(
     private val key: Destination.Pairing,
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
+    private val requirementsChecker: RequirementsChecker,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
     /** Only a [PeerLocator.DiscoveredDevice] has one before a session exists. */
     private val knownDeviceId: String? =
@@ -111,10 +120,27 @@ class PairingViewModel(
         }
     }
 
-    private suspend fun connect(): Boolean = devicesRepository
-        .connect(arguments = key.peerLocator, credentials = credentials())
-        .onFailure { t -> editable.update { it.copy(error = t.localizedMessage) } }
-        .isSuccess
+    private suspend fun connect(): Boolean {
+        if (!requirementsMet()) return false
+
+        return devicesRepository
+            .connect(arguments = key.peerLocator, credentials = credentials())
+            .onFailure { t -> editable.update { it.copy(error = t.toAppError()) } }
+            .isSuccess
+    }
+
+    /**
+     * Whatever the OS still wants before this locator can be dialled at all. Reported through the
+     * requirements sheet rather than the line under the button: a permission is a question, and
+     * the field below the button is for answers the device gave.
+     */
+    private suspend fun requirementsMet(): Boolean {
+        val requirements = requirementsChecker.forLocator(key.peerLocator)
+        if (requirements.isSatisfied) return true
+
+        reporter.report(requirements)
+        return false
+    }
 
     private fun credentials(): AuthCredentials? = when (selectedMethod.value) {
         AuthMethod.ConfirmFingerprint -> AuthCredentials.ConfirmFingerprint
@@ -135,6 +161,8 @@ class PairingViewModel(
         viewModelScope.launch {
             editable.update { it.copy(error = null) }
 
+            if (!requirementsMet()) return@launch
+
             devicesRepository.probe(key.peerLocator).fold(
                 onSuccess = { result ->
                     greeting.value = result
@@ -143,8 +171,14 @@ class PairingViewModel(
                     selectedMethod.update { it ?: result.methods.firstOrNull() }
                 },
                 onFailure = { t ->
-                    // TODO: add error messages parser util
-                    editable.update { it.copy(error = t.localizedMessage) }
+                    editable.update {
+                        it.copy(
+                            error = AppError(
+                                message = UiText.of(R.string.pairing_probe_failed),
+                                detail = t.toAppError().message,
+                            )
+                        )
+                    }
                 }
             )
         }
@@ -170,7 +204,7 @@ class PairingViewModel(
         return PairingState.DeviceUi(
             identity = identity,
             address = address,
-            protocolLine = greeting?.protocolVersions?.let(::protocolLine).orEmpty(),
+            protocolLine = greeting?.protocolVersions?.let(::protocolLine),
             offeredMethods = greeting?.methods.orEmpty(),
             selectedMethod = selectedMethod,
             // The greeting proves nothing; only a real session's identity is worth comparing.
@@ -180,16 +214,17 @@ class PairingViewModel(
         )
     }
 
-    private fun protocolLine(versions: IntRange): String = if (versions.first == versions.last) {
-        "protocol v${versions.first}"
-    } else {
-        "protocol v${versions.first}–${versions.last}"
-    }
+    private fun protocolLine(versions: IntRange): UiText =
+        if (versions.first == versions.last) {
+            UiText.of(R.string.pairing_protocol_one, versions.first)
+        } else {
+            UiText.of(R.string.pairing_protocol_range, versions.first, versions.last)
+        }
 }
 
 private data class Editable(
     val rememberDevice: Boolean = false,
     val isConnecting: Boolean = false,
     val password: String? = null,
-    val error: String? = null,
+    val error: AppError? = null,
 )

@@ -78,7 +78,7 @@ private fun ManualAddressScreen(
                 text = when (state.error) {
                     ManualAddressState.Error.InvalidPort -> stringResource(R.string.manual_error_port)
                     ManualAddressState.Error.Unreachable -> stringResource(R.string.manual_error_unreachable)
-                    is ManualAddressState.Error.Unknown -> state.error.message ?: "Unknown error"
+                    is ManualAddressState.Error.Failed -> state.error.error.message.asString()
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,

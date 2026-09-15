@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.activity
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.activity.model.ActivityIntent
 import com.fserver.app.presentation.screens.activity.model.ActivityState
@@ -15,11 +16,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class ActivityViewModel(
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     val state: StateFlow<ActivityState> = combine(
@@ -62,7 +63,7 @@ class ActivityViewModel(
         viewModelScope.launch {
             runCatching { sourcesController.runSync() }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "Retry pass failed") }
+                ?.let { reporter.report(it, "Retry pass failed") }
         }
     }
 

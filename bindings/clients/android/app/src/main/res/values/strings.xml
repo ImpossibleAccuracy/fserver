@@ -43,7 +43,6 @@
     <string name="connect_reconnect_hint">Tap to reconnect</string>
     <string name="connect_connect_hint">Tap to connect</string>
     <string name="connect_searching">Looking for devices on this network…</string>
-    <string name="connect_reconnect_failed">Could not reconnect</string>
     <string name="connect_empty_hint">Nothing here yet. Start a search, scan a QR code, or type an address.</string>
 
     <!-- The network card, shared by the connection and search screens -->
@@ -156,6 +155,8 @@
     <string name="pairing_address">address · %1$s</string>
     <string name="pairing_unknown_device">Unknown device</string>
     <string name="pairing_protocol_pending">checking what it offers…</string>
+    <string name="pairing_protocol_one">protocol v%1$d</string>
+    <string name="pairing_protocol_range">protocol v%1$d–%2$d</string>
     <string name="pairing_method_label">Authenticate via</string>
     <string name="pairing_method_confirm_fingerprint">Compare fingerprints</string>
     <string name="pairing_method_nearby_sas">Compare on-screen code</string>
@@ -166,7 +167,6 @@
     <string name="pairing_remember_device">Remember the device and do not ask again</string>
     <string name="pairing_confirm">Fingerprints match — connect</string>
     <string name="pairing_confirm_sas">Codes match — connect</string>
-    <string name="pairing_error_unreachable">Could not reach the device again.</string>
 
     <!-- QR scanner -->
     <string name="qr_title">Scan the code</string>
@@ -437,7 +437,7 @@
     <string name="diagnostics_copy_report">Copy report</string>
 
     <!-- Answering a peer's ask to host one of its sources on this device -->
-    <string name="sync_failed_toast">Could not sync with the device</string>
+    <string name="sync_failed_message">Could not sync with the device</string>
     <string name="sync_request_banner_title">Sync request</string>
     <string name="sync_request_banner_body">%1$s asks to sync \"%2$s\"</string>
     <string name="sync_request_banner_more">%1$d more waiting</string>
@@ -651,4 +651,41 @@
 
     <string name="source_done_to_files">To files</string>
     <string name="source_done_add_another">Add another source</string>
+    <!-- Error parser: one line per failure the app knows the cause of -->
+    <string name="error_requirements_title">Something is in the way</string>
+    <string name="error_requirements_solvable">This needs a permission or a radio that is not on yet.</string>
+    <string name="error_requirements_blocked">This phone cannot do that right now.</string>
+    <string name="error_unknown">Something went wrong.</string>
+    <string name="error_io">Could not read or write the file.</string>
+    <string name="error_permission_denied">Android turned the request down.</string>
+    <string name="error_detection_failed">Could not look for the device.</string>
+    <string name="error_device_unreachable">Could not reach the device.</string>
+    <string name="error_device_unreachable_detail">Nothing on record for it answered, and nothing is announcing it now.</string>
+    <string name="error_qr_malformed">This is not a connection code.</string>
+    <string name="error_identity_mismatch">A different device answered.</string>
+    <string name="error_identity_mismatch_detail">The connection was dropped. Check the address, then try again.</string>
+    <string name="error_no_route">There is no way to reach that device from here.</string>
+    <string name="error_transport">The connection could not be opened.</string>
+    <string name="error_timeout">The device did not answer in time.</string>
+    <string name="error_session_lost">The connection dropped.</string>
+    <string name="error_auth_rejected">The device refused the connection.</string>
+    <string name="error_handshake">The devices could not agree on how to talk.</string>
+    <string name="error_protocol">The other device sent something this version does not understand.</string>
+    <string name="error_source_duplicate">That folder is already synced with this device.</string>
+    <string name="error_source_rejected">The other device turned the source down.</string>
+    <string name="error_sync_failed">The sync pass did not finish.</string>
+    <string name="error_file_missing">The file is no longer there.</string>
+    <string name="error_transfer_corrupted">The file arrived damaged and was discarded.</string>
+    <string name="error_transfer_busy">Too many transfers at once. Try again in a moment.</string>
+    <string name="error_path_invalid">That location cannot be used.</string>
+    <string name="error_file_exists">A file with that name is already there.</string>
+    <string name="error_file_create_failed">The file could not be created.</string>
+
+    <string name="pairing_probe_failed">Could not read what the device offers.</string>
+    <string name="source_create_incomplete">The setup was left without a source, a target or a mode.</string>
+    <string name="source_prepare_detail_offload">%1$d found · %2$.2f GB</string>
+
+    <!-- "IMG_2210.jpg · 4.2 MB" — a value and what qualifies it, on one line -->
+    <string name="value_with_detail">%1$s · %2$s</string>
 </resources>
+

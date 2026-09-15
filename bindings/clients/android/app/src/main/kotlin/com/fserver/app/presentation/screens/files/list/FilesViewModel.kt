@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.files.list
 import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.screens.files.list.model.FilesUiEffect
@@ -45,7 +46,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,6 +57,7 @@ class FilesViewModel(
     private val deviceReachability: DeviceReachability,
     private val networkInfoRepository: NetworkInfoRepository,
     private val filesController: FilesController,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
     private val effects = Channel<FilesUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -206,7 +207,7 @@ class FilesViewModel(
         viewModelScope.launch {
             runCatching { sourcesController.runSync() }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "Sync from the files screen failed") }
+                ?.let { reporter.report(it, "Sync from the files screen failed") }
 
             refreshing.value = false
         }

@@ -14,7 +14,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
@@ -35,13 +34,11 @@ fun SourceActionsSheet(
     dismiss: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = LocalSnackbarController.current
 
     LaunchedEffect(Unit) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
                 SourceActionsUiEffect.Dismiss -> dismiss()
-                is SourceActionsUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
             }
         }
     }

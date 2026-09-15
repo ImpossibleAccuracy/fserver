@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.manual.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.error.AppError
 import com.fserver.core.network.info.model.PeerLocator
 
 @Immutable
@@ -19,6 +20,7 @@ data class ManualAddressState(
     sealed interface Error {
         data object InvalidPort : Error
         data object Unreachable : Error
-        data class Unknown(val message: String?) : Error
+        /** Anything the parser named; the line it carries is what the field shows. */
+        data class Failed(val error: AppError) : Error
     }
 }

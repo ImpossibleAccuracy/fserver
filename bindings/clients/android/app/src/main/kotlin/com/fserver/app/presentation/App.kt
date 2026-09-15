@@ -1,6 +1,5 @@
 package com.fserver.app.presentation
 
-import android.widget.Toast
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -17,8 +16,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -27,42 +24,41 @@ import com.fserver.app.presentation.composable.AppStyling
 import com.fserver.app.presentation.composable.IncomingConnectionSheet
 import com.fserver.app.presentation.composable.IncomingFilesSheet
 import com.fserver.app.presentation.composable.PendingConfirmationDialog
+import com.fserver.app.presentation.error.ErrorHandler
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
-import com.fserver.app.R
-import com.fserver.app.presentation.navigation.model.AppRootIntent
-import com.fserver.app.presentation.navigation.model.AppRootUiEffect
 import com.fserver.app.presentation.navigation.LocalResultEventBus
+import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.rememberResultEventBus
 import com.fserver.app.presentation.navigation.rememberSharedViewModelStoreNavEntryDecorator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
+import com.fserver.app.presentation.screens.activity.activityEntry
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
 import com.fserver.app.presentation.screens.discovery.connect.connectEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
-import com.fserver.app.presentation.screens.activity.activityEntry
 import com.fserver.app.presentation.screens.files.folder.filesFolderEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
 import com.fserver.app.presentation.screens.files.source.filesSourceActionsEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
-import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
-import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
-import com.fserver.app.presentation.screens.source.request.location.syncRequestLocationEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
-import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
-import com.fserver.app.presentation.screens.source.setup.conditions.sourceConditionsEntry
-import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
-import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
-import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
-import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
+import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
+import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
+import com.fserver.app.presentation.screens.source.request.location.syncRequestLocationEntry
+import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
+import com.fserver.app.presentation.screens.source.setup.conditions.sourceConditionsEntry
+import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
+import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
+import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
+import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
 import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
 
@@ -79,18 +75,6 @@ fun FServerApp(
     viewModel: AppViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.state.collectAsState()
-    val context = LocalContext.current
-    val syncFailedMessage = stringResource(R.string.sync_failed_toast)
-
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                AppRootUiEffect.SyncFailed ->
-                    Toast.makeText(context, syncFailedMessage, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     val state = uiState ?: return
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -117,6 +101,8 @@ fun FServerApp(
     AppStyling(
         navigator = navigator,
     ) {
+        ErrorHandler(viewModel.errors)
+
         NavHostGraph(navigator = navigator)
 
         // Above the graph rather than inside it: a peer knocks whatever screen is open.
@@ -168,8 +154,6 @@ fun FServerApp(
 
 @Composable
 private fun NavHostGraph(navigator: AppNavigator) {
-    // Around the display rather than inside one entry: a result outlives the screen that produced
-    // it, and has to still be there when the screen that asked comes back on top.
     CompositionLocalProvider(LocalResultEventBus provides rememberResultEventBus()) {
         NavDisplay(
             backStack = navigator.activeBackStack,

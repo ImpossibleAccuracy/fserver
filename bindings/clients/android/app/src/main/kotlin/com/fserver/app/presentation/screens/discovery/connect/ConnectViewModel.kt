@@ -4,18 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.firstAction
 import com.fserver.app.presentation.composable.model.toRows
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectIntent
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectState
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectUiEffect
 import com.fserver.app.presentation.screens.discovery.shared.toCardUi
 import com.fserver.core.lifecycle.LifecycleController
+import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.PeerLocator
-import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -28,7 +29,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 /**
  * The one place a device is picked: the devices already met, whatever a scan turns up, and the
@@ -48,6 +48,7 @@ class ConnectViewModel(
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val requirementsChecker: RequirementsChecker,
     private val lifecycleController: LifecycleController,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
     private var handover: PresenceController.Handover? = null
 
@@ -241,12 +242,7 @@ class ConnectViewModel(
                             awaitedDeviceId = deviceId
                             effectChannel.send(ConnectUiEffect.NavigatePairing(it.peer))
                         },
-                        onFailure = { t ->
-                            Timber.w(t, "could not reconnect $deviceId")
-                            effectChannel.send(
-                                ConnectUiEffect.ReconnectFailed(t.localizedMessage)
-                            )
-                        },
+                        onFailure = { reporter.report(it, "could not reconnect $deviceId") },
                     )
             } finally {
                 // The row stays busy forever if this is missed - reconnect() refuses to run again.

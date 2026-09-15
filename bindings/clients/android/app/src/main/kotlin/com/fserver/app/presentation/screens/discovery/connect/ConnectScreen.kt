@@ -27,7 +27,6 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.data.SampleData
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
@@ -75,8 +74,6 @@ fun ConnectScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val resolver = rememberRequirementResolver(onResolved = viewModel::onResumed)
-    val snackbar = LocalSnackbarController.current
-    val reconnectFailed = stringResource(R.string.connect_reconnect_failed)
 
     // Permissions can be granted or revoked from outside the app, so the reports are re-read
     // every time this screen comes back rather than cached from when it was opened.
@@ -91,9 +88,6 @@ fun ConnectScreen(
                 is ConnectUiEffect.DeviceSelected -> onDeviceSelected(effect.deviceId)
 
                 is ConnectUiEffect.NavigatePairing -> navigateToPairing(effect.peer)
-
-                is ConnectUiEffect.ReconnectFailed ->
-                    snackbar.showSnackbar(effect.reason ?: reconnectFailed)
             }
         }
     }

@@ -8,6 +8,4 @@ sealed interface ConnectUiEffect {
 
     /** Nothing is selected until the handshake is done, so the pairing screen gets it first. */
     data class NavigatePairing(val peer: PeerLocator) : ConnectUiEffect
-
-    data class ReconnectFailed(val reason: String?) : ConnectUiEffect
 }

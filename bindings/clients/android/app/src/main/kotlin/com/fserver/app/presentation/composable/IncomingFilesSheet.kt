@@ -111,7 +111,11 @@ fun IncomingFilesSheet(
             Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
                 request.files.forEach { file ->
                     Text(
-                        text = "${file.name} · ${file.sizeLabel}",
+                        text = stringResource(
+                            R.string.value_with_detail,
+                            file.name,
+                            file.sizeLabel,
+                        ),
                         style = DkType.monoLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

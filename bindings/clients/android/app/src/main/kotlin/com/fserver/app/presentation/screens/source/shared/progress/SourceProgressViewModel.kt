@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.shared.progress
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.shared.model.nameOf
 import com.fserver.app.presentation.screens.source.shared.model.toUi
@@ -21,13 +22,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SourceProgressViewModel(
     private val key: Destination.Source.Progress,
     private val sourcesRepository: RegisteredSourcesRepository,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val effects = Channel<SourceProgressUiEffect>(Channel.BUFFERED)
@@ -92,7 +93,7 @@ class SourceProgressViewModel(
         syncJob = viewModelScope.launch {
             runCatching { sourcesController.runSync() }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "First pass failed") }
+                ?.let { reporter.report(it, "First pass failed") }
         }
     }
 }

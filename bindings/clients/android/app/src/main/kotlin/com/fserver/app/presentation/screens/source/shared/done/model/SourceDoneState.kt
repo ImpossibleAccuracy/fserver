@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.source.shared.done.model
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.screens.source.shared.model.nameOf
@@ -36,17 +37,7 @@ data class SourceDoneState(
         }
 
     @Immutable
-    data class SummaryRow(@param:StringRes val labelRes: Int, val value: Value)
-
-    @Immutable
-    sealed interface Value {
-        data class Text(val text: String) : Value
-
-        data class Resource(@param:StringRes val res: Int, val args: List<Any> = emptyList()) :
-            Value
-
-        data class Size(@param:StringRes val res: Int, val bytes: Long) : Value
-    }
+    data class SummaryRow(@param:StringRes val labelRes: Int, val value: UiText)
 
     companion object {
         fun of(entry: SourceEntry, devices: List<TrustedDevice>): SourceDoneState {
@@ -55,9 +46,9 @@ data class SourceDoneState(
             val peerName = devices.nameOf(entry.deviceId)
 
             val summary = buildList {
-                add(SummaryRow(R.string.source_summary_source, Value.Text(entry.label)))
-                add(SummaryRow(role.peerLabelRes, Value.Text(peerName)))
-                add(SummaryRow(R.string.source_summary_mode, Value.Resource(mode.titleRes)))
+                add(SummaryRow(R.string.source_summary_source, UiText.Text(entry.label)))
+                add(SummaryRow(role.peerLabelRes, UiText.Text(peerName)))
+                add(SummaryRow(R.string.source_summary_mode, UiText.Resource(mode.titleRes)))
                 entry.location.value()?.let {
                     add(SummaryRow(role.locationLabelRes, it))
                 }
@@ -86,13 +77,13 @@ data class SourceDoneState(
                 SourceRoleUi.Follower -> R.string.source_summary_saved_to
             }
 
-        private fun SourceLocation.value(): Value? = when (this) {
+        private fun SourceLocation.value(): UiText? = when (this) {
             is SourceLocation.Internal ->
-                Value.Resource(R.string.sync_request_location_internal_title)
+                UiText.Resource(R.string.sync_request_location_internal_title)
 
-            SourceLocation.Media -> Value.Resource(R.string.source_summary_location_media)
+            SourceLocation.Media -> UiText.Resource(R.string.source_summary_location_media)
             is SourceLocation.Tree,
-            is SourceLocation.Directory -> readablePath()?.let(Value::Text)
+            is SourceLocation.Directory -> readablePath()?.let(UiText::Text)
 
             is SourceLocation.Root -> null
         }
@@ -103,7 +94,7 @@ data class SourceDoneState(
             is SyncMode.AutoUpload -> listOf(
                 SummaryRow(
                     R.string.source_summary_conditions,
-                    Value.Resource(
+                    UiText.Resource(
                         if (ignoreFilesBefore == null) R.string.source_summary_scope_all
                         else R.string.source_summary_scope_new
                     ),
@@ -114,7 +105,7 @@ data class SourceDoneState(
                 SummaryRow(R.string.source_summary_rule, policy.ruleValue()),
                 SummaryRow(
                     R.string.source_summary_pinned,
-                    Value.Resource(
+                    UiText.Resource(
                         if (keepPinned) R.string.source_summary_pinned_kept
                         else R.string.source_summary_pinned_evicted
                     ),
@@ -122,12 +113,12 @@ data class SourceDoneState(
             )
         }
 
-        private fun SyncMode.Offload.EvictPolicy.ruleValue(): Value = when (this) {
+        private fun SyncMode.Offload.EvictPolicy.ruleValue(): UiText = when (this) {
             is SyncMode.Offload.EvictPolicy.OlderThanDays ->
-                Value.Resource(R.string.source_summary_rule_older, listOf(days))
+                UiText.Resource(R.string.source_summary_rule_older, listOf(days))
 
             is SyncMode.Offload.EvictPolicy.LargerThanBytes ->
-                Value.Size(R.string.source_summary_rule_larger, bytes)
+                UiText.Size(R.string.source_summary_rule_larger, bytes)
         }
     }
 }

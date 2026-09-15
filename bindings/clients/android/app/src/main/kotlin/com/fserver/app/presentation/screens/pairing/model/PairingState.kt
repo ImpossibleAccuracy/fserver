@@ -1,6 +1,9 @@
 package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.R
+import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.model.UiText
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 
@@ -12,7 +15,7 @@ data class PairingState(
     val isConnecting: Boolean = false,
     val password: String? = null,
     /** Why the device could not be reached, or why the connection attempt failed. */
-    val error: String? = null,
+    val error: AppError? = null,
 ) {
     @Immutable
     data class DeviceUi(
@@ -24,8 +27,8 @@ data class PairingState(
         val identity: IdentityUi?,
         /** Null only when nothing about the address is known yet either — mid-QR-decode. */
         val address: String?,
-        /** Protocol version range the device offered, from the public greeting. */
-        val protocolLine: String,
+        /** Protocol version range the device offered, or null while the greeting is in flight. */
+        val protocolLine: UiText?,
         val offeredMethods: List<AuthMethod>,
         val selectedMethod: AuthMethod?,
         /** Empty until a session is actually up — the greeting proves nothing by itself. */
@@ -53,7 +56,7 @@ data class PairingState(
                 kind = DeviceKind.Laptop,
             ),
             address = "192.168.1.14:8384",
-            protocolLine = "protocol v1",
+            protocolLine = UiText.of(R.string.pairing_protocol_one, 1),
             offeredMethods = listOf(AuthMethod.ConfirmFingerprint),
             selectedMethod = AuthMethod.ConfirmFingerprint,
             fingerprintGroups = listOf("9f2c 4a01", "b7d3 e820", "15aa cc94", "0f6b 7e31"),

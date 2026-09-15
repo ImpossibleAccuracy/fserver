@@ -4,9 +4,7 @@
 
 Major:
 
-- Create unified error parser;
 - Link security settings screen to :core and :net;
-- Find and localize raw strings (mostly in compose and VMs);
 
 Minor:
 
@@ -14,7 +12,10 @@ Minor:
 - Organize domain and data layers;
 - Check TODOs in code;
 - Needs a lot of UI/UX improvements;
-- Fix sync errors displaying;
+- A failed sync pass carries no cause, so `AppViewModel` reports the same line for every one of
+  them. Type it the way a dial is typed and `toAppError` can say what broke;
+- `SourceAccessHandler`: a scan that broke lands on `Phase.Denied`, the same phase as access the
+  user refused. Needs a third phase before the screen can tell them apart;
 
 ## Core
 
@@ -30,14 +31,6 @@ RequirementsChecker:
   connectivity or the local-network permission.
 - `forNetworkInfo` has exactly one caller (`DeviceDiscoveryViewModel`). Any other screen naming the
   network gets the redacted placeholder with no explanation - see `Screen Data Wiring.md`.
-
-App side of the same audit:
-
-- `ManualAddressViewModel` / `QrScanViewModel`: no `forTransport(ManualAddress)` and no resolver, so
-  a missing permission reads as a failed connection.
-- `PairingViewModel.probe`: same, before pairing starts.
-- `SourceTargetHandler.startDetection`: `RequirementsNotMetException` goes to `Timber.w`, so the
-  user sees "nothing found" instead of being asked for the permission.
 
 Reachability (auto-sync without a scan running):
 
@@ -66,8 +59,6 @@ Architecture:
 
 Idea:
 
-- After the first confirmed synchronization, the devices can exchange randomly generated passwords,
-  which can then be used to connect without user intervention;
 - Implement actions logging into database;
 - Add incoming sync requests expiration;
 - Add "trash" to keep files before final deletion.

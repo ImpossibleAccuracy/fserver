@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.files.source
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.source.model.SourceActionsIntent
 import com.fserver.app.presentation.screens.files.source.model.SourceActionsState
@@ -18,12 +19,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SourceActionsViewModel(
     private val key: Destination.Files.SourceActions,
     private val registeredSources: RegisteredSourcesRepository,
     private val sourcesController: SourcesController,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
     private val effects = Channel<SourceActionsUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -77,13 +78,8 @@ class SourceActionsViewModel(
                 .fold(
                     onSuccess = { effects.send(SourceActionsUiEffect.Dismiss) },
                     onFailure = { failure ->
-                        Timber.w(failure, "Could not rename source ${key.sourceId}")
                         editable.update { it.copy(isBusy = false) }
-                        effects.send(
-                            SourceActionsUiEffect.ShowMessage(
-                                failure.localizedMessage ?: failure.toString()
-                            )
-                        )
+                        reporter.report(failure, "Could not rename source ${key.sourceId}")
                     },
                 )
         }
@@ -98,13 +94,8 @@ class SourceActionsViewModel(
                 .fold(
                     onSuccess = { effects.send(SourceActionsUiEffect.Dismiss) },
                     onFailure = { failure ->
-                        Timber.w(failure, "Could not remove source ${key.sourceId}")
                         editable.update { it.copy(isBusy = false, confirmingRemoval = false) }
-                        effects.send(
-                            SourceActionsUiEffect.ShowMessage(
-                                failure.localizedMessage ?: failure.toString()
-                            )
-                        )
+                        reporter.report(failure, "Could not remove source ${key.sourceId}")
                     },
                 )
         }

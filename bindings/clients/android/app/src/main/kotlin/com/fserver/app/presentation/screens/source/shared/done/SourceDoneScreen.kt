@@ -27,7 +27,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -36,11 +35,11 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkValueRow
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.done.model.SourceDoneState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.common.model.FileSize
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -136,7 +135,7 @@ private fun SourceDoneContent(
                 state.summary.forEachIndexed { index, row ->
                     DkValueRow(
                         title = stringResource(row.labelRes),
-                        value = row.value.text(),
+                        value = row.value.asString(),
                     )
                     if (index != state.summary.lastIndex) {
                         DkFadingDivider()
@@ -145,13 +144,6 @@ private fun SourceDoneContent(
             }
         }
     }
-}
-
-@Composable
-private fun SourceDoneState.Value.text(): String = when (this) {
-    is SourceDoneState.Value.Text -> text
-    is SourceDoneState.Value.Resource -> stringResource(res, *args.toTypedArray())
-    is SourceDoneState.Value.Size -> stringResource(res, FileSize(bytes).formatted())
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
@@ -165,23 +157,23 @@ private fun SourceDoneAutoUploadPreview() {
                 summary = listOf(
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_source,
-                        SourceDoneState.Value.Text("Photos and videos"),
+                        UiText.Text("Photos and videos"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_target,
-                        SourceDoneState.Value.Text("HOME-NAS"),
+                        UiText.Text("HOME-NAS"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_mode,
-                        SourceDoneState.Value.Resource(R.string.mode_autoupload_title),
+                        UiText.Resource(R.string.mode_autoupload_title),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_sent_from,
-                        SourceDoneState.Value.Resource(R.string.source_summary_location_media),
+                        UiText.Resource(R.string.source_summary_location_media),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_conditions,
-                        SourceDoneState.Value.Resource(R.string.source_summary_scope_new),
+                        UiText.Resource(R.string.source_summary_scope_new),
                     ),
                 ),
             ),
@@ -202,30 +194,30 @@ private fun SourceDoneOffloadPreview() {
                 summary = listOf(
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_source,
-                        SourceDoneState.Value.Text("DCIM/Projects"),
+                        UiText.Text("DCIM/Projects"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_target,
-                        SourceDoneState.Value.Text("HOME-NAS"),
+                        UiText.Text("HOME-NAS"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_mode,
-                        SourceDoneState.Value.Resource(R.string.mode_offload_title),
+                        UiText.Resource(R.string.mode_offload_title),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_sent_from,
-                        SourceDoneState.Value.Text("/storage/emulated/0/DCIM/Projects"),
+                        UiText.Text("/storage/emulated/0/DCIM/Projects"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_rule,
-                        SourceDoneState.Value.Resource(
+                        UiText.Resource(
                             R.string.source_summary_rule_older,
                             listOf(60),
                         ),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_pinned,
-                        SourceDoneState.Value.Resource(R.string.source_summary_pinned_kept),
+                        UiText.Resource(R.string.source_summary_pinned_kept),
                     ),
                 ),
             ),
@@ -247,19 +239,19 @@ private fun SourceDoneIncomingPreview() {
                 summary = listOf(
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_source,
-                        SourceDoneState.Value.Text("DCIM/Projects"),
+                        UiText.Text("DCIM/Projects"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_peer,
-                        SourceDoneState.Value.Text("MacBook-Pro"),
+                        UiText.Text("MacBook-Pro"),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_mode,
-                        SourceDoneState.Value.Resource(R.string.mode_sync_title),
+                        UiText.Resource(R.string.mode_sync_title),
                     ),
                     SourceDoneState.SummaryRow(
                         R.string.source_summary_saved_to,
-                        SourceDoneState.Value.Resource(
+                        UiText.Resource(
                             R.string.sync_request_location_internal_title,
                         ),
                     ),

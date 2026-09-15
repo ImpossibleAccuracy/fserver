@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.model.UiText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -46,6 +48,18 @@ class DkSnackbarController(
         coroutineScope.launch {
             snackbarHostState.showSnackbar(context.getString(resId))
         }
+    }
+
+    fun showSnackbar(text: UiText) {
+        showSnackbar(text.asString(context))
+    }
+
+    /** The detail follows the message on the same snackbar: two lines, one dismissal. */
+    fun showSnackbar(error: AppError) {
+        showSnackbar(
+            listOfNotNull(error.message, error.detail)
+                .joinToString(separator = "\n") { it.asString(context) }
+        )
     }
 }
 

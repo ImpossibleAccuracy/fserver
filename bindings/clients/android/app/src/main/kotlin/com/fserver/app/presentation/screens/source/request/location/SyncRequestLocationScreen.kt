@@ -24,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInfoBox
@@ -43,7 +42,6 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
-import timber.log.Timber
 
 @Composable
 fun SyncRequestLocationScreen(
@@ -55,20 +53,22 @@ fun SyncRequestLocationScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val snackbar = LocalSnackbarController.current
 
     val folderLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
-        val picked = uri?.let { context.persistHostTree(it) }
-        if (picked != null) viewModel.onIntent(picked)
+        uri?.let(context::persistHostTree)?.fold(
+            onSuccess = viewModel::onIntent,
+            // A folder the user picked and the app then cannot write to is not a no-op: without
+            // this the pick silently does nothing.
+            onFailure = { viewModel.report(it, "Could not take a write grant on %s".format(uri)) },
+        )
     }
 
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
                 SyncRequestLocationUiEffect.NavigateToProgress -> navigateToProgress()
-                is SyncRequestLocationUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
             }
         }
     }
@@ -170,22 +170,19 @@ private fun SyncRequestLocationContent(
     }
 }
 
-private fun Context.persistHostTree(uri: Uri): SyncRequestLocationIntent.FolderPicked? {
+private fun Context.persistHostTree(uri: Uri): Result<SyncRequestLocationIntent.FolderPicked> {
     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
-    runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
-        .onFailure {
-            Timber.w(it, "Could not take a write grant on %s", uri)
-            return null
+    return runCatching { contentResolver.takePersistableUriPermission(uri, flags) }
+        .map {
+            val label = runCatching { DocumentsContract.getTreeDocumentId(uri) }
+                .getOrNull()
+                ?.substringAfter(':')
+                ?.takeIf { segment -> segment.isNotEmpty() }
+                ?: uri.lastPathSegment.orEmpty()
+
+            SyncRequestLocationIntent.FolderPicked(uri = uri.toString(), label = "/$label")
         }
-
-    val label = runCatching { DocumentsContract.getTreeDocumentId(uri) }
-        .getOrNull()
-        ?.substringAfter(':')
-        ?.takeIf { it.isNotEmpty() }
-        ?: uri.lastPathSegment.orEmpty()
-
-    return SyncRequestLocationIntent.FolderPicked(uri = uri.toString(), label = "/$label")
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)

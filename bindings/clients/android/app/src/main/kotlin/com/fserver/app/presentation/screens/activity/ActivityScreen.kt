@@ -314,7 +314,11 @@ private fun BatchCard(transfer: TransferUi.Batch, modifier: Modifier = Modifier)
         }
         DkProgressBar(progress = transfer.progress)
         DkCardMeta(
-            text = "${transfer.fileName} · ${rateFormatted(transfer.bytesPerSecond)}",
+            text = stringResource(
+                R.string.value_with_detail,
+                transfer.fileName,
+                rateFormatted(transfer.bytesPerSecond),
+            ),
         )
     }
 }

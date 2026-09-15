@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.settings.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.labelRes
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -36,6 +36,7 @@ class DeviceDetailsViewModel(
     private val key: Destination.Settings.DeviceDetails,
     private val devicesRepository: DevicesRepository,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val effects = Channel<DeviceDetailsUiEffect>(Channel.BUFFERED)
@@ -74,7 +75,7 @@ class DeviceDetailsViewModel(
         when (intent) {
             DeviceDetailsIntent.DisconnectClicked -> viewModelScope.launch {
                 devicesRepository.disconnect(key.deviceId)
-                    .onFailure { Timber.w(it, "could not disconnect ${key.deviceId}") }
+                    .onFailure { reporter.report(it, "could not disconnect ${key.deviceId}") }
             }
 
             DeviceDetailsIntent.Reconnect -> viewModelScope.launch {
@@ -85,14 +86,7 @@ class DeviceDetailsViewModel(
                                 DeviceDetailsUiEffect.NavigatePairing(it.peer)
                             )
                         },
-                        onFailure = {
-                            Timber.w(it, "could not reconnect ${key.deviceId}")
-                            effects.send(
-                                DeviceDetailsUiEffect.ShowMessage(
-                                    it.localizedMessage ?: "Could not reconnect to this device"
-                                )
-                            )
-                        },
+                        onFailure = { reporter.report(it, "could not reconnect ${key.deviceId}") },
                     )
             }
 
@@ -104,7 +98,7 @@ class DeviceDetailsViewModel(
     private suspend fun forget() {
         trustedDevices.forget(key.deviceId)
         devicesRepository.disconnect(key.deviceId)
-            .onFailure { Timber.w(it, "forgot ${key.deviceId} but could not close its session") }
+            .onFailure { reporter.report(it, "forgot ${key.deviceId} but could not close its session") }
 
         effects.send(DeviceDetailsUiEffect.NavigateBack)
     }

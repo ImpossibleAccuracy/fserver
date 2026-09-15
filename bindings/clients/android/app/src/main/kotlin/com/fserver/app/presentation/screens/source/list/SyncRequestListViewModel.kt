@@ -2,31 +2,26 @@ package com.fserver.app.presentation.screens.source.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListIntent
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListState
-import com.fserver.app.presentation.screens.source.list.model.SyncRequestListUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SyncRequestListViewModel(
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val answering = MutableStateFlow(false)
-
-    private val effects = Channel<SyncRequestListUiEffect>(Channel.BUFFERED)
-    val uiEffects = effects.receiveAsFlow()
 
     val state: StateFlow<SyncRequestListState> = combine(
         sourcesController.incomingRequests,
@@ -57,12 +52,7 @@ class SyncRequestListViewModel(
         viewModelScope.launch {
             sourceIds.forEach { sourceId ->
                 sourcesController.rejectRequest(sourceId).exceptionOrNull()?.let { failure ->
-                    Timber.w(failure, "Could not decline source $sourceId")
-                    effects.send(
-                        SyncRequestListUiEffect.ShowMessage(
-                            failure.message ?: failure.toString()
-                        )
-                    )
+                    reporter.report(failure, "Could not decline source $sourceId")
                 }
             }
 

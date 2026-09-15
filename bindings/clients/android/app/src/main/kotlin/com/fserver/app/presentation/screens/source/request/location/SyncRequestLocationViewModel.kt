@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.request.location
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationIntent
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationState
@@ -20,12 +21,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SyncRequestLocationViewModel(
     private val key: Destination.Source.Request.Location,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val editable = MutableStateFlow(Editable())
@@ -76,12 +77,7 @@ class SyncRequestLocationViewModel(
             ).fold(
                 onSuccess = { effects.send(SyncRequestLocationUiEffect.NavigateToProgress) },
                 onFailure = { failure ->
-                    Timber.e(failure, "Could not accept source ${key.sourceId}")
-                    effects.send(
-                        SyncRequestLocationUiEffect.ShowMessage(
-                            failure.message ?: failure.toString()
-                        )
-                    )
+                    reporter.report(failure, "Could not accept source ${key.sourceId}")
                 },
             )
 

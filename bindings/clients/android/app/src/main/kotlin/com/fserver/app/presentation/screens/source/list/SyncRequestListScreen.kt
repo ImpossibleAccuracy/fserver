@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -39,7 +38,6 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListIntent
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListState
-import com.fserver.app.presentation.screens.source.list.model.SyncRequestListUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
@@ -53,15 +51,6 @@ fun SyncRequestListScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = LocalSnackbarController.current
-
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                is SyncRequestListUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
-            }
-        }
-    }
 
     SyncRequestListContent(
         modifier = modifier,

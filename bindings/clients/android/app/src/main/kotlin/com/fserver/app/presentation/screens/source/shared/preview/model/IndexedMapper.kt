@@ -97,8 +97,7 @@ fun SyncFileEntry.asPreviewFile(): SourcePreviewUi.File {
     )
 }
 
-fun directoryName(directory: String): String =
-    directory.substringAfterLast("/", missingDelimiterValue = "Unknown")
+fun directoryName(directory: String): String = directory.substringAfterLast("/")
 
 private val SyncFileEntry.directory: String?
     get() = path.substringBeforeLast('/', missingDelimiterValue = "")

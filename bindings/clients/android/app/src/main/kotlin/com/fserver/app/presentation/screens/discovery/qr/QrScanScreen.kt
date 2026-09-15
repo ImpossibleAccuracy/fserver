@@ -150,7 +150,7 @@ private fun ScanStatus(state: QrScanState) {
             text = when (state.error) {
                 QrScanState.Error.MalformedCode -> stringResource(R.string.qr_error_malformed)
                 QrScanState.Error.Unreachable -> stringResource(R.string.qr_error_unreachable)
-                is QrScanState.Error.Unknown -> state.error.message ?: "Unknown error"
+                is QrScanState.Error.Failed -> state.error.error.message.asString()
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,

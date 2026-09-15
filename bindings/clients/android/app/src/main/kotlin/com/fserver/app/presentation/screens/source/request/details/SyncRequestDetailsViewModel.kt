@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.request.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.details.model.SyncRequestDetailsIntent
 import com.fserver.app.presentation.screens.source.request.details.model.SyncRequestDetailsState
@@ -17,12 +18,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SyncRequestDetailsViewModel(
     private val key: Destination.Source.Request.Details,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val answering = MutableStateFlow(false)
@@ -60,12 +61,7 @@ class SyncRequestDetailsViewModel(
             sourcesController.rejectRequest(key.sourceId).fold(
                 onSuccess = { effects.send(SyncRequestDetailsUiEffect.NavigateBack) },
                 onFailure = { failure ->
-                    Timber.w(failure, "Could not decline source ${key.sourceId}")
-                    effects.send(
-                        SyncRequestDetailsUiEffect.ShowMessage(
-                            failure.message ?: failure.toString()
-                        )
-                    )
+                    reporter.report(failure, "Could not decline source ${key.sourceId}")
                 },
             )
 

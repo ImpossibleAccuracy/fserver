@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.source.setup.shared
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.setup.access.SourceAccessHandler
 import com.fserver.app.presentation.screens.source.setup.conditions.SourceConditionsHandler
 import com.fserver.app.presentation.screens.source.setup.mode.SourceModeHandler
@@ -25,6 +26,7 @@ class SourceSetupViewModel(
     private val filesController: FilesController,
     private val devicesRepository: DevicesRepository,
     private val sourcesController: SourcesController,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val editable = MutableStateFlow(SourceSetupState())
@@ -41,7 +43,13 @@ class SourceSetupViewModel(
 
     val pick = SourcePickHandler(viewModelScope)
 
-    val access = SourceAccessHandler(context, filesController, editable, viewModelScope)
+    val access = SourceAccessHandler(
+        context = context,
+        filesController = filesController,
+        flow = editable,
+        scope = viewModelScope,
+        reporter = reporter,
+    )
 
     val mode = SourceModeHandler(editable, viewModelScope)
 
@@ -50,6 +58,7 @@ class SourceSetupViewModel(
         sourcesController = sourcesController,
         flow = editable,
         scope = viewModelScope,
+        reporter = reporter,
     )
 
     fun start(kind: SourceKindUi) {

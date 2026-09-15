@@ -154,7 +154,7 @@ private fun SourceConditionsScreenContent(
                 title = stringResource(state.prepareTitleRes),
                 body = stringResource(state.prepareBodyRes, state.targetName),
                 progress = state.progress,
-                detail = state.progressDetail,
+                detail = state.progressDetail?.asString().orEmpty(),
             )
 
             SourceConditionsState.Phase.Explainer -> OffloadExplainer(
@@ -171,7 +171,7 @@ private fun SourceConditionsScreenContent(
             SourceConditionsState.Phase.Failed -> SourceAccessFailure(
                 modifier = bodyModifier,
                 title = stringResource(R.string.source_create_failed_title),
-                body = state.error.orEmpty(),
+                body = state.error?.asString().orEmpty(),
             )
         }
     }

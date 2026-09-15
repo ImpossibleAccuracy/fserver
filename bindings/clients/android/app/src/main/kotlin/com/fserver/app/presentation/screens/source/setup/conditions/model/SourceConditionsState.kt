@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.setup.conditions.model
 
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 
@@ -28,9 +29,9 @@ data class SourceConditionsState(
     /** Host: what trusted devices may do with the folder. */
     val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
     val progress: Float = 0f,
-    val progressDetail: String = "",
+    val progressDetail: UiText? = null,
     /** Why registering the source failed, when it did. */
-    val error: String? = null,
+    val error: UiText? = null,
 ) {
     enum class Phase {
         /**

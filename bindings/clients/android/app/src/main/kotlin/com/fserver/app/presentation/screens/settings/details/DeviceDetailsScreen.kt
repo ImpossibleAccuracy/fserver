@@ -24,7 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.LocalSnackbarController
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardMeta
@@ -54,14 +53,12 @@ fun DeviceDetailsScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = LocalSnackbarController.current
 
     LaunchedEffect(viewModel.uiEffects) {
         viewModel.uiEffects.collect { effect ->
             when (effect) {
                 DeviceDetailsUiEffect.NavigateBack -> navigateUp()
                 is DeviceDetailsUiEffect.NavigatePairing -> navigatePairing(effect.peer)
-                is DeviceDetailsUiEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
             }
         }
     }

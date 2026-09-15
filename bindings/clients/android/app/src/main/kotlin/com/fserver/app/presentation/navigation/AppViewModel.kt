@@ -3,14 +3,17 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.R
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.composable.toUi
+import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.error.ErrorBus
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
-import com.fserver.app.presentation.navigation.model.AppRootUiEffect
 import com.fserver.core.FServerCore
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.lifecycle.network.PresenceController
@@ -18,12 +21,10 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.progress.SourcePass
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -49,11 +50,15 @@ class AppViewModel(
     private val appSettings: AppSettingsStore,
     private val fServerCore: FServerCore,
     private val lifecycleController: LifecycleController,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val presenceHandover = lifecycleController.presenceHandover()
 
-    private val effectChannel = Channel<AppRootUiEffect>(Channel.BUFFERED)
-    val uiEffects = effectChannel.receiveAsFlow()
+    /**
+     * Every failure the app raised, wherever it was raised. Collected once at the root — see
+     * [com.fserver.app.presentation.error.ErrorHandler].
+     */
+    val errors = errorBus.errors
 
     private val reportedFailures = mutableSetOf<String>()
 
@@ -175,7 +180,7 @@ class AppViewModel(
 
         viewModelScope.launch {
             runCatching { verdict(request) }
-                .onFailure { Timber.w(it, "could not answer ${request.deviceName}") }
+                .onFailure { errorBus.report(it, "could not answer ${request.deviceName}") }
         }
     }
 
@@ -196,10 +201,10 @@ class AppViewModel(
      * the files screen, off `DeviceReachability`; this is what is left over - a pass that broke
      * for some other reason, over whatever screen the user is on.
      *
-     * TODO: a pass failure is still only a string, so this toasts the same line for every one of
-     *  them. Type it the way a dial is typed - see `docs/TODO_LIST.md`.
+     * TODO: a pass carries no cause, so every one of them reads the same. Type it the way a dial
+     *  is typed and the parser can say what broke - see `docs/TODO_LIST.md`.
      */
-    private suspend fun reportFailedPasses(passes: List<SourcePass>) {
+    private fun reportFailedPasses(passes: List<SourcePass>) {
         val failed = passes
             .filterIsInstance<SourcePass.Local>()
             .filter { it.stage == SourcePass.Local.Stage.Failed }
@@ -209,7 +214,7 @@ class AppViewModel(
 
         failed.filterNot(reportedFailures::contains).forEach { sourceId ->
             reportedFailures.add(sourceId)
-            effectChannel.send(AppRootUiEffect.SyncFailed)
+            errorBus.report(AppError(UiText.of(R.string.sync_failed_message)))
         }
     }
 

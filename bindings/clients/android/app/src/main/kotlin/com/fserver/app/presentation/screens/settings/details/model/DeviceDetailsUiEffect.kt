@@ -7,6 +7,4 @@ sealed interface DeviceDetailsUiEffect {
     data object NavigateBack : DeviceDetailsUiEffect
 
     data class NavigatePairing(val peer: PeerLocator) : DeviceDetailsUiEffect
-
-    data class ShowMessage(val message: String) : DeviceDetailsUiEffect
 }

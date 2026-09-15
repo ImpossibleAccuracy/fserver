@@ -41,6 +41,8 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
+import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
@@ -183,7 +185,7 @@ private fun PairingScreenContent(
 
                 if (state.error != null) {
                     Text(
-                        text = state.error,
+                        text = state.error.message.asString(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -244,7 +246,8 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
                     device.identity?.name ?: stringResource(R.string.pairing_unknown_device)
                 )
                 DkCardMeta(
-                    device.protocolLine.ifEmpty { stringResource(R.string.pairing_protocol_pending) }
+                    device.protocolLine?.asString()
+                        ?: stringResource(R.string.pairing_protocol_pending)
                 )
             }
         }
@@ -303,7 +306,7 @@ private fun CardFact(text: String) {
  * land here, because a card built from half a handshake would invite the user to trust it.
  */
 @Composable
-private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
+private fun PairingUnavailable(error: AppError?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -321,15 +324,17 @@ private fun PairingUnavailable(error: String?, modifier: Modifier = Modifier) {
                 )
             } else {
                 Text(
-                    text = stringResource(R.string.pairing_error_unreachable),
+                    text = error.message.asString(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                error.detail?.let {
+                    Text(
+                        text = it.asString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -379,7 +384,7 @@ private fun PairingScreenUnresolvedPreview() {
                 device = PairingState.DeviceUi(
                     identity = null,
                     address = "192.168.1.42:8384",
-                    protocolLine = "protocol v1",
+                    protocolLine = UiText.of(R.string.pairing_protocol_one, 1),
                     offeredMethods = listOf(AuthMethod.ConfirmFingerprint),
                     selectedMethod = AuthMethod.ConfirmFingerprint,
                     fingerprintGroups = emptyList(),

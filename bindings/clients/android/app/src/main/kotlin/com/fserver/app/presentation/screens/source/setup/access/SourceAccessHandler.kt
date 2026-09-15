@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.setup.access
 
 import android.content.Context
+import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessUiEffect
@@ -26,7 +27,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class SourceAccessHandler(
     private val context: Context,
@@ -34,6 +34,7 @@ class SourceAccessHandler(
 
     private val flow: MutableStateFlow<SourceSetupState>,
     private val scope: CoroutineScope,
+    private val reporter: ErrorReporter,
 ) {
     private val editable = MutableStateFlow(Editable())
 
@@ -213,9 +214,10 @@ class SourceAccessHandler(
                     }
                 },
                 onFailure = {
-                    Timber.e(it)
+                    reporter.report(it, "Could not read the picked source")
 
-                    // TODO
+                    // TODO: a scan that broke is not the same as access refused; the phase needs
+                    //  a third case before the screen can say which happened.
                     editable.update { it.copy(phase = SourceAccessState.Phase.Denied) }
                 }
             )

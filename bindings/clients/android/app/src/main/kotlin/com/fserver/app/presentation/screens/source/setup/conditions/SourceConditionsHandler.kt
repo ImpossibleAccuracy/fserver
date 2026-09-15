@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.source.setup.conditions
 
+import com.fserver.app.R
+import com.fserver.app.presentation.error.ErrorReporter
+import com.fserver.app.presentation.error.toAppError
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
@@ -26,7 +30,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import timber.log.Timber
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
@@ -37,6 +40,7 @@ class SourceConditionsHandler(
 
     private val flow: MutableStateFlow<SourceSetupState>,
     private val scope: CoroutineScope,
+    private val reporter: ErrorReporter,
 ) {
     private var prepareJob: Job? = null
 
@@ -141,13 +145,9 @@ class SourceConditionsHandler(
         editable.value = Editable()
     }
 
-    private companion object {
-        const val IncompleteAnswers = "The flow was left without a source, a target or a mode."
-    }
-
     private suspend fun prepare() {
         editable.update {
-            it.copy(preparing = true, progress = 0f, progressDetail = "", error = null)
+            it.copy(preparing = true, progress = 0f, progressDetail = null, error = null)
         }
 
         val mode = flow.value.mode
@@ -160,9 +160,17 @@ class SourceConditionsHandler(
                 it.copy(
                     progress = done.toFloat() / steps,
                     progressDetail = if (mode == SourceModeUi.Offload) {
-                        "found ${done * 214} · ${done * 184 / 100.0} GB"
+                        UiText.of(
+                            R.string.source_prepare_detail_offload,
+                            done * 214,
+                            done * 184 / 100.0,
+                        )
                     } else {
-                        "${done * 340} of ${flow.value.source?.files}"
+                        UiText.of(
+                            R.string.source_progress_detail,
+                            done * 340,
+                            flow.value.source?.files ?: 0,
+                        )
                     },
                 )
             }
@@ -183,7 +191,9 @@ class SourceConditionsHandler(
         val syncMode = shared.mode?.let(::toSyncMode)
 
         if (source == null || deviceId == null || syncMode == null) {
-            editable.update { it.copy(preparing = false, error = IncompleteAnswers) }
+            editable.update {
+                it.copy(preparing = false, error = UiText.of(R.string.source_create_incomplete))
+            }
             return
         }
 
@@ -198,9 +208,9 @@ class SourceConditionsHandler(
                 effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
             },
             onFailure = { failure ->
-                Timber.e(failure, "Could not register the source")
+                reporter.report(failure, "Could not register the source")
                 editable.update {
-                    it.copy(preparing = false, error = failure.message ?: failure.toString())
+                    it.copy(preparing = false, error = failure.toAppError().message)
                 }
             },
         )
@@ -241,7 +251,7 @@ class SourceConditionsHandler(
         val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
         val preparing: Boolean = false,
         val progress: Float = 0f,
-        val progressDetail: String = "",
-        val error: String? = null,
+        val progressDetail: UiText? = null,
+        val error: UiText? = null,
     )
 }

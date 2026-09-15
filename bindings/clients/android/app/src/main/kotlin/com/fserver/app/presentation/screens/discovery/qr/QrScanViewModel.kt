@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
+import com.fserver.app.presentation.error.ErrorReporter
+import com.fserver.app.presentation.error.toAppError
 import com.fserver.common.exception.MalformedQrException
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.model.PeerLocator
+import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +20,8 @@ import kotlinx.coroutines.launch
 
 class QrScanViewModel(
     private val devicesRepository: DevicesRepository,
+    private val requirementsChecker: RequirementsChecker,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(QrScanState())
@@ -40,6 +46,15 @@ class QrScanViewModel(
                 )
             }
 
+            // A scanned address is dialled the same way a typed one is, so it is gated the same
+            // way: without the check a withheld permission reads as an unreachable code.
+            val requirements = requirementsChecker.forTransport(TransportKind.ManualAddress)
+            if (!requirements.isSatisfied) {
+                _state.update { it.copy(isConnecting = false) }
+                reporter.report(requirements)
+                return@launch
+            }
+
             devicesRepository
                 .probe(PeerLocator.QrPayload(payload))
                 .fold(
@@ -61,11 +76,10 @@ class QrScanViewModel(
                                 )
                             }
                         } else {
-                            // TODO: add error messages parser util
                             _state.update {
                                 it.copy(
                                     isConnecting = false,
-                                    error = QrScanState.Error.Unknown(e.localizedMessage)
+                                    error = QrScanState.Error.Failed(e.toAppError()),
                                 )
                             }
                         }
