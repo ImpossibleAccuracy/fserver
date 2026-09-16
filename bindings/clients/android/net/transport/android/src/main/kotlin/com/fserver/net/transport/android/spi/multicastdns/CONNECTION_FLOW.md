@@ -13,7 +13,7 @@ sequenceDiagram
     participant N as LAN (mDNS)
     participant B as Device 2 (initiator)
 
-    A->>A: listen() binds ServerSocket(0) -> MulticastDnsPortBinder
+    A->>A: listen() binds a preferred port -> MulticastDnsPortBinder
     A->>N: registerService(name, TXT, port)
     N-->>B: serviceFound + resolve
     B->>B: PeerRegistry.record() -> DiscoveredPeer
@@ -34,9 +34,11 @@ PeerDiscoveryImpl.startAdvertising()          :net  discovery/PeerDiscoveryImpl.
     MulticastDnsAdvertisingService.start()     NsdManager.registerService
 ```
 
-The published port comes from the transport, not from a constant:
-`MulticastDnsTransport.TransportListener.listen()` binds `ServerSocket(0)` and writes
-`localPort` into `MulticastDnsPortBinder`.
+The published port comes from the transport:
+`MulticastDnsTransport.TransportListener.listen()` takes the first free port of
+`LanPorts.PREFERRED` - an ephemeral one only when all of them are busy - and writes `localPort`
+into `MulticastDnsPortBinder`. The list is protocol, not an Android choice: see
+`Connection Protocol.md` §4.6.
 
 **Ordering matters.** Until `ConnectionManager.incoming` is collected, no listener runs, no port
 is bound, and the advertiser logs a warning and publishes nothing. Collect `incoming` first, then
@@ -72,10 +74,15 @@ ConnectionManagerImpl.connect(DiscoveredPeer)   :net  connection/ConnectionManag
   TransportSelector.order(routes, policy)        route preference
   connect(PeerRef) -> openLink()
     TransportSelector.forEndpoint()              -> MulticastDnsTransport
-    transport.open(endpoint)                     Socket().connect(host:port, connectTimeout)
+    transport.open(endpoint)                     its port first, then the rest of LanPorts
     FramePump(scope, channel)                    :net  handshake/FramePump.kt
     HandshakeNegotiator.negotiate(Initiator)     HELLO -> HELLO_ACK -> READY
 ```
+
+A dial sweeps the port list only while the host keeps refusing - a refusal means the device is
+there and has moved ports, while a timeout means it is not on the network and the rest of the list
+would only multiply the wait. The channel carries the port that answered, so the route written down
+is the live one.
 
 `FramePump` subscribes to `Transport.Channel.inbound` exactly once and buffers into an unlimited
 channel. Without it the handshake and the session would each collect the same hot flow and drop
@@ -100,11 +107,12 @@ ConnectionManagerImpl.incoming                  merge of every transport's liste
 Nothing is accepted on its own: an auto-accept would hand any device on the network a channel
 into the app. Until `accept()` or `reject()` is called, the socket just sits there.
 
-Two things are deliberately missing from an inbound connection:
+An inbound connection is still no route home:
 
 - Its endpoint is `isDialable = false`. The port on an accepted socket is the peer's ephemeral
-  source port, so it cannot be dialed back; `supports()` and `open()` reject it, and the real
-  return route only ever comes from this device's own mDNS scan.
+  source port, so that exact route is never dialed back. `open()` takes it anyway and throws the
+  port away: only the host survives, and the ports tried are `LanPorts.PREFERRED`. A route the scan
+  resolved is still the better one, since it names the port the peer actually took.
 - Its session gets `relink = null`. This side never dialed, so it has nothing to redial after a
   drop; it closes and waits for the next inbound connection.
 

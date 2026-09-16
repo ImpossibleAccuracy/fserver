@@ -47,10 +47,19 @@ internal object SocketTuning {
             .onFailure { Timber.w(it, "Cannot set the receive buffer") }
     }
 
-    /** Same, for the accepting side: what is set here is inherited by every accepted socket. */
+    /**
+     * Same, for the accepting side: what is set here is inherited by every accepted socket.
+     *
+     * `reuseAddress` because the listener wants a fixed port back: without it a connection left in
+     * `TIME_WAIT` by the previous run keeps that port for minutes and pushes this one onto the
+     * fallback. It does not let two live listeners share a port, so a real collision still shows.
+     */
     fun beforeBind(server: ServerSocket) {
         runCatching { server.receiveBufferSize = ReceiveBufferBytes }
             .onFailure { Timber.w(it, "Cannot set the listener's receive buffer") }
+
+        runCatching { server.reuseAddress = true }
+            .onFailure { Timber.w(it, "Cannot set SO_REUSEADDR on the listener") }
     }
 
     /**

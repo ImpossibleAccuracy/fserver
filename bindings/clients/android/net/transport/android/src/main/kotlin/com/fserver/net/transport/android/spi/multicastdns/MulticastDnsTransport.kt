@@ -1,23 +1,25 @@
 package com.fserver.net.transport.android.spi.multicastdns
 
 import com.fserver.net.connection.ConnectionPolicy
+import com.fserver.net.connection.LanPorts
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.datasource.multicastdns.MulticastDnsPortBinder
+import com.fserver.net.transport.android.spi.LanDialer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -45,41 +47,37 @@ internal class MulticastDnsTransport(
     override val listener: Transport.Listener = transportListener
 
     override fun supports(endpoint: TransportEndpoint): Boolean =
-        endpoint is MulticastDnsTransportEndpoint && endpoint.isDialable
+        endpoint is MulticastDnsTransportEndpoint
 
     override suspend fun open(endpoint: TransportEndpoint): Result<Transport.Channel> =
         runCatching {
-            require(endpoint is MulticastDnsTransportEndpoint && endpoint.isDialable) {
-                "not a dialable multicast-dns endpoint: ${endpoint.address}"
+            require(endpoint is MulticastDnsTransportEndpoint) {
+                "not a multicast-dns endpoint: ${endpoint.address}"
             }
             openSocket(endpoint)
         }.onFailure {
             if (it is CancellationException) throw it
         }
 
-    private suspend fun openSocket(endpoint: MulticastDnsTransportEndpoint): SocketChannel =
-        withContext(Dispatchers.IO) {
-            val socket = Socket()
-            SocketTuning.beforeConnect(socket)
+    /**
+     * A discovered route leads with the port the scan resolved; an inbound one contributes only
+     * its host, since its port is the peer's source port. Either way [LanDialer] fills in the rest.
+     *
+     * The channel carries the port that answered, so the route recorded from it is dialable.
+     */
+    private suspend fun openSocket(endpoint: MulticastDnsTransportEndpoint): SocketChannel {
+        val socket = LanDialer.connect(
+            host = endpoint.host,
+            ports = LanDialer.ports(endpoint.port.takeIf { endpoint.isDialable }),
+            timeout = connectionPolicy.timeouts.connect,
+        )
 
-            try {
-                socket.connect(
-                    /* endpoint = */ InetSocketAddress(endpoint.host, endpoint.port),
-                    /* timeout = */ connectionPolicy.timeouts.connect.inWholeMilliseconds.toInt()
-                )
-                // A connect that lands after the caller gave up would otherwise leak the socket.
-                currentCoroutineContext().ensureActive()
-            } catch (t: Throwable) {
-                socket.closeQuietly()
-                throw t
-            }
-
-            SocketChannel(
-                socket = socket,
-                endpoint = endpoint,
-                maxFrameSize = capabilities.maxFrameSize,
-            )
-        }
+        return SocketChannel(
+            socket = socket,
+            endpoint = MulticastDnsTransportEndpoint(host = endpoint.host, port = socket.port),
+            maxFrameSize = capabilities.maxFrameSize,
+        )
+    }
 
     override suspend fun shutdown() {
         withContext(Dispatchers.IO) {
@@ -91,10 +89,36 @@ internal class MulticastDnsTransport(
     private inner class TransportListener : Transport.Listener {
         val serverSocket = AtomicReference<ServerSocket?>(null)
 
+        /**
+         * Takes the first free port of [LanPorts.PREFERRED], so a route stored for this device
+         * still reaches it after a restart. An ephemeral port is the fallback and costs exactly
+         * that: peers holding a route to the old one have to discover this device again.
+         */
+        private fun bindListener(): ServerSocket {
+            for (port in LanPorts.PREFERRED) {
+                val server = ServerSocket()
+                SocketTuning.beforeBind(server)
+
+                try {
+                    server.bind(InetSocketAddress(port))
+                    return server
+                } catch (t: IOException) {
+                    // Another app holds it, or another profile of this one.
+                    Timber.i(t, "port $port is taken, trying the next one")
+                    server.closeQuietly()
+                }
+            }
+
+            Timber.w("every preferred port is taken, falling back to an ephemeral one")
+
+            return ServerSocket().also {
+                SocketTuning.beforeBind(it)
+                it.bind(InetSocketAddress(0))
+            }
+        }
+
         override fun listen(): Flow<Transport.InboundConnection> = channelFlow {
-            val server = ServerSocket()
-            SocketTuning.beforeBind(server)
-            server.bind(InetSocketAddress(0))
+            val server = bindListener()
 
             if (!serverSocket.compareAndSet(null, server)) {
                 server.closeQuietly()
@@ -145,8 +169,9 @@ internal class MulticastDnsTransport(
         private val settled = AtomicBoolean(false)
 
         // socket.port is the peer's ephemeral source port, not the port it listens on, so this
-        // endpoint says where the connection came from and is not dialable. The route to call the
-        // peer back on comes from discovery, keyed on the device id the handshake confirms.
+        // endpoint says where the connection came from and this exact pair is never dialled back.
+        // Dialling it keeps the host and guesses the port off the fixed list; a route discovery
+        // resolved is still better, since it names the port the peer actually took.
         private val endpoint = MulticastDnsTransportEndpoint(
             host = socket.inetAddress.hostAddress.orEmpty(),
             port = socket.port,

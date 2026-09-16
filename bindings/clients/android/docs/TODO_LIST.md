@@ -8,14 +8,11 @@ Major:
 
 Minor:
 
-- Add sync worker.
-- Organize domain and data layers;
+- Add sync worker;
 - Check TODOs in code;
 - Needs a lot of UI/UX improvements;
 - A failed sync pass carries no cause, so `AppViewModel` reports the same line for every one of
   them. Type it the way a dial is typed and `toAppError` can say what broke;
-- `SourceAccessHandler`: a scan that broke lands on `Phase.Denied`, the same phase as access the
-  user refused. Needs a third phase before the screen can tell them apart;
 
 ## Core
 
@@ -41,21 +38,6 @@ Reachability (auto-sync without a scan running):
 - Short targeted discovery session as the last resort, once every cheaper route has failed:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.
-- Fixed port list for the mDNS transport. `MulticastDnsTransport.listen` binds port `0` today, so a
-  restart moves the listener and every stored route for it goes stale. Wanted: a short list of
-  preferred ports tried in order with an ephemeral fallback, a dial that retries the rest of the
-  list, and - separately - a port guess over the host of an inbound route, which is non-dialable
-  because `socket.port` is the peer's *source* port, something a port list does not fix.
-  Cross-platform: the numbers belong in `Connection Protocol.md`, not in an Android decision.
-
-Architecture:
-
-- Policy over the engine is piling up in `:core` - `PresenceController` decides when the radios
-  run, `AutoSyncCoordinator` decides when a pass starts. Both are default policy, not engine, and
-  belong in a `:core:lifecycle` module shaped like `:core:storage`: separate artifact, droppable by
-  a host that drives `FServerCore` itself. Presence needs only the public surface already; the
-  coordinator would need `SourcesController.runSync(deviceId)` and a narrow
-  `devicesWithActiveSources` published first - not a source listing, which stays a repository.
 
 Idea:
 

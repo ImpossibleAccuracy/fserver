@@ -5,16 +5,9 @@ import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.spi.TransportEndpoint
+import com.fserver.net.transport.android.spi.LanDialer
 import com.fserver.net.transport.android.spi.multicastdns.SocketChannel
-import com.fserver.net.transport.android.spi.multicastdns.SocketTuning
-import com.fserver.net.transport.android.spi.multicastdns.closeQuietly
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
-import java.net.InetSocketAddress
-import java.net.Socket
 
 internal class DirectIpTransport(
     private val connectionPolicy: ConnectionPolicy,
@@ -35,29 +28,24 @@ internal class DirectIpTransport(
             if (it is CancellationException) throw it
         }
 
-    private suspend fun openSocket(endpoint: DirectIpEndpoint): SocketChannel =
-        withContext(Dispatchers.IO) {
-            val socket = Socket()
-            SocketTuning.beforeConnect(socket)
+    /**
+     * The port comes from an address typed in, a QR code, or a route written down last time - all
+     * of which go stale when the peer restarts onto another port of the fixed list, so the dial
+     * falls through to the rest of it. The channel carries the port that answered.
+     */
+    private suspend fun openSocket(endpoint: DirectIpEndpoint): SocketChannel {
+        val socket = LanDialer.connect(
+            host = endpoint.host,
+            ports = LanDialer.ports(endpoint.port),
+            timeout = connectionPolicy.timeouts.connect,
+        )
 
-            try {
-                socket.connect(
-                    /* endpoint = */ InetSocketAddress(endpoint.host, endpoint.port),
-                    /* timeout = */ connectionPolicy.timeouts.connect.inWholeMilliseconds.toInt()
-                )
-                // A connect that lands after the caller gave up would otherwise leak the socket.
-                currentCoroutineContext().ensureActive()
-            } catch (t: Throwable) {
-                socket.closeQuietly()
-                throw t
-            }
-
-            SocketChannel(
-                socket = socket,
-                endpoint = endpoint,
-                maxFrameSize = capabilities.maxFrameSize,
-            )
-        }
+        return SocketChannel(
+            socket = socket,
+            endpoint = DirectIpEndpoint(host = endpoint.host, port = socket.port),
+            maxFrameSize = capabilities.maxFrameSize,
+        )
+    }
 
     override suspend fun shutdown() {
         // Nothing to do here, this transport doesn't listen for incoming connections
