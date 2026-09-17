@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.files.list.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.preview.model.SampleFiles
 import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.model.DeviceKind
@@ -12,7 +13,7 @@ data class FilesState(
     val devices: List<DeviceUi> = emptyList(),
     val selectedDeviceId: String? = null,
     val filter: FilterUi = FilterUi.All,
-    val entries: SourcePreviewUi? = null,
+    val entries: FeedUi? = null,
     val expandedDevice: DeviceDetailsUi? = null,
     val syncRequest: SyncRequestUi? = null,
     val syncRequestsWaiting: Int = 0,
@@ -28,6 +29,34 @@ data class FilesState(
 
     val hasDevices: Boolean
         get() = devices.isNotEmpty()
+
+    val isFiltered: Boolean
+        get() = filter != FilterUi.All || selectedDevice != null
+
+    val showsFilters: Boolean
+        get() = entries?.preview?.isEmpty == false || isFiltered || entries?.isFiltered == true
+
+    val feedDevice: DeviceUi?
+        get() = devices.firstOrNull { it.id == entries?.deviceId }
+
+    val emptyReason: EmptyReasonUi
+        get() = when {
+            feedDevice != null -> EmptyReasonUi.NoDeviceFiles
+            entries?.filter == FilterUi.Local -> EmptyReasonUi.NoLocalFiles
+            entries?.filter == FilterUi.Cloud -> EmptyReasonUi.NoCloudFiles
+            hasDevices -> EmptyReasonUi.NoFiles
+            else -> EmptyReasonUi.NoDevices
+        }
+
+    @Immutable
+    data class FeedUi(
+        val preview: SourcePreviewUi,
+        val filter: FilterUi,
+        val deviceId: String?,
+    ) {
+        val isFiltered: Boolean
+            get() = filter != FilterUi.All || deviceId != null
+    }
 
     @Immutable
     data class DeviceUi(
@@ -84,7 +113,15 @@ data class FilesState(
 
     enum class FilterUi { All, Local, Cloud }
 
+    enum class EmptyReasonUi { NoDevices, NoFiles, NoLocalFiles, NoCloudFiles, NoDeviceFiles }
+
     companion object {
+        val SampleEntries = FeedUi(
+            preview = SourcePreviewUi.PlainList(SourcePreviewUi.SampleFiles),
+            filter = FilterUi.All,
+            deviceId = null,
+        )
+
         val SampleDevices = listOf(
             DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true, itemCount = 912),
             DeviceUi("server", "Server", DeviceKind.Nas, online = true, itemCount = 312),

@@ -11,19 +11,23 @@ fun EntryProviderScope<Destination>.filesListEntry(
         FilesScreen(
             navigateToActions = { navigator.navigate(Destination.Files.Actions) },
             navigateToConnect = { navigator.navigate(Destination.Connect) },
-            navigateToSourcePick = { navigator.navigate(Destination.Source.Setup.Pick) },
+            navigateToSourcePick = { deviceId ->
+                navigator.navigate(Destination.Source.Setup.Pick(targetDeviceId = deviceId))
+            },
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },
             navigateToFolder = { folder ->
                 navigator.navigate(
                     Destination.Files.Folder(folderPath = folder)
                 )
             },
-            navigateToSourceActions = {
-                navigator.navigate(Destination.Files.SourceActions(sourceId = it))
+            navigateToSourceDetails = {
+                navigator.navigate(Destination.Files.SourceDetails(sourceId = it))
             },
             navigateToDeviceSettings = {
                 navigator.navigate(Destination.Settings.DeviceDetails(it))
             },
+            navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },
+            navigateToQrScan = { navigator.navigate(Destination.QrScan) },
         )
     }
 }

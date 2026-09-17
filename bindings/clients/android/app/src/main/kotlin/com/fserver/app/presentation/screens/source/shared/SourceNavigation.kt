@@ -36,6 +36,6 @@ fun AppNavigator.closeSourceFlow() {
  */
 fun AppNavigator.popToSourcePick() {
     if (!popTo { it is Destination.Source.Setup.Pick }) {
-        navigate(Destination.Source.Setup.Pick)
+        navigate(Destination.Source.Setup.Pick())
     }
 }

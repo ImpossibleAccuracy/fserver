@@ -6,6 +6,7 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.folder.model.FolderIntent
 import com.fserver.app.presentation.screens.files.folder.model.FolderState
 import com.fserver.app.presentation.screens.files.folder.model.FolderUiEffect
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
 import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
 import com.fserver.app.presentation.screens.source.shared.preview.model.asPreviewFile
@@ -58,13 +59,16 @@ class FolderViewModel(
             title = directoryName(key.folderPath),
             summary = null, // TODO
             entries = files?.let {
-                val isMedia = edit.forceMediaPreviewType ?: isMediaCollection(it)
+                val sorted = it.sorted(edit.sort, edit.sortAscending)
+                val isMedia = edit.forceMediaPreviewType ?: isMediaCollection(sorted)
 
-                if (isMedia) SourcePreviewUi.Gallery(files)
-                else SourcePreviewUi.PlainList(files)
+                if (isMedia) SourcePreviewUi.Gallery(sorted)
+                else SourcePreviewUi.PlainList(sorted)
             },
             showsCloudNotice = files != null &&
                     files.any { it.location == SourcePreviewUi.File.Location.Remote },
+            sort = edit.sort,
+            sortAscending = edit.sortAscending,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -81,6 +85,13 @@ class FolderViewModel(
                 )
             }
 
+            is FolderIntent.SortSelected -> editable.update {
+                it.copy(
+                    sort = intent.sort,
+                    sortAscending = if (it.sort == intent.sort) !it.sortAscending else true,
+                )
+            }
+
             is FolderIntent.ItemClicked -> {
                 viewModelScope.launch {
                     val file = filesController.overallContent.value
@@ -93,5 +104,28 @@ class FolderViewModel(
         }
     }
 
-    private data class Editable(val forceMediaPreviewType: Boolean? = null)
+    private data class Editable(
+        val forceMediaPreviewType: Boolean? = null,
+        val sort: FolderState.SortUi = FolderState.SortUi.Name,
+        val sortAscending: Boolean = true,
+    )
+}
+
+private fun List<SourcePreviewUi.File>.sorted(
+    sort: FolderState.SortUi,
+    ascending: Boolean,
+): List<SourcePreviewUi.File> {
+    val comparator = when (sort) {
+        FolderState.SortUi.Name -> compareBy<SourcePreviewUi.File> { it.name.lowercase() }
+        FolderState.SortUi.Date -> compareBy { it.modifiedAt }
+        FolderState.SortUi.Size -> compareBy { it.size?.bytes }
+        FolderState.SortUi.Kind -> compareBy<SourcePreviewUi.File> { it.kind }
+            .thenBy { it.extensionLabel.orEmpty() }
+            .thenBy { it.name.lowercase() }
+    }
+
+    return sortedWith(
+        compareByDescending<SourcePreviewUi.File> { it.kind == FileKindUi.Folder }
+            .then(if (ascending) comparator else comparator.reversed())
+    )
 }

@@ -49,9 +49,9 @@ sealed interface Destination : NavKey {
         @Serializable
         data object Actions : Overlay
 
-        /** What can be done to one registered source: rename it, or stop syncing it. */
+        /** One registered source, in full. A stub today — the real screen is still to be built. */
         @Serializable
-        data class SourceActions(val sourceId: String) : Overlay
+        data class SourceDetails(val sourceId: String) : Destination
     }
 
     /**
@@ -72,9 +72,14 @@ sealed interface Destination : NavKey {
         @Serializable
         data object Setup {
 
-            /** Screen 0 — the one question the flow starts with. */
+            /**
+             * Screen 0 — the one question the flow starts with.
+             *
+             * [targetDeviceId] is set when the flow was opened from a device that is already
+             * known, and the picker step is then skipped.
+             */
             @Serializable
-            data object Pick : Destination
+            data class Pick(val targetDeviceId: String? = null) : Destination
 
             /** Explains the branch's access, asks the system for it, and reports the outcome. */
             @Serializable

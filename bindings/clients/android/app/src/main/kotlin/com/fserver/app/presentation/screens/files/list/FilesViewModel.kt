@@ -75,27 +75,36 @@ class FilesViewModel(
     private val editable = MutableStateFlow(Editable())
     private val refreshing = MutableStateFlow(false)
 
-    private val entries = combine(
+    private val entries: StateFlow<FilesState.FeedUi?> = combine(
         editable.map { it.filter to it.selectedDeviceId }.distinctUntilChanged(),
         registeredSourcesRepository.sources,
     ) { (filter, deviceId), sources ->
-        Pair(
-            filter,
-            deviceId?.let { id ->
+        Query(
+            filter = filter,
+            deviceId = deviceId,
+            sourceIds = deviceId?.let { id ->
                 sources.filter { it.deviceId == id }.map { it.id }.toSet()
             },
         )
     }
         .distinctUntilChanged()
-        .flatMapLatest { (filter, sources) ->
-            filesProviderHandler.loadPreviewFiles(
-                requiredLocation = when (filter) {
-                    FilesState.FilterUi.All -> null
-                    FilesState.FilterUi.Local -> SourcePreviewUi.File.Location.Local
-                    FilesState.FilterUi.Cloud -> SourcePreviewUi.File.Location.Remote
-                },
-                sourceIds = sources,
-            )
+        .flatMapLatest { query ->
+            filesProviderHandler
+                .loadPreviewFiles(
+                    requiredLocation = when (query.filter) {
+                        FilesState.FilterUi.All -> null
+                        FilesState.FilterUi.Local -> SourcePreviewUi.File.Location.Local
+                        FilesState.FilterUi.Cloud -> SourcePreviewUi.File.Location.Remote
+                    },
+                    sourceIds = query.sourceIds,
+                )
+                .map { files ->
+                    FilesState.FeedUi(
+                        preview = SourcePreviewUi.PlainList(files),
+                        filter = query.filter,
+                        deviceId = query.deviceId,
+                    )
+                }
         }
         .stateIn(
             scope = viewModelScope,
@@ -146,7 +155,7 @@ class FilesViewModel(
             devices = devices,
             selectedDeviceId = edit.selectedDeviceId.takeIf { id -> devices.any { it.id == id } },
             filter = edit.filter,
-            entries = files?.let { SourcePreviewUi.PlainList(it) },
+            entries = files,
             expandedDevice = expanded,
             syncRequest = chrome.syncRequest,
             syncRequestsWaiting = chrome.syncRequestsWaiting,
@@ -185,8 +194,6 @@ class FilesViewModel(
             FilesIntent.RefreshRequested -> runSync()
 
             is FilesIntent.EntryClicked -> openEntry(intent.entryId)
-
-            FilesIntent.SearchClicked -> Unit
         }
     }
 
@@ -332,6 +339,12 @@ class FilesViewModel(
                     lastNetworkId != network.id,
         )
     }
+
+    private data class Query(
+        val filter: FilesState.FilterUi,
+        val deviceId: String?,
+        val sourceIds: Set<String>?,
+    )
 
     private data class Chrome(
         val syncRequest: SyncRequestUi?,

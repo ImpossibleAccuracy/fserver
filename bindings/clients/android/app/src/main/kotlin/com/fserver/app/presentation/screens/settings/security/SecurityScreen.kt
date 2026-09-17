@@ -103,6 +103,14 @@ private fun SecurityScreen(
             )
             DkFadingDivider()
 
+            DkSwitchRow(
+                title = stringResource(R.string.security_discovery),
+                supportingText = stringResource(R.string.security_discovery_desc),
+                checked = state.isDiscoveryEnabled,
+                onCheckedChange = { onIntent(SecurityIntent.DiscoveryChanged(it)) },
+            )
+            DkFadingDivider()
+
             DkSettingsRow(
                 title = stringResource(R.string.security_device_name),
                 supportingText = state.deviceName.ifEmpty {
@@ -271,6 +279,7 @@ private fun SecurityScreenPreview() {
         SecurityScreen(
             state = SecurityState(
                 isDiscoverable = true,
+                isDiscoveryEnabled = true,
                 deviceName = "Pixel 8",
                 isCodeComparison = true,
                 isServerPassword = true,

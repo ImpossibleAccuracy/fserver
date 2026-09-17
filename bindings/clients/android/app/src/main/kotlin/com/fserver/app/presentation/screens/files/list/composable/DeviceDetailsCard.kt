@@ -60,6 +60,8 @@ fun DeviceDetailsCard(
     onFolderClick: (FilesState.FolderUi) -> Unit,
     onAddFolder: () -> Unit,
     onConfigure: () -> Unit,
+    onReconnectByAddress: () -> Unit,
+    onReconnectByQr: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.medium
@@ -141,6 +143,26 @@ fun DeviceDetailsCard(
                 text = unreachable.explanation(),
                 tone = DkInfoTone.Alert,
             )
+
+            // The ways round a dead end, as buttons rather than a sentence describing them.
+            Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
+                DkSecondaryButton(
+                    modifier = Modifier.weight(1f),
+                    text = stringResource(R.string.files_device_reconnect_address),
+                    onClick = {
+                        onReconnectByAddress()
+                        onClose()
+                    },
+                )
+                DkSecondaryButton(
+                    modifier = Modifier.weight(1f),
+                    text = stringResource(R.string.files_device_reconnect_qr),
+                    onClick = {
+                        onReconnectByQr()
+                        onClose()
+                    },
+                )
+            }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
@@ -149,7 +171,10 @@ fun DeviceDetailsCard(
             device.folders.forEach { folder ->
                 FolderRow(
                     folder = folder,
-                    onClick = { onFolderClick(folder) },
+                    onClick = {
+                        onFolderClick(folder)
+                        onClose()
+                    },
                 )
             }
         }
@@ -207,7 +232,6 @@ private fun FilesState.UnreachableUi.explanation(): String = listOfNotNull(
     },
     triedLabel?.let { stringResource(R.string.files_device_unreachable_tried, it) },
     stringResource(R.string.files_device_unreachable_other_network).takeIf { onOtherNetwork },
-    stringResource(R.string.files_device_unreachable_hint),
 ).joinToString(" ")
 
 @Composable
@@ -277,6 +301,23 @@ private fun FilesState.FolderUi.statusText(): String = when (status) {
         ?: stringResource(R.string.files_folder_status_never)
 }
 
+@Preview(name = "Unreachable", showBackground = true, widthDp = 360)
+@Composable
+private fun DeviceDetailsCardUnreachablePreview() {
+    FServerTheme {
+        DeviceDetailsCard(
+            modifier = Modifier.padding(DkSpacing.lg),
+            device = FilesState.sampleDetailsOf(FilesState.SampleDevices[2]),
+            onClose = {},
+            onFolderClick = {},
+            onAddFolder = {},
+            onConfigure = {},
+            onReconnectByAddress = {},
+            onReconnectByQr = {},
+        )
+    }
+}
+
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun DeviceDetailsCardPreview() {
@@ -288,6 +329,8 @@ private fun DeviceDetailsCardPreview() {
             onFolderClick = {},
             onAddFolder = {},
             onConfigure = {},
+            onReconnectByAddress = {},
+            onReconnectByQr = {},
         )
     }
 }

@@ -27,15 +27,25 @@ class FilesProviderHandler(
     ) { entries, sources ->
         val sourcesByIds = sources.associateBy { it.id }
 
+        // Two sources registered against the same directory would otherwise pour their files into
+        // one folder: the label each was registered under keeps them apart.
+        val sharedOrigins = sources
+            .groupBy { it.originPath }
+            .filterValues { it.size > 1 }
+            .values
+            .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
+
         entries
             .filter { sourceIds == null || it.sourceId in sourceIds }
             .map {
                 val source = sourcesByIds[it.sourceId]!!
-                it.copy(
-                    path = "${source.originPath}/${it.path}"
-                )
+                val root = when (source.id) {
+                    in sharedOrigins -> "${source.originPath}/${source.label}"
+                    else -> source.originPath
+                }
+
+                it.copy(path = "$root/${it.path}")
             }
-            // TODO: resolve conflicts between sources with same origin path
             .toFlatPreview(directory = folder ?: "/")
             .let { files ->
                 if (requiredLocation == null) files

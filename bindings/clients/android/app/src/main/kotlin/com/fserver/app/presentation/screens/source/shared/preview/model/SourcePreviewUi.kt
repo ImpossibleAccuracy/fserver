@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.source.shared.preview.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.common.model.FileSize
+import kotlin.time.Instant
 
 /**
  * What a finished scan looks like on screen, before anything is done with it.
@@ -77,6 +78,8 @@ sealed interface SourcePreviewUi {
         /** Device-local address, for handing the file to a system viewer. */
         val locator: String?,
         val size: FileSize?,
+        /** Null on a directory row, which stands for many files at once. */
+        val modifiedAt: Instant? = null,
         val location: Location? = null,
         /** Set on a non-media file, which has no thumbnail to fall back on in the gallery. */
         val extensionLabel: String?,

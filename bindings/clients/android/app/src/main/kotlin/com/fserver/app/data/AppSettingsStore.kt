@@ -36,7 +36,6 @@ class AppSettingsStore(
 
     suspend fun setDiscoverable(enabled: Boolean) = set(DISCOVERABLE, enabled)
 
-    // TODO: no settings row drives this yet - the discovery toggle is still to be designed.
     suspend fun setDiscoveryEnabled(enabled: Boolean) = set(DISCOVERY, enabled)
 
     suspend fun setPinEnabled(enabled: Boolean) = set(PIN_ENABLED, enabled)

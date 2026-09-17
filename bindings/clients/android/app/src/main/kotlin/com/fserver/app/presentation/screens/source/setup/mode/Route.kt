@@ -34,7 +34,19 @@ fun EntryProviderScope<Destination>.sourceModeEntry(
 
         SourceModeScreen(
             handler = flow.mode,
-            navigateNext = { navigator.navigate(Destination.Connect) },
+            // A flow opened from a device already knows where the source goes, so it walks past
+            // the picker instead of asking a question with one answer.
+            navigateNext = {
+                val state = flow.state.value
+                val kind = state.kind
+                val mode = state.mode
+
+                if (state.targetDeviceId != null && kind != null && mode != null) {
+                    navigator.navigate(Destination.Source.Setup.Conditions(kind = kind, mode = mode))
+                } else {
+                    navigator.navigate(Destination.Connect)
+                }
+            },
             navigateUp = { navigator.navigateUp() },
         )
     }

@@ -28,30 +28,23 @@ RequirementsChecker:
   connectivity or the local-network permission.
 - `forNetworkInfo` has exactly one caller (`DeviceDiscoveryViewModel`). Any other screen naming the
   network gets the redacted placeholder with no explanation - see `Screen Data Wiring.md`.
-- A raw-path source (`Root`, `Directory`) cannot work on API 29 and `rawPathPermissions` now asks for
-  nothing there, so the source reports itself ready and then finds nothing. 24-28 reach the path with
-  the runtime pair and 30+ with `MANAGE_EXTERNAL_STORAGE`, so the hole is one api level wide.
-  Two ways out: `android:requestLegacyExternalStorage="true"` in `:app` plus `WRITE_EXTERNAL_STORAGE`
-  capped at 29 instead of 28 and the rule's boundary back at `ALL_FILES_ACCESS_SDK` - Android 10
-  honours the flag whatever the app targets, only API 30+ ignores it, worth confirming on an
-  emulator - or a new `Requirement` saying the os cannot serve this source, pointing the user at a
-  document tree.
-
-Reachability (auto-sync without a scan running):
-
-- Reachability reporting is in (`DeviceReachability`, the `failedContact` table, and the red device
-  card on Files), but it stops at telling the user. Left to do: the unreachable block names the ways
-  round a dead end in a sentence - manual address, QR - where it should offer them as buttons that
-  open those screens for that device.
-- Short targeted discovery session as the last resort, once every cheaper route has failed:
-  discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
-  without it at all - time-boxed, and looking only for known device ids.
+- A raw-path source (`Root`, `Directory`) cannot work on API 29 and `rawPathPermissions` now asks
+  for nothing there, so the source reports itself ready and then finds nothing. 24-28 reach the path
+  with the runtime pair and 30+ with `MANAGE_EXTERNAL_STORAGE`, so the hole is one api level wide.
+  Two ways out: `android:requestLegacyExternalStorage="true"` in `:app` plus
+  `WRITE_EXTERNAL_STORAGE` capped at 29 instead of 28 and the rule's boundary back at
+  `ALL_FILES_ACCESS_SDK` - Android 10 honours the flag whatever the app targets, only API 30+
+  ignores it, worth confirming on an emulator - or a new `Requirement` saying the os cannot serve
+  this source, pointing the user at a document tree.
 
 Idea:
 
 - Implement actions logging into database;
 - Add incoming sync requests expiration;
 - Add "trash" to keep files before final deletion.
+- Short targeted discovery session as the last resort, once every cheaper route has failed:
+  discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
+  without it at all - time-boxed, and looking only for known device ids.
 
 Major:
 

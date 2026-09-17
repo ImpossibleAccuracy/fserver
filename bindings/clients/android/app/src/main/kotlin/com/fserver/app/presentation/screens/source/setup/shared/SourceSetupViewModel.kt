@@ -61,11 +61,11 @@ class SourceSetupViewModel(
         reporter = reporter,
     )
 
-    fun start(kind: SourceKindUi) {
+    fun start(kind: SourceKindUi, targetDeviceId: String? = null) {
         access.reset()
         mode.reset()
         conditions.reset()
-        editable.value = SourceSetupState(kind = kind)
+        editable.value = SourceSetupState(kind = kind, targetDeviceId = targetDeviceId)
     }
 
     /** Where the source goes, as the connect screen handed it back. */

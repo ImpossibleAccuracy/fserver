@@ -9,7 +9,6 @@
     <string name="action_scan_qr">Scan QR code</string>
     <string name="action_enter_address">Enter address manually</string>
     <string name="action_back">Back</string>
-    <string name="action_search">Search</string>
     <string name="action_more">More</string>
     <string name="action_clear">Clear</string>
     <string name="action_accept">Accept</string>
@@ -250,19 +249,16 @@
     <string name="files_device_unreachable_failed">The attempt broke before a session was up.</string>
     <string name="files_device_unreachable_tried">Last tried %1$s.</string>
     <string name="files_device_unreachable_other_network">This phone is on a different network from the one that device was last reached on.</string>
-    <string name="files_device_unreachable_hint">Reaching it without discovery: type its address, or scan its code.</string>
+    <string name="files_device_reconnect_address">Type address</string>
+    <string name="files_device_reconnect_qr">Scan code</string>
     <string name="files_network_offline">No network. Nothing can be reached until this device is back online.</string>
     <string name="files_network_no_lan">Mobile data only. Devices on your home network stay out of reach.</string>
     <string name="files_network_other">This is not the network your devices were last seen on.</string>
     <string name="files_empty_no_files_title">No files yet</string>
     <string name="files_empty_no_files_body">Nothing has been synced from these devices so far. Add a folder to start.</string>
-    <string name="files_source_actions_title">Folder settings</string>
-    <string name="files_source_name_label">Folder name</string>
-    <string name="files_source_mode_label">Mode</string>
-    <string name="files_source_mode_note">Switching modes means registering the folder again.</string>
-    <string name="files_source_remove">Stop syncing this folder</string>
-    <string name="files_source_remove_confirm">Yes, stop syncing</string>
-    <string name="files_source_remove_note">Files already on either device stay where they are.</string>
+    <string name="files_source_details_title">Folder</string>
+    <string name="files_source_details_stub">folder details</string>
+    <string name="files_source_details_body">Renaming a folder and stopping its sync will live here.</string>
     <string name="files_folder_cloud_notice">Cloud items open once the target device is reachable.</string>
     <string name="device_state_online">online</string>
     <string name="device_state_offline">offline</string>
@@ -270,6 +266,19 @@
     <string name="files_actions">What next?</string>
     <string name="files_empty_illustration">empty</string>
     <string name="files_empty_title">Nothing here yet</string>
+    <string name="files_empty_local_title">Nothing on this phone</string>
+    <string name="files_empty_local_body">No synced file is stored locally right now. Clear the filter to see what the other devices hold.</string>
+    <string name="files_empty_cloud_title">Nothing on other devices</string>
+    <string name="files_empty_cloud_body">Every synced file is already on this phone. Clear the filter to see them.</string>
+    <string name="files_empty_device_title">Nothing from %1$s</string>
+    <string name="files_empty_device_body">This device has no synced files yet. Clear the filter, or add a folder to sync with it.</string>
+    <string name="files_sort">Sort</string>
+    <string name="files_sort_name">Name</string>
+    <string name="files_sort_date">Date</string>
+    <string name="files_sort_size">Size</string>
+    <string name="files_sort_kind">Type</string>
+    <string name="files_sort_ascending">Ascending</string>
+    <string name="files_sort_descending">Descending</string>
     <string name="files_empty_body">Connect to a computer to see its files — or choose what to send from this phone.</string>
 
     <!-- Files picker -->
@@ -400,6 +409,8 @@
     <string name="security_section_methods">Confirmation methods</string>
     <string name="security_discoverable">Discoverable on the network</string>
     <string name="security_discoverable_desc">Trusted computers can see this phone</string>
+    <string name="security_discovery">Look for devices</string>
+    <string name="security_discovery_desc">This phone scans the network for trusted devices, so sync can start without a tap</string>
     <string name="security_device_name">Name on the network</string>
     <string name="security_device_name_desc">The name this phone is seen under</string>
     <string name="security_method_sas_desc">The fingerprint on both screens</string>

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,14 +38,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.DkFab
 import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.designkit.DkFilterChip
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSegmentedControl
-import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.files.list.composable.DeviceDetailsCard
@@ -61,19 +59,19 @@ import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePr
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
-private const val DimmedFeedAlpha = 0.14f
-
 @Composable
 fun FilesScreen(
     modifier: Modifier = Modifier,
     viewModel: FilesViewModel = koinViewModel(),
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
+    navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
     navigateToFolder: (String) -> Unit,
-    navigateToSourceActions: (String) -> Unit,
+    navigateToSourceDetails: (String) -> Unit,
     navigateToDeviceSettings: (String) -> Unit,
+    navigateToManualAddress: () -> Unit,
+    navigateToQrScan: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fileOpener = rememberSourceFileOpener()
@@ -95,9 +93,10 @@ fun FilesScreen(
         navigateToSourcePick = navigateToSourcePick,
         navigateToSyncRequests = navigateToSyncRequests,
         navigateToFolder = { navigateToFolder(it.path) },
-        navigateToFolderPath = navigateToFolder,
-        navigateToSourceActions = navigateToSourceActions,
+        navigateToSourceDetails = navigateToSourceDetails,
         navigateToDeviceSettings = navigateToDeviceSettings,
+        navigateToManualAddress = navigateToManualAddress,
+        navigateToQrScan = navigateToQrScan,
     )
 }
 
@@ -108,12 +107,13 @@ private fun FilesScreenContent(
     onIntent: (FilesIntent) -> Unit,
     navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
+    navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
     navigateToFolder: (SourcePreviewUi.File) -> Unit,
-    navigateToFolderPath: (String) -> Unit = {},
-    navigateToSourceActions: (String) -> Unit = {},
+    navigateToSourceDetails: (String) -> Unit = {},
     navigateToDeviceSettings: (String) -> Unit,
+    navigateToManualAddress: () -> Unit = {},
+    navigateToQrScan: () -> Unit = {},
 ) {
     DkScaffold(
         modifier = modifier.fillMaxSize(),
@@ -122,12 +122,6 @@ private fun FilesScreenContent(
                 modifier = Modifier.alpha(if (state.expandedDevice != null) 0.35f else 1f),
                 title = stringResource(R.string.files_title),
                 actions = {
-                    IconButton(onClick = { onIntent(FilesIntent.SearchClicked) }) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = stringResource(R.string.action_search),
-                        )
-                    }
                     IconButton(onClick = navigateToActions) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -172,10 +166,11 @@ private fun FilesScreenContent(
                     .padding(DkSpacing.screenPadding),
                 device = device,
                 onClose = { onIntent(FilesIntent.DeviceCollapsed) },
-                // TODO: re-work actions
-                onFolderClick = { navigateToSourceActions(it.id) },
-                onAddFolder = navigateToSourcePick,
+                onFolderClick = { navigateToSourceDetails(it.id) },
+                onAddFolder = { navigateToSourcePick(device.id) },
                 onConfigure = { navigateToDeviceSettings(device.id) },
+                onReconnectByAddress = navigateToManualAddress,
+                onReconnectByQr = navigateToQrScan,
             )
         }
     }
@@ -188,7 +183,7 @@ private fun FilesFeed(
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
     navigateToConnect: () -> Unit,
-    navigateToSourcePick: () -> Unit,
+    navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
     navigateToFolder: (SourcePreviewUi.File) -> Unit,
 ) {
@@ -253,21 +248,23 @@ private fun FilesFeed(
                 }
             }
 
-            FilterChips(
-                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                filter = state.filter,
-                onSelect = { onIntent(FilesIntent.FilterSelected(it)) },
-            )
+            if (state.showsFilters) {
+                FilterChips(
+                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                    filter = state.filter,
+                    onSelect = { onIntent(FilesIntent.FilterSelected(it)) },
+                )
+            }
 
-            if (state.entries.isEmpty) {
-                // TODO: update labels if filters are applied
+            if (state.entries.preview.isEmpty) {
                 FilesEmptyState(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    hasDevices = state.hasDevices,
+                    reason = state.emptyReason,
+                    deviceName = state.feedDevice?.name,
                     navigateToConnect = navigateToConnect,
-                    navigateToSourcePick = navigateToSourcePick,
+                    navigateToSourcePick = { navigateToSourcePick(null) },
                 )
             } else {
                 PullToRefreshBox(
@@ -279,7 +276,7 @@ private fun FilesFeed(
                 ) {
                     SourcePreview(
                         modifier = Modifier.fillMaxSize(),
-                        preview = state.entries,
+                        preview = state.entries.preview,
                         onFileClick = { entry ->
                             if (entry.kind == FileKindUi.Folder) {
                                 navigateToFolder(entry)
@@ -300,28 +297,29 @@ private fun FilterChips(
     filter: FilesState.FilterUi,
     onSelect: (FilesState.FilterUi) -> Unit,
 ) {
-    DkSegmentedControl(
+    Row(
         modifier = modifier.fillMaxWidth(),
-        options = listOf(
-            DkSegmentedOption(
-                value = FilesState.FilterUi.All,
-                label = stringResource(R.string.files_filter_all),
-                icon = Icons.AutoMirrored.Filled.ViewList,
-            ),
-            DkSegmentedOption(
-                value = FilesState.FilterUi.Local,
-                label = stringResource(R.string.files_filter_local),
-                icon = Icons.Default.Smartphone,
-            ),
-            DkSegmentedOption(
-                value = FilesState.FilterUi.Cloud,
-                label = stringResource(R.string.files_filter_cloud),
-                icon = Icons.Default.Cloud,
-            ),
-        ),
-        selected = filter,
-        onSelect = onSelect,
-    )
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+    ) {
+        DkFilterChip(
+            text = stringResource(R.string.files_filter_all),
+            selected = filter == FilesState.FilterUi.All,
+            onClick = { onSelect(FilesState.FilterUi.All) },
+            icon = Icons.AutoMirrored.Filled.ViewList,
+        )
+        DkFilterChip(
+            text = stringResource(R.string.files_filter_local),
+            selected = filter == FilesState.FilterUi.Local,
+            onClick = { onSelect(FilesState.FilterUi.Local) },
+            icon = Icons.Default.Smartphone,
+        )
+        DkFilterChip(
+            text = stringResource(R.string.files_filter_cloud),
+            selected = filter == FilesState.FilterUi.Cloud,
+            onClick = { onSelect(FilesState.FilterUi.Cloud) },
+            icon = Icons.Default.Cloud,
+        )
+    }
 }
 
 @Composable
@@ -347,7 +345,8 @@ private fun SelectionSummary(
 @Composable
 private fun FilesEmptyState(
     modifier: Modifier = Modifier,
-    hasDevices: Boolean,
+    reason: FilesState.EmptyReasonUi,
+    deviceName: String?,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: () -> Unit,
 ) {
@@ -364,41 +363,86 @@ private fun FilesEmptyState(
         )
         Text(
             modifier = Modifier.padding(top = DkSpacing.xl),
-            text = stringResource(
-                if (hasDevices) R.string.files_empty_no_files_title else R.string.files_empty_title
-            ),
+            text = when (reason) {
+                FilesState.EmptyReasonUi.NoDeviceFiles -> stringResource(
+                    R.string.files_empty_device_title,
+                    deviceName.orEmpty(),
+                )
+
+                else -> stringResource(reason.titleRes)
+            },
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             modifier = Modifier.padding(top = DkSpacing.sm),
-            text = stringResource(
-                if (hasDevices) R.string.files_empty_no_files_body else R.string.files_empty_body
-            ),
+            text = stringResource(reason.bodyRes),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        DkPrimaryButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = DkSpacing.xl),
-            text = stringResource(
-                if (hasDevices) R.string.fork_send_title else R.string.action_connect
-            ),
-            onClick = if (hasDevices) navigateToSourcePick else navigateToConnect,
-        )
-        DkGhostButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = DkSpacing.sm),
-            text = stringResource(
-                if (hasDevices) R.string.action_connect else R.string.fork_send_title
-            ),
-            onClick = if (hasDevices) navigateToConnect else navigateToSourcePick,
-        )
+
+        when (reason) {
+            FilesState.EmptyReasonUi.NoDevices -> {
+                DkPrimaryButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = DkSpacing.xl),
+                    text = stringResource(R.string.action_connect),
+                    onClick = navigateToConnect,
+                )
+                DkGhostButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = DkSpacing.sm),
+                    text = stringResource(R.string.fork_send_title),
+                    onClick = navigateToSourcePick,
+                )
+            }
+
+            FilesState.EmptyReasonUi.NoFiles -> {
+                DkPrimaryButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = DkSpacing.xl),
+                    text = stringResource(R.string.fork_send_title),
+                    onClick = navigateToSourcePick,
+                )
+                DkGhostButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = DkSpacing.sm),
+                    text = stringResource(R.string.action_connect),
+                    onClick = navigateToConnect,
+                )
+            }
+
+            // A filter is the reason the feed is empty, and the chips above it are what undoes
+            // that, so the placeholder says so and offers nothing of its own.
+            else -> Unit
+        }
     }
 }
+
+@get:StringRes
+private val FilesState.EmptyReasonUi.titleRes: Int
+    get() = when (this) {
+        FilesState.EmptyReasonUi.NoDevices -> R.string.files_empty_title
+        FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_title
+        FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_title
+        FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_title
+        FilesState.EmptyReasonUi.NoDeviceFiles -> R.string.files_empty_device_title
+    }
+
+@get:StringRes
+private val FilesState.EmptyReasonUi.bodyRes: Int
+    get() = when (this) {
+        FilesState.EmptyReasonUi.NoDevices -> R.string.files_empty_body
+        FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_body
+        FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_body
+        FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_body
+        FilesState.EmptyReasonUi.NoDeviceFiles -> R.string.files_empty_device_body
+    }
 
 @get:StringRes
 private val FilesState.NetworkWarningUi.messageRes: Int
@@ -415,6 +459,7 @@ private fun FilesScreenPreview() {
         FilesScreenContent(
             state = FilesState(
                 devices = FilesState.SampleDevices,
+                entries = FilesState.SampleEntries,
             ),
             onIntent = {},
             navigateToActions = {},
@@ -435,6 +480,32 @@ private fun FilesScreenFilteredPreview() {
             state = FilesState(
                 devices = FilesState.SampleDevices,
                 selectedDeviceId = "server",
+                entries = FilesState.SampleEntries.copy(deviceId = "server"),
+            ),
+            onIntent = {},
+            navigateToActions = {},
+            navigateToConnect = {},
+            navigateToSourcePick = {},
+            navigateToSyncRequests = {},
+            navigateToFolder = {},
+            navigateToDeviceSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Filter with no matches", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun FilesScreenEmptyFilterPreview() {
+    FServerTheme {
+        FilesScreenContent(
+            state = FilesState(
+                devices = FilesState.SampleDevices,
+                filter = FilesState.FilterUi.Cloud,
+                entries = FilesState.FeedUi(
+                    preview = SourcePreviewUi.PlainList(emptyList()),
+                    filter = FilesState.FilterUi.Cloud,
+                    deviceId = null,
+                ),
             ),
             onIntent = {},
             navigateToActions = {},
@@ -454,6 +525,7 @@ private fun FilesScreenExpandedPreview() {
         FilesScreenContent(
             state = FilesState(
                 devices = FilesState.SampleDevices,
+                entries = FilesState.SampleEntries,
                 expandedDevice = FilesState.sampleDetailsOf(FilesState.SampleDevices[1]),
             ),
             onIntent = {},
@@ -474,6 +546,7 @@ private fun FilesScreenNetworkWarningPreview() {
         FilesScreenContent(
             state = FilesState(
                 devices = FilesState.SampleDevices,
+                entries = FilesState.SampleEntries,
                 networkWarning = FilesState.NetworkWarningUi.DifferentNetwork,
             ),
             onIntent = {},
@@ -492,7 +565,13 @@ private fun FilesScreenNetworkWarningPreview() {
 private fun FilesScreenEmptyPreview() {
     FServerTheme {
         FilesScreenContent(
-            state = FilesState(),
+            state = FilesState(
+                entries = FilesState.FeedUi(
+                    preview = SourcePreviewUi.PlainList(emptyList()),
+                    filter = FilesState.FilterUi.All,
+                    deviceId = null,
+                ),
+            ),
             onIntent = {},
             navigateToActions = {},
             navigateToConnect = {},

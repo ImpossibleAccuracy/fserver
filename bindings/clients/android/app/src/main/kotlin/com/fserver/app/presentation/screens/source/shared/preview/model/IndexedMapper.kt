@@ -86,6 +86,7 @@ fun SyncFileEntry.asPreviewFile(): SourcePreviewUi.File {
         kind = kind,
         locator = locator,
         size = size,
+        modifiedAt = modifiedAt,
         location = when {
             isRemote -> SourcePreviewUi.File.Location.Remote
             else -> SourcePreviewUi.File.Location.Local

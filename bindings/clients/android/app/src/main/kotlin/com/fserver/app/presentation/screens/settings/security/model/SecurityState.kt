@@ -9,6 +9,7 @@ package com.fserver.app.presentation.screens.settings.security.model
  */
 data class SecurityState(
     val isDiscoverable: Boolean = true,
+    val isDiscoveryEnabled: Boolean = true,
     val deviceName: String = "",
     val isCodeComparison: Boolean = false,
     val isServerPassword: Boolean = false,

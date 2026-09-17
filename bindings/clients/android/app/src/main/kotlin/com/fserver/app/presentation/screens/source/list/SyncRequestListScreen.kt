@@ -38,6 +38,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListIntent
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListState
+import com.fserver.app.presentation.screens.source.list.model.SyncRequestListUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
@@ -51,6 +52,14 @@ fun SyncRequestListScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                SyncRequestListUiEffect.Close -> navigateUp()
+            }
+        }
+    }
 
     SyncRequestListContent(
         modifier = modifier,

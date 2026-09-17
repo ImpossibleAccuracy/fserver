@@ -11,12 +11,19 @@ import com.fserver.app.presentation.screens.source.shared.isSourceScreen
 import org.koin.androidx.compose.koinViewModel
 
 /**
+ * The pick's `contentKey`, fixed rather than derived from the key.
+ *
+ * [Destination.Source.Setup.Pick] carries the target device, so its `toString()` — the default
+ * content key — differs per flow, and the screens above it could no longer name one store.
+ */
+val SourceSetupContentKey: Any = "source-setup-pick"
+
+/**
  * Metadata every setup screen above [Destination.Source.Setup.Pick] declares, so all of them reach
  * the same [SourceSetupViewModel] and it is cleared when the pick is popped.
  */
-val SourceSetupParent: Map<String, Any> = SharedViewModelStoreNavEntryDecorator.parent(
-    SharedViewModelStoreNavEntryDecorator.contentKeyOf(Destination.Source.Setup.Pick)
-)
+val SourceSetupParent: Map<String, Any> =
+    SharedViewModelStoreNavEntryDecorator.parent(SourceSetupContentKey)
 
 /** The flow's ViewModel as seen from the entry that owns its store — the pick. */
 @Composable

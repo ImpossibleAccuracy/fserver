@@ -34,7 +34,7 @@ class SecurityViewModel(
 
     val state: StateFlow<SecurityState> = combine(
         authSettings.offeredMethods,
-        appSettings.discoverable,
+        combine(appSettings.discoverable, appSettings.discoveryEnabled, ::Pair),
         combine(
             appSettings.pinEnabled,
             appSettings.biometricUnlock,
@@ -43,9 +43,10 @@ class SecurityViewModel(
         ),
         identity.localDevice.map { it.displayName },
         lastMethodWarning,
-    ) { offered, discoverable, (pin, biometric, qr), name, warning ->
+    ) { offered, (discoverable, discovery), (pin, biometric, qr), name, warning ->
         SecurityState(
             isDiscoverable = discoverable,
+            isDiscoveryEnabled = discovery,
             deviceName = name,
             isCodeComparison = offered.any { it is OfferedAuthMethod.ConfirmFingerprint },
             isServerPassword = offered.any { it is OfferedAuthMethod.Password },
@@ -64,6 +65,9 @@ class SecurityViewModel(
         when (intent) {
             is SecurityIntent.DiscoverableChanged ->
                 launchUpdate { appSettings.setDiscoverable(intent.enabled) }
+
+            is SecurityIntent.DiscoveryChanged ->
+                launchUpdate { appSettings.setDiscoveryEnabled(intent.enabled) }
 
             is SecurityIntent.CodeComparisonChanged ->
                 setMethod(AuthMethod.ConfirmFingerprint, intent.enabled)

@@ -9,7 +9,14 @@ data class FolderState(
     val summary: String? = null,
     val entries: SourcePreviewUi? = null,
     val showsCloudNotice: Boolean = false,
+    val sort: SortUi = SortUi.Name,
+    val sortAscending: Boolean = true,
 ) {
     val isMediaCollection: Boolean
         get() = entries is SourcePreviewUi.Gallery
+
+    val showsSort: Boolean
+        get() = entries?.isEmpty == false
+
+    enum class SortUi { Name, Date, Size, Kind }
 }
