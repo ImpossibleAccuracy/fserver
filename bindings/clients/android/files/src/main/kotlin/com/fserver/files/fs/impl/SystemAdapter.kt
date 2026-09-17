@@ -1,5 +1,6 @@
 package com.fserver.files.fs.impl
 
+import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.progressTask
 import com.fserver.files.fs.FileSystem
@@ -22,6 +23,22 @@ internal abstract class SystemAdapter : FileSystem {
 
     /** Walk the bound source and call [onFileFound] for each file found. */
     protected abstract suspend fun scanFiles(onFileFound: (FoundFile) -> Unit)
+}
+
+/**
+ * A canonical path split into segments, with anything that walks out of the source refused.
+ *
+ * Every path handed to [FileSystem.createFile] came from a peer, so traversal is rejected here
+ * rather than left to the backend underneath.
+ */
+internal fun segmentsOf(path: String): List<String> {
+    val segments = path.split('/', '\\').filter { it.isNotEmpty() && it != "." }
+
+    if (segments.isEmpty() || segments.any { it == ".." }) {
+        throw FileSystemException.InvalidPath(path)
+    }
+
+    return segments
 }
 
 /** Helper to collect files and report progress. Thread-safe. */

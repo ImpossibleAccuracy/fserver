@@ -16,6 +16,10 @@ android {
 
     defaultConfig {
         minSdk = 24
+
+        // MediaStore and the SAF only behave like themselves on a device, so the backends built on
+        // them are covered by instrumented tests rather than unit tests.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -48,4 +52,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

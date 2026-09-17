@@ -1,0 +1,163 @@
+package com.fserver.files.fs.impl
+
+import android.content.Context
+import android.database.Cursor
+import android.database.MatrixCursor
+import android.net.Uri
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
+import android.provider.DocumentsProvider
+import java.io.File
+import java.io.FileNotFoundException
+
+/**
+ * A document tree backed by a directory in the cache, for [TreeFileSystemTest].
+ *
+ * Real enough to be worth testing against: every call still goes through `DocumentsContract`, so
+ * the tree-uri plumbing, the child checks and the document ids are the framework's, not a fake's.
+ */
+class TestDocumentsProvider : DocumentsProvider() {
+
+    private val root: File
+        get() = rootDirectory(requireNotNull(context))
+
+    override fun onCreate(): Boolean = true
+
+    override fun queryRoots(projection: Array<out String>?): Cursor {
+        val cursor = MatrixCursor(projection ?: DefaultRootProjection)
+
+        cursor.newRow()
+            .add(DocumentsContract.Root.COLUMN_ROOT_ID, RootDocumentId)
+            .add(DocumentsContract.Root.COLUMN_DOCUMENT_ID, RootDocumentId)
+            .add(DocumentsContract.Root.COLUMN_TITLE, RootDirectory)
+            .add(DocumentsContract.Root.COLUMN_FLAGS, DocumentsContract.Root.FLAG_SUPPORTS_CREATE)
+
+        return cursor
+    }
+
+    override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor =
+        MatrixCursor(projection ?: DefaultDocumentProjection).also {
+            addRow(it, fileOf(documentId), documentId)
+        }
+
+    override fun queryChildDocuments(
+        parentDocumentId: String,
+        projection: Array<out String>?,
+        sortOrder: String?,
+    ): Cursor {
+        val cursor = MatrixCursor(projection ?: DefaultDocumentProjection)
+
+        fileOf(parentDocumentId).listFiles().orEmpty().forEach { child ->
+            addRow(cursor, child, documentIdOf(child))
+        }
+
+        return cursor
+    }
+
+    /** Without this the framework refuses every call made through a tree uri. */
+    override fun isChildDocument(parentDocumentId: String, documentId: String): Boolean =
+        documentId == parentDocumentId || documentId.startsWith("$parentDocumentId/")
+
+    override fun createDocument(
+        parentDocumentId: String,
+        mimeType: String,
+        displayName: String,
+    ): String {
+        val target = File(fileOf(parentDocumentId), displayName)
+
+        val created = if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+            target.mkdirs()
+        } else {
+            target.parentFile?.mkdirs()
+            target.createNewFile()
+        }
+
+        if (!created) throw FileNotFoundException(displayName)
+
+        return documentIdOf(target)
+    }
+
+    override fun deleteDocument(documentId: String) {
+        if (!fileOf(documentId).deleteRecursively()) throw FileNotFoundException(documentId)
+    }
+
+    override fun openDocument(
+        documentId: String,
+        mode: String,
+        signal: CancellationSignal?,
+    ): ParcelFileDescriptor =
+        ParcelFileDescriptor.open(fileOf(documentId), ParcelFileDescriptor.parseMode(mode))
+
+    /**
+     * Fills whatever columns were asked for, in the order they were asked for: the tree scanner
+     * reads its cursor by column index, so a provider that ignored the projection would hide that.
+     */
+    private fun addRow(cursor: MatrixCursor, file: File, documentId: String) {
+        val row = cursor.newRow()
+
+        for (column in cursor.columnNames) {
+            row.add(column, valueOf(column, file, documentId))
+        }
+    }
+
+    private fun valueOf(column: String, file: File, documentId: String): Any? = when (column) {
+        DocumentsContract.Document.COLUMN_DOCUMENT_ID -> documentId
+        DocumentsContract.Document.COLUMN_DISPLAY_NAME ->
+            if (documentId == RootDocumentId) RootDirectory else file.name
+
+        DocumentsContract.Document.COLUMN_MIME_TYPE ->
+            if (file.isDirectory) DocumentsContract.Document.MIME_TYPE_DIR else FileMimeType
+
+        DocumentsContract.Document.COLUMN_SIZE -> file.length()
+        DocumentsContract.Document.COLUMN_LAST_MODIFIED -> file.lastModified()
+        DocumentsContract.Document.COLUMN_FLAGS -> DocumentFlags
+        else -> null
+    }
+
+    private fun fileOf(documentId: String): File {
+        val relative = documentId.removePrefix(RootDocumentId).trimStart('/')
+
+        return if (relative.isEmpty()) root else File(root, relative)
+    }
+
+    private fun documentIdOf(file: File): String {
+        val relative = file.relativeTo(root).invariantSeparatorsPath
+
+        return if (relative.isEmpty()) RootDocumentId else "$RootDocumentId/$relative"
+    }
+
+    companion object {
+        const val Authority = "com.fserver.files.test.documents"
+
+        private const val RootDocumentId = "root"
+        private const val RootDirectory = "tree-root"
+        private const val FileMimeType = "application/octet-stream"
+
+        private const val DocumentFlags = DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE or
+            DocumentsContract.Document.FLAG_SUPPORTS_DELETE or
+            DocumentsContract.Document.FLAG_SUPPORTS_WRITE
+
+        private val DefaultRootProjection = arrayOf(
+            DocumentsContract.Root.COLUMN_ROOT_ID,
+            DocumentsContract.Root.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Root.COLUMN_TITLE,
+            DocumentsContract.Root.COLUMN_FLAGS,
+        )
+
+        private val DefaultDocumentProjection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            DocumentsContract.Document.COLUMN_FLAGS,
+        )
+
+        /** The tree uri a picker would have handed back for this provider's root. */
+        fun treeUri(): Uri = DocumentsContract.buildTreeDocumentUri(Authority, RootDocumentId)
+
+        /** Where the tree actually lives, so a test can set it up and assert on it directly. */
+        fun rootDirectory(context: Context): File = File(context.cacheDir, RootDirectory)
+    }
+}

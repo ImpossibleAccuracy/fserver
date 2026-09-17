@@ -1,6 +1,5 @@
 package com.fserver.files.fs.impl
 
-import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -16,13 +15,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 import kotlin.time.Instant
 
 internal class TreeFileSystem(
-    private val context: Context,
+    context: Context,
     private val source: FileSystemSource.Tree,
-) : SystemAdapter() {
+) : ProviderFileSystem(context) {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
@@ -106,27 +104,42 @@ internal class TreeFileSystem(
             }
     }
 
-    override suspend fun createFile(path: String): String {
-        TODO("Not yet implemented")
-    }
+    /**
+     * [path] is relative to the granted tree, so the missing directories along it are created too.
+     *
+     * The mime type is guessed from the extension because a provider appends one of its own to a
+     * name whose extension does not match — and the name is what a rescan derives the path from.
+     */
+    override suspend fun createFile(path: String): String = withContext(Dispatchers.IO) {
+        val segments = segmentsOf(path)
 
-    @SuppressLint("Recycle")
-    override suspend fun openFile(locator: String): InputStream {
-        val uri = locator.toUri()
+        val root = DocumentFile.fromTreeUri(context, source.path.toUri())
+            ?: throw FileSystemException.InvalidPath(source.path)
 
-        return withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)
-                ?: throw FileSystemException.InvalidPath(locator)
+        var parent = root
+        for (name in segments.dropLast(1)) {
+            val existing = parent.findFile(name)
+
+            parent = when {
+                existing == null -> parent.createDirectory(name)
+                    ?: throw FileSystemException.CreationFailed(path)
+
+                existing.isDirectory -> existing
+                else -> throw FileSystemException.InvalidPath(path)
+            }
         }
-    }
 
-    override suspend fun writeFile(
-        locator: String,
-        offset: Long,
-        bytes: ByteArray,
-        length: Int
-    ): Boolean {
-        TODO("Not yet implemented")
+        val name = segments.last()
+        if (parent.findFile(name) != null) throw FileSystemException.AlreadyExists(path)
+
+        val created = DocumentsContract.createDocument(
+            /* content = */ context.contentResolver,
+            /* parentDocumentUri = */ parent.uri,
+            /* mimeType = */ mimeTypeOf(name),
+            /* displayName = */ name,
+        ) ?: throw FileSystemException.CreationFailed(path)
+
+        created.toString()
     }
 
     override suspend fun deleteFile(locator: String): Boolean {

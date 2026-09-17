@@ -3,8 +3,8 @@ package com.fserver.files.fs.impl
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
-import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.FileSystemSource
+import com.fserver.files.fs.FoundFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -12,12 +12,11 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.InputStream
 import kotlin.time.Instant
 
 internal class RootFileSystem(
     private val source: FileSystemSource.Root,
-) : SystemAdapter() {
+) : LocalFileSystem() {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = coroutineScope {
@@ -54,38 +53,38 @@ internal class RootFileSystem(
         }
     }
 
-    override suspend fun createFile(path: String): String {
-        TODO("Not yet implemented")
-    }
+    /**
+     * [path] is volume-led, the way a scan here reports it: the first segment names the volume the
+     * rest of the path lives on.
+     */
+    override fun resolve(path: String): File {
+        val segments = segmentsOf(path)
 
-    override suspend fun openFile(locator: String): InputStream {
-        val file = File(locator)
+        val mount = source.volumes
+            .firstOrNull { it.id == segments.first() }
+            ?.let(::mountOf)
+            ?: throw FileSystemException.InvalidPath(path)
 
-        if (!file.exists()) throw FileSystemException.InvalidPath(locator)
-        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+        // The volume itself is a directory, not a file the peer may create.
+        if (segments.size < 2) throw FileSystemException.InvalidPath(path)
 
-        return withContext(Dispatchers.IO) {
-            file.inputStream()
+        // Canonical before the check: a symlink inside the volume still points wherever it points.
+        return File(mount, segments.drop(1).joinToString("/")).canonicalFile.also {
+            if (!it.isUnder(mount)) throw FileSystemException.InvalidPath(path)
         }
     }
 
-    override suspend fun writeFile(
-        locator: String,
-        offset: Long,
-        bytes: ByteArray,
-        length: Int
-    ): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun deleteFile(locator: String): Boolean {
-        val file = File(locator)
-
-        if (!file.exists()) return true
-        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
-
-        return withContext(Dispatchers.IO) {
-            file.delete()
+    /**
+     * A root source has no single directory to be confined to, so the mounted volumes are the whole
+     * bound: a locator that resolves outside every one of them reaches nothing.
+     */
+    override fun confine(locator: String): File =
+        File(locator).canonicalFile.also { file ->
+            if (source.volumes.none { file.isUnder(mountOf(it)) }) {
+                throw FileSystemException.InvalidPath(locator)
+            }
         }
-    }
+
+    private fun mountOf(volume: FileSystemSource.Root.Volume): File =
+        File(volume.path).canonicalFile
 }

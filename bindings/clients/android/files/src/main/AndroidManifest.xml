@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+    Writing to shared storage before scoped storage arrived. Capped at 28 because from Android 10
+    the media source goes through MediaStore instead, which needs no permission for its own rows.
+
+    Reading is the host's to declare: it is the one that must ask the user, and which permission
+    that is depends on the sdk it targets.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+</manifest>

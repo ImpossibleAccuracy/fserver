@@ -3,6 +3,7 @@ package com.fserver.files.fs
 import android.content.Context
 import android.os.Build
 import com.fserver.files.fs.impl.DirectoryFileSystem
+import com.fserver.files.fs.impl.LegacyMediaFileSystem
 import com.fserver.files.fs.impl.MediaFileSystem
 import com.fserver.files.fs.impl.RootFileSystem
 import com.fserver.files.fs.impl.TreeFileSystem
@@ -22,10 +23,12 @@ internal class FileSystemEntryPoint(
         is FileSystemSource.Internal -> DirectoryFileSystem.internal(context, source.bucket)
         is FileSystemSource.Directory -> DirectoryFileSystem(File(source.path))
 
+        // Scoped storage split this one in two: the same source, reached through the provider on
+        // Android 10 and up and through the paths its rows still carry below it.
         is FileSystemSource.Media -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaFileSystem(context)
         } else {
-            TODO("Add files scan for pre-Android 10")
+            LegacyMediaFileSystem(context)
         }
     }
 }

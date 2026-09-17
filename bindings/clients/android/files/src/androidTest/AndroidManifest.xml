@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!--
+        A tree grant normally comes from the picker, which a test cannot drive. This provider is
+        declared by the test apk itself, so it shares its uid and needs no grant.
+
+        Exported and behind MANAGE_DOCUMENTS because DocumentsProvider.attachInfo refuses to start
+        otherwise. Nothing else can reach it: MANAGE_DOCUMENTS is signature|privileged and this apk
+        does not hold it either - same-uid calls skip the check entirely.
+        -->
+        <provider
+            android:name="com.fserver.files.fs.impl.TestDocumentsProvider"
+            android:authorities="com.fserver.files.test.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
+    </application>
+
+</manifest>

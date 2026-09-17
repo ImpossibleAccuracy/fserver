@@ -10,8 +10,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.InputStream
-import java.io.RandomAccessFile
 import kotlin.time.Instant
 
 /**
@@ -23,7 +21,7 @@ import kotlin.time.Instant
  */
 internal class DirectoryFileSystem(
     private val root: File,
-) : SystemAdapter() {
+) : LocalFileSystem() {
 
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
@@ -43,7 +41,7 @@ internal class DirectoryFileSystem(
                         volume = null,
                         path = item.relativeTo(root).invariantSeparatorsPath,
                     ),
-                    locator = item.locator(),
+                    locator = item.absolutePath,
                     size = FileSize(item.length()),
                     lastModified = Instant.fromEpochMilliseconds(item.lastModified()),
                 )
@@ -51,76 +49,18 @@ internal class DirectoryFileSystem(
         }
     }
 
-    override suspend fun createFile(path: String): String {
-        // Canonical before the check: `File(root, "../x").path` still starts with root.
-        val file = File(root, path).canonicalFile
-        ensureFileInRoot(file, path)
+    // Canonical before the check: `File(root, "../x").path` still starts with root.
+    override fun resolve(path: String): File = ensureInRoot(File(root, path).canonicalFile, path)
 
-        if (file.exists()) throw FileSystemException.AlreadyExists(path)
-
-        return withContext(Dispatchers.IO) {
-            file.parentFile?.mkdirs()
-            if (!file.createNewFile()) throw FileSystemException.CreationFailed(path)
-
-            return@withContext file.locator()
-        }
-    }
-
-    override suspend fun openFile(locator: String): InputStream {
-        val file = confined(locator)
-
-        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
-
-        return withContext(Dispatchers.IO) {
-            file.inputStream()
-        }
-    }
-
-    override suspend fun writeFile(
-        locator: String,
-        offset: Long,
-        bytes: ByteArray,
-        length: Int,
-    ): Boolean {
-        val file = confined(locator)
-
-        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
-
-        return withContext(Dispatchers.IO) {
-            RandomAccessFile(file, "rw").use { ra ->
-                ra.seek(offset)
-                ra.write(bytes, 0, length)
-            }
-
-            true
-        }
-    }
-
-    override suspend fun deleteFile(locator: String): Boolean {
-        val file = confined(locator)
-
-        if (!file.exists()) return true
-        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
-
-        return withContext(Dispatchers.IO) {
-            file.delete()
-        }
-    }
+    override fun confine(locator: String): File =
+        ensureInRoot(File(locator).canonicalFile, locator)
 
     /**
-     * [locator] resolved under [root]. Checked rather than trusted: every byte in this directory
-     * arrived from a peer, so a locator that walks back out of it must not open anything.
+     * Ensure that [file] is under [root], throwing if not. Checked rather than trusted: every byte
+     * in this directory arrived from a peer, so a path that walks back out must not open anything.
      */
-    private fun confined(locator: String): File =
-        File(locator).canonicalFile.also {
-            ensureFileInRoot(it, locator)
-        }
-
-    /** Ensure that [file] is under [root], throwing if not. */
-    private fun ensureFileInRoot(file: File, locator: String) {
-        if (!file.path.startsWith(root.canonicalFile.path + File.separator)) {
-            throw FileSystemException.InvalidPath(locator)
-        }
+    private fun ensureInRoot(file: File, path: String): File = file.also {
+        if (!it.isUnder(root.canonicalFile)) throw FileSystemException.InvalidPath(path)
     }
 
     companion object {
@@ -136,6 +76,3 @@ internal class DirectoryFileSystem(
             DirectoryFileSystem(File(File(context.filesDir, SourcesDirectory), bucket))
     }
 }
-
-/** Locator for a file in the local filesystem. */
-private fun File.locator(): String = this.absolutePath

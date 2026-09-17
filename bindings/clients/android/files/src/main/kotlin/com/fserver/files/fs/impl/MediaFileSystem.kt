@@ -1,8 +1,9 @@
 package com.fserver.files.fs.impl
 
-import android.annotation.SuppressLint
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
@@ -15,14 +16,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 import kotlin.time.Instant
 
 /** Every image, video and audio file the MediaStore indexes, newest first. */
 @RequiresApi(Build.VERSION_CODES.Q)
 internal class MediaFileSystem(
-    private val context: Context,
-) : SystemAdapter() {
+    context: Context,
+) : ProviderFileSystem(context) {
     override suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ): Unit = withContext(Dispatchers.IO) {
@@ -92,36 +92,101 @@ internal class MediaFileSystem(
             }
     }
 
-    override suspend fun createFile(path: String): String {
-        TODO("Not yet implemented")
+    /**
+     * [path] is volume-led, the way a scan here reports it, and the segments between the volume and
+     * the name become `RELATIVE_PATH`.
+     *
+     * The row is published straight away rather than staged with `IS_PENDING`: the
+     * [com.fserver.files.fs.FileSystem] contract has no call to clear the flag on, and a pending
+     * row nothing clears expires instead of arriving.
+     */
+    override suspend fun createFile(path: String): String = withContext(Dispatchers.IO) {
+        val segments = segmentsOf(path)
+
+        // MediaStore keeps every file under a top-level directory it recognises, so
+        // "<volume>/<directory>/<name>" is the shortest path it can hold.
+        if (segments.size < 3) throw FileSystemException.InvalidPath(path)
+
+        val volume = volumeName(segments.first())
+
+        // Checked before the provider is touched at all: MediaStore answers an unknown volume with
+        // a raw IllegalArgumentException, from the query as readily as from the insert.
+        if (volume !in MediaStore.getExternalVolumeNames(context)) {
+            throw FileSystemException.InvalidPath(path)
+        }
+
+        val collection = MediaStore.Files.getContentUri(volume)
+        val name = segments.last()
+        val relativePath = segments
+            .subList(1, segments.size - 1)
+            .joinToString(separator = "/", postfix = "/")
+
+        // Checked rather than left to MediaStore, which renames a colliding insert instead of
+        // refusing it — and a renamed file no longer matches the path the peer holds.
+        if (find(collection, relativePath, name) != null) {
+            throw FileSystemException.AlreadyExists(path)
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
+            put(MediaStore.Files.FileColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.Files.FileColumns.MIME_TYPE, mimeTypeOf(name))
+        }
+
+        val uri = try {
+            context.contentResolver.insert(collection, values)
+        } catch (e: IllegalArgumentException) {
+            // MediaStore refuses a RELATIVE_PATH whose top-level directory it does not own.
+            throw FileSystemException.InvalidPath(path)
+        } ?: throw FileSystemException.CreationFailed(path)
+
+        uri.toString()
     }
 
-    @SuppressLint("Recycle")
-    override suspend fun openFile(locator: String): InputStream {
+    override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
         val uri = locator.toUri()
 
-        return withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)
-                ?: throw FileSystemException.InvalidPath(locator)
-        }
+        // A row that is already gone counts as deleted, so a repeated delete is not a failure.
+        context.contentResolver.delete(uri, null, null) > 0 || !exists(uri)
     }
 
-    override suspend fun writeFile(
-        locator: String,
-        offset: Long,
-        bytes: ByteArray,
-        length: Int
-    ): Boolean {
-        TODO("Not yet implemented")
+    /** The row at [relativePath] + [name] in [collection], or null when there is none. */
+    private fun find(collection: Uri, relativePath: String, name: String): Uri? {
+        val selection = "${MediaStore.Files.FileColumns.RELATIVE_PATH} = ? AND " +
+            "${MediaStore.Files.FileColumns.DISPLAY_NAME} = ?"
+
+        context.contentResolver
+            .query(
+                /* uri = */ collection,
+                /* projection = */ arrayOf(MediaStore.Files.FileColumns._ID),
+                /* selection = */ selection,
+                /* selectionArgs = */ arrayOf(relativePath, name),
+                /* sortOrder = */ null,
+            )
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return ContentUris.withAppendedId(collection, cursor.getLong(0))
+                }
+            }
+
+        return null
     }
 
-    override suspend fun deleteFile(locator: String): Boolean {
-        TODO("Not yet implemented")
-    }
+    private fun exists(uri: Uri): Boolean =
+        context.contentResolver
+            .query(uri, arrayOf(MediaStore.Files.FileColumns._ID), null, null, null)
+            ?.use { it.count > 0 }
+            ?: false
 
     /** Aligned with the volume ids a [com.fserver.files.fs.FileSystemSource.Root] scan reports. */
     private fun volumeId(volumeName: String?): String = when (volumeName) {
         null, MediaStore.VOLUME_EXTERNAL_PRIMARY -> SourcePaths.PrimaryVolume
         else -> volumeName
+    }
+
+    /** Inverse of [volumeId]: the MediaStore volume a canonical path's first segment names. */
+    private fun volumeName(volumeId: String): String = when (volumeId) {
+        SourcePaths.PrimaryVolume -> MediaStore.VOLUME_EXTERNAL_PRIMARY
+        else -> volumeId
     }
 }
