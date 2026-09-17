@@ -2,6 +2,7 @@ package com.fserver.core.network.device
 
 import com.fserver.common.exception.DetectionFailedException
 import com.fserver.core.network.TransportKind
+import com.fserver.core.network.device.model.DeviceInvitation
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,6 +15,14 @@ import kotlinx.coroutines.flow.Flow
 interface DeviceAdvertising {
     /** Methods this device is currently announcing itself over. */
     val runningMethods: Flow<Set<TransportKind.Automatic>>
+
+    /**
+     * The connection code for this device, or null while nothing is listening - a code pointing at
+     * an address nobody answers on is worse than no code at all. Independent of [runningMethods]:
+     * a device that publishes nothing is still reachable by code, which is the whole point of the
+     * QR access mode (`Terms of Reference.md` §3.2).
+     */
+    val invitation: Flow<DeviceInvitation?>
 
     /**
      * Announces this device over [method], and keeps it announced until it is stopped. Starting a

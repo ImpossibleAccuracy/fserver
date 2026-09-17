@@ -19,6 +19,8 @@ timber = "5.0.1"
 playServicesNearby = "19.4.0"
 playServicesBase = "18.10.0"
 desugarJdkLibs = "2.1.5"
+zxing = "3.4.1"
+camerax = "1.6.2"
 
 junit = "4.13.2"
 mockk = "1.14.11"
@@ -85,6 +87,15 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-primitive-adapters = { module = "app.cash.sqldelight:primitive-adapters", version.ref = "sqldelight" }
+
+# QR code encoding for this device's own code, decoding for the frames CameraX hands over
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+
+# Camera: viewfinder + frame stream for QR scanning
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }

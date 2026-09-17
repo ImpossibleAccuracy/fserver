@@ -7,6 +7,8 @@ import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
+import com.fserver.core.network.device.json.JsonQrCodeParser
+import com.fserver.core.network.device.json.JsonQrCodeWriter
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -78,6 +80,7 @@ class DevicesRepositoryImplTest {
             requirementsChecker = mockk<RequirementsChecker>(relaxed = true),
             networkInfoRepository = OneNetwork(),
             jsonQrCodeParser = JsonQrCodeParser(),
+            jsonQrCodeWriter = JsonQrCodeWriter(),
             interactiveAuthenticator = InteractivePeerAuthenticator(),
             storage = storage,
             reachability = ReachabilityTracker(storage, MutableTimeProvider()),
@@ -211,6 +214,7 @@ class DevicesRepositoryImplTest {
 
     private class OneNetwork : NetworkInfoRepository {
         override val networkInfo: Flow<NetworkInfo?> = flowOf(NetworkInfo.Wired)
+        override val localRoutes: Flow<List<KnownRoute>> = flowOf(emptyList())
         override fun refresh() = Unit
     }
 

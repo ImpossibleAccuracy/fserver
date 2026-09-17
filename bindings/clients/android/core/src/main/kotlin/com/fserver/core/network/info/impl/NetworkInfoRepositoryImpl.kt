@@ -11,8 +11,12 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.TelephonyManager
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.network.NetworkController
+import com.fserver.core.network.device.impl.mapper.toKnownRoute
+import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +25,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -37,6 +43,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 internal class NetworkInfoRepositoryImpl(
     context: Context,
+    private val networkController: Lazy<NetworkController>,
     backgroundScope: BackgroundScope,
 ) : NetworkInfoRepository {
     private val context: Context = context.applicationContext
@@ -118,6 +125,13 @@ internal class NetworkInfoRepositoryImpl(
             ),
             replay = 1,
         )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val localRoutes: Flow<List<KnownRoute>> = networkInfo.flatMapLatest {
+        networkController.value.requestManager.listenerEndpoints.map { endpoints ->
+            endpoints.map { it.toKnownRoute() }
+        }
+    }
 
     override fun refresh() {
         refreshes.tryEmit(Unit)

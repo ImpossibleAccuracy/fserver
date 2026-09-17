@@ -19,6 +19,8 @@ import com.fserver.core.network.device.IncomingConnection
 import com.fserver.core.network.device.OnlineDevices
 import com.fserver.core.network.device.impl.mapper.toDomain
 import com.fserver.core.network.device.impl.mapper.toKnownRoute
+import com.fserver.core.network.device.json.JsonQrCodeParser
+import com.fserver.core.network.device.json.JsonQrCodeWriter
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -47,6 +49,7 @@ internal class DevicesRepositoryImpl(
     private val requirementsChecker: RequirementsChecker,
     private val networkInfoRepository: NetworkInfoRepository,
     private val jsonQrCodeParser: JsonQrCodeParser,
+    private val jsonQrCodeWriter: JsonQrCodeWriter,
     private val interactiveAuthenticator: InteractivePeerAuthenticator,
     private val storage: FServerStorage,
     private val reachability: ReachabilityTracker,
@@ -59,7 +62,13 @@ internal class DevicesRepositoryImpl(
     }
 
     override val advertising: DeviceAdvertising by lazy {
-        DeviceAdvertisingImpl(network = network, requirementsChecker = requirementsChecker)
+        DeviceAdvertisingImpl(
+            network = network,
+            requirementsChecker = requirementsChecker,
+            networkInfoRepository = networkInfoRepository,
+            qrCodeWriter = jsonQrCodeWriter,
+            storage = storage,
+        )
     }
 
     override val devices: OnlineDevices by lazy {
@@ -164,15 +173,70 @@ internal class DevicesRepositoryImpl(
 
         is PeerLocator.Ip -> byRoute(arguments.toPeerRef())
 
-        is PeerLocator.QrPayload -> arguments.toPeerRefOrNull()
-            ?.let { byRoute(it) }
-            ?: Result.failure(MalformedQrException())
+        // A code naming no address still reaches a device that advertises: over Nearby there is
+        // nothing to dial, so the device id is looked up among the ones discovery can see.
+        is PeerLocator.QrPayload -> dialQr(
+            arguments = arguments,
+            byDeviceId = byDeviceId,
+            byRoute = byRoute,
+        )
 
         is PeerLocator.NearbyEndpoint -> findNearbyEndpoint(arguments)
             ?.let { byRoute(it) }
             ?: Result.failure(IllegalArgumentException("Endpoint ${arguments.endpointId} not found"))
 
         is PeerLocator.KnownDevice -> dialKnown(arguments.id, byDeviceId, byRoute)
+    }
+
+    private suspend fun <T> dialQr(
+        arguments: PeerLocator.QrPayload,
+        byDeviceId: suspend (String) -> Result<T>,
+        byRoute: suspend (PeerRef) -> Result<T>,
+    ): Result<T> {
+        val code = jsonQrCodeParser.parse(arguments.payload)
+            ?: return Result.failure(MalformedQrException())
+
+        val results = buildList<suspend () -> Result<T>> {
+            if (code.deviceId != null) {
+                val found = network.incomingConnections.session(code.deviceId) != null ||
+                        network.peerDiscovery.peers.value.any { it.advertised.deviceId == code.deviceId }
+
+                if (found) add { byDeviceId(code.deviceId) }
+            }
+
+            if (code.directIp != null) {
+                val peer = PeerRef.build(
+                    DirectIpEndpoint(
+                        host = code.directIp.host,
+                        port = code.directIp.port ?: Constants.DEFAULT_PORT
+                    )
+                )
+
+                add { byRoute(peer) }
+            }
+
+            if (code.nearby != null) {
+                val peer = PeerRef.build(
+                    NearbyConnectionsTransportEndpoint(code.nearby.endpointId)
+                )
+
+                add { byRoute(peer) }
+            }
+        }
+
+        if (results.isEmpty()) {
+            throw MalformedQrException("QR contains no data")
+        }
+
+        val fails = mutableListOf<Result<T>>()
+
+        for (function in results) {
+            val result = function()
+            if (result.isSuccess) return result
+            else fails += result
+        }
+
+        return fails.first()
     }
 
     /**
@@ -296,11 +360,6 @@ internal class DevicesRepositoryImpl(
     private fun PeerLocator.Ip.toPeerRef(): PeerRef = PeerRef.build(
         DirectIpEndpoint(host = host, port = port ?: Constants.DEFAULT_PORT)
     )
-
-    private fun PeerLocator.QrPayload.toPeerRefOrNull(): PeerRef? =
-        jsonQrCodeParser.parse(payload)?.let {
-            PeerRef.build(DirectIpEndpoint(host = it.ip, port = it.port ?: Constants.DEFAULT_PORT))
-        }
 }
 
 /**

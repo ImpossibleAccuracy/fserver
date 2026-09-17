@@ -130,6 +130,7 @@ fun DkIconButton(
     onClick: () -> Unit,
     icon: ImageVector,
     enabled: Boolean = true,
+    contentDescription: String? = null,
 ) {
     IconButton(
         enabled = enabled,
@@ -137,7 +138,7 @@ fun DkIconButton(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = contentDescription,
             modifier = modifier.size(24.dp),
         )
     }

@@ -171,6 +171,9 @@
     <!-- QR scanner -->
     <string name="qr_title">Scan the code</string>
     <string name="qr_camera_placeholder">camera stream</string>
+    <string name="qr_camera_off">camera off</string>
+    <string name="qr_camera_denied">Camera access is off, so there is nothing to scan with. Grant it, or type the address instead.</string>
+    <string name="qr_action_grant_camera">Grant camera access</string>
     <string name="qr_hint">The code on the server screen carries its address. You still confirm the key fingerprint afterwards.</string>
     <string name="qr_connecting">Reaching the address from the code…</string>
     <string name="qr_error_malformed">This is not a connection code. Point the camera at the code on the server screen.</string>
@@ -357,6 +360,13 @@
     <string name="devices_disconnect">Disconnect</string>
     <string name="devices_connect_new">Connect a new device</string>
     <string name="devices_empty">No device is connected or remembered yet.</string>
+    <string name="devices_qr_action">Show connection code</string>
+    <string name="devices_qr_title">Connect to this device</string>
+    <string name="devices_qr_hint">Scan this from the other device. The code carries this device\'s address and the fingerprint of its key, so the other side can tell it apart from an impostor.</string>
+    <string name="devices_qr_address_label">Reachable at</string>
+    <string name="devices_qr_fingerprint_label">This device\'s key fingerprint</string>
+    <string name="devices_qr_loading">Preparing the code…</string>
+    <string name="devices_qr_unavailable">Nothing is listening or on the air yet, so there is nothing to hand out. Start serving and open this again.</string>
 
     <!-- One device: what it proved, and the only way to take that back -->
     <string name="device_details_connected">Connected</string>

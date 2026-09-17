@@ -16,12 +16,15 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.IOException
+import java.net.Inet4Address
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicReference
@@ -88,6 +91,21 @@ internal class MulticastDnsTransport(
 
     private inner class TransportListener : Transport.Listener {
         val serverSocket = AtomicReference<ServerSocket?>(null)
+
+        /**
+         * The bound port against every address this device currently answers on - the listener
+         * binds the wildcard, so the port alone is not something a peer can be handed.
+         */
+        override val endpoints: Flow<List<TransportEndpoint>> =
+            multicastDnsPortBinder.value.map { port ->
+                if (port == null) {
+                    emptyList()
+                } else {
+                    localHostAddresses().map { host ->
+                        MulticastDnsTransportEndpoint(host = host, port = port)
+                    }
+                }
+            }.flowOn(Dispatchers.IO)
 
         /**
          * Takes the first free port of [LanPorts.PREFERRED], so a route stored for this device
@@ -208,4 +226,21 @@ internal class MulticastDnsTransport(
             }
         }
     }
+}
+
+/**
+ * Addresses of this device other machines on the link can dial - IPv4 only, since that is what the
+ * MVP code format carries, and loopback left out because a peer can never reach it.
+ */
+private fun localHostAddresses(): List<String> = try {
+    NetworkInterface.getNetworkInterfaces()
+        .asSequence()
+        .filter { it.isUp && !it.isLoopback }
+        .flatMap { it.inetAddresses.asSequence() }
+        .filterIsInstance<Inet4Address>()
+        .mapNotNull { it.hostAddress }
+        .toList()
+} catch (e: IOException) {
+    Timber.w(e, "could not enumerate local addresses")
+    emptyList()
 }

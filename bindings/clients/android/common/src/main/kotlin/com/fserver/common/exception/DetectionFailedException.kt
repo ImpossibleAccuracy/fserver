@@ -7,4 +7,4 @@ open class DetectionFailedException(
 ) : FServerException(message, cause)
 
 /** The scanned payload was not a connection code this build understands. */
-class MalformedQrException : DetectionFailedException()
+class MalformedQrException(message: String? = null) : DetectionFailedException(message)

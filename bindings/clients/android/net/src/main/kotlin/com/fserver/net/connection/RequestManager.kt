@@ -4,6 +4,8 @@ import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
+import com.fserver.net.spi.TransportEndpoint
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -19,6 +21,9 @@ import kotlinx.coroutines.flow.StateFlow
 interface RequestManager<M : Any> {
     /** What every completed handshake so far revealed, by device id. Filled by [connect] only. */
     val profiles: StateFlow<Map<String, HandshakeProfile>>
+
+    /** Where peers can reach this node right now - every listening transport's endpoints, merged. */
+    val listenerEndpoints: Flow<List<TransportEndpoint>>
 
     /**
      * The public greeting, over its own connection, which is closed again straight after.

@@ -1,5 +1,6 @@
 package com.fserver.net
 
+import com.fserver.net.NetworkNode.Companion.SHUTDOWN_GRACE
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
 import com.fserver.net.connection.IncomingConnectionsManager

@@ -2,6 +2,7 @@ package com.fserver.net.spi
 
 import com.fserver.net.security.auth.AuthMethodId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /** Opens outgoing channels, and - when it can - accepts incoming ones. */
 interface Transport {
@@ -41,6 +42,14 @@ interface Transport {
 
     interface Listener {
         fun listen(): Flow<InboundConnection>
+
+        /**
+         * Where peers can reach this listener right now, re-read on every collection so a link
+         * change is picked up. Empty while nothing is bound; empty for a transport whose listener
+         * has no address a peer could be handed.
+         */
+        val endpoints: Flow<List<TransportEndpoint>>
+            get() = flowOf(emptyList())
     }
 
     /**

@@ -61,7 +61,12 @@ fun SyncRequestLocationScreen(
             onSuccess = viewModel::onIntent,
             // A folder the user picked and the app then cannot write to is not a no-op: without
             // this the pick silently does nothing.
-            onFailure = { viewModel.report(it, "Could not take a write grant on %s".format(uri)) },
+            onFailure = {
+                viewModel.reporter.report(
+                    error = it,
+                    context = "Could not take a write grant on %s".format(uri)
+                )
+            },
         )
     }
 

@@ -1,6 +1,7 @@
 package com.fserver.net.connection.impl
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
@@ -20,9 +21,15 @@ import com.fserver.net.session.SessionLink
 import com.fserver.net.spi.GreetingSource
 import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportEndpoint
-import com.fserver.common.utils.runCatchingCancellable
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal class RequestManagerImpl<M : Any>(
@@ -36,6 +43,20 @@ internal class RequestManagerImpl<M : Any>(
     private val selector = TransportSelector(configHolder)
 
     override val profiles: StateFlow<Map<String, HandshakeProfile>> = connectionsHolder.profiles
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val listenerEndpoints: Flow<List<TransportEndpoint>> = configHolder.flow
+        .map { config -> config.transports.mapNotNull { it.listener } }
+        .distinctUntilChanged()
+        .flatMapLatest { listeners ->
+            if (listeners.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                combine(listeners.map { it.endpoints }) { reported ->
+                    reported.toList().flatten()
+                }
+            }
+        }
 
     override suspend fun probe(
         peer: PeerRef,

@@ -1,6 +1,7 @@
 package com.fserver.core.network.impl
 
 import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.support.FakeTrustedDevicesStore
@@ -106,6 +107,7 @@ class TrustStoreAdapterTest {
     private class FakeNetworkInfoRepository(private val network: NetworkInfo?) :
         NetworkInfoRepository {
         override val networkInfo: Flow<NetworkInfo?> = flowOf(network)
+        override val localRoutes: Flow<List<KnownRoute>> = flowOf(emptyList())
         override fun refresh() = Unit
     }
 

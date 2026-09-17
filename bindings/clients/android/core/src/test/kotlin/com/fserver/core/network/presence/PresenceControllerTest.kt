@@ -3,6 +3,7 @@ package com.fserver.core.network.presence
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DeviceAdvertising
+import com.fserver.core.network.device.model.DeviceInvitation
 import com.fserver.core.network.device.DeviceDiscovery
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.runBlocking
@@ -151,6 +153,7 @@ class PresenceControllerTest {
 
         private val running = MutableStateFlow<Set<TransportKind.Automatic>>(emptySet())
         override val runningMethods: Flow<Set<TransportKind.Automatic>> = running
+        override val invitation: Flow<DeviceInvitation?> = flowOf(null)
 
         override suspend fun start(method: TransportKind.Automatic): Result<Unit> {
             started.send(method)

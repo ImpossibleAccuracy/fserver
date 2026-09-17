@@ -20,6 +20,12 @@
     <!-- API 34+: user may grant access to a chosen subset instead of the whole library. -->
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
+    <!-- QR scanning; a device without a camera still pairs by typed address. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <application
         android:name=".FServerApplication"
         android:allowBackup="true"

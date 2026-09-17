@@ -119,6 +119,15 @@ dependencies {
     // IO
     implementation(libs.androidx.documentfile)
 
+    // QR: rendering this device's own connection code, decoding scanned frames
+    implementation(libs.zxing.core)
+
+    // Camera - QR scanning
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
     // Logging
     implementation(libs.timber)
 

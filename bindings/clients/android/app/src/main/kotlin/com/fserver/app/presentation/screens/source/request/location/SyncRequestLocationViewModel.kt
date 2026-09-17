@@ -7,9 +7,9 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationIntent
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationState
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationUiEffect
+import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.toLocation
-import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.channels.Channel
@@ -26,7 +26,7 @@ class SyncRequestLocationViewModel(
     private val key: Destination.Source.Request.Location,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
-    private val reporter: ErrorReporter,
+    val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val editable = MutableStateFlow(Editable())
