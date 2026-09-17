@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest>
 
     <!--
-    Writing to shared storage before scoped storage arrived. Capped at 28 because from Android 10
-    the media source goes through MediaStore instead, which needs no permission for its own rows.
+      Deliberately empty.
 
-    Reading is the host's to declare: it is the one that must ask the user, and which permission
-    that is depends on the sdk it targets.
+      Every storage grant is the host's to declare: it is the one that must ask the user, and which
+      permission that is depends on the sdk it targets and on which of these filesystems it actually
+      exposes. WRITE_EXTERNAL_STORAGE (maxSdkVersion 28, for LegacyMediaFileSystem) used to live
+      here and now sits in :app alongside the read half.
+
+      RequirementRules.kt names the whole set; RequirementsCheckerImpl reports an undeclared one as
+      a blocker, so a host that skips a permission gets that source reported as unavailable rather
+      than a grant dialog that never appears.
     -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
 
 </manifest>

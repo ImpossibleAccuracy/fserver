@@ -28,6 +28,20 @@ sealed interface Requirement {
     data class RuntimePermission(val permissions: List<String>) : Requirement
 
     /**
+     * Permissions this operation needs that the host's manifest does not declare - so no dialog
+     * exists for them and `checkSelfPermission` will answer "denied" forever.
+     *
+     * Never solvable, which is the point: the optional permissions are the host's to declare, and
+     * one it left out is a feature it chose not to ship rather than a grant the user could still
+     * give. Reported rather than swallowed, because the same absence is what a typo in the manifest
+     * looks like.
+     *
+     * Also covers a permission the device itself has retired - one past its `maxSdkVersion` is
+     * dropped at parse time and never appears as declared.
+     */
+    data class UndeclaredPermission(val permissions: List<String>) : Requirement
+
+    /**
      * A permission no runtime dialog can grant — the user switches it on in Settings and comes
      * back. Unlike a [RuntimePermission] it is never asked for in a launcher, and unlike a
      * [SystemToggle] it is this app's alone rather than a device-wide switch.

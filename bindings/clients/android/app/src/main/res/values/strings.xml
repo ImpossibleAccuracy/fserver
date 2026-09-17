@@ -113,6 +113,8 @@
     <string name="requirement_permission_storage_description">Reading and writing the folder this source syncs.</string>
     <string name="requirement_permission_other_title">One more permission</string>
     <string name="requirement_permission_other_description">Android wants one more grant before this method can run.</string>
+    <string name="requirement_permission_undeclared_title">Not available in this build</string>
+    <string name="requirement_permission_undeclared_description">This version of the app does not ask for the permission this method needs, so it cannot be granted here.</string>
     <string name="requirement_toggle_bluetooth_title">Bluetooth is off</string>
     <string name="requirement_toggle_bluetooth_description">Switch it on in system settings.</string>
     <string name="requirement_toggle_wifi_title">Wi-Fi is off</string>

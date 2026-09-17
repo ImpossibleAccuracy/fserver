@@ -34,6 +34,27 @@ internal class RequirementsCheckerImpl(
 ) : RequirementsChecker {
     private val context: Context = context.applicationContext
 
+    /**
+     * Every permission the merged manifest declares, as this device sees it - one past its
+     * `maxSdkVersion` is dropped while the package is parsed, so this is also the answer to
+     * "is it still requestable here".
+     *
+     * Read once: a manifest cannot change without the process being replaced.
+     */
+    private val declaredPermissions: Set<String> by lazy {
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+        }
+
+        info.requestedPermissions?.toSet().orEmpty()
+    }
+
     override suspend fun forTransport(method: TransportKind): RequirementReport {
         val rules = detectionRequirementRules(method, Build.VERSION.SDK_INT)
 
@@ -90,9 +111,18 @@ internal class RequirementsCheckerImpl(
 
         // ---------------- Check permissions ----------------
         val missingPermissions = rules.permissions.filterNot(::isPermissionGranted)
-        if (missingPermissions.isNotEmpty()) {
+        // What the host never declared cannot be requested: the dialog does not appear, the denial
+        // is instant and permanent, and the app settings screen the host would fall back to does
+        // not list it either.
+        val (undeclared, requestable) = missingPermissions.partition { it !in declaredPermissions }
+
+        if (requestable.isNotEmpty()) {
             // Solvable, user can grant them
-            solvable += Requirement.RuntimePermission(missingPermissions)
+            solvable += Requirement.RuntimePermission(requestable)
+        }
+        if (undeclared.isNotEmpty()) {
+            // Blocker: only a different build of the host app fixes it.
+            blockers += Requirement.UndeclaredPermission(undeclared)
         }
 
         // ---------------- Check special access ----------------

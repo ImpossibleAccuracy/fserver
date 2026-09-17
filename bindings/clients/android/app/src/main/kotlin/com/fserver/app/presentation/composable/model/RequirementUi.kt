@@ -32,6 +32,13 @@ data class RequirementRowUi(
 fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
     is Requirement.RuntimePermission -> permissions.toPermissionRows()
 
+    is Requirement.UndeclaredPermission -> listOf(
+        RequirementRowUi(
+            titleRes = R.string.requirement_permission_undeclared_title,
+            detailRes = R.string.requirement_permission_undeclared_description,
+        )
+    )
+
     is Requirement.SystemToggle -> listOf(
         when (kind) {
             Requirement.SystemToggle.Kind.BLUETOOTH -> RequirementRowUi(

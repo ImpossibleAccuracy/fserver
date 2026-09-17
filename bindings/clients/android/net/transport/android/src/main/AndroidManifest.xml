@@ -1,36 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
-      Nearby Connections. It picks its own radios, so a missing permission here is a discovery
-      that silently finds nothing rather than a failure. Runtime grants are the host's job -
-      this module only declares what it needs.
+      Local Network Protection: from API 37 every LAN packet is gated, so this covers the mDNS
+      discovery, the direct-IP dialer and Nearby's WIFI_LAN medium alike. Declared here because this
+      is the module that sends those packets.
     -->
+    <uses-permission
+        android:name="android.permission.ACCESS_LOCAL_NETWORK"
+        android:minSdkVersion="37"
+        tools:targetApi="37" />
+
+    <!-- Nearby Connections. Both are install-time, so neither reaches the user. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
+    <!-- The install-time bluetooth pair, superseded by the runtime trio the host declares. -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
-    <!-- Wi-Fi Direct and BLE scanning need location below 33. -->
-    <uses-permission
-        android:name="android.permission.ACCESS_COARSE_LOCATION"
-        android:maxSdkVersion="28" />
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="32" />
-
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
 
 </manifest>

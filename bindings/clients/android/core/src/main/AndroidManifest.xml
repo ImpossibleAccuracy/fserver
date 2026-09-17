@@ -1,96 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      Declared here, not in the consuming app: these are what the discovery datasources in this
-      module need to run at all, so any UI that ships :core inherits them by manifest merge.
+      Only what this module's own code calls, and only permissions the user is never asked about.
 
-      SDK bounds follow Google's Nearby Connections sample, and deviations from it are called out
-      where they happen:
-      https://developers.google.com/nearby/connections/android/get-started#request_permissions
-
-      Which of these must also be *requested* at runtime lives in RequirementRules.kt.
+      Everything a transport or an optional feature needs is the host's to declare, even where
+      RequirementRules.kt names it: a host that ships no Nearby UI should not inherit the nearby
+      permission group by depending on this module. RequirementsCheckerImpl reports an undeclared
+      permission as a blocker rather than as something the user could still grant.
     -->
 
-    <!-- ==================== Network ==================== -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Reading which transport is up, and whether it carries a LAN. -->
+    <!-- NetworkInfoRepositoryImpl - ConnectivityManager callbacks. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
-      Local Network Protection: from API 37 every LAN packet is gated, so this covers mDNS, the
-      subnet scan and Nearby's WIFI_LAN medium alike.
-    -->
-    <uses-permission
-        android:name="android.permission.ACCESS_LOCAL_NETWORK"
-        android:minSdkVersion="37"
-        tools:targetApi="37" />
-
-    <!-- ==================== Wi-Fi ==================== -->
-
-    <!--
-      Google's sample caps both at API 31. Not capped here: Nearby stops needing them, but reading
-      the current network's details does not - see networkInfoRequirementRules.
+      NetworkInfoRepositoryImpl reads WifiManager.connectionInfo; RequirementsCheckerImpl reads
+      isWifiEnabled. Not capped at 31 the way Google's Nearby sample caps it - Nearby stops needing
+      it, but reading the current network's details does not.
     -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-
-    <!-- Replaces the location gate for Wi-Fi Direct / Aware. -->
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:minSdkVersion="33"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="33" />
-
-    <!-- ==================== Bluetooth ==================== -->
-
-    <!-- The install-time pair, superseded by the runtime trio below. -->
-    <uses-permission
-        android:name="android.permission.BLUETOOTH"
-        android:maxSdkVersion="30" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_ADMIN"
-        android:maxSdkVersion="30" />
-
-    <!-- One runtime permission per action Nearby performs. -->
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_ADVERTISE"
-        android:minSdkVersion="31" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_CONNECT"
-        android:minSdkVersion="31" />
-    <!--
-      neverForLocation is load-bearing, not decoration: without it the platform keeps treating the
-      BLE scan as location-derived, and the API 33+ rules in RequirementRules.kt - which stop asking
-      for a location permission - would leave Nearby's BLE half silently finding nothing.
-    -->
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_SCAN"
-        android:minSdkVersion="31"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="31" />
-
-    <!-- ==================== Location ==================== -->
-
-    <!--
-      Google's sample caps these at API 28 / 31. Not capped here: BLE scanning stops needing them,
-      but reading the network's name (SSID/BSSID) stays location-gated on every API level - see
-      networkInfoRequirementRules.
-
-      `tools:remove` is what makes that stick. :net:transport:android declares the same two with
-      maxSdkVersion 28 / 32 - right for Nearby, which is all that module does - and the merger
-      copies an attribute onto a node that does not carry one. Left alone, COARSE would silently
-      stop being requested above API 28, which on API 31+ also breaks FINE: the platform grants it
-      only alongside COARSE.
-    -->
-    <uses-permission
-        android:name="android.permission.ACCESS_COARSE_LOCATION"
-        tools:remove="android:maxSdkVersion" />
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        tools:remove="android:maxSdkVersion" />
 
 </manifest>

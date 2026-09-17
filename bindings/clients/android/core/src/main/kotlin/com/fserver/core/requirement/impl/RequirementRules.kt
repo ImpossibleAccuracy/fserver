@@ -141,13 +141,17 @@ private fun mediaPermissions(sdkInt: Int): List<String> = buildList {
 /**
  * Reaching a path outside the app's own storage on a device running [sdkInt].
  *
- * From API 30 the runtime pair no longer reaches one and is not asked for. API 29 is the awkward
- * one: the pair is granted but scoped storage already redirects it, so only a device opted into
- * legacy external storage can serve a raw path there - elsewhere on 29 a tree is the way in.
+ * The runtime pair is asked for only below API 29, where it still reaches a raw path. From 29 on
+ * scoped storage redirects it, so asking buys nothing: 30+ has `MANAGE_EXTERNAL_STORAGE` below, and
+ * 29 has no way in at all short of a document tree - it would take
+ * `android:requestLegacyExternalStorage`, which this app does not set.
+ *
+ * TODO: API 29 therefore reports a raw-path source as ready and then finds nothing. Either set that
+ *  flag or say the os cannot serve this source - see TODO_LIST.md.
  */
 @SuppressLint("InlinedApi")
 private fun rawPathPermissions(sdkInt: Int): List<String> =
-    if (sdkInt >= ALL_FILES_ACCESS_SDK) {
+    if (sdkInt >= SCOPED_STORAGE_SDK) {
         emptyList()
     } else {
         listOf(

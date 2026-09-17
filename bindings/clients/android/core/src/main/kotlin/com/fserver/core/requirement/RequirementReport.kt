@@ -9,7 +9,8 @@ package com.fserver.core.requirement
  * show the Play services resolution dialog.
  * Worth putting a button/dialog in front of the user.
  * @param [blockers] - everything else:
- * absent hardware, a Play services error the user cannot resolve,
+ * absent hardware, a permission the host's manifest does not declare,
+ * a Play services error the user cannot resolve,
  * transport that does not carry the needed capability.
  * Worth an explanation, not a button.
  *

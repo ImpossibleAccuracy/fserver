@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Every permission the user is prompted for is declared here, including the ones the modules
+      below need: :core, :files and :net:transport:android declare only what they cannot run
+      without and what the user never sees. The tokens themselves come from RequirementRules.kt in
+      :core - dropping one here turns that feature off rather than breaking it, because
+      RequirementsCheckerImpl reports an undeclared permission as a blocker.
+    -->
+
     <!--  File system integration permissions  -->
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
@@ -10,6 +18,10 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Before scoped storage the media write went through the file - LegacyMediaFileSystem. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission
         android:name="android.permission.READ_MEDIA_IMAGES"
         tools:ignore="PhotoAndVideoPolicy" />
@@ -25,6 +37,46 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+
+    <!--
+      Nearby Connections, which :net:transport:android drives. One runtime permission per action it
+      performs; the install-time BLUETOOTH/BLUETOOTH_ADMIN pair they supersede stays in that module.
+
+      `android:minSdkVersion` on a uses-permission is not a platform attribute and the package
+      manager ignores it - these are declared on every api level. It records which level actually
+      asks for the permission, which is RequirementRules.kt's answer, not the manifest's.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADVERTISE"
+        android:minSdkVersion="31" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT"
+        android:minSdkVersion="31" />
+    <!--
+      neverForLocation is load-bearing, not decoration: without it the platform keeps treating the
+      BLE scan as location-derived, and the API 33+ rules in RequirementRules.kt - which stop asking
+      for a location permission - would leave Nearby's BLE half silently finding nothing.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:minSdkVersion="31"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="31" />
+
+    <!-- Replaces the location gate for Wi-Fi Direct / Aware. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:minSdkVersion="33"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
+
+    <!--
+      Two callers, and they end at different api levels: Nearby needs location for BLE and Wi-Fi
+      Direct up to API 32, and reading the current network's name (SSID/BSSID) stays location-gated
+      on every level - see networkInfoRequirementRules. Uncapped for the second one.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
         android:name=".FServerApplication"

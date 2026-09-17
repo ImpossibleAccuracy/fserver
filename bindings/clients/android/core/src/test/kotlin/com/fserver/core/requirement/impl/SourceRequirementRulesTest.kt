@@ -95,6 +95,19 @@ class SourceRequirementRulesTest {
     }
 
     @Test
+    fun `a raw path on api 29 asks for nothing it cannot use`() {
+        for (location in rawPathLocations) {
+            val rules = sourceRequirementRules(location, sdkInt = 29)
+
+            // Scoped storage already redirects the runtime pair here and ALL_FILES_ACCESS does not
+            // exist yet, so both halves would be a grant that changes nothing - and the write half
+            // is capped at 28 in the manifest, which would leave a requirement no dialog can clear.
+            assertTrue(rules.permissions.isEmpty())
+            assertTrue(rules.specialPermissions.isEmpty())
+        }
+    }
+
+    @Test
     fun `a raw path before scoped storage asks for the runtime pair instead`() {
         for (location in rawPathLocations) {
             val rules = sourceRequirementRules(location, sdkInt = 28)

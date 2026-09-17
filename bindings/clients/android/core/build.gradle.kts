@@ -30,6 +30,9 @@ android {
     testOptions {
         // The Koin graph test builds a stub Context; nothing here calls into the framework.
         unitTests.isReturnDefaultValues = true
+        // Robolectric needs the merged manifest and resources on the test classpath. Only the
+        // handful of tests annotated with its runner see them; the rest stay plain JVM tests.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -96,6 +99,10 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    // Only for the few tests that must read live platform state - a real PackageManager, a real
+    // Build.VERSION.SDK_INT. Everything version-dependent that can take `sdkInt` as a parameter
+    // stays a plain JVM test instead.
+    testImplementation(libs.robolectric)
 }
 
 // -------------- CODEGEN TASKS --------------
