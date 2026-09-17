@@ -7,7 +7,9 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
@@ -50,6 +52,12 @@ internal class RequirementsCheckerImpl(
             network = NetworkSnapshot.Unknown,
         )
 
+    override suspend fun forSource(location: SourceLocation): RequirementReport =
+        resolve(
+            rules = sourceRequirementRules(location, Build.VERSION.SDK_INT),
+            network = NetworkSnapshot.Unknown,
+        )
+
     /**
      * Read transport as [NetworkInfoRepository] sees it.
      */
@@ -86,6 +94,12 @@ internal class RequirementsCheckerImpl(
             // Solvable, user can grant them
             solvable += Requirement.RuntimePermission(missingPermissions)
         }
+
+        // ---------------- Check special access ----------------
+        rules.specialPermissions
+            .filterNot(::isSpecialPermissionGranted)
+            // Solvable: no dialog grants it, but the settings screen that does is one intent away.
+            .mapTo(solvable) { Requirement.SpecialPermission(it) }
 
         // ---------------- Check system features enabled ----------------
         // What the transport features is missing
@@ -135,6 +149,19 @@ internal class RequirementsCheckerImpl(
 
     private fun isPermissionGranted(permission: String): Boolean =
         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun isSpecialPermissionGranted(
+        kind: Requirement.SpecialPermission.Kind,
+    ): Boolean = when (kind) {
+        Requirement.SpecialPermission.Kind.ALL_FILES_ACCESS ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                // No such grant exists below API 30: the runtime storage permissions are the gate
+                // there, and the rules ask for those instead.
+                true
+            }
+    }
 
     private fun hasHardware(feature: Requirement.MissingHardware.Feature): Boolean =
         context.packageManager.hasSystemFeature(feature.platformFeature)

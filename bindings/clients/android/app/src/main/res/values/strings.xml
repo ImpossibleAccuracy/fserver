@@ -105,6 +105,12 @@
     <string name="requirement_permission_nearby_devices_description">Bluetooth and direct Wi-Fi links to the devices next to you. Android grants both as one.</string>
     <string name="requirement_permission_local_network_title">Local network</string>
     <string name="requirement_permission_local_network_description">Reaching the other devices on your Wi-Fi.</string>
+    <string name="requirement_all_files_access_title">All files access</string>
+    <string name="requirement_all_files_access_description">Android grants this in Settings, not in a dialog. Without it a folder outside the app cannot be read or written.</string>
+    <string name="requirement_permission_media_title">Photos, video and audio</string>
+    <string name="requirement_permission_media_description">Reading the media library this source syncs.</string>
+    <string name="requirement_permission_storage_title">Files and media</string>
+    <string name="requirement_permission_storage_description">Reading and writing the folder this source syncs.</string>
     <string name="requirement_permission_other_title">One more permission</string>
     <string name="requirement_permission_other_description">Android wants one more grant before this method can run.</string>
     <string name="requirement_toggle_bluetooth_title">Bluetooth is off</string>

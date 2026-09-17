@@ -8,6 +8,7 @@ import com.fserver.common.exception.MalformedQrException
 import com.fserver.common.exception.NetworkException
 import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
+import com.fserver.core.files.SourceRequirementsNotMetException
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.RequirementsNotMetException
@@ -23,6 +24,8 @@ import java.io.IOException
  */
 fun Throwable.toAppError(): AppError = when (this) {
     is RequirementsNotMetException -> report.toAppError()
+
+    is SourceRequirementsNotMetException -> report.toAppError()
 
     is DeviceUnreachableException -> AppError(
         message = UiText.of(R.string.error_device_unreachable),

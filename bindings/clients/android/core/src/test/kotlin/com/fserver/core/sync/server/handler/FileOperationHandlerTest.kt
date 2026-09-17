@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
@@ -61,7 +62,7 @@ class FileOperationHandlerTest {
             authorizer = SourceAuthorizer(storage),
             storage = storage,
             node = node,
-            localIndexer = LocalChangesIndexer(storage, node, clock),
+            localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
             fileUploader = FileUploader(storage, node, progress),
             timeProvider = clock,
         )

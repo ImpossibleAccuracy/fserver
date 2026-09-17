@@ -3,8 +3,10 @@ package com.fserver.core.sync.index
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
+import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
@@ -22,6 +24,7 @@ import kotlin.time.Instant
 internal class LocalChangesIndexer(
     private val store: FServerStorage,
     private val node: FilesNode,
+    private val requirementsChecker: RequirementsChecker,
     private val timeProvider: TimeProvider,
 ) {
     private val refreshLocks = ConcurrentHashMap<String, Mutex>()
@@ -36,6 +39,8 @@ internal class LocalChangesIndexer(
         refreshLocks.computeIfAbsent(source.id) { Mutex() }.withLock { runRefresh(source) }
 
     private suspend fun runRefresh(source: SourceEntry): List<LocalIndexedFile> {
+        requirementsChecker.ensureSourceReachable(source.location)
+
         val currentTime = timeProvider.now()
         val device = store.identity.localDevice()
 

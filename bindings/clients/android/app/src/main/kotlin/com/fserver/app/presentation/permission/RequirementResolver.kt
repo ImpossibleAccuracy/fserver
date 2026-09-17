@@ -75,11 +75,16 @@ class RequirementResolver internal constructor(
                 permissionLauncher.launch(action.permissions.toTypedArray())
 
             is RequirementAction.OpenSettings ->
-                settingsLauncher.launchSafely(Intent(action.intentAction))
+                settingsLauncher.launchSafely(settingsIntent(action))
 
             RequirementAction.ResolvePlayServices -> resolvePlayServices()
         }
     }
+
+    private fun settingsIntent(action: RequirementAction.OpenSettings): Intent = Intent(
+        action.intentAction,
+        action.packageUri(activity),
+    )
 
     /**
      * Play services knows what its own status code means — missing, disabled, too old — so it is
@@ -92,6 +97,17 @@ class RequirementResolver internal constructor(
             .addOnCompleteListener { onResolved() }
     }
 }
+
+/**
+ * This app's `package:` uri, or null when the action is device-wide or there is no activity to
+ * take the name from — a null `data` is the same intent the screen was opened with before.
+ */
+private fun RequirementAction.OpenSettings.packageUri(activity: Activity?): Uri? =
+    if (scopedToApp && activity != null) {
+        Uri.fromParts("package", activity.packageName, null)
+    } else {
+        null
+    }
 
 private fun appDetailsIntent(activity: Activity) = Intent(
     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,

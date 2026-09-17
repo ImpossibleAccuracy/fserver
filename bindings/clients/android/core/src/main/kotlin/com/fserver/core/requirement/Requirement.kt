@@ -1,5 +1,6 @@
 package com.fserver.core.requirement
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.provider.Settings
 import com.fserver.core.network.info.model.NetworkCapability
@@ -25,6 +26,22 @@ sealed interface Requirement {
      * again, not by walking a list.
      */
     data class RuntimePermission(val permissions: List<String>) : Requirement
+
+    /**
+     * A permission no runtime dialog can grant — the user switches it on in Settings and comes
+     * back. Unlike a [RuntimePermission] it is never asked for in a launcher, and unlike a
+     * [SystemToggle] it is this app's alone rather than a device-wide switch.
+     */
+    data class SpecialPermission(val kind: Kind) : Requirement {
+        /** Settings screen that grants this. Start it as an `Intent` action. */
+        val settingsAction: String get() = kind.settingsAction
+
+        @SuppressLint("InlinedApi")
+        enum class Kind(val settingsAction: String) {
+            /** Reading and writing paths outside the app's own storage, from API 30 on. */
+            ALL_FILES_ACCESS(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+        }
+    }
 
     /**
      * A radio or system service the user has switched off.

@@ -1,9 +1,13 @@
 package com.fserver.core.files
 
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.map
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.scan.DirectoryScanProgress
+import com.fserver.core.files.scan.ScannedFile
 import com.fserver.core.files.scan.toCore
 import com.fserver.core.files.scan.toFiles
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
@@ -16,17 +20,22 @@ import kotlinx.coroutines.flow.stateIn
 class FilesController internal constructor(
     private val node: FilesNode,
     private val storage: FServerStorage,
+    private val requirementsChecker: RequirementsChecker,
     private val coroutineScope: BackgroundScope,
 ) {
     /** Scan the given directory and load the content of the files. */
-    fun loadContent(directory: SourceLocation) = node.openSource(directory.toFiles())
-        .scan()
-        .map(
-            progressMapper = { it.toCore() },
-            resultMapper = { list ->
-                list.map { it.toCore() }
-            },
-        )
+    suspend fun loadContent(directory: SourceLocation): ProgressTask<DirectoryScanProgress, List<ScannedFile>> {
+        requirementsChecker.ensureSourceReachable(directory)
+
+        return node.openSource(directory.toFiles())
+            .scan()
+            .map(
+                progressMapper = { it.toCore() },
+                resultMapper = { list ->
+                    list.map { it.toCore() }
+                },
+            )
+    }
 
     /** Observes the overall content of the local and remote indexed files. */
     val overallContent: StateFlow<List<SyncFileEntry>> = combine(

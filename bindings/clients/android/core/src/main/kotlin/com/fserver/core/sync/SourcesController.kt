@@ -4,7 +4,9 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.toOriginPath
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -31,6 +33,7 @@ class SourcesController internal constructor(
     private val syncRunner: SyncRunner,
     private val sourceSetup: SourceSetupExchange,
     private val timeProvider: TimeProvider,
+    private val requirementsChecker: RequirementsChecker,
     private val sessionProgressReporter: SyncProgressReporter,
 ) {
     /** Every source a peer has asked this device to host, oldest first. */
@@ -52,6 +55,8 @@ class SourcesController internal constructor(
         deviceId: String,
         label: String,
     ): Result<SourceEntry> = runBackgroundJob {
+        requirementsChecker.ensureSourceReachable(location)
+
         storage.sources.findByModeAndLocation(
             mode = syncMode,
             location = location
@@ -109,6 +114,8 @@ class SourcesController internal constructor(
         sourceId: String,
         location: SourceLocation.Hostable = SourceLocation.Internal(bucket = sourceId),
     ): Result<SourceEntry> = runBackgroundJob {
+        requirementsChecker.ensureSourceReachable(location)
+
         Timber.i("Accepting source $sourceId at $location")
         sourceSetup.accept(sourceId, location)
     }.onSuccess {

@@ -54,6 +54,18 @@ fun Requirement.toRows(): List<RequirementRowUi> = when (this) {
         }
     )
 
+    is Requirement.SpecialPermission -> listOf(
+        when (kind) {
+            Requirement.SpecialPermission.Kind.ALL_FILES_ACCESS -> RequirementRowUi(
+                titleRes = R.string.requirement_all_files_access_title,
+                detailRes = R.string.requirement_all_files_access_description,
+                // Straight to this app's own toggle: the screen the plain action opens is a list
+                // of every app on the device, and finding ours in it is the user's problem.
+                action = RequirementAction.OpenSettings(settingsAction, scopedToApp = true),
+            )
+        }
+    )
+
     is Requirement.PlayServices -> listOf(
         RequirementRowUi(
             titleRes = R.string.requirement_play_services_title,
@@ -150,6 +162,21 @@ private fun List<String>.toPermissionRows(): List<RequirementRowUi> = buildList 
         Manifest.permission.ACCESS_LOCAL_NETWORK,
         titleRes = R.string.requirement_permission_local_network_title,
         detailRes = R.string.requirement_permission_local_network_description,
+    )
+    // One row again, not three: the three media permissions are one platform group, and the system
+    // grants a group whole.
+    claim(
+        Manifest.permission.READ_MEDIA_IMAGES,
+        Manifest.permission.READ_MEDIA_VIDEO,
+        Manifest.permission.READ_MEDIA_AUDIO,
+        titleRes = R.string.requirement_permission_media_title,
+        detailRes = R.string.requirement_permission_media_description,
+    )
+    claim(
+        Manifest.permission.READ_EXTERNAL_STORAGE,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        titleRes = R.string.requirement_permission_storage_title,
+        detailRes = R.string.requirement_permission_storage_description,
     )
 
     // A permission this mapping does not know about is still standing between the user and a

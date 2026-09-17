@@ -2,6 +2,7 @@ package com.fserver.core.sync.index
 
 import android.content.ContextWrapper
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.sourceEntry
@@ -32,7 +33,7 @@ class LocalChangesIndexerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
-    private val indexer = LocalChangesIndexer(storage, node, clock)
+    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock)
 
     private lateinit var root: File
     private lateinit var source: SourceEntry

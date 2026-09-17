@@ -2,6 +2,7 @@ package com.fserver.core.requirement.impl
 
 import android.Manifest
 import android.annotation.SuppressLint
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
@@ -16,6 +17,7 @@ import com.fserver.core.requirement.Requirement
  */
 internal data class RequirementRules(
     val permissions: List<String> = emptyList(),
+    val specialPermissions: List<Requirement.SpecialPermission.Kind> = emptyList(),
     val toggles: List<Requirement.SystemToggle.Kind> = emptyList(),
     val hardware: List<Requirement.MissingHardware.Feature> = emptyList(),
     val requiresPlayServices: Boolean = false,
@@ -86,6 +88,80 @@ internal fun detectionRequirementRules(
         requiresConnectivity = true,
     )
 }
+
+/**
+ * Requirements of reaching [location] on a device running [sdkInt].
+ *
+ * Storage is the area Android has rewritten hardest, and the three answers do not overlap: a
+ * source addressed by raw path needs an all-or-nothing grant from Settings, the media library
+ * needs one runtime permission per media type, and a document tree needs no app-wide grant at all.
+ */
+internal fun sourceRequirementRules(
+    location: SourceLocation,
+    sdkInt: Int,
+): RequirementRules = when (location) {
+    // App-private storage, no grant exists to ask for
+    is SourceLocation.Internal -> RequirementRules()
+
+    // TODO: check if directory is actually accessible
+    is SourceLocation.Tree -> RequirementRules()
+
+    SourceLocation.Media -> RequirementRules(permissions = mediaPermissions(sdkInt))
+
+    is SourceLocation.Root,
+    is SourceLocation.Directory -> RequirementRules(
+        permissions = rawPathPermissions(sdkInt),
+        specialPermissions = rawPathSpecialPermissions(sdkInt),
+    )
+}
+
+/**
+ * Reading the media library on a device running [sdkInt].
+ *
+ * API 33 split the one storage permission into one per media type. On API 34+ the user may answer
+ * with a selected subset instead, which grants `READ_MEDIA_VISUAL_USER_SELECTED` and none of these
+ * - reported as still missing on purpose, because a source that indexes part of a library would
+ * report the rest as deleted.
+ */
+@SuppressLint("InlinedApi")
+private fun mediaPermissions(sdkInt: Int): List<String> = buildList {
+    if (sdkInt >= MEDIA_PERMISSIONS_SDK) {
+        add(Manifest.permission.READ_MEDIA_IMAGES)
+        add(Manifest.permission.READ_MEDIA_VIDEO)
+        add(Manifest.permission.READ_MEDIA_AUDIO)
+    } else {
+        add(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+
+    // Before scoped storage write went through the file rather than the provider, and that is
+    // what `LegacyMediaFileSystem` still does.
+    if (sdkInt < SCOPED_STORAGE_SDK) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+}
+
+/**
+ * Reaching a path outside the app's own storage on a device running [sdkInt].
+ *
+ * From API 30 the runtime pair no longer reaches one and is not asked for. API 29 is the awkward
+ * one: the pair is granted but scoped storage already redirects it, so only a device opted into
+ * legacy external storage can serve a raw path there - elsewhere on 29 a tree is the way in.
+ */
+@SuppressLint("InlinedApi")
+private fun rawPathPermissions(sdkInt: Int): List<String> =
+    if (sdkInt >= ALL_FILES_ACCESS_SDK) {
+        emptyList()
+    } else {
+        listOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        )
+    }
+
+private fun rawPathSpecialPermissions(sdkInt: Int): List<Requirement.SpecialPermission.Kind> =
+    if (sdkInt >= ALL_FILES_ACCESS_SDK) {
+        listOf(Requirement.SpecialPermission.Kind.ALL_FILES_ACCESS)
+    } else {
+        emptyList()
+    }
 
 /**
  * Requirements of reading network details on a device running [sdkInt].
@@ -167,6 +243,15 @@ internal fun localNetworkPermissions(sdkInt: Int): List<String> =
     } else {
         emptyList()
     }
+
+/** API 29 - scoped storage: the storage permissions stop reaching paths outside the app. */
+private const val SCOPED_STORAGE_SDK = 29
+
+/** API 30 - `MANAGE_EXTERNAL_STORAGE`, granted from Settings, is the only way back to raw paths. */
+private const val ALL_FILES_ACCESS_SDK = 30
+
+/** API 33 - `READ_MEDIA_IMAGES` / `_VIDEO` / `_AUDIO` replace `READ_EXTERNAL_STORAGE`. */
+private const val MEDIA_PERMISSIONS_SDK = 33
 
 /** API 27 - `WifiInfo` SSID/BSSID reads start requiring a location permission. */
 private const val LOCATION_GATED_WIFI_INFO_SDK = 27

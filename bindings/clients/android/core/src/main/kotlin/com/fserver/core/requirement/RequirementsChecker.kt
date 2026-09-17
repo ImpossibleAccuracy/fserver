@@ -1,5 +1,6 @@
 package com.fserver.core.requirement
 
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.TransportKind
 
 /**
@@ -33,4 +34,7 @@ interface RequirementsChecker {
      * reported, but the name it carries is a redacted placeholder.
      */
     suspend fun forNetworkInfo(): RequirementReport
+
+    /** What is missing before a source at [location] could be scanned or written to. */
+    suspend fun forSource(location: SourceLocation): RequirementReport
 }

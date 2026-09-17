@@ -14,8 +14,16 @@ sealed interface RequirementAction {
      */
     data class RequestPermissions(val permissions: List<String>) : RequirementAction
 
-    /** Open a settings screen — [android.provider.Settings] action, started as an `Intent`. */
-    data class OpenSettings(val intentAction: String) : RequirementAction
+    /**
+     * Open a settings screen — [android.provider.Settings] action, started as an `Intent`.
+     *
+     * [scopedToApp] adds this app's `package:` uri, which the per-app screens need to land on this
+     * app instead of on the device-wide list of every app that could ask.
+     */
+    data class OpenSettings(
+        val intentAction: String,
+        val scopedToApp: Boolean = false,
+    ) : RequirementAction
 
     /** Hand the repair to Play services, which owns its own download / enable / update flow. */
     data object ResolvePlayServices : RequirementAction

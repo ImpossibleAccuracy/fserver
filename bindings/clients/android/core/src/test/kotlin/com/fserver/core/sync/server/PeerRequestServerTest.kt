@@ -5,6 +5,7 @@ import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
@@ -230,7 +231,7 @@ class PeerRequestServerTest {
                 authorizer = authorizer(),
                 storage = storage,
                 node = node,
-                localIndexer = LocalChangesIndexer(storage, node, clock),
+                localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
                 fileUploader = FileUploader(storage, node, progress),
                 timeProvider = clock,
             ),
@@ -247,7 +248,7 @@ class PeerRequestServerTest {
 
     private fun realFetchFiles() = FetchFilesHandler(
         authorizer = authorizer(),
-        localIndexer = LocalChangesIndexer(storage, node, clock),
+        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
     )
 
     /** Publishes a session the way the node would, and waits until the server has taken it up. */
