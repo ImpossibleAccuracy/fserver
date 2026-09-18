@@ -5,6 +5,7 @@ import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
+import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.json.JsonQrCodeParser
@@ -14,8 +15,10 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
 import com.fserver.core.network.info.model.PeerLocator
-import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.core.requirement.Requirement
+import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.support.FakePeerSession
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
@@ -61,6 +64,7 @@ import org.junit.Test
 class DevicesRepositoryImplTest {
 
     private val storage = FakeStorage()
+    private val requirements = FakeRequirementsChecker()
     private val requests = mockk<RequestManager<FileServerMessages>>()
     private val discovery = mockk<PeerDiscovery>()
     private val network = mockk<NetworkController>()
@@ -77,7 +81,7 @@ class DevicesRepositoryImplTest {
 
         repository = DevicesRepositoryImpl(
             network = network,
-            requirementsChecker = mockk<RequirementsChecker>(relaxed = true),
+            requirementsChecker = requirements,
             networkInfoRepository = OneNetwork(),
             jsonQrCodeParser = JsonQrCodeParser(),
             jsonQrCodeWriter = JsonQrCodeWriter(),
@@ -172,6 +176,20 @@ class DevicesRepositoryImplTest {
         val result = repository.connect(PeerLocator.KnownDevice(DialledId), null)
 
         assertTrue(result.exceptionOrNull() is DeviceUnreachableException)
+    }
+
+    @Test
+    fun `a transport the os is withholding is refused before anything is dialled`() = runTest {
+        requirements.transport = RequirementReport(
+            blockers = emptyList(),
+            solvable = listOf(Requirement.SystemToggle(Requirement.SystemToggle.Kind.WIFI)),
+        )
+
+        val result = repository.connect(PeerLocator.Ip("10.0.0.5", 8384), null)
+
+        // The report is what the host needs to offer the fix; a timeout would carry none of it.
+        assertTrue(result.exceptionOrNull() is RequirementsNotMetException)
+        coVerify(exactly = 0) { requests.connect(any<PeerRef>(), any(), any()) }
     }
 
     @Test

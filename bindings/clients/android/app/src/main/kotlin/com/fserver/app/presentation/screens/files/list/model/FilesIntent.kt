@@ -9,4 +9,7 @@ sealed interface FilesIntent {
     data class EntryClicked(val entryId: String) : FilesIntent
     data object RefreshRequested : FilesIntent
     data object SyncRequestHintDismissed : FilesIntent
+
+    /** The network banner was tapped while it was the one about a network that cannot be named. */
+    data object NetworkWarningClicked : FilesIntent
 }

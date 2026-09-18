@@ -108,17 +108,29 @@ internal class SyncRunner(
             return
         }
 
-        leaseNegotiator.runWithLease(source) {
-            progress.localPassStarted(source.id)
+        // Set once the pass itself is on the record. Before that a failure is the lease - dialling
+        // the peer, or asking it - and nothing else has reported it.
+        var passReported = false
 
-            try {
-                syncSource(source)
-            } catch (e: Exception) {
-                progress.localPassFinished(source.id, e)
-                throw e
+        try {
+            leaseNegotiator.runWithLease(source) {
+                progress.localPassStarted(source.id)
+                passReported = true
+
+                try {
+                    syncSource(source)
+                } catch (e: Exception) {
+                    progress.localPassFinished(source.id, e)
+                    throw e
+                }
+
+                progress.localPassFinished(source.id, null)
             }
-
-            progress.localPassFinished(source.id, null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (!passReported) progress.localPassAborted(source.id, e)
+            throw e
         }
 
         // Off the pass on purpose: the loop moves to the next source without waiting on a message nobody answers

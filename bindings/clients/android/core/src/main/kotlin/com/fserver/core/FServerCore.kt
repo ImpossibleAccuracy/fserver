@@ -12,6 +12,7 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.server.PeerRequestServer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
@@ -82,9 +83,14 @@ class FServerCore private constructor(
     /**
      * Starts answering what peers ask of this device - index requests, transfers, deletes.
      *
-     * @return `null` if already serving, a `Job` that completes when the listener is canceled otherwise.
+     * Refuses while the OS is withholding what a listener needs, so the host can put the fix in
+     * front of the user instead of serving into a socket nothing can reach - see
+     * [RequirementsChecker.forTransport].
+     *
+     * @return `null` if already serving, a `Job` that completes when the listener is canceled
+     * otherwise, or a failure carrying the unmet report.
      */
-    fun startServing() =
+    suspend fun startServing(): Result<Job?> =
         koin.get<PeerRequestServer>().start()
 
     /**

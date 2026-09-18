@@ -10,9 +10,12 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.net.connection.HandshakeProfile
 import com.fserver.net.discovery.DiscoveredPeer
 import com.fserver.net.session.PeerSession
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 
@@ -24,14 +27,34 @@ import java.time.Instant
  * peer that was discovered, then connected, is one device with two routes, not two entries - and
  * whichever claim is strongest is the one it is reported under.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class OnlineDevicesImpl(
     private val network: NetworkController,
     private val storage: FServerStorage,
 ) : OnlineDevices {
 
+    /**
+     * Sessions with a link actually in place.
+     *
+     * A session outlives its link - it drops back to [PeerSession.State.Connecting] and rebuilds
+     * itself, and a dead one sits in the registry until its terminal state lands - so the registry
+     * on its own reports a device that walked away as connected until something else clears it.
+     * The state of each is watched rather than read once, because nothing re-emits the registry
+     * when one of them changes.
+     */
+    private val liveSessions: Flow<List<PeerSession<*>>> =
+        network.incomingConnections.sessions.flatMapLatest { sessions ->
+            if (sessions.isEmpty()) return@flatMapLatest flowOf(emptyList())
+
+            combine(sessions.map { session -> session.state.map { session to it } }) { states ->
+                states.filter { (_, state) -> state is PeerSession.State.Ready }
+                    .map { (session, _) -> session }
+            }
+        }
+
     private val snapshot: Flow<Snapshot> = combine(
         network.peerDiscovery.peers,
-        network.incomingConnections.sessions, // TODO: Filter out inactive sessions
+        liveSessions,
         network.requestManager.profiles,
     ) { peers, sessions, profiles -> merge(peers, sessions, profiles) }
 

@@ -32,7 +32,7 @@ sealed interface SourcePass {
         val actionsPlanned: Int = 0,
         val actionsDone: Int = 0,
         /** Why the pass gave up, when it did. */
-        val failure: String? = null,
+        val failure: SyncFailure? = null,
     ) : SourcePass {
         override val isFinished: Boolean
             get() = stage == Stage.Finished || stage == Stage.Failed

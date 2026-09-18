@@ -9,6 +9,7 @@ import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
+import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.auth.AuthCredentials
 import com.fserver.core.network.auth.Greeting
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
@@ -23,16 +24,19 @@ import com.fserver.core.network.device.json.JsonQrCodeParser
 import com.fserver.core.network.device.json.JsonQrCodeWriter
 import com.fserver.core.network.device.model.PendingConfirmation
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.impl.asTransportKind
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.currentNetworkId
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.net.connection.PeerRef
+import com.fserver.net.connection.ProbeResult
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
+import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.TransportEndpoint
 import com.fserver.net.transport.android.spi.ip.DirectIpEndpoint
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsTransportEndpoint
@@ -106,14 +110,9 @@ internal class DevicesRepositoryImpl(
     override suspend fun probe(arguments: PeerLocator): Result<Greeting> =
         dial(
             arguments = arguments,
-            byDeviceId = { deviceId ->
-                network.peerDiscovery.peer(deviceId).firstOrNull()
-                    ?.let { network.requestManager.probe(it) }
-                    ?: Result.failure(IllegalArgumentException("Device $deviceId not found"))
-            },
-            byRoute = { network.requestManager.probe(it) },
-        )
-            .map { it.toDomain() }
+            byDeviceId = ::probeDiscovered,
+            byRoute = ::probeRoute,
+        ).map { it.toDomain() }
 
     override suspend fun connect(
         arguments: PeerLocator,
@@ -137,12 +136,12 @@ internal class DevicesRepositoryImpl(
 
         return dial(
             arguments = arguments,
-            byDeviceId = {
-                connectKnown(deviceId = it, request = request)
-                    .verifiedAs(expected ?: it)
+            byDeviceId = { deviceId ->
+                connectKnown(deviceId = deviceId, request = request)
+                    .verifiedAs(expected ?: deviceId)
             },
-            byRoute = {
-                network.requestManager.connect(peer = it, request = request).verifiedAs(expected)
+            byRoute = { peer ->
+                connectRoute(peer = peer, request = request).verifiedAs(expected)
             },
         )
             .onSuccess { session ->
@@ -163,6 +162,10 @@ internal class DevicesRepositoryImpl(
      * Turns a [PeerLocator] into an actual attempt:
      * - everything that is already a route goes to [byRoute],
      * - anything that only names a device goes to [byDeviceId].
+     *
+     * Routing only. Whether the OS will let an attempt through is asked by the ends that make it -
+     * [probeDiscovered] / [probeRoute], [connectKnown] / [connectRoute] - because that is where the
+     * route, and so the transport, is finally known.
      */
     private suspend fun <T> dial(
         arguments: PeerLocator,
@@ -299,11 +302,27 @@ internal class DevicesRepositoryImpl(
         session
     }
 
+    /** Greets a device discovery can still see, over the route it is advertising now. */
+    private suspend fun probeDiscovered(deviceId: String): Result<ProbeResult> {
+        val peer = network.peerDiscovery.peer(deviceId).firstOrNull()
+            ?: return Result.failure(IllegalArgumentException("Device $deviceId not found"))
+
+        return network.requestManager.probe(peer)
+    }
+
+    /** Greets whatever is on [peer] - a typed address, a scanned one, a route written down. */
+    private suspend fun probeRoute(peer: PeerRef): Result<ProbeResult> {
+        transportRefusal(peer.transport)?.let { return Result.failure(it) }
+
+        return network.requestManager.probe(peer)
+    }
+
     /** Reconnects to a device already known by [deviceId] - discovered, or previously probed. */
     private suspend fun connectKnown(
         deviceId: String,
         request: AuthRequest
     ): Result<PeerSession<FileServerMessages>> {
+        // A session already up asks nothing of the OS, so this comes before the gate.
         network.incomingConnections.session(deviceId)?.let {
             return Result.success(it)
         }
@@ -312,21 +331,49 @@ internal class DevicesRepositoryImpl(
             .find { it.advertised.deviceId == deviceId }
             ?.let {
                 network.requestManager.connect(
-                    it,
-                    request = request
+                    peer = it,
+                    request = request,
                 )
             } // Try to connect by discovered route first
             .chainWith {
                 // Fallback to previously probed route, if any.
                 network.requestManager.profile(deviceId)
                     ?.let {
-                        network.requestManager.connect(it.route, request = request)
+                        network.requestManager.connect(
+                            peer = it.route,
+                            request = request,
+                        )
                     }
             }
             ?: Result.failure(
                 // Device not found anywhere, abort
                 IllegalArgumentException("Device $deviceId not found")
             )
+    }
+
+    /** Dials whatever is on [peer] - a typed address, a scanned one, a route written down. */
+    private suspend fun connectRoute(
+        peer: PeerRef,
+        request: AuthRequest,
+    ): Result<PeerSession<FileServerMessages>> {
+        transportRefusal(peer.transport)?.let { return Result.failure(it) }
+
+        return network.requestManager.connect(peer = peer, request = request)
+    }
+
+    /**
+     * What the OS is still withholding before [transport] could carry an attempt, or `null` when
+     * the attempt may go ahead.
+     *
+     * Not a security control - the OS enforces the grant either way. This is what turns a radio
+     * switched off into a report the host can put a button in front of, instead of a dial that
+     * times out with nothing to show.
+     */
+    private suspend fun transportRefusal(transport: SpiId?): RequirementsNotMetException? {
+        val kind = transport.asTransportKind() ?: return null
+        val report = requirementsChecker.forTransport(kind)
+
+        return RequirementsNotMetException(report).takeUnless { report.isSatisfied }
     }
 
     /**

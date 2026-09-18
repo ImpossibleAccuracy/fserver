@@ -3,10 +3,13 @@ package com.fserver.core.sync.server
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.RequirementsNotMetException
+import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
@@ -53,6 +56,7 @@ internal class PeerRequestServer(
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
     private val devicesRepository: DevicesRepositoryImpl,
+    private val requirementsChecker: RequirementsChecker,
     private val backgroundScope: BackgroundScope,
 ) {
     private val isListening = AtomicBoolean(false)
@@ -64,9 +68,25 @@ internal class PeerRequestServer(
 
     private var listenerJob: Job? = null
 
-    /** Idempotent: repeated calls from the host keep the one listener already running. */
-    fun start(): Job? {
-        if (!isListening.compareAndSet(false, true)) return null
+    /**
+     * Idempotent: repeated calls from the host keep the one listener already running.
+     *
+     * Refuses while the OS is withholding what a listener needs - no network at all, or the local
+     * network permission API 37 puts in front of every LAN packet. A listener that binds anyway
+     * hears nothing, and the host has no way to tell that from nobody calling.
+     *
+     * @return the listener's `Job`, `null` when it was already running, or the unmet report.
+     */
+    suspend fun start(): Result<Job?> {
+        if (!isListening.compareAndSet(false, true)) return Result.success(null)
+
+        // The listener serves the IP transports, which is what `ManualAddress` describes: any
+        // route will do, and the local network permission is the one grant it asks for.
+        val report = requirementsChecker.forTransport(TransportKind.ManualAddress)
+        if (!report.isSatisfied) {
+            isListening.store(false)
+            return Result.failure(RequirementsNotMetException(report))
+        }
 
         val job = backgroundScope.launch {
             network.incomingConnections.sessions.collect { sessions ->
@@ -83,7 +103,7 @@ internal class PeerRequestServer(
             isListening.compareAndSet(true, false)
         }
 
-        return job
+        return Result.success(job)
     }
 
     /**

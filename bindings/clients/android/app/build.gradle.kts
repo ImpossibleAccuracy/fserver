@@ -116,6 +116,9 @@ dependencies {
     // Data storage - app-owned preferences only; engine state lives in `:core:storage`.
     implementation(libs.androidx.datastore.preferences)
 
+    // Background work - `:core` keeps no timer, so the periodic sync pass is scheduled here.
+    implementation(libs.androidx.work.runtime.ktx)
+
     // IO
     implementation(libs.androidx.documentfile)
 

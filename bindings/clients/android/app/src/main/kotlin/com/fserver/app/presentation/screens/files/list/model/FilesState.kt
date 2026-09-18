@@ -109,7 +109,19 @@ data class FilesState(
 
     enum class FolderStatusUi { Pending, Active, Syncing, Disabled }
 
-    enum class NetworkWarningUi { NoNetwork, NoLocalNetwork, DifferentNetwork }
+    /**
+     * [UnnamedNetwork] is not a worse network, it is a network the app cannot identify: Android
+     * answers an ungranted SSID/BSSID read with a redacted placeholder rather than a refusal, so
+     * [DifferentNetwork] would be a guess. It is the only one with something to tap.
+     */
+    enum class NetworkWarningUi {
+        NoNetwork,
+        NoLocalNetwork,
+        DifferentNetwork,
+        UnnamedNetwork;
+
+        val isActionable: Boolean get() = this == UnnamedNetwork
+    }
 
     enum class FilterUi { All, Local, Cloud }
 

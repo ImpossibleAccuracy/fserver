@@ -13,6 +13,7 @@ import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.requirement.RequirementReport
+import com.fserver.core.sync.progress.SyncFailure
 import java.io.IOException
 
 /**
@@ -62,6 +63,29 @@ fun RequirementReport.toAppError(): AppError = AppError(
         else R.string.error_requirements_blocked
     ),
     requirements = this,
+)
+
+/**
+ * A pass that gave up, read as a failure.
+ *
+ * [SyncFailure.reason] picks the sentence; the report it carries - when it carries one - is what
+ * turns the snackbar into a sheet with a button on it. Only a refusal shows the engine's own
+ * wording, because the peer's reason is the only thing that says which refusal this was.
+ */
+fun SyncFailure.toAppError(): AppError = AppError(
+    message = UiText.of(
+        when (reason) {
+            SyncFailure.Reason.Unreachable -> R.string.error_sync_unreachable
+            SyncFailure.Reason.Refused -> R.string.error_sync_refused
+            SyncFailure.Reason.NotAllowed -> R.string.error_sync_not_allowed
+            SyncFailure.Reason.SourceUnavailable -> R.string.error_sync_source_unavailable
+            SyncFailure.Reason.TransferFailed -> R.string.error_sync_transfer_failed
+            SyncFailure.Reason.NotConverged -> R.string.error_sync_not_converged
+            SyncFailure.Reason.Failed -> R.string.error_sync_failed
+        }
+    ),
+    detail = detail?.takeIf { reason == SyncFailure.Reason.Refused }?.let(UiText::Text),
+    requirements = requirements,
 )
 
 private fun NetworkException.toAppError(): AppError = when (this) {

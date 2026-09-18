@@ -105,8 +105,32 @@ internal class SyncProgressReporter(
                 } else {
                     SourcePass.Local.Stage.Failed
                 },
-                failure = failure?.message,
+                failure = failure?.toSyncFailure(),
             )
+        }
+    }
+
+    /**
+     * A pass that never got as far as a lease - the peer could not be dialled, or would not
+     * answer. Recorded so the source reads as failed rather than as one that simply did not move.
+     *
+     * A pass the peer is still driving is left alone: the lease it holds is the reason this one
+     * got nowhere, and overwriting it would report the peer's work as our failure.
+     */
+    fun localPassAborted(sourceId: String, failure: Throwable) {
+        val now = timeProvider.now()
+
+        passState.update { passes ->
+            val existing = passes[sourceId]
+            if (existing is SourcePass.Remote && !existing.isFinished) return@update passes
+
+            passes + (sourceId to SourcePass.Local(
+                sourceId = sourceId,
+                startedAt = now,
+                updatedAt = now,
+                stage = SourcePass.Local.Stage.Failed,
+                failure = failure.toSyncFailure(),
+            ))
         }
     }
 

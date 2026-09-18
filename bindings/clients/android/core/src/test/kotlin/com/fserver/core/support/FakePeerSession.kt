@@ -4,6 +4,9 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.peer.PeerDescriptor
+import com.fserver.net.security.NegotiatedParameters
+import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
@@ -41,8 +44,10 @@ internal class FakePeerSession(
         maxFrameSize = maxPayloadSize,
     )
 
-    override val state: StateFlow<PeerSession.State> =
-        MutableStateFlow(PeerSession.State.Connecting)
+    private val mutableState =
+        MutableStateFlow<PeerSession.State>(PeerSession.State.Connecting)
+
+    override val state: StateFlow<PeerSession.State> = mutableState
 
     override val incoming: Flow<PeerSession.Inbound<FileServerMessages>> =
         inboundChannel.consumeAsFlow()
@@ -62,6 +67,26 @@ internal class FakePeerSession(
     override suspend fun close(reason: CloseReason) {
         closedWith = reason
         inboundChannel.close()
+    }
+
+    /** The link is up: only here is the session a device anything can be asked of. */
+    fun markReady() {
+        mutableState.value = PeerSession.State.Ready(
+            NegotiatedParameters(
+                protocolVersion = 1,
+                dictionaryVersion = 1,
+                cipherSuite = CryptoProvider.Suite(name = "test", isEncrypting = true),
+                maxFrameSize = maxPayloadSize,
+                peer = identity,
+                peerDescriptor = descriptor,
+                authMethodId = AuthMethodId("test"),
+            )
+        )
+    }
+
+    /** The link dropped. The session is still registered and reaches nobody while it rebuilds. */
+    fun markConnecting() {
+        mutableState.value = PeerSession.State.Connecting
     }
 
     /** Hands the server one message as if the peer had sent it. */

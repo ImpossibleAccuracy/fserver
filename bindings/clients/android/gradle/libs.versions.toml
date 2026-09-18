@@ -12,6 +12,7 @@ koin = "4.2.2"
 kotlinxSerializationJson = "1.11.0"
 kotlinxCoroutines = "1.11.0"
 datastore = "1.2.1"
+work = "2.11.0"
 sqldelight = "2.3.2"
 jna = "5.17.0"
 annotation = "1.10.0"
@@ -86,6 +87,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 # Data storage
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-primitive-adapters = { module = "app.cash.sqldelight:primitive-adapters", version.ref = "sqldelight" }

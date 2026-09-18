@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.files.list
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -190,10 +191,21 @@ private fun FilesFeed(
     Column(modifier = modifier.fillMaxSize()) {
         state.networkWarning?.let { warning ->
             DkInfoBox(
-                modifier = Modifier.padding(
-                    horizontal = DkSpacing.screenPadding,
-                    vertical = DkSpacing.sm,
-                ),
+                modifier = Modifier
+                    .padding(
+                        horizontal = DkSpacing.screenPadding,
+                        vertical = DkSpacing.sm,
+                    )
+                    // Only the nameless-network one has a fix behind it; the rest are read-only.
+                    .then(
+                        if (warning.isActionable) {
+                            Modifier.clickable {
+                                onIntent(FilesIntent.NetworkWarningClicked)
+                            }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 text = stringResource(warning.messageRes),
             )
         }
@@ -450,6 +462,7 @@ private val FilesState.NetworkWarningUi.messageRes: Int
         FilesState.NetworkWarningUi.NoNetwork -> R.string.files_network_offline
         FilesState.NetworkWarningUi.NoLocalNetwork -> R.string.files_network_no_lan
         FilesState.NetworkWarningUi.DifferentNetwork -> R.string.files_network_other
+        FilesState.NetworkWarningUi.UnnamedNetwork -> R.string.files_network_unnamed
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)

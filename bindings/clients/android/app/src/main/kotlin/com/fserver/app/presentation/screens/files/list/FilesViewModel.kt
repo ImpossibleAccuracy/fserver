@@ -26,6 +26,8 @@ import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
+import com.fserver.core.requirement.RequirementReport
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
@@ -57,6 +59,7 @@ class FilesViewModel(
     private val deviceReachability: DeviceReachability,
     private val networkInfoRepository: NetworkInfoRepository,
     private val filesController: FilesController,
+    private val requirementsChecker: RequirementsChecker,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
     private val effects = Channel<FilesUiEffect>(Channel.BUFFERED)
@@ -74,6 +77,13 @@ class FilesViewModel(
 
     private val editable = MutableStateFlow(Editable())
     private val refreshing = MutableStateFlow(false)
+
+    /**
+     * What is still missing before this device could name the network it is on. Kept from the last
+     * read rather than re-checked on the tap, so the banner and the sheet it opens describe the
+     * same moment.
+     */
+    private val networkRequirements = MutableStateFlow(RequirementReport.Satisfied)
 
     private val entries: StateFlow<FilesState.FeedUi?> = combine(
         editable.map { it.filter to it.selectedDeviceId }.distinctUntilChanged(),
@@ -192,6 +202,8 @@ class FilesViewModel(
             }
 
             FilesIntent.RefreshRequested -> runSync()
+
+            FilesIntent.NetworkWarningClicked -> reporter.report(networkRequirements.value)
 
             is FilesIntent.EntryClicked -> openEntry(intent.entryId)
         }
@@ -320,11 +332,29 @@ class FilesViewModel(
             NetworkCapability.LOCAL_SUBNET !in network.capabilities ->
                 FilesState.NetworkWarningUi.NoLocalNetwork
 
-            connected.isEmpty() && knownNetworks.isNotEmpty() && network.id !in knownNetworks ->
-                FilesState.NetworkWarningUi.DifferentNetwork
+            connected.isNotEmpty() || knownNetworks.isEmpty() -> null
+
+            // Android answers an ungranted SSID/BSSID read with a redacted placeholder rather than
+            // a refusal, so a missing id is the location gate and not a network without one.
+            // Calling that "a different network" would be a guess drawn from a permission.
+            network.id == null -> unnamedNetworkWarning()
+
+            network.id !in knownNetworks -> FilesState.NetworkWarningUi.DifferentNetwork
 
             else -> null
         }
+    }
+
+    /**
+     * The nameless-network case, once it is known whether anything can be done about it. Nothing
+     * is said when the grants are already in place: the network is then simply one Android will
+     * not name, and there is no fix to offer.
+     */
+    private suspend fun unnamedNetworkWarning(): FilesState.NetworkWarningUi? {
+        val report = requirementsChecker.forNetworkInfo()
+        networkRequirements.value = report
+
+        return FilesState.NetworkWarningUi.UnnamedNetwork.takeUnless { report.isSatisfied }
     }
 
     private data class Reach(

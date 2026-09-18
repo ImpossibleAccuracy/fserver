@@ -219,7 +219,7 @@ class PeerRequestServerTest {
         assertTrue(second.messages.single() is FileServerMessages.AcquireSyncLease.Granted)
     }
 
-    private fun start(fetchFiles: FetchFilesHandler = realFetchFiles()) {
+    private suspend fun start(fetchFiles: FetchFilesHandler = realFetchFiles()) {
         server = PeerRequestServer(
             network = network,
             leaseRegistry = registry,
@@ -237,11 +237,12 @@ class PeerRequestServerTest {
             ),
             uploads = FileUploadHandler(authorizer(), storage, node, clock, progress),
             devicesRepository = mockk(relaxed = true),
+            requirementsChecker = FakeRequirementsChecker(),
             backgroundScope = background,
             reachability = mockk(relaxed = true),
         )
 
-        assertNotNull(server.start())
+        assertNotNull(server.start().getOrThrow())
     }
 
     private fun authorizer() = SourceAuthorizer(storage)

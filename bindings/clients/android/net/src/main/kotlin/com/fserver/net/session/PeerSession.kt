@@ -11,10 +11,6 @@ import kotlin.time.Duration
 /**
  * An open conversation with one device.
  *
- * The whole surface is closed over `M`: send a dictionary message, get a dictionary message,
- * answer with a dictionary message. There is deliberately no method that takes or returns a
- * `ByteArray` - bytes exist only inside [com.fserver.net.dictionary.MessageCodec].
- *
  * The instance survives a dropped link: on failure the session goes back to [State.Connecting] and
  * re-establishes itself, so a held reference stays valid. What it does *not* do is re-send
  * messages whose fate is unknown - see [State].
@@ -67,8 +63,6 @@ interface PeerSession<M : Any> {
     sealed interface State {
         /** Opening, or re-opening after a lost link. */
         data object Connecting : State
-
-        data object Handshaking : State
 
         data class Ready(val negotiated: NegotiatedParameters) : State
 

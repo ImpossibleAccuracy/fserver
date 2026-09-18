@@ -9,6 +9,7 @@ import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.composable.toUi
 import com.fserver.app.presentation.error.AppError
 import com.fserver.app.presentation.error.ErrorBus
+import com.fserver.app.presentation.error.toAppError
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
@@ -110,8 +111,14 @@ class AppViewModel(
         }
 
         // Keep serving in VM, cause serving should not be started for alarms/notifications/other background tasks
-        fServerCore.startServing()?.invokeOnCompletion {
-            Timber.i("FServerCore finished serving: ${it?.message ?: "no error"}")
+        viewModelScope.launch {
+            fServerCore.startServing()
+                // Refused before it bound: a permission or the network, and the report says which.
+                .onFailure { errorBus.report(it, "could not start serving") }
+                .getOrNull()
+                ?.invokeOnCompletion {
+                    Timber.i("FServerCore finished serving: ${it?.message ?: "no error"}")
+                }
         }
 
         // Paired device turning up on a scan syncs its sources without a tap.
@@ -201,20 +208,23 @@ class AppViewModel(
      * the files screen, off `DeviceReachability`; this is what is left over - a pass that broke
      * for some other reason, over whatever screen the user is on.
      *
-     * TODO: a pass carries no cause, so every one of them reads the same. Type it the way a dial
-     *  is typed and the parser can say what broke - see `docs/TODO_LIST.md`.
+     * One report per source per run of failures: the same pass sits in the list until the next one
+     * replaces it, and re-reporting it on every emission would bury the screen in snackbars.
      */
     private fun reportFailedPasses(passes: List<SourcePass>) {
         val failed = passes
             .filterIsInstance<SourcePass.Local>()
             .filter { it.stage == SourcePass.Local.Stage.Failed }
-            .map { it.sourceId }
 
-        reportedFailures.retainAll(failed.toSet())
+        reportedFailures.retainAll(failed.mapTo(mutableSetOf()) { it.sourceId })
 
-        failed.filterNot(reportedFailures::contains).forEach { sourceId ->
-            reportedFailures.add(sourceId)
-            errorBus.report(AppError(UiText.of(R.string.sync_failed_message)))
+        failed.filterNot { it.sourceId in reportedFailures }.forEach { pass ->
+            reportedFailures.add(pass.sourceId)
+
+            errorBus.report(
+                // A pass with no cause on it is one the engine never got to type.
+                pass.failure?.toAppError() ?: AppError(UiText.of(R.string.sync_failed_message))
+            )
         }
     }
 
