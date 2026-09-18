@@ -3,15 +3,12 @@ package com.fserver.app.presentation.navigation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.R
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.composable.toUi
-import com.fserver.app.presentation.error.AppError
 import com.fserver.app.presentation.error.ErrorBus
 import com.fserver.app.presentation.error.toAppError
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
@@ -212,21 +209,22 @@ class AppViewModel(
      * replaces it, and re-reporting it on every emission would bury the screen in snackbars.
      */
     private fun reportFailedPasses(passes: List<SourcePass>) {
-        val failed = passes
-            .filterIsInstance<SourcePass.Local>()
-            .filter { it.stage == SourcePass.Local.Stage.Failed }
+        val failed = passes.filter { it.hasFailed }
 
         reportedFailures.retainAll(failed.mapTo(mutableSetOf()) { it.sourceId })
 
         failed.filterNot { it.sourceId in reportedFailures }.forEach { pass ->
             reportedFailures.add(pass.sourceId)
-
-            errorBus.report(
-                // A pass with no cause on it is one the engine never got to type.
-                pass.failure?.toAppError() ?: AppError(UiText.of(R.string.sync_failed_message))
-            )
+            errorBus.report(pass.toAppError())
         }
     }
+
+    /** A pass the peer drove counts too - it is the same folder not syncing either way. */
+    private val SourcePass.hasFailed: Boolean
+        get() = when (this) {
+            is SourcePass.Local -> stage == SourcePass.Local.Stage.Failed
+            is SourcePass.Remote -> stage == SourcePass.Remote.Stage.Failed
+        }
 
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
         when (profile) {

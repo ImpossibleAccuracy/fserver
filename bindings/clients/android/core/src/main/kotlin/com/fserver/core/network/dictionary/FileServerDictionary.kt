@@ -20,6 +20,7 @@ internal class FileServerDictionary : MessageDictionary<FileServerMessages> {
         private val json = Json {
             ignoreUnknownKeys = true
             encodeDefaults = true
+            coerceInputValues = true
         }
 
         override fun encode(message: FileServerMessages): ByteArray {

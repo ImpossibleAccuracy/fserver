@@ -138,7 +138,7 @@ class AutoSyncCoordinatorTest {
     private suspend fun nextRun(): String = withTimeout(Timeout) { runs.receive() }
 
     private class FakeOnlineDevices : OnlineDevices {
-        private val devices = MutableSharedFlow<List<ForeignDevice>>(replay = 1)
+        private val devices = MutableSharedFlow<List<ForeignDevice>>(replay = 1, extraBufferCapacity = 1)
 
         override val all: Flow<List<ForeignDevice>> = devices
 

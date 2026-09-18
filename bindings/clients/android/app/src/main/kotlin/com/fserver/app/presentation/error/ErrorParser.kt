@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.error
 
+import androidx.annotation.StringRes
 import com.fserver.app.R
 import com.fserver.app.presentation.model.UiText
 import com.fserver.common.exception.DetectionFailedException
@@ -13,7 +14,9 @@ import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.requirement.RequirementReport
+import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncFailure
+import com.fserver.core.sync.progress.SyncFailureReason
 import java.io.IOException
 
 /**
@@ -87,6 +90,33 @@ fun SyncFailure.toAppError(): AppError = AppError(
     detail = detail?.takeIf { reason == SyncFailure.Reason.Refused }?.let(UiText::Text),
     requirements = requirements,
 )
+
+/**
+ * A pass that ended badly, from whichever side of it this device was on.
+ *
+ * The far side's is not the near side's with a different sentence: nothing about it is actionable
+ * here, and the reason is only as precise as the peer chose to be - see [SyncFailureReason].
+ */
+fun SourcePass.toAppError(): AppError = when (this) {
+    is SourcePass.Local -> failure?.toAppError()
+        // A pass with no cause on it is one the engine never got to type.
+        ?: AppError(UiText.of(R.string.sync_failed_message))
+
+    is SourcePass.Remote -> AppError(
+        message = UiText.of(R.string.error_sync_peer_failed),
+        detail = UiText.of(failure.peerDetailRes),
+    )
+}
+
+@get:StringRes
+private val SyncFailureReason?.peerDetailRes: Int
+    get() = when (this) {
+        SyncFailureReason.NotAllowed -> R.string.error_sync_peer_not_allowed
+        SyncFailureReason.SourceUnavailable -> R.string.error_sync_peer_source_unavailable
+        SyncFailureReason.TransferFailed -> R.string.error_sync_peer_transfer_failed
+        // Either the peer had nothing to say, or it named a reason this build does not know.
+        SyncFailureReason.Failed, null -> R.string.error_sync_peer_unknown
+    }
 
 private fun NetworkException.toAppError(): AppError = when (this) {
     is NetworkException.NoRoute -> AppError(UiText.of(R.string.error_no_route))

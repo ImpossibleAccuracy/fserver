@@ -70,6 +70,8 @@ sealed interface SourcePass {
         override val updatedAt: Instant,
         val peerDeviceId: String,
         val stage: Stage,
+        /** What the peer said went wrong, when it said anything. */
+        val failure: SyncFailureReason? = null,
     ) : SourcePass {
         override val isFinished: Boolean get() = stage != Stage.Serving
 
@@ -79,6 +81,9 @@ sealed interface SourcePass {
 
             /** The peer handed the lease back, which is how a pass ends normally. */
             Finished,
+
+            /** The peer handed the lease back and said its pass had not got through. */
+            Failed,
 
             /** The lease went away without being handed back - the session died, or it timed out. */
             Abandoned,

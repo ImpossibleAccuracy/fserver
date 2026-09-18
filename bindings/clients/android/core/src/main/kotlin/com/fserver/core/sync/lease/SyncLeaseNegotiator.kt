@@ -3,6 +3,9 @@ package com.fserver.core.sync.lease
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.SyncFailureReason
+import com.fserver.core.sync.progress.toSyncFailure
+import com.fserver.core.sync.progress.toWire
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.CancellationException
@@ -23,14 +26,27 @@ internal class SyncLeaseNegotiator(
     private val registry: SyncLeaseRegistry,
     private val peers: PeerIndexFetcher,
 ) {
-    /** Runs [block] only if both devices agree we hold [source]. Skips - never queues - otherwise. */
+    /**
+     * Runs [block] only if both devices agree we hold [source]. Skips - never queues - otherwise.
+     *
+     * How [block] went travels back with the lease: the peer sees the lease returned whether the
+     * pass worked or not, so without this a failed pass reads there exactly like a clean one.
+     * Cancellation is not reported - it is this device being told to stop, not the source failing.
+     */
     suspend fun runWithLease(source: SourceEntry, block: suspend () -> Unit) {
         val lease = acquire(source) ?: return
 
+        var failure: SyncFailureReason? = null
+
         try {
             block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failure = e.toSyncFailure().toWire()
+            throw e
         } finally {
-            withContext(NonCancellable) { release(source, lease) }
+            withContext(NonCancellable) { release(source, lease, failure) }
         }
     }
 
@@ -103,9 +119,13 @@ internal class SyncLeaseNegotiator(
         }
     }
 
-    private suspend fun release(source: SourceEntry, lease: Lease) {
+    private suspend fun release(
+        source: SourceEntry,
+        lease: Lease,
+        failure: SyncFailureReason?,
+    ) {
         registry.release(source.id, lease.id)
-        giveBack(lease.session, source.id, lease.id)
+        giveBack(lease.session, source.id, lease.id, failure)
     }
 
     /**
@@ -117,8 +137,15 @@ internal class SyncLeaseNegotiator(
         session: PeerSession<FileServerMessages>,
         sourceId: String,
         leaseId: String,
+        failure: SyncFailureReason? = null,
     ) {
-        session.send(FileServerMessages.AcquireSyncLease.ReleaseLease(sourceId, leaseId))
+        session.send(
+            FileServerMessages.AcquireSyncLease.ReleaseLease(
+                sourceId = sourceId,
+                leaseId = leaseId,
+                failure = failure,
+            )
+        )
             .exceptionOrNull()
             ?.let { Timber.w(it, "Could not release the lease on source $sourceId") }
     }

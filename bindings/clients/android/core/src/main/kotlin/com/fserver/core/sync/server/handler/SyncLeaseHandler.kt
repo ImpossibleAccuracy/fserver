@@ -89,6 +89,7 @@ internal class SyncLeaseHandler(
             sourceId = message.sourceId,
             peerDeviceId = peer.deviceId,
             leaseId = message.leaseId,
+            failure = message.failure,
         )
     }
 

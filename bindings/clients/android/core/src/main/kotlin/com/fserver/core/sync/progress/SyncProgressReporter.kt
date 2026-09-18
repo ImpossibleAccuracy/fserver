@@ -154,13 +154,21 @@ internal class SyncProgressReporter(
         }
     }
 
-    /** The peer's lease is gone. [stage] says whether it was handed back or simply lost. */
-    fun remotePassFinished(sourceId: String, stage: SourcePass.Remote.Stage) {
+    /**
+     * The peer's lease is gone. [stage] says whether it was handed back or simply lost, and
+     * [failure] what the peer said went wrong when it handed it back having failed.
+     */
+    fun remotePassFinished(
+        sourceId: String,
+        stage: SourcePass.Remote.Stage,
+        failure: SyncFailureReason? = null,
+    ) {
         passState.update { passes ->
             val existing = passes[sourceId] as? SourcePass.Remote ?: return@update passes
 
             passes + (sourceId to existing.copy(
                 stage = stage,
+                failure = failure,
                 updatedAt = timeProvider.now(),
             ))
         }

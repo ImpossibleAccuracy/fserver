@@ -2,6 +2,7 @@ package com.fserver.core.sync.lease
 
 import com.fserver.common.utils.IdGenerator
 import com.fserver.core.sync.progress.SourcePass
+import com.fserver.core.sync.progress.SyncFailureReason
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.sync.Mutex
@@ -115,8 +116,16 @@ internal class SyncLeaseRegistry(
         granted
     }
 
-    /** Drops a lease the peer gave back. Ignores one that is no longer theirs. */
-    suspend fun releaseFromPeer(sourceId: String, peerDeviceId: String, leaseId: String) =
+    /**
+     * Drops a lease the peer gave back, [failure] being whatever it said about how its pass went.
+     * Ignores a lease that is no longer theirs.
+     */
+    suspend fun releaseFromPeer(
+        sourceId: String,
+        peerDeviceId: String,
+        leaseId: String,
+        failure: SyncFailureReason? = null,
+    ) {
         lock.withLock {
             val current = leases[sourceId]
 
@@ -125,11 +134,18 @@ internal class SyncLeaseRegistry(
                 current.leaseId == leaseId
             ) {
                 leases.remove(sourceId)
-                progress.remotePassFinished(sourceId, SourcePass.Remote.Stage.Finished)
+                progress.remotePassFinished(
+                    sourceId = sourceId,
+                    stage = if (failure == null) {
+                        SourcePass.Remote.Stage.Finished
+                    } else {
+                        SourcePass.Remote.Stage.Failed
+                    },
+                    failure = failure,
+                )
             }
-
-            Unit
         }
+    }
 
     /** Drops everything [peerDeviceId] holds. Called when its session ends, however it ended. */
     suspend fun releaseAllFrom(peerDeviceId: String) = lock.withLock {

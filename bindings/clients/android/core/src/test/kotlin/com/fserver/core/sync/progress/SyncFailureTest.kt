@@ -88,8 +88,57 @@ class SyncFailureTest {
         assertEquals(SyncFailure.Reason.Unreachable, pass.failure?.reason)
     }
 
+    @Test
+    fun `nothing local crosses to the peer but the reason`() {
+        val local = SyncFailure(
+            reason = SyncFailure.Reason.SourceUnavailable,
+            detail = "/storage/emulated/0/Pictures/Holiday could not be opened",
+            requirements = RequirementReport(
+                blockers = emptyList(),
+                solvable = listOf(Requirement.SystemToggle(Requirement.SystemToggle.Kind.WIFI)),
+            ),
+        )
+
+        // The wire type has no room for either - which is the point: the detail carries local
+        // paths, and the report carries this device's permission and radio state.
+        assertEquals(SyncFailureReason.SourceUnavailable, local.toWire())
+    }
+
+    @Test
+    fun `what the peer could not act on arrives as a bare failure`() {
+        // Its own refusal coming back, and a planner that would not converge, say nothing there.
+        assertEquals(
+            SyncFailureReason.Failed,
+            SyncException.RemoteRejectedException("no").toSyncFailure().toWire(),
+        )
+        assertEquals(
+            SyncFailureReason.Failed,
+            SyncException.MaxRetriesExceededException("gave up").toSyncFailure().toWire(),
+        )
+    }
+
+    @Test
+    fun `a lease handed back with a reason is a failed pass, not a finished one`() = runTest {
+        val reporter = SyncProgressReporter(MutableTimeProvider())
+        reporter.remotePassStarted(SourceId, PeerId)
+
+        reporter.remotePassFinished(
+            sourceId = SourceId,
+            stage = SourcePass.Remote.Stage.Failed,
+            failure = SyncFailureReason.NotAllowed,
+        )
+
+        // Without the reason on the wire this reads exactly like a pass that worked: the lease
+        // comes back either way.
+        val pass = reporter.pass(SourceId).first() as SourcePass.Remote
+        assertEquals(SourcePass.Remote.Stage.Failed, pass.stage)
+        assertEquals(SyncFailureReason.NotAllowed, pass.failure)
+    }
+
     private companion object {
         const val SourceId = "source-1"
+
+        const val PeerId = "device-peer"
 
         val TIMEOUT = 30.seconds
     }

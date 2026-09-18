@@ -2,6 +2,7 @@ package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
+import com.fserver.core.sync.progress.SyncFailureReason
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -57,6 +58,7 @@ internal sealed interface FileServerMessages {
         data class ReleaseLease(
             val sourceId: String,
             val leaseId: String,
+            val failure: SyncFailureReason? = null,
         ) : FileServerMessages
 
         @Serializable

@@ -713,6 +713,11 @@
     <string name="error_sync_source_unavailable">The folder could not be read on this device.</string>
     <string name="error_sync_transfer_failed">Some files did not make it across.</string>
     <string name="error_sync_not_converged">The sync kept restarting and was stopped.</string>
+    <string name="error_sync_peer_failed">The other device could not finish syncing that folder.</string>
+    <string name="error_sync_peer_not_allowed">It is missing a permission, or has a radio switched off.</string>
+    <string name="error_sync_peer_source_unavailable">It could not read its own copy of the folder.</string>
+    <string name="error_sync_peer_transfer_failed">Some files did not make it across.</string>
+    <string name="error_sync_peer_unknown">It did not say why.</string>
     <string name="error_file_missing">The file is no longer there.</string>
     <string name="error_transfer_corrupted">The file arrived damaged and was discarded.</string>
     <string name="error_transfer_busy">Too many transfers at once. Try again in a moment.</string>
