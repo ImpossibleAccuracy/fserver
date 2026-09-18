@@ -16,9 +16,6 @@ Load-bearing docs for `:net` work:
 - `../../../docs/Connection Protocol.md` — target connection protocol: what is public vs behind
   auth, probe→connect flow, `AuthMethod` SPI, security invariants. Cross-platform — server and
   other clients follow it too, so changes there are not an Android-local decision.
-- `docs/Handshake Migration.md` — Android-local, and the only doc under this repo. Staged delta
-  from today's handshake to that protocol. Read before touching `:net/handshake`,
-  `ConnectionManager`, or transport capabilities.
 
 Project is **early-stage** now. Don't worry about versioning issues when making changes (but not
 when doing code review).

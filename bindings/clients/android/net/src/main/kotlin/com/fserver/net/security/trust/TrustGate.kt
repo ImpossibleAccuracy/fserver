@@ -25,9 +25,13 @@ internal class TrustGate(
     inner class Session(private val method: AuthMethod) {
         private var checked: PeerIdentity? = null
         private var pinned: TrustRecord? = null
+        private var looked = false
 
         /** Whether this peer was already pinned before this handshake ran. */
         val wasKnown: Boolean get() = pinned != null
+
+        /** Whether [peer] is already pinned here */
+        suspend fun knows(peer: PeerIdentity): Boolean = lookup(peer) != null
 
         /**
          * Run by the handshake once the peer's key is proven, and by nothing else: what is asked
@@ -35,9 +39,19 @@ internal class TrustGate(
          *
          * @param peer what the handshake proved, not what the peer claimed.
          * @param confirmationCode the string the two ends compare, when the method derived one.
+         * @param peerKnowsUs what the peer said about its own side of the pairing. A claim, not a
+         * proof, and only ever a reason to ask more - never a reason to ask less.
+         * @param keyVerifiedOutOfBand true when the method proved the very key the user handed it,
+         * off the link, for this connection.
+         *
          * @throws NetworkException.AuthenticationRejected when the peer is not to be talked to.
          */
-        suspend fun check(peer: PeerIdentity, confirmationCode: String?) {
+        suspend fun check(
+            peer: PeerIdentity,
+            confirmationCode: String?,
+            peerKnowsUs: Boolean,
+            keyVerifiedOutOfBand: Boolean,
+        ) {
             checked?.let { earlier ->
                 if (earlier != peer) {
                     throw NetworkException.Handshake(
@@ -48,8 +62,7 @@ internal class TrustGate(
             }
 
             val store = configHolder.current.trustStore
-            val known = store?.find(peer.publicKey)
-            pinned = known
+            val known = lookup(peer)
 
             when {
                 known == null -> {
@@ -59,20 +72,45 @@ internal class TrustGate(
                         ?.filterNot { it.publicKey.contentEquals(peer.publicKey) }
                         .orEmpty()
 
-                    ask(
-                        peer = peer,
-                        confirmationCode = confirmationCode,
-                        reason = when {
-                            conflicting.isEmpty() -> TrustPrompt.Reason.FirstContact
-                            else -> TrustPrompt.Reason.KeyChanged(conflicting)
-                        },
-                    )
+                    when {
+                        conflicting.isNotEmpty() -> ask(
+                            peer = peer,
+                            confirmationCode = confirmationCode,
+                            peerKnowsUs = peerKnowsUs,
+                            reason = TrustPrompt.Reason.KeyChanged(conflicting),
+                        )
+
+                        // Asking now would be asking the user to confirm the key they themselves
+                        // just carried over - the prompt exists for keys that arrived over the
+                        // link, and this one did not.
+                        keyVerifiedOutOfBand -> configHolder.current.logger.debug(
+                            "peer ${peer.fingerprint.value} proved the key it was reached by; not asking"
+                        )
+
+                        else -> ask(
+                            peer = peer,
+                            confirmationCode = confirmationCode,
+                            peerKnowsUs = peerKnowsUs,
+                            reason = TrustPrompt.Reason.FirstContact,
+                        )
+                    }
                 }
 
                 method.strength < known.strength -> ask(
                     peer = peer,
                     confirmationCode = confirmationCode,
+                    peerKnowsUs = peerKnowsUs,
                     reason = TrustPrompt.Reason.Downgrade(known)
+                )
+
+                // A pin records a pairing both ends made. One that only this end still has is the
+                // case a pin must not silence: whatever produced it - a reinstall, a restored
+                // backup, a copied key - the user is the one who can tell which.
+                !peerKnowsUs -> ask(
+                    peer = peer,
+                    confirmationCode = confirmationCode,
+                    peerKnowsUs = false,
+                    reason = TrustPrompt.Reason.PeerForgotUs(known),
                 )
 
                 else -> configHolder.current.logger.debug(
@@ -81,6 +119,15 @@ internal class TrustGate(
             }
 
             checked = peer
+        }
+
+        /** The store lookup this handshake runs once, whoever asks for it first. */
+        private suspend fun lookup(peer: PeerIdentity): TrustRecord? {
+            if (!looked) {
+                pinned = configHolder.current.trustStore?.find(peer.publicKey)
+                looked = true
+            }
+            return pinned
         }
 
         /**
@@ -124,6 +171,7 @@ internal class TrustGate(
         private suspend fun ask(
             peer: PeerIdentity,
             confirmationCode: String?,
+            peerKnowsUs: Boolean,
             reason: TrustPrompt.Reason,
         ) {
             val authenticator = configHolder.current.authenticator ?: return
@@ -133,6 +181,7 @@ internal class TrustGate(
                     method = method.id,
                     strength = method.strength,
                     confirmationCode = confirmationCode,
+                    peerKnowsUs = peerKnowsUs,
                     reason = reason,
                 )
             )

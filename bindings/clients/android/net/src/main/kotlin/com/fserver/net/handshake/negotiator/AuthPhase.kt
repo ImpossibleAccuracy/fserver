@@ -10,6 +10,7 @@ import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.IdentityExchange
+import com.fserver.net.security.auth.KnownPeerExchange
 import com.fserver.net.security.auth.offeredMethods
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
@@ -92,10 +93,25 @@ internal class AuthPhase(
             val outcome = method.run(io, context)
             val peer = IdentityExchange.run(io, context, outcome, config.identityStore)
 
-            trust.check(peer, outcome.confirmationCode)
+            // A method pointed at one device out of band gets to say whether this is that device:
+            // whoever answered may be perfectly genuine and still not be the one that was scanned.
+            outcome.verifyPeer(peer)
+
+            val peerKnowsUs = KnownPeerExchange.run(io, outcome.aead, trust.knows(peer))
+
+            trust.check(
+                peer = peer,
+                confirmationCode = outcome.confirmationCode,
+                peerKnowsUs = peerKnowsUs,
+                keyVerifiedOutOfBand = !outcome.needVerifyKey,
+            )
             outcome.confirm()
 
-            AuthResult(sharedSecret = outcome.sharedSecret(), peer = peer)
+            AuthResult(
+                sharedSecret = outcome.sharedSecret(),
+                peer = peer,
+                peerKnowsUs = peerKnowsUs,
+            )
         }
     }
 
@@ -148,4 +164,6 @@ internal class AuthPhase(
 internal class AuthResult(
     val sharedSecret: ByteArray,
     val peer: PeerIdentity,
+    /** What [peer] said about us - see [KnownPeerExchange] for how much that is worth. */
+    val peerKnowsUs: Boolean,
 )

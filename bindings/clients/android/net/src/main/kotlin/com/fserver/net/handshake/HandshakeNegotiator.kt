@@ -205,6 +205,7 @@ internal class HandshakeNegotiator(
                 peerDescriptor = peerDescriptor,
                 authMethodId = method.id,
                 peerWasKnown = trust.wasKnown,
+                peerKnowsUs = authenticated.peerKnowsUs,
             ),
         )
     }

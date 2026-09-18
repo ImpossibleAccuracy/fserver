@@ -78,3 +78,29 @@ Minor:
 - Add support for auth versioning, e.g. same SAS/PAKE but with different versions;
 - Update trust downgrade detection: it should protect against downgrading a single method, rather
   than switching between different methods;
+
+Idea:
+
+- Admission gate: refuse to answer at all unless the caller shows it already knows this device.
+  Today knowing a peer is an *authentication* input (`oob-key-1`), never an admission one, and the
+  public greeting is a forced reply to anyone who dialled (`Connection Protocol.md` §2.3).
+  Worth having as a separate, orthogonal mechanism - but not keyed on the identity key:
+  - the key and its fingerprint are **not secrets**. They are on the QR, and every completed
+    handshake states the key. So a knock on them stops a port scanner and stops nobody else;
+  - nothing there is revocable. A peer that ever paired, or anyone who photographed the code, can
+    knock forever, and taking that away means rotating the identity key and dropping every pin;
+  - a static value replayed in the clear is replayable by a passive LAN observer.
+
+  Two pieces to pull apart, then:
+  - *cannot knock without the key* - the honest construction is Noise `IK` (first message encrypted
+    to the responder's static key), which is what `Connection Protocol.md` §6.1 already names for
+    the QR row. Not replayable, and the current `oob-key-1` (transcript signature) is the staged
+    predecessor of it. Still gives no revocation;
+  - *may not connect* - a generated access code with real entropy, carried by the QR next to the
+    fingerprint, rotatable and never stated by a handshake. ToR §8.1 already expects one for the
+    password mode, so it is the same token in text form.
+
+  Note ToR §3.2 currently says the opposite for the QR mode - access is open, hidden mode protects
+  a device by not announcing it, and the code exists so the *client* can verify the *server*. Any
+  of this is a `Connection Protocol.md` change first: the server and the other clients follow it
+  too, so it is not an Android-local decision;

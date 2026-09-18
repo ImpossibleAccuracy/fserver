@@ -1,6 +1,7 @@
 package com.fserver.net.security.trust
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.common.model.Fingerprint
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthRequest
@@ -37,7 +38,8 @@ class TrustGateTest {
     fun `a peer pinned once is not put in front of the user again`() = runBlocking {
         val prompts = mutableListOf<TrustPrompt>()
         val store = InMemoryTrustStore()
-        val alice = negotiator("alice")
+        // Alice pins too: a pairing only stays quiet while both ends still have their half of it.
+        val alice = negotiator("alice", trustStore = InMemoryTrustStore())
         val bob = negotiator("bob", authenticator = record(prompts), trustStore = store)
 
         val first = scope.handshake(alice, bob).responder()
@@ -47,7 +49,86 @@ class TrustGateTest {
         assertTrue(prompts.single().reason is TrustPrompt.Reason.FirstContact)
         assertFalse(first.negotiated.peerWasKnown)
         assertTrue(second.negotiated.peerWasKnown)
+        assertTrue(second.negotiated.peerKnowsUs)
     }
+
+    @Test
+    fun `a pin the peer no longer has is asked about rather than honoured quietly`() = runBlocking {
+        val prompts = mutableListOf<TrustPrompt>()
+        val store = InMemoryTrustStore()
+        val aliceIdentity = EphemeralIdentityStore(displayName = "alice")
+        val alice = negotiator(
+            "alice",
+            identityStore = aliceIdentity,
+            trustStore = InMemoryTrustStore(),
+        )
+        val bob = negotiator("bob", authenticator = record(prompts), trustStore = store)
+
+        scope.handshake(alice, bob).responder()
+        // Alice reinstalls: same keys, nothing remembered. Bob's pin now stands on its own, and
+        // that is exactly what a reinstall and a copied key have in common.
+        val forgetful = negotiator("alice", identityStore = aliceIdentity)
+        val second = scope.handshake(forgetful, bob).responder()
+
+        assertEquals(2, prompts.size)
+        assertTrue(prompts[1].reason is TrustPrompt.Reason.PeerForgotUs)
+        assertFalse(prompts[1].peerKnowsUs)
+        assertFalse(second.negotiated.peerKnowsUs)
+        assertTrue(second.negotiated.peerWasKnown)
+    }
+
+    @Test
+    fun `a key carried in by hand is not put back in front of the user`() = runBlocking {
+        val prompts = mutableListOf<TrustPrompt>()
+        val store = InMemoryTrustStore()
+        val bobIdentity = EphemeralIdentityStore(displayName = "bob")
+
+        // What scanning a QR leaves the dialling side with: the key it expects, before the link.
+        val link = scope.handshake(
+            initiator = negotiator(
+                "alice",
+                authMethods = listOf(scanned(bobIdentity.local().fingerprint)),
+                authenticator = record(prompts),
+                trustStore = store,
+            ),
+            responder = negotiator(
+                "bob",
+                identityStore = bobIdentity,
+                // The scanned side knows nothing about who is calling: same method, no key.
+                authMethods = listOf(TestingAuthMethod(id = SCANNED)),
+            ),
+            request = AuthRequest(SCANNED),
+        ).first.getOrThrow()
+
+        assertTrue(prompts.isEmpty())
+        assertTrue(link.negotiated.peer.publicKey.contentEquals(bobIdentity.local().publicKey))
+        assertTrue(store.pinned.single().publicKey.contentEquals(bobIdentity.local().publicKey))
+    }
+
+    @Test
+    fun `a peer that is not the one that was scanned is refused, however genuine it is`() =
+        runBlocking {
+            val prompts = mutableListOf<TrustPrompt>()
+            val someoneElse = EphemeralIdentityStore(displayName = "mallory").local().fingerprint
+
+            val (initiator, _) = scope.handshake(
+                initiator = negotiator(
+                    "alice",
+                    authMethods = listOf(scanned(someoneElse)),
+                    authenticator = record(prompts),
+                    trustStore = InMemoryTrustStore(),
+                ),
+                responder = negotiator(
+                    "bob",
+                    authMethods = listOf(TestingAuthMethod(id = SCANNED)),
+                ),
+                request = AuthRequest(SCANNED),
+            )
+
+            assertTrue(initiator.exceptionOrNull() is NetworkException.AuthenticationRejected)
+            // Refused on the key alone: nothing was worth asking a person about.
+            assertTrue(prompts.isEmpty())
+        }
 
     @Test
     fun `what is pinned is the proven key under the name that arrived sealed`() = runBlocking {
@@ -199,11 +280,15 @@ class TrustGateTest {
     /** Same protocol as the default test method, declared as something worth less. */
     private fun weak() = TestingAuthMethod(strength = AuthStrength.SharedSecret, id = WEAK)
 
+    /** The default test method, handed the fingerprint a QR would have carried. */
+    private fun scanned(peer: Fingerprint) = TestingAuthMethod(id = SCANNED, expectedPeer = peer)
+
     /** The responder's link, or the failure that stopped it. */
     private fun Pair<Result<SessionLink>, Result<SessionLink>>.responder(): SessionLink =
         second.getOrThrow()
 
     private companion object {
         val WEAK = AuthMethodId("weak-testing")
+        val SCANNED = AuthMethodId("scanned-testing")
     }
 }

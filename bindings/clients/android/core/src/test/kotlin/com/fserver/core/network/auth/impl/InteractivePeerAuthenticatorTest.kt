@@ -102,6 +102,24 @@ class InteractivePeerAuthenticatorTest {
     }
 
     @Test
+    fun `a peer that no longer has the pairing says which method made it`() = runTest {
+        val decision = async {
+            authenticator.verify(
+                prompt(reason = TrustPrompt.Reason.PeerForgotUs(trustRecord("pinned")))
+            )
+        }
+
+        val shown = authenticator.pending.first { it != null }!!
+        assertEquals(
+            PendingConfirmation.Reason.PeerForgotUs(AuthMethod.ConfirmFingerprint),
+            shown.reason,
+        )
+
+        authenticator.resolve(accept = true)
+        decision.await()
+    }
+
+    @Test
     fun `a downgrade says which method the key was pinned with`() = runTest {
         val decision = async {
             authenticator.verify(
@@ -134,11 +152,13 @@ class InteractivePeerAuthenticatorTest {
     private fun prompt(
         code: String? = "1234 5678",
         reason: TrustPrompt.Reason = TrustPrompt.Reason.FirstContact,
+        peerKnowsUs: Boolean = false,
     ) = TrustPrompt(
         candidate = peerIdentity("device-peer"),
         method = SasAuthMethod.ID,
         strength = AuthStrength.UserCompared,
         confirmationCode = code,
+        peerKnowsUs = peerKnowsUs,
         reason = reason,
     )
 

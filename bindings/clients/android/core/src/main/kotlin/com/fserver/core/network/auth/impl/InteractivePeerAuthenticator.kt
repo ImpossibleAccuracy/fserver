@@ -64,6 +64,9 @@ internal class InteractivePeerAuthenticator : PeerAuthenticator {
 
         is TrustPrompt.Reason.KeyChanged ->
             PendingConfirmation.Reason.KeyChanged(pinned.map { it.fingerprint.groups() })
+
+        is TrustPrompt.Reason.PeerForgotUs ->
+            PendingConfirmation.Reason.PeerForgotUs(AuthMethod.fromId(pinned.method))
     }
 
     private fun Fingerprint.groups(): List<String> = value.split(" ").filter { it.isNotBlank() }

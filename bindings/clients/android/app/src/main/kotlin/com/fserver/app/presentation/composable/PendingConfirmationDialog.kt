@@ -40,6 +40,8 @@ data class PendingConfirmationUi(
         data class Downgrade(@param:StringRes val pinnedMethodLabel: Int?) : Reason
 
         data class KeyChanged(val knownFingerprints: List<List<String>>) : Reason
+
+        data class PeerForgotUs(@param:StringRes val pinnedMethodLabel: Int?) : Reason
     }
 
     /** Whether something on file contradicts this peer, which is what decides the whole sheet. */
@@ -61,6 +63,9 @@ private fun PendingConfirmation.Reason.toUi(): PendingConfirmationUi.Reason = wh
 
     is PendingConfirmation.Reason.KeyChanged ->
         PendingConfirmationUi.Reason.KeyChanged(knownFingerprints)
+
+    is PendingConfirmation.Reason.PeerForgotUs ->
+        PendingConfirmationUi.Reason.PeerForgotUs(pinnedMethod?.labelRes)
 }
 
 
@@ -167,6 +172,7 @@ private val PendingConfirmationUi.titleRes: Int
         PendingConfirmationUi.Reason.FirstContact -> R.string.peer_confirm_title
         is PendingConfirmationUi.Reason.Downgrade -> R.string.peer_confirm_title_downgrade
         is PendingConfirmationUi.Reason.KeyChanged -> R.string.peer_confirm_title_key_changed
+        is PendingConfirmationUi.Reason.PeerForgotUs -> R.string.peer_confirm_title_peer_forgot_us
     }
 
 @Composable
@@ -188,6 +194,15 @@ private fun WarningBlock(
                 stringResource(method),
             )
         }
+
+        is PendingConfirmationUi.Reason.PeerForgotUs ->
+            when (val method = reason.pinnedMethodLabel) {
+                null -> stringResource(R.string.peer_confirm_warning_peer_forgot_us_unknown)
+                else -> stringResource(
+                    R.string.peer_confirm_warning_peer_forgot_us,
+                    stringResource(method),
+                )
+            }
     } ?: return
 
     Text(

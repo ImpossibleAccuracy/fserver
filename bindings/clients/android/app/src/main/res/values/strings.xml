@@ -151,6 +151,9 @@
     <string name="peer_confirm_warning_key_changed">%1$s has connected before, with a different key. That happens after a reinstall or a reset — but it is also what another device claiming this one\'s name looks like. Comparing the code below cannot tell the two apart: check with the device\'s owner first.</string>
     <string name="peer_confirm_warning_downgrade">This device was verified with %1$s before. This connection proves less than that one did.</string>
     <string name="peer_confirm_warning_downgrade_unknown">This device was verified with a stronger method before. This connection proves less than that one did.</string>
+    <string name="peer_confirm_title_peer_forgot_us">This device no longer knows you</string>
+    <string name="peer_confirm_warning_peer_forgot_us">You verified this device with %1$s before, but it says it no longer has you saved. That happens after a reinstall or a reset — but it is also what another device holding a copy of its key looks like.</string>
+    <string name="peer_confirm_warning_peer_forgot_us_unknown">You verified this device before, but it says it no longer has you saved. That happens after a reinstall or a reset — but it is also what another device holding a copy of its key looks like.</string>
     <string name="peer_confirm_offered_key">Key offered now</string>
     <string name="peer_confirm_known_key">Key you trusted before</string>
     <string name="peer_confirm_accept_anyway">Connect anyway</string>

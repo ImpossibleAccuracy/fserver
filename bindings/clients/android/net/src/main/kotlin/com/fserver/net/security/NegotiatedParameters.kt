@@ -17,4 +17,6 @@ data class NegotiatedParameters(
     val authMethodId: AuthMethodId,
     /** Whether [peer]'s key was already pinned, so the user was not asked about it again. */
     val peerWasKnown: Boolean = false,
+    /** Whether the peer says it has this device pinned. */
+    val peerKnowsUs: Boolean = false,
 )

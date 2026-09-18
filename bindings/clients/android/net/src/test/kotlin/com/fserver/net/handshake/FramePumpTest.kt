@@ -4,7 +4,9 @@ import com.fserver.common.exception.NetworkException
 import com.fserver.net.support.channelPair
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -62,6 +64,62 @@ class FramePumpTest {
         val outcome = runCatching { pump.next(100.milliseconds) }
 
         assertTrue(outcome.exceptionOrNull() is NetworkException.Handshake)
+    }
+
+    @Test
+    fun `what the block concluded from buffered frames beats the link going down`() = runBlocking {
+        val (ours, theirs) = channelPair()
+        val pump = FramePump(scope, ours)
+
+        // What a peer that refuses does: it says why, then hangs up. The reason is already here.
+        theirs.send(byteArrayOf(7))
+        theirs.close()
+
+        val outcome = runCatching {
+            withTimeout(TIMEOUT) {
+                pump.runOrAbort {
+                    val reason = pump.next(TIMEOUT).single().toInt()
+                    // The handshake is not done the instant a frame lands: it still decodes it and
+                    // tells the peer why it is failing, and both of those suspend.
+                    delay(50)
+                    throw NetworkException.Handshake("peer closed the handshake: $reason")
+                }
+            }
+        }
+
+        // Not SessionLinkLost: the link did go down, but "peer said 7" is the better answer.
+        assertEquals(
+            "peer closed the handshake: 7",
+            (outcome.exceptionOrNull() as NetworkException.Handshake).message,
+        )
+    }
+
+    @Test
+    fun `a block that already finished survives the link going down`() = runBlocking {
+        val (ours, theirs) = channelPair()
+        val pump = FramePump(scope, ours)
+
+        theirs.close()
+        runCatching { pump.next(TIMEOUT) }
+
+        assertEquals("done", withTimeout(TIMEOUT) { pump.runOrAbort { "done" } })
+    }
+
+    @Test
+    fun `a block still waiting when the link goes down is aborted`() = runBlocking {
+        val (ours, theirs) = channelPair()
+        val pump = FramePump(scope, ours)
+
+        val outcome = runCatching {
+            withTimeout(TIMEOUT) {
+                pump.runOrAbort {
+                    theirs.close()
+                    awaitCancellation()
+                }
+            }
+        }
+
+        assertTrue(outcome.exceptionOrNull() is NetworkException.SessionLinkLost)
     }
 
     private companion object {

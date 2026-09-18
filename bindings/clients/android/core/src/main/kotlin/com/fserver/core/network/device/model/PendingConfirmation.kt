@@ -29,5 +29,11 @@ data class PendingConfirmation(
          * A reinstalled peer looks like this - and so does someone announcing that device's id.
          */
         data class KeyChanged(val knownFingerprints: List<List<String>>) : Reason
+
+        /**
+         * This device still has the pairing and the peer says it does not. A reinstalled or
+         * restored peer looks like this - and so does someone else holding a copy of its key.
+         */
+        data class PeerForgotUs(val pinnedMethod: AuthMethod?) : Reason
     }
 }

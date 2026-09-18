@@ -1,5 +1,6 @@
 package com.fserver.net.support
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
@@ -18,6 +19,8 @@ class TestingAuthMethod(
     override val requiresChannelSecurity: Boolean = false,
     /** False plays a method with nothing for a person to compare. */
     private val derivesCode: Boolean = true,
+    /** Set plays a method pointed at a peer out of band, as a scanned QR does. */
+    private val expectedPeer: Fingerprint? = null,
 ) : AuthMethod {
 
     override suspend fun run(io: HandshakeIo, context: AuthContext): AuthOutcome {
@@ -33,6 +36,12 @@ class TestingAuthMethod(
             transcript = context.prologue,
             confirmationCode = pairFingerprint(exchange.publicKey, peerEphemeral)
                 .takeIf { derivesCode },
+            needVerifyKey = expectedPeer == null,
+            verifyPeer = { peer ->
+                if (expectedPeer != null && peer.fingerprint != expectedPeer) {
+                    throw NetworkException.AuthenticationRejected("not the device that was scanned")
+                }
+            },
             confirm = { io.exchange(ACCEPTED) },
         )
     }

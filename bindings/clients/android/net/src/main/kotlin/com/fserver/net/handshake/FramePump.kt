@@ -11,9 +11,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Collects a transport channel exactly once and buffers what it produces.
@@ -69,18 +69,23 @@ internal class FramePump(
      */
     suspend fun <T> runOrAbort(block: suspend () -> T): T = coroutineScope {
         val work = async { block() }
-        val watcher = async {
+        val watcher = launch {
             job.join()
-            // Unknown cause: pump closed/finished without errors, so report a generic link loss.
-            NetworkException.SessionLinkLost(null) // FIXME: any error inside work somehow wrapped inside this, need to fix
+            // The link is down, but what it already delivered is still buffered, and what [block]
+            // makes of that is the better answer: a peer that refuses says why and then hangs up,
+            // and "link lost" would throw that reason away. So the block gets [ABORT_GRACE] to
+            // reach its own conclusion; only a wait that outlives it is one that can no longer end.
+            withTimeoutOrNull(ABORT_GRACE) { work.join() }
+            work.cancel(LinkLost())
         }
 
-        select {
-            work.onAwait {
-                watcher.cancel()
-                it
-            }
-            watcher.onAwait { throw it }
+        try {
+            work.await()
+        } catch (_: LinkLost) {
+            // Unknown cause: the pump closed or finished without an error of its own.
+            throw NetworkException.SessionLinkLost(null)
+        } finally {
+            watcher.cancel()
         }
     }
 
@@ -88,4 +93,12 @@ internal class FramePump(
         job.cancel()
         runCatching { channel.close() }
     }
+
+    private companion object {
+        /** How long a block may keep working on buffered frames after the link went down. */
+        val ABORT_GRACE = 500.milliseconds
+    }
 }
+
+/** Cancels [FramePump.runOrAbort]'s block once the link it is waiting on is gone for good. */
+private class LinkLost : CancellationException("the link went down mid-handshake")

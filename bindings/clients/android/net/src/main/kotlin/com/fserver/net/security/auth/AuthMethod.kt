@@ -2,6 +2,7 @@ package com.fserver.net.security.auth
 
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
+import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.security.trust.AuthStrength
 
 /**
@@ -84,8 +85,8 @@ class AuthContext(
  * What one method run reached: a key, and enough for the handshake to finish the job.
  *
  * The handshake takes it from here - it seals the identity exchange under [aead], binds the
- * proof of possession to [transcript], puts the proven peer in front of the trust gate with
- * [confirmationCode], and only then runs [confirm].
+ * proof of possession to [transcript], gives [verifyPeer] its say, puts the proven peer in front of
+ * the trust gate with [confirmationCode], and only then runs [confirm].
  */
 class AuthOutcome(
     /** Keys the session. Never the same key as [aead]'s: the session restarts nonces at zero. */
@@ -99,6 +100,19 @@ class AuthOutcome(
 
     /** The string the two ends are meant to compare, when this method derived one. */
     val confirmationCode: String?,
+
+    /**
+     * Whether the user still has to be asked about the peer's key. By default, they do.
+     *
+     * False only where the method was pointed at this device out of band - a scanned code - and
+     * [verifyPeer] has checked the proven identity against it. That check is the user's own verdict
+     * on this device, so asking would be asking them to confirm what they carried over by hand.
+     * Anything a peer merely stated over the link leaves this true.
+     */
+    val needVerifyKey: Boolean = true,
+
+    /** Check the peer's identity by auth itself, and throw if it is not to be trusted. */
+    val verifyPeer: (PeerIdentity) -> Unit = { },
 
     /** The last exchange, run once the peer is proven and trusted. */
     val confirm: suspend () -> Unit,

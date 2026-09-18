@@ -14,6 +14,11 @@ class TrustPrompt(
     val strength: AuthStrength,
     /** The string the two ends are meant to compare, when the method derived one. */
     val confirmationCode: String?,
+    /**
+     * Whether the peer says it has this device pinned already. Its own claim, so never a reason to
+     * trust it more - shown so the user can weigh a device that does not know them back.
+     */
+    val peerKnowsUs: Boolean,
     val reason: Reason,
 ) {
     sealed interface Reason {
@@ -31,5 +36,12 @@ class TrustPrompt(
          * Accepting is possible (a peer may have been reinstalled) but it cannot be the quiet path.
          */
         data class KeyChanged(val pinned: List<TrustRecord>) : Reason
+
+        /**
+         * This device kept the pairing and the peer says it did not. Trust is meant to be mutual,
+         * so a pin is worth re-confirming once the other half of it is gone: a reinstall or a
+         * restored backup explains it, and so does somebody else holding a copy of the key.
+         */
+        data class PeerForgotUs(val pinned: TrustRecord) : Reason
     }
 }
