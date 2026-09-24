@@ -6,10 +6,12 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toFileRecord
+import com.fserver.core.network.dictionary.dto.latestHlc
 import com.fserver.core.network.dictionary.dto.toRemoteIndexed
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
@@ -20,6 +22,7 @@ internal class PeerIndexFetcher(
     private val devicesRepository: DevicesRepository,
     private val reachability: ReachabilityTracker,
     private val timeProvider: TimeProvider,
+    private val clock: HybridLogicalClock,
 ) {
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
         val device = connectToDevice(source)
@@ -37,6 +40,8 @@ internal class PeerIndexFetcher(
                     deviceId = source.deviceId,
                     files = response.files.map { it.toRemoteIndexed(seenAt) },
                 )
+
+                response.files.latestHlc()?.let { clock.receive(it) }
 
                 response.files.map { it.toFileRecord() }
             }

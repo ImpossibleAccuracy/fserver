@@ -1,0 +1,33 @@
+-- Version vector of each indexedFile row: one row per device that has edited the file. A table
+-- rather than a packed column, so a vector reads back without parsing and grows per device.
+CREATE TABLE indexedFileVersion (
+    sourceId TEXT    NOT NULL,
+    fileId   TEXT    NOT NULL,
+    deviceId TEXT    NOT NULL,
+    -- Edits deviceId made. Always positive: a device that made none has no row.
+    counter  INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, fileId, deviceId),
+    FOREIGN KEY (sourceId, fileId) REFERENCES indexedFile(sourceId, fileId) ON DELETE CASCADE
+);
+
+selectAll:
+SELECT *
+FROM indexedFileVersion;
+
+selectBySource:
+SELECT *
+FROM indexedFileVersion
+WHERE sourceId = ?;
+
+selectByKey:
+SELECT *
+FROM indexedFileVersion
+WHERE sourceId = ? AND fileId = ?;
+
+insert:
+INSERT INTO indexedFileVersion(sourceId, fileId, deviceId, counter)
+VALUES (?, ?, ?, ?);
+
+deleteByKey:
+DELETE FROM indexedFileVersion
+WHERE sourceId = ? AND fileId = ?;

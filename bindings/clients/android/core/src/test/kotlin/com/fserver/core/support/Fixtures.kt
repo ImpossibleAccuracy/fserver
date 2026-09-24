@@ -55,7 +55,7 @@ internal fun fileDto(
     metadata = FileRecordDto.Metadata(
         size = size,
         lastModified = lastModified,
-        revision = null,
+        version = null,
     ),
 )
 

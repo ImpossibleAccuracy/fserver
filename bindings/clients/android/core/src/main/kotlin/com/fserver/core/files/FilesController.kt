@@ -100,7 +100,6 @@ private fun LocalIndexedFile.toSyncEntry(
     localState = state,
     remoteState = remoteState,
     modifiedAt = modifiedAt,
-    revision = revision,
 )
 
 private fun RemoteIndexedFile.toSyncEntry() = SyncFileEntry(
@@ -112,5 +111,4 @@ private fun RemoteIndexedFile.toSyncEntry() = SyncFileEntry(
     localState = null,
     remoteState = state,
     modifiedAt = modifiedAt,
-    revision = revision,
 )

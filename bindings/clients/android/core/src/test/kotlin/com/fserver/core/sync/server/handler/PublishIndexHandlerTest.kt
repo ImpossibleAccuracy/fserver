@@ -11,6 +11,7 @@ import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.version.HybridLogicalClock
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -28,7 +29,7 @@ class PublishIndexHandlerTest {
 
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
-    private val handler = PublishIndexHandler(SourceAuthorizer(storage), storage, clock)
+    private val handler = PublishIndexHandler(SourceAuthorizer(storage), storage, clock, HybridLogicalClock(storage, clock))
 
     @Before
     fun setUp() = runBlocking {

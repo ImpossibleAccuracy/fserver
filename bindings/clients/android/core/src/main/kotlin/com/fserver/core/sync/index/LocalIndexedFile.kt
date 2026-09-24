@@ -2,6 +2,8 @@ package com.fserver.core.sync.index
 
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
+import com.fserver.core.sync.version.HlcTimestamp
+import com.fserver.core.sync.version.VersionVector
 import kotlin.time.Instant
 
 /**
@@ -28,8 +30,13 @@ data class LocalIndexedFile(
     /** Filesystem mtime as of processing. */
     val modifiedAt: Instant,
     val hash: ContentHash? = null,
-    /** Who last wrote the file and how many times, or null when the peer does not report it. */
-    val revision: Revision? = null,
+    /** Where this version sits in the file's history, or null when the peer does not report it. */
+    val version: Version? = null,
+    /**
+     * The bytes were touched since [hash] was taken, so it may no longer describe them. Kept rather
+     * than dropped: the next hash is compared with it to tell an edit from a touch.
+     */
+    val hashStale: Boolean = false,
     val processedAt: Instant,
 ) {
     val isDeleted: Boolean
@@ -68,11 +75,12 @@ data class LocalIndexedFile(
         data class Deleted(val deletedAt: Instant) : State
     }
 
-    /** Per-device write counter. Concurrent edits show up as two different [originDevice]s. */
-    data class Revision(
-        /** Device that last wrote the file. */
+    /** One version of the file. Only [vector] orders versions; the rest breaks ties between concurrent ones. */
+    data class Version(
+        val vector: VersionVector,
+        /** When the version was made. Never used to tell older from newer - see [vector]. */
+        val hlc: HlcTimestamp,
+        /** Device that made the version. */
         val originDevice: String,
-        /** How many times that device wrote the file. */
-        val counter: Long,
     )
 }

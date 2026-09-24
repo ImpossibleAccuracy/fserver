@@ -22,8 +22,8 @@ data class FileRecord(
     data class Metadata(
         val size: Long,
         val lastModified: Instant,
-        /** Who last wrote the file and how many times, or `null` when unknown. */
-        val revision: Revision?,
+        /** Where this version sits in the file's history, or `null` when unknown. */
+        val version: FileVersion?,
     )
 
     /**
@@ -50,11 +50,3 @@ data class FileRecord(
 /** Cross-device identity of a file. Equal ids on both sides mean "the same file". */
 @JvmInline
 value class FileId(val value: String)
-
-/** Per-device write counter. Concurrent edits show up as two different [originDevice]s. */
-data class Revision(
-    /** Device that last wrote the file. */
-    val originDevice: String,
-    /** How many times that device wrote the file. */
-    val counter: Long,
-)

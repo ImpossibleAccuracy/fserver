@@ -4,10 +4,14 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.version.HlcTimestamp
+import com.fserver.core.sync.version.VersionVector
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
-import com.fserver.files.upload.Revision
+import com.fserver.files.upload.FileVersion
+import com.fserver.files.upload.VersionVector as FilesVersionVector
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.time.Duration.Companion.hours
@@ -69,14 +73,49 @@ class FileRecordMappingTest {
     }
 
     @Test
-    fun `hash and revision survive the round trip, so nothing is re-uploaded for nothing`() {
+    fun `hash and version survive the round trip, so nothing is re-uploaded for nothing`() {
         val dto = localFile(LocalIndexedFile.State.Present()).toDto()
         val record = dto.toFileRecord()
 
         assertEquals(ContentHash("abc123", "SHA-256"), record.content)
-        assertEquals(Revision(originDevice = "device-peer", counter = 7), record.metadata.revision)
+        assertEquals(
+            FileVersion(
+                vector = FilesVersionVector(mapOf("device-peer" to 7L, "device-local" to 2L)),
+                hlc = PeerHlc.packed,
+                originDevice = "device-peer",
+            ),
+            record.metadata.version,
+        )
         assertEquals(TestEpoch, record.metadata.lastModified)
         assertEquals(64L, record.metadata.size)
+    }
+
+    @Test
+    fun `a stale hash goes out as unknown, so the peer cannot overwrite an unversioned edit`() {
+        val dto = localFile(LocalIndexedFile.State.Present()).copy(hashStale = true).toDto()
+
+        assertNull(dto.content)
+    }
+
+    @Test
+    fun `zero counters from the wire read as absent`() {
+        val dto = fileDtoWith(
+            FileRecordDto.State.Present(),
+            version = VersionDto(vector = mapOf("device-peer" to 3L, "device-other" to 0L), hlc = 1, originDevice = "device-peer"),
+        )
+
+        assertEquals(VersionVector(mapOf("device-peer" to 3L)), dto.metadata.version!!.toIndexed().vector)
+    }
+
+    @Test
+    fun `a malformed hlc is skipped, not fatal to the whole index`() {
+        val valid = HlcTimestamp.of(physicalMs = 5_000, logical = 1)
+        val files = listOf(
+            fileDtoWith(FileRecordDto.State.Present(), version = VersionDto(mapOf("a" to 1L), hlc = -1, originDevice = "a")),
+            fileDtoWith(FileRecordDto.State.Present(), version = VersionDto(mapOf("b" to 1L), hlc = valid.packed, originDevice = "b")),
+        )
+
+        assertEquals(valid, files.latestHlc())
     }
 
     @Test
@@ -100,7 +139,7 @@ class FileRecordMappingTest {
         size = FileSize(64),
         modifiedAt = TestEpoch,
         hash = ContentHash("abc123", "SHA-256"),
-        revision = LocalIndexedFile.Revision(originDevice = "device-peer", counter = 7),
+        version = PeerVersion,
         processedAt = TestEpoch,
     )
 
@@ -110,10 +149,10 @@ class FileRecordMappingTest {
         locator = null,
         state = state,
         content = null,
-        metadata = FileRecord.Metadata(size = 64, lastModified = TestEpoch, revision = null),
+        metadata = FileRecord.Metadata(size = 64, lastModified = TestEpoch, version = null),
     )
 
-    private fun fileDtoWith(state: FileRecordDto.State) = FileRecordDto(
+    private fun fileDtoWith(state: FileRecordDto.State, version: VersionDto? = null) = FileRecordDto(
         id = "file-1",
         sourceId = "source-1",
         path = "photo.jpg",
@@ -122,7 +161,16 @@ class FileRecordMappingTest {
         metadata = FileRecordDto.Metadata(
             size = 64,
             lastModified = TestEpoch,
-            revision = null,
+            version = version,
         ),
     )
+
+    private companion object {
+        val PeerHlc = HlcTimestamp.of(physicalMs = 1_000_000, logical = 3)
+        val PeerVersion = LocalIndexedFile.Version(
+            vector = VersionVector(mapOf("device-peer" to 7L, "device-local" to 2L)),
+            hlc = PeerHlc,
+            originDevice = "device-peer",
+        )
+    }
 }

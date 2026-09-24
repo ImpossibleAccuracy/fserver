@@ -103,7 +103,7 @@ class SessionContextTest {
                 metadata = FileRecord.Metadata(
                     size = 0,
                     lastModified = TestEpoch,
-                    revision = null,
+                    version = null,
                 ),
             ),
             fs = fs,

@@ -4,9 +4,13 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import com.fserver.core.sync.index.toFiles
+import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
-import com.fserver.files.upload.Revision
+import com.fserver.files.upload.FileVersion
+import com.fserver.files.upload.VersionVector
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
@@ -30,8 +34,8 @@ internal data class FileRecordDto(
     data class Metadata(
         val size: Long,
         val lastModified: Instant,
-        /** Who last wrote the file and how many times, or null when the peer does not report it. */
-        val revision: RevisionDto?,
+        /** Where this version sits in the file's history, or null when the peer does not report it. */
+        val version: VersionDto?,
     )
 
     /**
@@ -60,99 +64,19 @@ internal data class ContentHashDto(
 )
 
 @Serializable
-internal data class RevisionDto(
+internal data class VersionDto(
+    /** Edit count per device id. */
+    val vector: Map<String, Long>,
+    /** Packed HLC reading: 48 bits of millis, 16 bits of counter. */
+    val hlc: Long,
     val originDevice: String,
-    val counter: Long,
 )
 
-internal fun LocalIndexedFile.toDto(): FileRecordDto = FileRecordDto(
-    id = fileId,
-    sourceId = sourceId,
-    path = path,
-    state = state.toDto(),
-    content = hash?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
-    metadata = FileRecordDto.Metadata(
-        size = size.bytes,
-        lastModified = modifiedAt,
-        revision = revision?.let {
-            RevisionDto(originDevice = it.originDevice, counter = it.counter)
-        },
-    ),
-)
-
-internal fun FileRecord.toDto(sourceId: String): FileRecordDto = FileRecordDto(
-    id = id.value,
-    sourceId = sourceId,
-    path = path,
-    state = state.toDto(),
-    content = content?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
-    metadata = FileRecordDto.Metadata(
-        size = metadata.size,
-        lastModified = metadata.lastModified,
-        revision = metadata.revision?.let {
-            RevisionDto(originDevice = it.originDevice, counter = it.counter)
-        },
-    ),
-)
-
-internal fun FileRecordDto.toFileRecord(): FileRecord = FileRecord(
-    id = FileId(id),
-    path = path,
-    locator = null,
-    state = state.toDomain(),
-    content = content?.let { ContentHash(value = it.value, algorithm = it.algorithm) },
-    metadata = FileRecord.Metadata(
-        size = metadata.size,
-        lastModified = metadata.lastModified,
-        revision = metadata.revision?.let {
-            Revision(originDevice = it.originDevice, counter = it.counter)
-        },
-    ),
-)
-
-/** What a peer reported, as the remote index records it. [seenAt] is when we heard it, not when it happened. */
-internal fun FileRecordDto.toRemoteIndexed(seenAt: Instant): RemoteIndexedFile = RemoteIndexedFile(
-    sourceId = sourceId,
-    fileId = id,
-    path = path,
-    state = state.toIndexed(),
-    size = FileSize(metadata.size),
-    modifiedAt = metadata.lastModified,
-    hash = content?.let { ContentHash(value = it.value, algorithm = it.algorithm) },
-    revision = metadata.revision?.let {
-        LocalIndexedFile.Revision(originDevice = it.originDevice, counter = it.counter)
-    },
-    seenAt = seenAt,
-)
-
-private fun FileRecordDto.State.toIndexed(): LocalIndexedFile.State = when (this) {
-    is FileRecordDto.State.Present -> LocalIndexedFile.State.Present(pinned)
-
-    is FileRecordDto.State.Evicted -> LocalIndexedFile.State.Evicted(evictedAt)
-
-    is FileRecordDto.State.Deleted -> LocalIndexedFile.State.Deleted(deletedAt)
-}
-
-private fun LocalIndexedFile.State.toDto(): FileRecordDto.State = when (this) {
-    is LocalIndexedFile.State.Present -> FileRecordDto.State.Present(pinned)
-
-    is LocalIndexedFile.State.Evicted -> FileRecordDto.State.Evicted(evictedAt)
-
-    is LocalIndexedFile.State.Deleted -> FileRecordDto.State.Deleted(deletedAt)
-}
-
-private fun FileRecord.State.toDto(): FileRecordDto.State = when (this) {
-    is FileRecord.State.Present -> FileRecordDto.State.Present(pinned)
-
-    is FileRecord.State.Evicted -> FileRecordDto.State.Evicted(evictedAt)
-
-    is FileRecord.State.Deleted -> FileRecordDto.State.Deleted(deletedAt)
-}
-
-private fun FileRecordDto.State.toDomain(): FileRecord.State = when (this) {
-    is FileRecordDto.State.Present -> FileRecord.State.Present(pinned)
-
-    is FileRecordDto.State.Evicted -> FileRecord.State.Evicted(evictedAt)
-
-    is FileRecordDto.State.Deleted -> FileRecord.State.Deleted(deletedAt)
-}
+/**
+ * Newest HLC reading among [this], for the local clock to catch up with. A malformed one is skipped:
+ * it fails only the file carrying it, not the whole index.
+ */
+internal fun List<FileRecordDto>.latestHlc(): HlcTimestamp? =
+    mapNotNull { dto -> dto.metadata.version?.hlc?.takeIf { it >= 0 } }
+        .maxOrNull()
+        ?.let(::HlcTimestamp)

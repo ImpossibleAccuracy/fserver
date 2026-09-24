@@ -6,11 +6,13 @@ import app.cash.sqldelight.coroutines.mapToOne
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.storage.database.FServerStorageDatabase
+import com.fserver.core.storage.database.IndexedFileVersion
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.time.Instant
 import com.fserver.core.storage.database.IndexedFile as DBIndexedFile
@@ -25,19 +27,30 @@ internal class FileIndexStoreImpl(
     private val database: FServerStorageDatabase,
 ) : FileIndexStore {
     private val dao = database.indexedFileQueries
+    private val versions = database.indexedFileVersionQueries
 
-    override val all: Flow<List<LocalIndexedFile>> = dao.selectAll()
-        .asFlow()
-        .mapToList(Dispatchers.IO)
-        .map { rows -> rows.map { it.toDomainModel() } }
+    /** Re-read on either table: a vector can change without its file row changing. */
+    override val all: Flow<List<LocalIndexedFile>> = combine(
+        dao.selectAll().asFlow().mapToList(Dispatchers.IO),
+        versions.selectAll().asFlow().mapToList(Dispatchers.IO),
+    ) { rows, vectors -> rows.withVectors(vectors) }
 
     override suspend fun findFile(key: IndexedFileKey): LocalIndexedFile? =
-        dao.findByKey(sourceId = key.sourceId, fileId = key.fileId)
-            .executeAsOneOrNull()
-            ?.toDomainModel()
+        database.transactionWithResult {
+            dao.findByKey(sourceId = key.sourceId, fileId = key.fileId)
+                .executeAsOneOrNull()
+                ?.let { row ->
+                    val vector = versions.selectByKey(sourceId = key.sourceId, fileId = key.fileId)
+                        .executeAsList()
+                    listOf(row).withVectors(vector).single()
+                }
+        }
 
     override suspend fun processedFiles(sourceId: String): List<LocalIndexedFile> =
-        dao.selectBySource(sourceId).executeAsList().map { it.toDomainModel() }
+        database.transactionWithResult {
+            dao.selectBySource(sourceId).executeAsList()
+                .withVectors(versions.selectBySource(sourceId).executeAsList())
+        }
 
     /** One transaction: a pass that died halfway through must not leave half its files marked done. */
     override suspend fun markProcessed(indexed: Collection<LocalIndexedFile>) {
@@ -56,21 +69,23 @@ internal class FileIndexStoreImpl(
                     modifiedAtEpochMs = file.modifiedAt.toEpochMilliseconds(),
                     hashValue = file.hash?.value,
                     hashAlgorithm = file.hash?.algorithm,
-                    revisionOriginDevice = file.revision?.originDevice,
-                    revisionCounter = file.revision?.counter,
+                    hashStale = if (file.hashStale) 1 else 0,
+                    hlc = file.version?.hlc?.packed,
+                    originDevice = file.version?.originDevice,
                     processedAtEpochMs = file.processedAt.toEpochMilliseconds(),
                 )
+
+                versions.deleteByKey(sourceId = file.sourceId, fileId = file.fileId)
+                file.version?.vector?.counters?.forEach { (deviceId, counter) ->
+                    versions.insert(
+                        sourceId = file.sourceId,
+                        fileId = file.fileId,
+                        deviceId = deviceId,
+                        counter = counter,
+                    )
+                }
             }
         }
-    }
-
-    override suspend fun saveHash(key: IndexedFileKey, hash: ContentHash) {
-        dao.updateHash(
-            hashValue = hash.value,
-            hashAlgorithm = hash.algorithm,
-            sourceId = key.sourceId,
-            fileId = key.fileId,
-        )
     }
 
     override suspend fun updateFileState(key: IndexedFileKey, state: LocalIndexedFile.State) {
@@ -81,28 +96,6 @@ internal class FileIndexStoreImpl(
             sourceId = key.sourceId,
             fileId = key.fileId,
         )
-    }
-
-    /**
-     * Row by row inside one transaction rather than a single `IN`: the keys may span sources, and a
-     * statement matching fileId alone would move a file of another source into the same state.
-     */
-    override suspend fun updateStateBatch(keys: List<IndexedFileKey>, state: LocalIndexedFile.State) {
-        val name = FileStates.nameOf(state)
-        val pinned = FileStates.pinnedOf(state)
-        val changedAt = FileStates.changedAtOf(state)
-
-        database.transaction {
-            for (key in keys) {
-                dao.updateState(
-                    state = name,
-                    pinned = pinned,
-                    stateChangedEpochMs = changedAt,
-                    sourceId = key.sourceId,
-                    fileId = key.fileId,
-                )
-            }
-        }
     }
 
     override suspend fun clearProcessed(sourceId: String) {
@@ -116,7 +109,12 @@ internal class FileIndexStoreImpl(
         .map { it.toInt() }
 }
 
-private fun DBIndexedFile.toDomainModel() = LocalIndexedFile(
+private fun List<DBIndexedFile>.withVectors(vectors: List<IndexedFileVersion>): List<LocalIndexedFile> {
+    val counters = FileVersions.group(vectors, { it.sourceId to it.fileId }, { it.deviceId to it.counter })
+    return map { it.toDomainModel(counters[it.sourceId to it.fileId].orEmpty()) }
+}
+
+private fun DBIndexedFile.toDomainModel(counters: Map<String, Long>) = LocalIndexedFile(
     id = id,
     sourceId = sourceId,
     fileId = fileId,
@@ -132,8 +130,7 @@ private fun DBIndexedFile.toDomainModel() = LocalIndexedFile(
     hash = hashValue?.let { value ->
         hashAlgorithm?.let { ContentHash(value = value, algorithm = it) }
     },
-    revision = revisionOriginDevice?.let { origin ->
-        revisionCounter?.let { LocalIndexedFile.Revision(originDevice = origin, counter = it) }
-    },
+    version = FileVersions.read(hlc = hlc, originDevice = originDevice, counters = counters),
+    hashStale = hashStale == 1L,
     processedAt = Instant.fromEpochMilliseconds(processedAtEpochMs),
 )

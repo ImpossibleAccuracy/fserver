@@ -3,7 +3,10 @@ package com.fserver.core.sync.index
 import com.fserver.common.model.FileSize
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
-import com.fserver.files.upload.Revision
+import com.fserver.core.sync.version.HlcTimestamp
+import com.fserver.core.sync.version.VersionVector
+import com.fserver.files.upload.FileVersion
+import com.fserver.files.upload.VersionVector as FilesVersionVector
 import kotlin.time.Instant
 
 /** This device's side of a file, as a strategy wants to see it. */
@@ -12,11 +15,11 @@ internal fun LocalIndexedFile.toFileRecord(): FileRecord = FileRecord(
     path = path,
     locator = locator,
     state = state.toFiles(),
-    content = hash,
+    content = hash.takeUnless { hashStale },
     metadata = FileRecord.Metadata(
         size = size.bytes,
         lastModified = modifiedAt,
-        revision = revision?.let { Revision(originDevice = it.originDevice, counter = it.counter) },
+        version = version?.toFiles(),
     ),
 )
 
@@ -35,12 +38,7 @@ internal fun FileRecord.toIndexed(
     hash = content,
     size = FileSize(metadata.size),
     modifiedAt = metadata.lastModified,
-    revision = metadata.revision?.let {
-        LocalIndexedFile.Revision(
-            originDevice = it.originDevice,
-            counter = it.counter
-        )
-    },
+    version = metadata.version?.toIndexed(),
     processedAt = currentTime,
 )
 
@@ -59,3 +57,15 @@ private fun FileRecord.State.toIndexed(): LocalIndexedFile.State = when (this) {
 
     is FileRecord.State.Deleted -> LocalIndexedFile.State.Deleted(deletedAt)
 }
+
+internal fun LocalIndexedFile.Version.toFiles(): FileVersion = FileVersion(
+    vector = FilesVersionVector(vector.counters),
+    hlc = hlc.packed,
+    originDevice = originDevice,
+)
+
+internal fun FileVersion.toIndexed(): LocalIndexedFile.Version = LocalIndexedFile.Version(
+    vector = VersionVector(vector.counters),
+    hlc = HlcTimestamp(hlc),
+    originDevice = originDevice,
+)

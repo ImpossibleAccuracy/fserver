@@ -4,10 +4,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.fserver.core.storage.SyncPreferencesRepository
 import com.fserver.core.store.sync.SyncStore
 import com.fserver.core.sync.model.SyncPreferences
+import com.fserver.core.sync.version.HlcTimestamp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -26,6 +28,13 @@ internal class SyncStoreImpl(
             prefs[CHARGING_REQUIRED] = rules.deviceConstraints.chargingRequired
             prefs[CONFLICT_RESOLUTION] = rules.conflictResolution.name
         }
+    }
+
+    override suspend fun loadClock(): HlcTimestamp? =
+        dataStore.data.first()[CLOCK]?.let(::HlcTimestamp)
+
+    override suspend fun saveClock(timestamp: HlcTimestamp) {
+        dataStore.edit { prefs -> prefs[CLOCK] = timestamp.packed }
     }
 
     private fun Preferences.toSyncPreferences() = SyncPreferences(
@@ -47,5 +56,6 @@ internal class SyncStoreImpl(
         val WIFI_REQUIRED = booleanPreferencesKey("sync_wifi_required")
         val CHARGING_REQUIRED = booleanPreferencesKey("sync_charging_required")
         val CONFLICT_RESOLUTION = stringPreferencesKey("sync_conflict_resolution")
+        val CLOCK = longPreferencesKey("sync_hlc")
     }
 }

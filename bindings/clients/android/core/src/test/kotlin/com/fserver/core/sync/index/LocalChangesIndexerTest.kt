@@ -1,15 +1,20 @@
 package com.fserver.core.sync.index
 
 import android.content.ContextWrapper
+import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.version.HlcTimestamp
+import com.fserver.core.sync.version.HybridLogicalClock
+import com.fserver.core.sync.version.VersionVector
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -22,8 +27,8 @@ import java.security.MessageDigest
 /**
  * The local half of a pass: what the disk holds, turned into the rows a plan is made from.
  *
- * The revision counter is what a strategy reads to tell "I wrote this" from "the peer did", so a
- * counter that advances when it should not is a conflict the user never made.
+ * The version vector is what a strategy reads to order this device's edits against the peer's, so
+ * one that advances when it should not is a conflict the user never made.
  */
 class LocalChangesIndexerTest {
 
@@ -33,7 +38,7 @@ class LocalChangesIndexerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
-    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock)
+    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
 
     private lateinit var root: File
     private lateinit var source: SourceEntry
@@ -45,45 +50,51 @@ class LocalChangesIndexerTest {
     }
 
     @Test
-    fun `a file found for the first time is indexed as ours, at the first revision`() =
+    fun `a file found for the first time is indexed as ours, at the first version`() =
         runTest {
             write("photo.jpg", "one")
 
             val indexed = indexer.refresh(source).single()
 
             assertEquals("photo.jpg", indexed.path)
-            assertEquals(LocalId, indexed.revision?.originDevice)
-            assertEquals(1L, indexed.revision?.counter)
+            assertEquals(LocalId, indexed.version?.originDevice)
+            assertEquals(VersionVector(mapOf(LocalId to 1L)), indexed.version?.vector)
             assertTrue(indexed.state is LocalIndexedFile.State.Present)
             assertNull(indexed.hash)
         }
 
     @Test
-    fun `a file nothing touched keeps the revision it had`() = runTest {
+    fun `a file nothing touched keeps the version it had`() = runTest {
         write("photo.jpg", "one")
-        indexer.refresh(source)
+        val first = indexer.refresh(source).single()
 
         val second = indexer.refresh(source).single()
 
-        assertEquals(1L, second.revision?.counter)
+        assertEquals(first.version, second.version)
     }
 
     @Test
-    fun `an edit here advances our own counter`() = runTest {
+    fun `an edit here advances our own counter and the clock`() = runTest {
         val file = write("photo.jpg", "one")
-        indexer.refresh(source)
+        val before = indexer.refresh(source).single().version!!
 
         write("photo.jpg", "one plus more")
         file.setLastModified(file.lastModified() + 60_000)
+        val after = indexer.refresh(source).single().version!!
 
-        assertEquals(2L, indexer.refresh(source).single().revision?.counter)
+        assertEquals(VersionVector(mapOf(LocalId to 2L)), after.vector)
+        assertTrue(after.hlc > before.hlc)
     }
 
     @Test
-    fun `taking over a file the peer wrote restarts the count under our own id`() = runTest {
+    fun `editing a file the peer wrote keeps the peer's edits in the vector`() = runTest {
         val file = write("photo.jpg", "from the peer")
         val adopted = indexer.refresh(source).single().copy(
-            revision = LocalIndexedFile.Revision(originDevice = PeerId, counter = 9),
+            version = LocalIndexedFile.Version(
+                vector = VersionVector(mapOf(PeerId to 9L)),
+                hlc = HlcTimestamp.Zero,
+                originDevice = PeerId,
+            ),
         )
         storage.index.markProcessed(listOf(adopted))
 
@@ -92,10 +103,9 @@ class LocalChangesIndexerTest {
 
         val reindexed = indexer.refresh(source).single()
 
-        // Counters only ever compare within one originDevice, so continuing the peer's count
-        // would make our write look like its ninth.
-        assertEquals(LocalId, reindexed.revision?.originDevice)
-        assertEquals(1L, reindexed.revision?.counter)
+        // Dropping the peer's nine edits would make ours look concurrent with them.
+        assertEquals(LocalId, reindexed.version?.originDevice)
+        assertEquals(VersionVector(mapOf(PeerId to 9L, LocalId to 1L)), reindexed.version?.vector)
     }
 
     @Test
@@ -113,6 +123,17 @@ class LocalChangesIndexerTest {
         }
 
     @Test
+    fun `a deletion is a new version, so it orders against the peer's edits`() = runTest {
+        val file = write("photo.jpg", "one")
+        indexer.refresh(source)
+
+        file.delete()
+        val indexed = indexer.refresh(source).single()
+
+        assertEquals(VersionVector(mapOf(LocalId to 2L)), indexed.version?.vector)
+    }
+
+    @Test
     fun `a file that comes back is present again`() = runTest {
         val file = write("photo.jpg", "one")
         indexer.refresh(source)
@@ -123,6 +144,115 @@ class LocalChangesIndexerTest {
         val indexed = indexer.refresh(source).single()
 
         assertTrue(indexed.state is LocalIndexedFile.State.Present)
+    }
+
+    @Test
+    fun `a touch that kept the bytes is not a new version once hashed`() = runTest {
+        val file = write("photo.jpg", "one")
+        val before = hashed(indexer.refresh(source).single())
+
+        file.setLastModified(file.lastModified() + 60_000)
+        val touched = indexer.refresh(source).single()
+        val after = hashed(touched)
+
+        // Offered to a plan as unknown, but kept to compare the next hash with.
+        assertTrue(touched.hashStale)
+        assertNull(touched.toFileRecord().content)
+        assertEquals(before.version, after.version)
+        assertFalse(after.hashStale)
+    }
+
+    @Test
+    fun `a same-size edit waits for the hash, then becomes a new version`() = runTest {
+        val file = write("photo.jpg", "one")
+        val before = hashed(indexer.refresh(source).single())
+
+        write("photo.jpg", "two")
+        file.setLastModified(file.lastModified() + 60_000)
+        val pending = indexer.refresh(source).single()
+
+        assertEquals(before.version, pending.version)
+        assertEquals(VersionVector(mapOf(LocalId to 2L)), hashed(pending).version?.vector)
+    }
+
+    @Test
+    fun `a touch of a file never hashed is a new version, since nothing proves it unchanged`() =
+        runTest {
+            val file = write("photo.jpg", "one")
+            indexer.refresh(source)
+
+            file.setLastModified(file.lastModified() + 60_000)
+
+            assertEquals(VersionVector(mapOf(LocalId to 2L)), indexer.refresh(source).single().version?.vector)
+        }
+
+    @Test
+    fun `a hash of bytes that changed while hashing is dropped`() = runTest {
+        val file = write("photo.jpg", "one")
+        val stale = indexer.refresh(source).single()
+
+        write("photo.jpg", "one plus more")
+        file.setLastModified(file.lastModified() + 60_000)
+        indexer.refresh(source)
+        indexer.hashFile(source, stale)
+
+        assertNull(storage.index.findFile(key(stale))?.hash)
+    }
+
+    @Test
+    fun `a deletion done for the peer is recorded under the peer's version`() = runTest {
+        write("photo.jpg", "one")
+        val indexed = indexer.refresh(source).single()
+        val peers = LocalIndexedFile.Version(
+            vector = VersionVector(mapOf(LocalId to 1L, PeerId to 1L)),
+            hlc = HlcTimestamp.of(5, 0),
+            originDevice = PeerId,
+        )
+
+        indexer.recordDeleted(source, key(indexed), peers)
+
+        val row = storage.index.findFile(key(indexed))
+        assertTrue(row?.state is LocalIndexedFile.State.Deleted)
+        assertEquals(peers, row?.version)
+    }
+
+    @Test
+    fun `a deletion with no version given is a new version of our own`() = runTest {
+        write("photo.jpg", "one")
+        val indexed = indexer.refresh(source).single()
+
+        indexer.recordDeleted(source, key(indexed), version = null)
+
+        assertEquals(VersionVector(mapOf(LocalId to 2L)), storage.index.findFile(key(indexed))?.version?.vector)
+    }
+
+    @Test
+    fun `a merged version is adopted for the content it was planned on`() = runTest {
+        write("photo.jpg", "one")
+        val indexed = hashed(indexer.refresh(source).single())
+        val merged = LocalIndexedFile.Version(
+            vector = VersionVector(mapOf(LocalId to 1L, PeerId to 1L)),
+            hlc = HlcTimestamp.of(5, 0),
+            originDevice = PeerId,
+        )
+
+        indexer.adoptVersion(source, key(indexed), merged, expected = indexed.hash)
+
+        assertEquals(merged, storage.index.findFile(key(indexed))?.version)
+    }
+
+    @Test
+    fun `a merged version is refused once the content moved on`() = runTest {
+        write("photo.jpg", "one")
+        val indexed = hashed(indexer.refresh(source).single())
+        val merged = indexed.version!!.copy(vector = VersionVector(mapOf(LocalId to 1L, PeerId to 1L)))
+
+        val failure = runCatching {
+            indexer.adoptVersion(source, key(indexed), merged, expected = ContentHash("other", "SHA-256"))
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals(indexed.version, storage.index.findFile(key(indexed))?.version)
     }
 
     @Test
@@ -146,6 +276,13 @@ class LocalChangesIndexerTest {
         val key = IndexedFileKey(fileId = indexed.fileId, sourceId = SourceId)
         assertEquals(sha256("hash me".toByteArray()), storage.index.findFile(key)?.hash?.value)
     }
+
+    private suspend fun hashed(file: LocalIndexedFile): LocalIndexedFile {
+        indexer.hashFile(source, file)
+        return storage.index.findFile(key(file))!!
+    }
+
+    private fun key(file: LocalIndexedFile) = IndexedFileKey(fileId = file.fileId, sourceId = SourceId)
 
     private fun write(path: String, contents: String): File =
         File(root, path).apply {

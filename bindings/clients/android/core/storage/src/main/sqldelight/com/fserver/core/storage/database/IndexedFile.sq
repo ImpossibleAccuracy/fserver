@@ -3,7 +3,7 @@
 --
 -- Every row is a record of a handoff the engine already made - never a claim about bytes on disk.
 --
--- state / hash / revision are flattened into columns rather than pushed into `attribute`: a file's
+-- state / hash / version are flattened into columns rather than pushed into `attribute`: a file's
 -- state is a closed three-way split carrying at most one field, and a feed that pages and counts
 -- needs them queryable. The attribute table is for the parts of a record that keep changing shape.
 CREATE TABLE indexedFile (
@@ -24,8 +24,12 @@ CREATE TABLE indexedFile (
     modifiedAtEpochMs   INTEGER NOT NULL,
     hashValue           TEXT,
     hashAlgorithm       TEXT,
-    revisionOriginDevice TEXT,
-    revisionCounter     INTEGER,
+    -- 1 once the file was touched after hashing: the hash is kept to compare with the next one.
+    hashStale            INTEGER NOT NULL DEFAULT 0,
+    -- Packed HLC reading of the version: tie-break only, never orders versions. Null with
+    -- originDevice when the record has no version; the vector lives in indexedFileVersion.
+    hlc                  INTEGER,
+    originDevice         TEXT,
     processedAtEpochMs  INTEGER NOT NULL,
     -- What actually names a record: fileId alone is cross-device, so it identifies a row only
     -- paired with the source it was indexed under.
@@ -56,15 +60,10 @@ WHERE sourceId = ? AND fileId = ?;
 upsert:
 INSERT OR REPLACE INTO indexedFile(
     id, sourceId, fileId, path, locator, state, pinned, stateChangedEpochMs,
-    size, modifiedAtEpochMs, hashValue, hashAlgorithm,
-    revisionOriginDevice, revisionCounter, processedAtEpochMs
+    size, modifiedAtEpochMs, hashValue, hashAlgorithm, hashStale,
+    hlc, originDevice, processedAtEpochMs
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-
-updateHash:
-UPDATE indexedFile
-SET hashValue = ?, hashAlgorithm = ?
-WHERE sourceId = ? AND fileId = ?;
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateState:
 UPDATE indexedFile

@@ -2,6 +2,7 @@ package com.fserver.files.fs
 
 import com.fserver.common.task.ProgressTask
 import java.io.InputStream
+import kotlin.time.Instant
 
 /**
  * One [FileSystemSource] opened for work. The source is bound here, so callers pass locators only and
@@ -28,4 +29,10 @@ interface FileSystem {
     ): Boolean
 
     suspend fun deleteFile(locator: String): Boolean
+
+    /**
+     * Sets the file's mtime to [time] where the backend allows it, then returns the mtime a scan
+     * will report for it - which is not [time] when the backend refused or rounded it.
+     */
+    suspend fun settleLastModified(locator: String, time: Instant): Instant
 }

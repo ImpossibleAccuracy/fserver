@@ -16,7 +16,6 @@ data class RemoteIndexedFile(
     val size: FileSize,
     val modifiedAt: Instant,
     val hash: ContentHash? = null,
-    val revision: LocalIndexedFile.Revision? = null,
     /** When this device last heard the peer say so. */
     val seenAt: Instant,
 ) {

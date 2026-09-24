@@ -9,6 +9,7 @@ import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
+import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
@@ -97,6 +98,19 @@ class FileUploadHandlerTest {
         assertEquals(FilePath, indexed?.path)
         assertEquals(sha256(bytes), indexed?.hash?.value)
     }
+
+    @Test
+    fun `a received file keeps the sender's mtime, so the next scan does not read it as an edit`() =
+        runTest {
+            push("the actual file".toByteArray())
+
+            val onDisk = File(root, FilePath).lastModified()
+            val indexed = storage.index.findFile(IndexedFileKey(fileId = FileIdValue, sourceId = SourceId))
+
+            assertEquals(TestEpoch.toEpochMilliseconds(), onDisk)
+            assertEquals(onDisk, indexed?.modifiedAt?.toEpochMilliseconds())
+            assertFalse(indexed!!.hashStale)
+        }
 
     @Test
     fun `a push into a source that syncs with another device is refused`() = runTest {

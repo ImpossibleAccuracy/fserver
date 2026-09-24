@@ -8,8 +8,9 @@ import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
-import com.fserver.core.store.FServerStorage
+
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.SyncProgressReporter
@@ -25,7 +26,7 @@ import java.io.InputStream
  * is the one action with a multi-message protocol of its own.
  */
 internal class FileUploader(
-    private val storage: FServerStorage,
+    private val localIndexer: LocalChangesIndexer,
     private val node: FilesNode,
     private val progress: SyncProgressReporter,
 ) {
@@ -128,10 +129,7 @@ internal class FileUploader(
         Timber.i(timer.summary())
 
         if (hasher != null) {
-            storage.index.saveHash(
-                key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
-                hash = hash,
-            )
+            localIndexer.recordHash(source, file, hash)
         }
     }
 

@@ -150,6 +150,24 @@ internal class TreeFileSystem(
         }
     }
 
+    /** A provider owns its documents' mtime, so this only reads back what a scan will see. */
+    override suspend fun settleLastModified(locator: String, time: Instant): Instant =
+        withContext(Dispatchers.IO) {
+            context.contentResolver
+                .query(
+                    locator.toUri(),
+                    arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                    null,
+                    null,
+                    null,
+                )
+                ?.use { cursor ->
+                    if (!cursor.moveToFirst()) throw FileSystemException.InvalidPath(locator)
+                    Instant.fromEpochMilliseconds(cursor.longOrZero(0))
+                }
+                ?: throw FileSystemException.InvalidPath(locator)
+        }
+
     private fun android.database.Cursor.longOrZero(column: Int): Long =
         if (isNull(column)) 0L else getLong(column)
 

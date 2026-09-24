@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.io.RandomAccessFile
+import kotlin.time.Instant
 
 /**
  * Backends served by [File], where a locator is an absolute path.
@@ -80,6 +81,18 @@ internal abstract class LocalFileSystem : SystemAdapter() {
 
         return withContext(Dispatchers.IO) {
             file.delete().also { if (it) onFileChanged(file) }
+        }
+    }
+
+    final override suspend fun settleLastModified(locator: String, time: Instant): Instant {
+        val file = confine(locator)
+
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) {
+            // Best effort: some mounts refuse it, and FAT keeps 2 s precision.
+            file.setLastModified(time.toEpochMilliseconds())
+            Instant.fromEpochMilliseconds(file.lastModified())
         }
     }
 }

@@ -6,7 +6,6 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.RemoteIndexStore
-import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -52,8 +51,6 @@ internal class RemoteIndexStoreImpl(
                     modifiedAtEpochMs = file.modifiedAt.toEpochMilliseconds(),
                     hashValue = file.hash?.value,
                     hashAlgorithm = file.hash?.algorithm,
-                    revisionOriginDevice = file.revision?.originDevice,
-                    revisionCounter = file.revision?.counter,
                     seenAtEpochMs = file.seenAt.toEpochMilliseconds(),
                 )
             }
@@ -78,9 +75,6 @@ private fun DBRemoteIndexedFile.toDomainModel() = RemoteIndexedFile(
     modifiedAt = Instant.fromEpochMilliseconds(modifiedAtEpochMs),
     hash = hashValue?.let { value ->
         hashAlgorithm?.let { ContentHash(value = value, algorithm = it) }
-    },
-    revision = revisionOriginDevice?.let { origin ->
-        revisionCounter?.let { LocalIndexedFile.Revision(originDevice = origin, counter = it) }
     },
     seenAt = Instant.fromEpochMilliseconds(seenAtEpochMs),
 )

@@ -7,6 +7,7 @@ import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.ScanProgress
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import kotlin.time.Instant
 
 /**
  * Bytes in a map, addressed by the path they were created under.
@@ -24,6 +25,12 @@ internal class InMemoryFileSystem : FileSystem {
     var rejectCreate: ((String) -> Throwable?)? = null
 
     fun bytesAt(locator: String): ByteArray? = files[locator]
+
+    /** mtime per locator, as [settleLastModified] left it. */
+    val modified: MutableMap<String, Instant> = mutableMapOf()
+
+    /** Set to model a backend that owns mtime and ignores the requested one. */
+    var fixedModified: Instant? = null
 
     override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> =
         throw UnsupportedOperationException("scan is not part of the upload path")
@@ -60,5 +67,10 @@ internal class InMemoryFileSystem : FileSystem {
     override suspend fun deleteFile(locator: String): Boolean {
         deleted += locator
         return files.remove(locator) != null
+    }
+
+    override suspend fun settleLastModified(locator: String, time: Instant): Instant {
+        if (locator !in files) throw FileSystemException.InvalidPath(locator)
+        return (fixedModified ?: time).also { modified[locator] = it }
     }
 }

@@ -1,15 +1,15 @@
 package com.fserver.core.sync.server.handler
 
+import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
-import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.NonCancellable
@@ -23,7 +23,6 @@ internal class FileOperationHandler(
     private val node: FilesNode,
     private val localIndexer: LocalChangesIndexer,
     private val fileUploader: FileUploader,
-    private val timeProvider: TimeProvider,
 ) {
     suspend fun handle(
         session: PeerSession<FileServerMessages>,
@@ -45,13 +44,17 @@ internal class FileOperationHandler(
                     throw IllegalStateException("Failed to delete ${file.path} from source ${source.id}")
                 }
 
-                storage.index.updateFileState(
-                    key = operation.key,
-                    state = LocalIndexedFile.State.Deleted(deletedAt = timeProvider.now()),
-                )
+                localIndexer.recordDeleted(source, operation.key, operation.version?.toIndexed())
 
                 Timber.i("Deleted file ${file.path} from source ${source.id} as requested by peer ${session.identity.deviceId}")
             }
+
+            is RemoteOperation.File.AdoptVersion -> localIndexer.adoptVersion(
+                source = source,
+                key = operation.key,
+                version = operation.version.toIndexed(),
+                expected = operation.expected?.let { ContentHash(value = it.value, algorithm = it.algorithm) },
+            )
 
             is RemoteOperation.File.Download -> {
                 // Peer requests us to send them the file. It goes back over the session that asked

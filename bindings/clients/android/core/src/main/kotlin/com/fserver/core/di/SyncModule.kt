@@ -16,6 +16,7 @@ import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.setup.SourceSetupExchange
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.runner.FileActionRunner
 import com.fserver.core.sync.runner.FileUploader
@@ -26,6 +27,7 @@ import org.koin.dsl.module
 
 /** The sync engine: the pass this device runs, and the half that answers the peer's. */
 internal val syncModule = module {
+    singleOf(::HybridLogicalClock)
     singleOf(::LocalChangesIndexer)
     singleOf(::UploadStrategySelector)
     singleOf(::DeviceConstraintChecker)

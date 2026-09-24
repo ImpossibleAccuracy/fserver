@@ -138,6 +138,12 @@ internal class FileUploadHandler(
             )
         }
 
+        // Recorded as the disk reports it, or the next scan reads a mismatch as a local edit.
+        val modifiedAt = timer.time("settle-mtime") {
+            node.openSource(source.location.toFiles())
+                .settleLastModified(locator, upload.file.metadata.lastModified)
+        }
+
         val saved = timer.time("index-lookup") { storage.index.findFile(operation.key) }
 
         val indexed = upload.file
@@ -148,6 +154,7 @@ internal class FileUploadHandler(
                 locator = locator,
                 currentTime = timeProvider.now(),
             )
+            .copy(modifiedAt = modifiedAt)
 
         timer.time("index-write") { storage.index.markProcessed(listOf(indexed)) }
 

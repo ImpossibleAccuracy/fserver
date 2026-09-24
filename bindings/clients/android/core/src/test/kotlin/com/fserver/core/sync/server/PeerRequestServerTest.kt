@@ -23,6 +23,7 @@ import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.setup.SourceSetupExchange
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
 import com.fserver.net.connection.IncomingConnectionsManager
 import com.fserver.net.session.PeerSession
@@ -70,6 +71,8 @@ class PeerRequestServerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
+    private val indexer =
+        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)
     private val incoming = FakeIncomingConnections()
@@ -225,15 +228,14 @@ class PeerRequestServerTest {
             leaseRegistry = registry,
             sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock),
             fetchFiles = fetchFiles,
-            publishedIndexes = PublishIndexHandler(authorizer(), storage, clock),
+            publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
             leases = SyncLeaseHandler(authorizer(), storage, registry),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),
                 storage = storage,
                 node = node,
-                localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
-                fileUploader = FileUploader(storage, node, progress),
-                timeProvider = clock,
+                localIndexer = indexer,
+                fileUploader = FileUploader(indexer, node, progress),
             ),
             uploads = FileUploadHandler(authorizer(), storage, node, clock, progress),
             devicesRepository = mockk(relaxed = true),
@@ -249,7 +251,7 @@ class PeerRequestServerTest {
 
     private fun realFetchFiles() = FetchFilesHandler(
         authorizer = authorizer(),
-        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
+        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock)),
     )
 
     /** Publishes a session the way the node would, and waits until the server has taken it up. */

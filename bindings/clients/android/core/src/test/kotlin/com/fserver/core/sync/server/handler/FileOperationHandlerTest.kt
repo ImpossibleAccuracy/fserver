@@ -4,6 +4,8 @@ import android.content.ContextWrapper
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.dto.VersionDto
+import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
@@ -17,6 +19,7 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -44,6 +47,8 @@ class FileOperationHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
+    private val indexer =
+        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
     private val progress = SyncProgressReporter(clock)
 
     private lateinit var root: File
@@ -62,9 +67,8 @@ class FileOperationHandlerTest {
             authorizer = SourceAuthorizer(storage),
             storage = storage,
             node = node,
-            localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
-            fileUploader = FileUploader(storage, node, progress),
-            timeProvider = clock,
+            localIndexer = indexer,
+            fileUploader = FileUploader(indexer, node, progress),
         )
 
         storage.sources.upsert(
@@ -90,15 +94,24 @@ class FileOperationHandlerTest {
     @Test
     fun `a delete the paired device asked for removes the file and records a tombstone`() =
         runTest {
-            handler.handle(owner, RemoteOperation.File.Delete(key()))
+            handler.handle(owner, RemoteOperation.File.Delete(key(), version = null))
 
             assertTrue(!file.exists())
             assertTrue(storage.index.findFile(key())?.state is LocalIndexedFile.State.Deleted)
         }
 
     @Test
+    fun `a delete records the peer's deletion version, not a new one of ours`() = runTest {
+        val version = VersionDto(vector = mapOf(OwnerId to 2L), hlc = 7, originDevice = OwnerId)
+
+        handler.handle(owner, RemoteOperation.File.Delete(key(), version))
+
+        assertEquals(version.toIndexed(), storage.index.findFile(key())?.version)
+    }
+
+    @Test
     fun `a delete from a device the source does not sync with touches nothing`() = runTest {
-        val failure = runCatching { handler.handle(stranger, RemoteOperation.File.Delete(key())) }
+        val failure = runCatching { handler.handle(stranger, RemoteOperation.File.Delete(key(), version = null)) }
             .exceptionOrNull()
 
         assertTrue(failure is IllegalArgumentException)
@@ -109,7 +122,7 @@ class FileOperationHandlerTest {
     @Test
     fun `a delete of a file this source never indexed is refused`() = runTest {
         val failure = runCatching {
-            handler.handle(owner, RemoteOperation.File.Delete(IndexedFileKey("ghost", SourceId)))
+            handler.handle(owner, RemoteOperation.File.Delete(IndexedFileKey("ghost", SourceId), version = null))
         }.exceptionOrNull()
 
         assertTrue(failure is IllegalArgumentException)

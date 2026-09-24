@@ -150,6 +150,25 @@ internal class MediaFileSystem(
         context.contentResolver.delete(uri, null, null) > 0 || !exists(uri)
     }
 
+    /** MediaStore owns DATE_MODIFIED, so this only reads back what a scan will see. */
+    override suspend fun settleLastModified(locator: String, time: Instant): Instant =
+        withContext(Dispatchers.IO) {
+            context.contentResolver
+                .query(
+                    locator.toUri(),
+                    arrayOf(MediaStore.Files.FileColumns.DATE_MODIFIED),
+                    null,
+                    null,
+                    null,
+                )
+                ?.use { cursor ->
+                    if (!cursor.moveToFirst()) throw FileSystemException.InvalidPath(locator)
+                    // Seconds, as the scan reads it.
+                    Instant.fromEpochSeconds(if (cursor.isNull(0)) 0L else cursor.getLong(0))
+                }
+                ?: throw FileSystemException.InvalidPath(locator)
+        }
+
     /** The row at [relativePath] + [name] in [collection], or null when there is none. */
     private fun find(collection: Uri, relativePath: String, name: String): Uri? {
         val selection = "${MediaStore.Files.FileColumns.RELATIVE_PATH} = ? AND " +

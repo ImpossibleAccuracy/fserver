@@ -11,6 +11,7 @@ import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.runBlocking
@@ -42,7 +43,7 @@ class FetchFilesHandlerTest {
 
         handler = FetchFilesHandler(
             authorizer = SourceAuthorizer(storage),
-            localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock),
+            localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock)),
         )
 
         storage.sources.upsert(

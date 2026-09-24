@@ -1,11 +1,14 @@
 package com.fserver.files.upload.impl
 
+import com.fserver.files.upload.Causality
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileRecord.State
+import com.fserver.files.upload.FileVersion
 import com.fserver.files.upload.FilesSnapshot
 import com.fserver.files.upload.UploadDecisions
 import com.fserver.files.upload.UploadStrategy
+import com.fserver.files.upload.VersionVector
 
 /**
  * Keeps the remote side holding exactly the local set, and vice versa.
@@ -49,7 +52,7 @@ class MirrorUploadStrategy : UploadStrategy {
                 if (params.restoreMissingLocalFiles) {
                     FileAction.Download(it, "missing locally")
                 } else {
-                    FileAction.DeleteRemote(it, "one-way mirror, absent locally")
+                    FileAction.DeleteRemote(it, version = null, reason = "one-way mirror, absent locally")
                 }
             }
 
@@ -58,26 +61,47 @@ class MirrorUploadStrategy : UploadStrategy {
             else -> reconcile(local, remote)
         }
 
+    /**
+     * Version vectors say which side is newer; wall clocks never do. Content is compared first, so
+     * sides holding the same bytes never trade them, whatever their history says.
+     */
     private fun reconcile(local: FileRecord, remote: FileRecord): FileAction? {
         val localState = local.state
         val remoteState = remote.state
 
+        // Eviction is not a deletion: the file stays in the set, so nothing propagates.
+        if (localState is State.Evicted) return null
+
+        val causality = local.vector.compare(remote.vector)
+
         return when {
-            // Eviction is not a deletion: the file stays in the set, so nothing propagates.
-            localState is State.Evicted -> null
+            localState is State.Deleted && remoteState is State.Deleted ->
+                mergeIfDiverged(local, remote, causality, "deleted on both sides")
 
-            localState is State.Deleted && remoteState is State.Deleted -> null
+            // One side deleted, the other kept or edited: the newer version decides.
+            localState is State.Deleted || remoteState is State.Deleted -> when (causality) {
+                Causality.Newer ->
+                    if (localState is State.Deleted) {
+                        hashBeforeDeleting(local, remote)
+                            ?: FileAction.DeleteRemote(remote, local.metadata.version, "deleted locally")
+                    } else {
+                        uploadIfPossible(local, "edited locally after remote deletion")
+                    }
 
-            localState is State.Deleted ->
-                FileAction.DeleteRemote(remote, "deleted locally at ${localState.deletedAt}")
+                Causality.Older ->
+                    if (remoteState is State.Deleted) {
+                        hashBeforeDeleting(local, remote)
+                            ?: FileAction.DeleteLocal(local, remote.metadata.version, "deleted remotely")
+                    } else {
+                        FileAction.Download(remote, "edited remotely after local deletion")
+                    }
 
-            remoteState is State.Deleted ->
-                FileAction.DeleteLocal(local, "deleted remotely at ${remoteState.deletedAt}")
+                Causality.Equal, Causality.Concurrent ->
+                    FileAction.Conflict(local, remote, "deleted on one side, edited on the other")
+            }
 
             else -> when (compareContent(local, remote)) {
-                ContentMatch.SAME -> null
-
-                ContentMatch.DIFFERENT -> resolveDivergence(local, remote)
+                ContentMatch.SAME -> mergeIfDiverged(local, remote, causality, "same content")
 
                 // Cannot decide without a hash, and cannot compute one here: ask, then re-plan.
                 ContentMatch.UNKNOWN -> FileAction.ComputeHash(
@@ -86,34 +110,57 @@ class MirrorUploadStrategy : UploadStrategy {
                     remote = remote,
                     reason = "not hashed yet",
                 )
+
+                ContentMatch.DIFFERENT -> when (causality) {
+                    Causality.Newer -> uploadIfPossible(local, "newer locally")
+                        ?: FileAction.Conflict(local, remote, "newer locally but bytes are evicted")
+
+                    Causality.Older -> FileAction.Download(remote, "newer remotely")
+
+                    Causality.Concurrent -> FileAction.Conflict(local, remote, "edited on both sides")
+
+                    // Same history, different bytes: an edit one side never versioned.
+                    Causality.Equal -> FileAction.Conflict(local, remote, "same version, different content")
+                }
             }
         }
     }
 
     /**
-     * Newest write wins, and only when the sides agree on who wrote last. Everything else is
-     * reported instead of guessed - a real strategy would take a policy here.
+     * An unhashed file may hold an edit its version does not show yet - only hashing reveals it. So
+     * the side about to lose its file is hashed first, and the plan re-made with what it finds.
      */
-    private fun resolveDivergence(local: FileRecord, remote: FileRecord): FileAction {
-        val localRevision = local.metadata.revision
-        val remoteRevision = remote.metadata.revision
+    private fun hashBeforeDeleting(local: FileRecord, remote: FileRecord): FileAction? {
+        val survivor = if (local.state is State.Deleted) remote else local
+        if (survivor.state !is State.Present || survivor.content != null) return null
 
-        val concurrentEdit = localRevision != null &&
-                remoteRevision != null &&
-                localRevision.originDevice != remoteRevision.originDevice
-
-        if (concurrentEdit) {
-            return FileAction.Conflict(local, remote, "edited on both sides")
-        }
-
-        val localIsNewer = local.metadata.lastModified > remote.metadata.lastModified
-        return if (localIsNewer) {
-            uploadIfPossible(local, "newer locally")
-                ?: FileAction.Conflict(local, remote, "newer locally but bytes are evicted")
-        } else {
-            FileAction.Download(remote, "newer remotely")
-        }
+        return FileAction.ComputeHash(
+            id = local.id,
+            local = local,
+            remote = remote,
+            reason = "may hold an unversioned edit",
+        )
     }
+
+    /** Same content, different histories: not a conflict, but both sides should record both. */
+    private fun mergeIfDiverged(
+        local: FileRecord,
+        remote: FileRecord,
+        causality: Causality,
+        reason: String,
+    ): FileAction? {
+        if (causality == Causality.Equal) return null
+
+        // Not equal, so at least one side has a version.
+        val merged = listOfNotNull(local.metadata.version, remote.metadata.version)
+            .reduce(FileVersion::merge)
+
+        return FileAction.MergeVersion(local, remote, merged, reason)
+    }
+
+    /** A record with no version reads as never edited, so any versioned one is newer than it. */
+    private val FileRecord.vector: VersionVector
+        get() = metadata.version?.vector ?: VersionVector.Empty
 
     private enum class ContentMatch { SAME, DIFFERENT, UNKNOWN }
 

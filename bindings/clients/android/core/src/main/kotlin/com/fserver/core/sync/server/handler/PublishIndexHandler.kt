@@ -2,9 +2,11 @@ package com.fserver.core.sync.server.handler
 
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.latestHlc
 import com.fserver.core.network.dictionary.dto.toRemoteIndexed
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.util.TimeProvider
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
@@ -20,6 +22,7 @@ internal class PublishIndexHandler(
     private val authorizer: SourceAuthorizer,
     private val storage: FServerStorage,
     private val timeProvider: TimeProvider,
+    private val clock: HybridLogicalClock,
 ) {
     suspend fun handle(
         message: FileServerMessages.PublishIndex,
@@ -39,6 +42,8 @@ internal class PublishIndexHandler(
             deviceId = source.deviceId,
             files = message.files.map { it.toRemoteIndexed(seenAt) },
         )
+
+        message.files.latestHlc()?.let { clock.receive(it) }
 
         Timber.d("Recorded ${message.files.size} remote files for source ${source.id}")
     }

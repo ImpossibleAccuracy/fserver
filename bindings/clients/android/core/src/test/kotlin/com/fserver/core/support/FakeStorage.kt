@@ -1,6 +1,5 @@
 package com.fserver.core.support
 
-import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.network.device.model.FailedContact
@@ -17,6 +16,7 @@ import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
+import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
@@ -146,19 +146,8 @@ internal class FakeFileIndexStore : FileIndexStore {
         rows.update { current -> current.filterNot { it.id in ids } + indexed }
     }
 
-    override suspend fun saveHash(key: IndexedFileKey, hash: ContentHash) {
-        replace(key) { it.copy(hash = hash) }
-    }
-
     override suspend fun updateFileState(key: IndexedFileKey, state: LocalIndexedFile.State) {
         replace(key) { it.copy(state = state) }
-    }
-
-    override suspend fun updateStateBatch(
-        keys: List<IndexedFileKey>,
-        state: LocalIndexedFile.State,
-    ) {
-        keys.forEach { updateFileState(it, state) }
     }
 
     override suspend fun clearProcessed(sourceId: String) {
@@ -282,5 +271,13 @@ internal class FakeSyncStore : SyncStore {
 
     override suspend fun saveSourceRules(rules: SyncPreferences) {
         this.rules = rules
+    }
+
+    var clock: HlcTimestamp? = null
+
+    override suspend fun loadClock(): HlcTimestamp? = clock
+
+    override suspend fun saveClock(timestamp: HlcTimestamp) {
+        clock = timestamp
     }
 }

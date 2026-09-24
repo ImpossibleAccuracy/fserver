@@ -5,8 +5,8 @@
 -- with the source it was reported under. deviceId is carried for the record rather than for lookup,
 -- so a row says whose claim it is without a join back to the source.
 --
--- state / hash / revision are flattened into columns instead of one packed string, for the reason
--- knownRoute gives: a value that has to be split apart again is a value that stops round-tripping
+-- state / hash are flattened into columns instead of one packed string, for the reason knownRoute
+-- gives: a value that has to be split apart again is a value that stops round-tripping
 -- the moment a field can contain the separator.
 CREATE TABLE remoteIndexedFile (
     sourceId             TEXT    NOT NULL,
@@ -24,8 +24,6 @@ CREATE TABLE remoteIndexedFile (
     modifiedAtEpochMs    INTEGER NOT NULL,
     hashValue            TEXT,
     hashAlgorithm        TEXT,
-    revisionOriginDevice TEXT,
-    revisionCounter      INTEGER,
     -- When this device last heard the peer say so.
     seenAtEpochMs        INTEGER NOT NULL,
     PRIMARY KEY (sourceId, fileId)
@@ -43,10 +41,9 @@ WHERE sourceId = ?;
 insert:
 INSERT OR REPLACE INTO remoteIndexedFile(
     sourceId, fileId, deviceId, path, state, pinned, stateChangedEpochMs,
-    size, modifiedAtEpochMs, hashValue, hashAlgorithm,
-    revisionOriginDevice, revisionCounter, seenAtEpochMs
+    size, modifiedAtEpochMs, hashValue, hashAlgorithm, seenAtEpochMs
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteBySource:
 DELETE FROM remoteIndexedFile

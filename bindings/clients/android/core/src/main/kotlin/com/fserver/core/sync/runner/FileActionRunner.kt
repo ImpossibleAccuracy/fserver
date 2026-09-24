@@ -3,6 +3,8 @@ package com.fserver.core.sync.runner
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.dto.ContentHashDto
+import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
@@ -10,10 +12,12 @@ import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
+import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -41,6 +45,7 @@ internal class FileActionRunner(
             is FileAction.EvictLocal -> evictFile(action, source)
             is FileAction.DeleteLocal -> deleteLocalFile(action, source)
             is FileAction.DeleteRemote -> deleteRemoteFile(action, source)
+            is FileAction.MergeVersion -> mergeVersion(action, source)
             is FileAction.Download -> downloadFile(action, source)
             is FileAction.Upload -> {
                 val session = remoteFetcher.connectToDevice(source)
@@ -57,11 +62,12 @@ internal class FileActionRunner(
         action: FileAction.ComputeHash,
         source: SourceEntry,
     ) {
-        if (action.local.content == null) {
+        // Only a present file has bytes to hash; the other side may be the deletion being weighed.
+        if (action.local.content == null && action.local.state is FileRecord.State.Present) {
             localIndexer.hashFile(source, action.local)
         }
 
-        if (action.remote.content == null) {
+        if (action.remote.content == null && action.remote.state is FileRecord.State.Present) {
             val session = remoteFetcher.connectToDevice(source)
 
             session.runRemoteOperation(
@@ -134,11 +140,11 @@ internal class FileActionRunner(
                 return@withContext
             }
 
-            storage.index.updateFileState(
+            // The peer's deletion, not a new one of ours: recorded under its version.
+            localIndexer.recordDeleted(
+                source = source,
                 key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
-                state = LocalIndexedFile.State.Deleted(
-                    deletedAt = timeProvider.now(),
-                ),
+                version = action.version?.toIndexed(),
             )
         }
     }
@@ -151,9 +157,41 @@ internal class FileActionRunner(
 
         session.runRemoteOperation(
             operation = RemoteOperation.File.Delete(
-                IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
+                version = action.version?.toDto(),
             ),
         )
+    }
+
+    /** Each side that does not hold the merged version yet records it; no bytes move. */
+    private suspend fun mergeVersion(
+        action: FileAction.MergeVersion,
+        source: SourceEntry,
+    ) {
+        val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+
+        if (action.local.metadata.version != action.version) {
+            localIndexer.adoptVersion(
+                source = source,
+                key = key,
+                version = action.version.toIndexed(),
+                expected = action.local.content.takeUnless { action.local.state is FileRecord.State.Deleted },
+            )
+        }
+
+        if (action.remote.metadata.version != action.version) {
+            val session = remoteFetcher.connectToDevice(source)
+
+            session.runRemoteOperation(
+                operation = RemoteOperation.File.AdoptVersion(
+                    key = key,
+                    version = action.version.toDto(),
+                    expected = action.remote.content
+                        ?.takeUnless { action.remote.state is FileRecord.State.Deleted }
+                        ?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
+                ),
+            )
+        }
     }
 
     private suspend fun downloadFile(

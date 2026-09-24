@@ -42,13 +42,24 @@ sealed interface FileAction {
         override val id: FileId get() = file.id
     }
 
-    /** Propagate a user deletion to the remote side. */
-    data class DeleteRemote(val file: FileRecord, override val reason: String) : FileAction {
+    /**
+     * Propagate a user deletion to the remote side, recorded there as [version] - or as a new
+     * version of its own when null.
+     */
+    data class DeleteRemote(
+        val file: FileRecord,
+        val version: FileVersion?,
+        override val reason: String,
+    ) : FileAction {
         override val id: FileId get() = file.id
     }
 
-    /** Propagate a remote user deletion locally. */
-    data class DeleteLocal(val file: FileRecord, override val reason: String) : FileAction {
+    /** Propagate a remote user deletion locally, recorded here as the remote [version]. */
+    data class DeleteLocal(
+        val file: FileRecord,
+        val version: FileVersion?,
+        override val reason: String,
+    ) : FileAction {
         override val id: FileId get() = file.id
     }
 
@@ -82,6 +93,19 @@ sealed interface FileAction {
                 "ComputeHash is only needed when one side has no content hash"
             }
         }
+    }
+
+    /**
+     * Both sides hold the same content under different histories: each records [version], which
+     * covers both. Moves no bytes. A side whose content changed since the plan must refuse it.
+     */
+    data class MergeVersion(
+        val local: FileRecord,
+        val remote: FileRecord,
+        val version: FileVersion,
+        override val reason: String,
+    ) : FileAction {
+        override val id: FileId get() = local.id
     }
 
     /** Both sides changed and the strategy refuses to guess. Needs a human or a policy above. */

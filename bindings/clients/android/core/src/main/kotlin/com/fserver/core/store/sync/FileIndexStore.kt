@@ -1,6 +1,5 @@
 package com.fserver.core.store.sync
 
-import com.fserver.common.model.ContentHash
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
@@ -33,12 +32,7 @@ interface FileIndexStore {
      */
     suspend fun markProcessed(indexed: Collection<LocalIndexedFile>)
 
-    /** Records that [key] has the given [hash], replacing any earlier record. */
-    suspend fun saveHash(key: IndexedFileKey, hash: ContentHash)
-
     suspend fun updateFileState(key: IndexedFileKey, state: LocalIndexedFile.State)
-
-    suspend fun updateStateBatch(keys: List<IndexedFileKey>, state: LocalIndexedFile.State)
 
     /**
      * Forgets what [sourceId] has done, so the next pass treats every file as new. Touches no

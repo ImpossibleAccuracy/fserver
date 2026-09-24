@@ -173,7 +173,7 @@ class UploadContextTest {
             locator = null,
             state = FileRecord.State.Present(),
             content = null,
-            metadata = FileRecord.Metadata(size = 0, lastModified = TestEpoch, revision = null),
+            metadata = FileRecord.Metadata(size = 0, lastModified = TestEpoch, version = null),
         ),
         startedAt = TestEpoch,
         key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId),
