@@ -10,11 +10,12 @@ import com.fserver.app.presentation.screens.source.setup.conditions.model.Source
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsUiEffect
 import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
+import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupIncompleteException
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,7 +38,7 @@ import kotlin.time.Clock
 @OptIn(ExperimentalCoroutinesApi::class)
 class SourceConditionsHandler(
     private val devicesRepository: DevicesRepository,
-    private val sourcesController: SourcesController,
+    private val register: suspend (SyncMode) -> Result<SourceEntry>,
 
     private val flow: MutableStateFlow<SourceSetupState>,
     private val scope: CoroutineScope,
@@ -154,6 +155,7 @@ class SourceConditionsHandler(
         val mode = flow.value.mode
         val steps = 5
 
+        // TODO
         repeat(steps) { step ->
             delay(100)
             val done = step + 1
@@ -177,42 +179,33 @@ class SourceConditionsHandler(
             }
         }
 
-        register()
+        submit()
     }
 
-    /**
-     * Hands the answered form to the engine, which assigns the source its id and asks the peer to
-     * host the other half. Everything after this is the peer's move, so it happens on the upload
-     * screen rather than here.
-     */
-    private suspend fun register() {
-        val shared = flow.value
-        val source = shared.source
-        val deviceId = shared.targetDeviceId
-        val syncMode = shared.mode?.let(::toSyncMode)
+    private suspend fun submit() {
+        val syncMode = flow.value.mode?.let(::toSyncMode)
 
-        if (source == null || deviceId == null || syncMode == null) {
+        if (syncMode == null) {
             editable.update {
                 it.copy(preparing = false, error = UiText.of(R.string.source_create_incomplete))
             }
             return
         }
 
-        sourcesController.addSource(
-            location = source.location,
-            syncMode = syncMode,
-            deviceId = deviceId,
-            label = source.label.ifEmpty { shared.kind?.name.orEmpty() },
-        ).fold(
+        register(syncMode).fold(
             onSuccess = { entry ->
                 editable.update { it.copy(preparing = false) }
                 effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
             },
             onFailure = { failure ->
-                reporter.report(failure, "Could not register the source")
-                editable.update {
-                    it.copy(preparing = false, error = failure.toAppError().message)
+                val error = if (failure is SourceSetupIncompleteException) {
+                    UiText.of(R.string.source_create_incomplete)
+                } else {
+                    reporter.report(failure, "Could not register the source")
+                    failure.toAppError().message
                 }
+
+                editable.update { it.copy(preparing = false, error = error) }
             },
         )
     }

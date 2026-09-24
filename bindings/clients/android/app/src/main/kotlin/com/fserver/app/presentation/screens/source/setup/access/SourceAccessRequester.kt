@@ -170,29 +170,34 @@ class SourceAccessRequester internal constructor(
 }
 
 /**
- * Permissions covering the gallery on this API level.
+ * Permissions covering the media library on this API level - the ones
+ * `RequirementsChecker.forSource(SourceLocation.Media)` checks, plus the hand-picked subset.
  *
  * From API 33 the storage permission is split per media type; from API 34 the user may answer
  * with a hand-picked subset, which arrives as its own permission. Requesting that one alongside
  * the others is what makes the subset answer possible at all.
  */
-private fun mediaPermissions(): List<String> = when {
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> listOf(
-        Manifest.permission.READ_MEDIA_IMAGES,
-        Manifest.permission.READ_MEDIA_VIDEO,
-        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
-    )
+@SuppressLint("InlinedApi")
+private fun mediaPermissions(): List<String> = buildList {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        add(Manifest.permission.READ_MEDIA_IMAGES)
+        add(Manifest.permission.READ_MEDIA_VIDEO)
+        add(Manifest.permission.READ_MEDIA_AUDIO)
+    } else {
+        add(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
 
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> listOf(
-        Manifest.permission.READ_MEDIA_IMAGES,
-        Manifest.permission.READ_MEDIA_VIDEO,
-    )
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    }
 
-    else -> listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+    }
 }
 
 /**
- * What the app holds over the gallery right now. Both visual types have to be granted for the
+ * What the app holds over the media library right now. Every media type has to be granted for the
  * branch to call itself full — one of them missing is the same partial view as a hand-picked set.
  */
 @SuppressLint("InlinedApi")

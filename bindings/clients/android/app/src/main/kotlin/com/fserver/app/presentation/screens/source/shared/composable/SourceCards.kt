@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.fserver.app.R
@@ -25,7 +26,12 @@ import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.designkit.DkThumbnail
 
-/** One source on screen 0. Every branch reads the same — the copy carries the warning, not the box. */
+private const val UnavailableAlpha = 0.5f
+
+/**
+ * One source on screen 0. Every branch reads the same — the copy carries the warning, not the box.
+ * An [unavailable] one stays tappable, so it can still say why.
+ */
 @Composable
 fun SourceOptionCard(
     modifier: Modifier = Modifier,
@@ -33,9 +39,13 @@ fun SourceOptionCard(
     title: String,
     description: String,
     onClick: () -> Unit,
+    unavailable: Boolean = false,
 ) {
     DkCard(modifier = modifier, onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.alpha(if (unavailable) UnavailableAlpha else 1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             DkThumbnail(icon = icon)
             Column(
                 modifier = Modifier

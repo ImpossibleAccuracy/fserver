@@ -10,6 +10,7 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
  */
 data class SourcePickState(
     val moreExpanded: Boolean = false,
+    val unavailable: Set<SourceKindUi> = emptySet(),
 ) {
     val primary: List<SourceKindUi> = listOf(SourceKindUi.Media, SourceKindUi.Folder)
 

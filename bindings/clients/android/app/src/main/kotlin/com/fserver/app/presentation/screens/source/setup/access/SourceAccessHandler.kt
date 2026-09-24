@@ -14,8 +14,10 @@ import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.SourceRequirementsNotMetException
 import com.fserver.core.files.StorageVolumes
 import com.fserver.core.files.scan.DirectoryScanProgress
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -180,47 +182,51 @@ class SourceAccessHandler(
         )
 
         scanJob = scope.launch {
-            val kind = flow.value.kind ?: return@launch
-            val task = filesController.loadContent(directory = target)
+            try {
+                val kind = flow.value.kind ?: return@launch
+                val task = filesController.loadContent(directory = target)
 
-            task.progress.collect { progress ->
-                editable.update { it.copy(progress = progress) }
-            }
+                task.progress.collect { progress ->
+                    editable.update { it.copy(progress = progress) }
+                }
 
-            task.result().fold(
-                onSuccess = { files ->
+                val files = task.result().getOrThrow()
+
+                editable.update {
+                    it.copy(
+                        phase = SourceAccessState.Phase.Scanned,
+                        files = files.size,
+                        bytes = FileSize(files.sumOf { file -> file.size.bytes }),
+                        preview = if (previewFiles) {
+                            files.toPreview(kind, volumesOf(target))
+                        } else {
+                            null
+                        },
+                    )
+                }
+
+                if (previewFiles) {
                     editable.update {
                         it.copy(
-                            phase = SourceAccessState.Phase.Scanned,
-                            files = files.size,
-                            bytes = FileSize(files.sumOf { file -> file.size.bytes }),
-                            preview = if (previewFiles) {
-                                files.toPreview(kind, volumesOf(target))
-                            } else {
-                                null
-                            },
+                            selectable = target is SourceLocation.Root
                         )
                     }
-
-                    if (previewFiles) {
-                        editable.update {
-                            it.copy(
-                                selectable = target is SourceLocation.Root
-                            )
-                        }
-                    } else {
-                        commit()
-                        effectChannel.send(SourceAccessUiEffect.NavigateToMode)
-                    }
-                },
-                onFailure = {
-                    reporter.report(it, "Could not read the picked source")
-
-                    // TODO: a scan that broke is not the same as access refused; the phase needs
-                    //  a third case before the screen can say which happened.
-                    editable.update { it.copy(phase = SourceAccessState.Phase.Denied) }
+                } else {
+                    commit()
+                    effectChannel.send(SourceAccessUiEffect.NavigateToMode)
                 }
-            )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                reporter.report(e, "Could not read the picked source")
+
+                val phase = if (e is SourceRequirementsNotMetException) {
+                    SourceAccessState.Phase.Denied
+                } else {
+                    SourceAccessState.Phase.Failed
+                }
+                editable.update { it.copy(phase = phase) }
+            }
         }
     }
 

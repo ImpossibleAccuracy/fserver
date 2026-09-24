@@ -101,12 +101,12 @@ private fun SourcePickScreenContent(
             )
 
             state.primary.forEach { kind ->
-                SourceOptionCard(
+                SourceKindCard(
                     modifier = blockPadding,
-                    icon = kind.icon,
-                    title = stringResource(kind.titleRes),
-                    description = stringResource(kind.subtitleRes),
-                    onClick = { navigateToAccess(kind) },
+                    kind = kind,
+                    unavailable = kind in state.unavailable,
+                    onIntent = onIntent,
+                    navigateToAccess = navigateToAccess,
                 )
             }
 
@@ -118,18 +118,46 @@ private fun SourcePickScreenContent(
             AnimatedVisibility(visible = state.moreExpanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.md)) {
                     state.behindMore.forEach { kind ->
-                        SourceOptionCard(
+                        SourceKindCard(
                             modifier = blockPadding,
-                            icon = kind.icon,
-                            title = stringResource(kind.titleRes),
-                            description = stringResource(kind.subtitleRes),
-                            onClick = { navigateToAccess(kind) },
+                            kind = kind,
+                            unavailable = kind in state.unavailable,
+                            onIntent = onIntent,
+                            navigateToAccess = navigateToAccess,
                         )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SourceKindCard(
+    modifier: Modifier = Modifier,
+    kind: SourceKindUi,
+    unavailable: Boolean,
+    onIntent: (SourcePickIntent) -> Unit,
+    navigateToAccess: (SourceKindUi) -> Unit,
+) {
+    SourceOptionCard(
+        modifier = modifier,
+        icon = kind.icon,
+        title = stringResource(kind.titleRes),
+        description = if (unavailable) {
+            stringResource(R.string.source_pick_unavailable)
+        } else {
+            stringResource(kind.subtitleRes)
+        },
+        unavailable = unavailable,
+        onClick = {
+            if (unavailable) {
+                onIntent(SourcePickIntent.UnavailablePicked(kind))
+            } else {
+                navigateToAccess(kind)
+            }
+        },
+    )
 }
 
 @Composable
@@ -176,7 +204,10 @@ private fun SourcePickScreenPreview() {
 private fun SourcePickScreenExpandedPreview() {
     FServerTheme {
         SourcePickScreenContent(
-            state = SourcePickState(moreExpanded = true),
+            state = SourcePickState(
+                moreExpanded = true,
+                unavailable = setOf(SourceKindUi.WholeDevice),
+            ),
             onIntent = {},
             navigateToAccess = {},
             navigateUp = {},

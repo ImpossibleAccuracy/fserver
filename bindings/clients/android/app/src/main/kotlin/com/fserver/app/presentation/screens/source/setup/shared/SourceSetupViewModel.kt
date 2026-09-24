@@ -12,7 +12,10 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +29,7 @@ class SourceSetupViewModel(
     private val filesController: FilesController,
     private val devicesRepository: DevicesRepository,
     private val sourcesController: SourcesController,
+    private val requirementsChecker: RequirementsChecker,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
@@ -41,7 +45,12 @@ class SourceSetupViewModel(
             initialValue = editable.value.kind != null,
         )
 
-    val pick = SourcePickHandler(viewModelScope)
+    val pick = SourcePickHandler(
+        context = context,
+        requirementsChecker = requirementsChecker,
+        reporter = reporter,
+        scope = viewModelScope,
+    )
 
     val access = SourceAccessHandler(
         context = context,
@@ -51,11 +60,15 @@ class SourceSetupViewModel(
         reporter = reporter,
     )
 
-    val mode = SourceModeHandler(editable, viewModelScope)
+    val mode = SourceModeHandler(
+        sourcesController = sourcesController,
+        flow = editable,
+        scope = viewModelScope,
+    )
 
     val conditions = SourceConditionsHandler(
         devicesRepository = devicesRepository,
-        sourcesController = sourcesController,
+        register = ::register,
         flow = editable,
         scope = viewModelScope,
         reporter = reporter,
@@ -71,6 +84,19 @@ class SourceSetupViewModel(
     /** Where the source goes, as the connect screen handed it back. */
     fun selectTarget(deviceId: String) {
         editable.update { it.copy(targetDeviceId = deviceId) }
+    }
+
+    private suspend fun register(syncMode: SyncMode): Result<SourceEntry> {
+        val shared = editable.value
+        val source = shared.source ?: return Result.failure(SourceSetupIncompleteException())
+        val deviceId = shared.targetDeviceId ?: return Result.failure(SourceSetupIncompleteException())
+
+        return sourcesController.addSource(
+            location = source.location,
+            syncMode = syncMode,
+            deviceId = deviceId,
+            label = source.label.ifEmpty { shared.kind?.name.orEmpty() },
+        )
     }
 
 }

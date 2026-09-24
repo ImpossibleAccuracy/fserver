@@ -187,6 +187,7 @@ private fun SourceModePhotosPreview() {
         SourceModeScreenContent(
             state = SourceModeState(
                 kind = SourceKindUi.Media,
+                modes = listOf(SourceModeUi.AutoUpload, SourceModeUi.Offload),
                 selected = SourceModeUi.AutoUpload,
             ),
             onIntent = {},
@@ -203,6 +204,7 @@ private fun SourceModePartialPreview() {
         SourceModeScreenContent(
             state = SourceModeState(
                 kind = SourceKindUi.Media,
+                modes = listOf(SourceModeUi.AutoUpload, SourceModeUi.Offload),
                 selected = SourceModeUi.AutoUpload,
                 accessType = SourceModeState.AccessType.Partial(
                     grantedItemCount = 34,
@@ -222,6 +224,7 @@ private fun SourceModeFolderPreview() {
         SourceModeScreenContent(
             state = SourceModeState(
                 kind = SourceKindUi.Folder,
+                modes = listOf(SourceModeUi.Sync, SourceModeUi.AutoUpload, SourceModeUi.Offload),
                 selected = SourceModeUi.Sync,
                 accessType = SourceModeState.AccessType.Full(
                     label = "DCIM/Projects",

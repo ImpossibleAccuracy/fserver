@@ -2,7 +2,6 @@ package com.fserver.app.presentation.screens.source.setup.mode.model
 
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.modes
 import com.fserver.common.model.FileSize
 
 /**
@@ -14,11 +13,10 @@ import com.fserver.common.model.FileSize
  */
 data class SourceModeState(
     val kind: SourceKindUi,
+    val modes: List<SourceModeUi> = emptyList(),
     val selected: SourceModeUi? = null,
     val accessType: AccessType? = null,
 ) {
-    val modes: List<SourceModeUi> = kind.modes
-
     val canContinue: Boolean get() = selected != null
 
     sealed interface AccessType {

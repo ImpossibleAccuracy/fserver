@@ -6,7 +6,8 @@ import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAcce
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.modes
+import com.fserver.app.presentation.screens.source.shared.model.toUi
+import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 class SourceModeHandler(
+    private val sourcesController: SourcesController,
+
     private val flow: MutableStateFlow<SourceSetupState>,
     scope: CoroutineScope,
 ) {
@@ -24,10 +27,12 @@ class SourceModeHandler(
     val state: StateFlow<SourceModeState?> = combine(flow, editable) { shared, local ->
         val kind = shared.kind ?: return@combine null
         val source = shared.source ?: return@combine null
+        val modes = sourcesController.availableModes(source.location).map { it.toUi() }
 
         SourceModeState(
             kind = kind,
-            selected = local.selected ?: shared.mode ?: kind.modes.firstOrNull(),
+            modes = modes,
+            selected = local.selected ?: shared.mode ?: modes.firstOrNull(),
             accessType = when (shared.kind) {
                 SourceKindUi.Media ->
                     if (shared.access == SourceAccessUi.Partial)

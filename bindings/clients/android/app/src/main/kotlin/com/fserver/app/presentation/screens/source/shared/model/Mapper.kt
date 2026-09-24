@@ -5,10 +5,12 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 
 /** The mode as the setup flow names it — one vocabulary for both halves of a source. */
-fun SyncMode.toUi(): SourceModeUi = when (this) {
-    SyncMode.Mirror -> SourceModeUi.Sync
-    is SyncMode.AutoUpload -> SourceModeUi.AutoUpload
-    is SyncMode.Offload -> SourceModeUi.Offload
+fun SyncMode.toUi(): SourceModeUi = type.toUi()
+
+fun SyncMode.Type.toUi(): SourceModeUi = when (this) {
+    SyncMode.Type.Mirror -> SourceModeUi.Sync
+    SyncMode.Type.AutoUpload -> SourceModeUi.AutoUpload
+    SyncMode.Type.Offload -> SourceModeUi.Offload
 }
 
 fun SourceEntry.Role.toUi(): SourceRoleUi = when (this) {

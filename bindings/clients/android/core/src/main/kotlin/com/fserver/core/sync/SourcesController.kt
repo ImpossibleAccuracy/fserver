@@ -1,9 +1,11 @@
 package com.fserver.core.sync
 
+import android.content.Context
 import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.StorageVolumes
 import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.toOriginPath
 import com.fserver.core.requirement.RequirementsChecker
@@ -29,6 +31,7 @@ import java.util.UUID
  * is registered is a UI concern and lives on `RegisteredSourcesRepository` in `:core:storage`.
  */
 class SourcesController internal constructor(
+    private val context: Context,
     private val storage: FServerStorage,
     private val syncRunner: SyncRunner,
     private val sourceSetup: SourceSetupExchange,
@@ -41,6 +44,18 @@ class SourcesController internal constructor(
 
     /** Currently running operations, and their progress. */
     val progress: SyncProgressRepository = sessionProgressReporter
+
+    /**
+     * Modes a source at [location] may be registered under, safest first.
+     *
+     * Mirror writes the peer's changes back into [location], so it needs one that can be written
+     * to as a directory - the media library is not.
+     */
+    fun availableModes(location: SourceLocation.Selectable): List<SyncMode.Type> = buildList {
+        if (location is SourceLocation.Hostable) add(SyncMode.Type.Mirror)
+        add(SyncMode.Type.AutoUpload)
+        add(SyncMode.Type.Offload)
+    }
 
     /** Run a single sync pass over all registered sources. */
     suspend fun runSync() = syncRunner.runOnce()
@@ -57,6 +72,10 @@ class SourcesController internal constructor(
     ): Result<SourceEntry> = runBackgroundJob {
         requirementsChecker.ensureSourceReachable(location)
 
+        require(syncMode.type in availableModes(location)) {
+            "${syncMode.type} is not available for $location"
+        }
+
         storage.sources.findByModeAndLocation(
             mode = syncMode,
             location = location
@@ -72,7 +91,7 @@ class SourcesController internal constructor(
             id = UUID.randomUUID().toString(),
             deviceId = deviceId,
             location = location,
-            originPath = location.toOriginPath(),
+            originPath = location.toOriginPath(StorageVolumes.fromContext(context).volumes),
             syncMode = syncMode,
             // Asking is what makes this side the initiator, and one-way modes travel from here.
             role = SourceEntry.Role.Initiator,
@@ -138,11 +157,8 @@ class SourcesController internal constructor(
             val existing = storage.sources.findById(id)
                 ?: throw IllegalArgumentException("No source registered with id: $id")
 
-            // Check syncMode has same type as existing, otherwise throw an error
-            if (existing.syncMode::class != syncMode::class) {
-                throw IllegalArgumentException(
-                    "Cannot change sync mode type from ${existing.syncMode::class.simpleName} to ${syncMode::class.simpleName}"
-                )
+            require(existing.syncMode.type == syncMode.type) {
+                "Cannot change sync mode type from ${existing.syncMode.type} to ${syncMode.type}"
             }
 
             storage.sources.findByModeAndLocation(mode = syncMode, location = existing.location)

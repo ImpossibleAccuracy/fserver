@@ -38,5 +38,8 @@ data class SourceAccessState(
 
         /** Nothing was granted. Not an error the user made — see the copy. */
         Denied,
+
+        /** Access was granted, but walking the source broke. */
+        Failed,
     }
 }

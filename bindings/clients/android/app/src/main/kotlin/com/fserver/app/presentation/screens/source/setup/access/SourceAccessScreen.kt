@@ -170,10 +170,15 @@ private fun SourceAccessScreenContent(
                         )
                     }
 
-                    SourceAccessState.Phase.Denied -> {
+                    SourceAccessState.Phase.Denied,
+                    SourceAccessState.Phase.Failed -> {
                         DkPrimaryButton(
                             modifier = Modifier.fillMaxWidth(),
-                            text = stringResource(state.kind.retryRes),
+                            text = if (state.phase == SourceAccessState.Phase.Failed) {
+                                stringResource(R.string.action_retry)
+                            } else {
+                                stringResource(state.kind.retryRes)
+                            },
                             onClick = onRequestAccess,
                         )
                         DkGhostButton(
@@ -226,6 +231,12 @@ private fun SourceAccessScreenContent(
                 modifier = bodyModifier,
                 title = stringResource(state.kind.errorTitleRes),
                 body = stringResource(state.kind.errorBodyRes),
+            )
+
+            SourceAccessState.Phase.Failed -> SourceAccessFailure(
+                modifier = bodyModifier,
+                title = stringResource(R.string.source_error_scan_title),
+                body = stringResource(R.string.source_error_scan_body),
             )
 
             SourceAccessState.Phase.Explaining -> AccessExplainer(
@@ -460,6 +471,25 @@ private fun SourceAccessDeniedPreview() {
             state = SourceAccessState(
                 kind = SourceKindUi.Media,
                 phase = SourceAccessState.Phase.Denied,
+            ),
+            newIntent = {},
+            onRequestAccess = {},
+            onFileClick = {},
+            onContinue = {},
+            navigateToSourcePick = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Failed", showBackground = true)
+@Composable
+private fun SourceAccessFailedPreview() {
+    FServerTheme {
+        SourceAccessScreenContent(
+            state = SourceAccessState(
+                kind = SourceKindUi.Folder,
+                phase = SourceAccessState.Phase.Failed,
             ),
             newIntent = {},
             onRequestAccess = {},

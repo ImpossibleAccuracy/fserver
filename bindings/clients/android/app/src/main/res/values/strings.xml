@@ -504,6 +504,7 @@
     <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
     <string name="source_pick_title">What to connect?</string>
     <string name="source_pick_body">Choose what the app will see on this phone. You can add another source later.</string>
+    <string name="source_pick_unavailable">Not available on this phone. Tap to see why.</string>
     <string name="source_pick_footer">Until a source is picked, the app reads nothing.</string>
     <string name="source_photos_title">Photos and videos</string>
     <string name="source_photos_subtitle">Shots and clips from the phone gallery</string>
@@ -540,6 +541,8 @@
     <!-- Send flow: what each branch says when access did not happen -->
     <string name="source_error_photos_title">Photo access is required to continue</string>
     <string name="source_error_photos_body">The app cannot work with shots it does not see. Grant access now, or pick a different source.</string>
+    <string name="source_error_scan_title">Could not read the files</string>
+    <string name="source_error_scan_body">Access was granted, but reading the source broke partway. Try again, or pick another source.</string>
     <string name="source_error_folder_title">No folder picked</string>
     <string name="source_error_folder_body">You closed the system dialog without confirming a folder. Without one there is nothing to configure.</string>
     <string name="source_error_device_title">Access not granted</string>
