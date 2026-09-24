@@ -52,6 +52,12 @@ SELECT count(*)
 FROM indexedFile
 WHERE sourceId = ?;
 
+-- Bytes of every file still on this device: an evicted file freed its space, a deleted one is gone.
+sizeOfPresent:
+SELECT coalesce(sum(size), 0)
+FROM indexedFile
+WHERE state = 'Present';
+
 findByKey:
 SELECT *
 FROM indexedFile

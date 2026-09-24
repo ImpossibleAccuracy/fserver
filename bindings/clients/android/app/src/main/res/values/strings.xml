@@ -205,9 +205,33 @@
     <!-- Bottom navigation -->
     <string name="tab_dashboard">Dashboard</string>
     <string name="dashboard_title">Dashboard</string>
-    <string name="dashboard_devices">Devices</string>
-    <string name="dashboard_browse_files">Browse files</string>
-    <string name="dashboard_browse_files_desc">Everything synced, from every device</string>
+    <string name="dashboard_all_files">All files</string>
+    <plurals name="dashboard_sync_requests">
+        <item quantity="one">%1$d sync request</item>
+        <item quantity="other">%1$d sync requests</item>
+    </plurals>
+    <string name="dashboard_storage">Phone storage</string>
+    <string name="dashboard_storage_used">of %1$s used</string>
+    <string name="dashboard_storage_app">App · %1$s</string>
+    <string name="dashboard_storage_other">Other · %1$s</string>
+    <string name="dashboard_storage_free">Free · %1$s</string>
+    <string name="dashboard_links">Links</string>
+    <string name="dashboard_link_pending">waiting for approval</string>
+    <string name="dashboard_link_syncing">syncing</string>
+    <string name="dashboard_link_syncing_progress">syncing · %1$d%%</string>
+    <string name="dashboard_link_synced">synced %1$s</string>
+    <string name="dashboard_link_never">not synced yet</string>
+    <string name="dashboard_network">Network</string>
+    <string name="dashboard_network_online">%1$d of %2$d online</string>
+    <string name="dashboard_network_connect">Connect</string>
+    <string name="dashboard_network_wifi">Wi-Fi</string>
+    <string name="dashboard_network_mobile">Mobile data</string>
+    <string name="dashboard_network_wired">Ethernet</string>
+    <string name="dashboard_network_other">Connected</string>
+    <string name="dashboard_network_offline">Offline</string>
+    <string name="dashboard_device_last_seen">seen %1$s</string>
+    <string name="dashboard_empty_title">No devices yet</string>
+    <string name="dashboard_empty_body">Connect a computer or a server, then choose what this phone syncs with it.</string>
     <string name="files_filter_title">Filters</string>
     <string name="files_filter_device">Device</string>
     <string name="files_filter_status">Status</string>
@@ -284,7 +308,6 @@
     <string name="files_sort_kind">Type</string>
     <string name="files_sort_ascending">Ascending</string>
     <string name="files_sort_descending">Descending</string>
-    <string name="files_empty_body">Connect to a computer to see its files — or choose what to send from this phone.</string>
 
     <!-- Files picker -->
     <string name="picker_title">Selected items</string>

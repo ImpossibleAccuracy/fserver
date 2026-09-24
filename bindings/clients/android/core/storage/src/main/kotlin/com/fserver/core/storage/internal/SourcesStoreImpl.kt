@@ -2,6 +2,7 @@ package com.fserver.core.storage.internal
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.database.FServerStorageDatabase
@@ -199,6 +200,9 @@ internal class SourcesStoreImpl(
         sources.map { current -> current.find { it.id == id } }
 
     override fun observeProcessedCount(id: String): Flow<Int> = index.observeProcessedCount(id)
+
+    override val indexedSize: Flow<FileSize> = index.observePresentSize()
+        .map { FileSize(it) }
 
     override suspend fun rename(id: String, label: String) {
         dao.updateLabel(label = label, id = id)

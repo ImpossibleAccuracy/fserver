@@ -107,6 +107,11 @@ internal class FileIndexStoreImpl(
         .asFlow()
         .mapToOne(Dispatchers.IO)
         .map { it.toInt() }
+
+    /** For the storage line a screen shows. Not on the SPI either. */
+    fun observePresentSize(): Flow<Long> = dao.sizeOfPresent()
+        .asFlow()
+        .mapToOne(Dispatchers.IO)
 }
 
 private fun List<DBIndexedFile>.withVectors(vectors: List<IndexedFileVersion>): List<LocalIndexedFile> {

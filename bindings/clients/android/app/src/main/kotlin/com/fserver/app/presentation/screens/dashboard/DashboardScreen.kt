@@ -2,46 +2,56 @@ package com.fserver.app.presentation.screens.dashboard
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.DkFabMenu
 import com.fserver.app.presentation.composable.DkFabMenuItem
+import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInfoBox
-import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.dashboard.composable.DeviceDetailsCard
-import com.fserver.app.presentation.screens.dashboard.composable.DeviceStrip
+import com.fserver.app.presentation.screens.dashboard.composable.LinksSection
+import com.fserver.app.presentation.screens.dashboard.composable.NetworkEmptyState
+import com.fserver.app.presentation.screens.dashboard.composable.NetworkSection
+import com.fserver.app.presentation.screens.dashboard.composable.StorageSection
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
-import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -51,12 +61,10 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = koinViewModel(),
     navigateToFiles: () -> Unit,
     navigateToConnect: () -> Unit,
-    navigateToSourcePick: (String?) -> Unit,
+    navigateToSourcePick: () -> Unit,
     navigateToSyncRequests: () -> Unit,
     navigateToSourceDetails: (String) -> Unit,
     navigateToDeviceSettings: (String) -> Unit,
-    navigateToManualAddress: () -> Unit,
-    navigateToQrScan: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -70,12 +78,10 @@ fun DashboardScreen(
         navigateToSyncRequests = navigateToSyncRequests,
         navigateToSourceDetails = navigateToSourceDetails,
         navigateToDeviceSettings = navigateToDeviceSettings,
-        navigateToManualAddress = navigateToManualAddress,
-        navigateToQrScan = navigateToQrScan,
     )
 }
 
-/** Devices, the way into their files, and the two ways to add more. */
+/** Phone storage, the sources it syncs, and the devices on the other end of them. */
 @Composable
 private fun DashboardScreenContent(
     modifier: Modifier = Modifier,
@@ -83,19 +89,26 @@ private fun DashboardScreenContent(
     onIntent: (DashboardIntent) -> Unit,
     navigateToFiles: () -> Unit,
     navigateToConnect: () -> Unit,
-    navigateToSourcePick: (String?) -> Unit,
+    navigateToSourcePick: () -> Unit,
     navigateToSyncRequests: () -> Unit,
     navigateToSourceDetails: (String) -> Unit = {},
     navigateToDeviceSettings: (String) -> Unit = {},
-    navigateToManualAddress: () -> Unit = {},
-    navigateToQrScan: () -> Unit = {},
 ) {
     DkScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
-                modifier = Modifier.alpha(if (state.expandedDevice != null) 0.35f else 1f),
                 title = stringResource(R.string.dashboard_title),
+                actions = {
+                    TextButton(onClick = navigateToFiles) {
+                        Text(text = stringResource(R.string.dashboard_all_files))
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                        )
+                    }
+                },
             )
         },
         floatingActionButton = {
@@ -109,19 +122,19 @@ private fun DashboardScreenContent(
                     DkFabMenuItem(
                         icon = Icons.Default.Upload,
                         label = stringResource(R.string.fork_send_title),
-                        onClick = { navigateToSourcePick(null) },
+                        onClick = navigateToSourcePick,
                     ),
                 ),
                 contentDescription = stringResource(R.string.files_actions),
-                visible = state.expandedDevice == null,
             )
         },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState()),
+                .padding(top = innerPadding.calculateTopPadding())
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = innerPadding.calculateBottomPadding()),
         ) {
             Banners(
                 state = state,
@@ -129,56 +142,50 @@ private fun DashboardScreenContent(
                 navigateToSyncRequests = navigateToSyncRequests,
             )
 
-            DkSectionLabel(
-                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                text = stringResource(R.string.dashboard_devices),
-            )
+            val section = Modifier.padding(horizontal = DkSpacing.screenPadding)
 
-            if (state.devices.isEmpty()) {
-                Text(
-                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                    text = stringResource(R.string.files_empty_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                DeviceStrip(
-                    modifier = Modifier.fillMaxWidth(),
-                    devices = state.devices,
-                    onDeviceClick = { onIntent(DashboardIntent.DeviceExpanded(it)) },
-                )
+            AnimatedVisibility(visible = state.hasLinks && state.storage != null) {
+                Column {
+                    DkSectionLabel(
+                        modifier = section,
+                        text = stringResource(R.string.dashboard_storage),
+                    )
+                    state.storage?.let { StorageSection(modifier = section, storage = it) }
+                }
             }
 
-            DkListRow(
-                modifier = Modifier.padding(top = DkSpacing.md),
-                title = stringResource(R.string.dashboard_browse_files),
-                subtitle = stringResource(R.string.dashboard_browse_files_desc),
-                onClick = navigateToFiles,
-                leading = { DkThumbnail(icon = Icons.Default.Folder) },
-                trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
-            )
-        }
-    }
+            AnimatedVisibility(visible = state.hasLinks) {
+                Column {
+                    DkSectionLabel(
+                        modifier = section.padding(top = DkSpacing.sm),
+                        text = stringResource(R.string.dashboard_links),
+                    )
+                    LinksSection(
+                        links = state.links,
+                        onLinkClick = navigateToSourceDetails,
+                    )
+                }
+            }
 
-    state.expandedDevice?.let { device ->
-        Dialog(
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-            ),
-            onDismissRequest = { onIntent(DashboardIntent.DeviceCollapsed) },
-        ) {
-            DeviceDetailsCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(DkSpacing.screenPadding),
-                device = device,
-                onClose = { onIntent(DashboardIntent.DeviceCollapsed) },
-                onFolderClick = { navigateToSourceDetails(it.id) },
-                onAddFolder = { navigateToSourcePick(device.id) },
-                onConfigure = { navigateToDeviceSettings(device.id) },
-                onReconnectByAddress = navigateToManualAddress,
-                onReconnectByQr = navigateToQrScan,
+            DkSectionLabel(
+                modifier = section.padding(top = DkSpacing.sm),
+                text = stringResource(R.string.dashboard_network),
             )
+            if (state.hasLinks) {
+                NetworkSection(
+                    network = state.network,
+                    discovering = state.discovering,
+                    devices = state.devices,
+                    onlineDevices = state.onlineDevices,
+                    onConnect = navigateToConnect,
+                    onDeviceClick = navigateToDeviceSettings,
+                )
+            } else {
+                NetworkEmptyState(modifier = section, onConnect = navigateToConnect)
+            }
+
+            // Room for the FAB, so the last row can scroll out from under it.
+            Spacer(Modifier.height(88.dp))
         }
     }
 }
@@ -209,17 +216,50 @@ private fun Banners(
         )
     }
 
-    val syncRequest = rememberLastNotNull(state.syncRequest)
-    AnimatedVisibility(visible = state.showsSyncRequestHint) {
-        if (syncRequest == null) return@AnimatedVisibility
+    val waiting = rememberLastNotNull(state.syncRequestsWaiting.takeIf { it > 0 })
+    AnimatedVisibility(visible = state.syncRequestsWaiting > 0) {
+        if (waiting == null) return@AnimatedVisibility
 
-        SyncRequestBanner(
+        SyncRequestsRow(
             modifier = Modifier.padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.sm),
-            request = syncRequest,
-            waiting = state.syncRequestsWaiting,
+            waiting = waiting,
             onClick = navigateToSyncRequests,
-            onDismiss = { onIntent(DashboardIntent.SyncRequestHintDismissed) },
         )
+    }
+}
+
+@Composable
+private fun SyncRequestsRow(
+    modifier: Modifier = Modifier,
+    waiting: Int,
+    onClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(1.dp, colors.primary, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = DkSpacing.lg, vertical = DkSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
+    ) {
+        Icon(
+            modifier = Modifier.size(18.dp),
+            imageVector = Icons.Default.SyncAlt,
+            contentDescription = null,
+            tint = colors.primary,
+        )
+        Text(
+            modifier = Modifier.weight(1f),
+            text = pluralStringResource(R.plurals.dashboard_sync_requests, waiting, waiting),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurface,
+        )
+        DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
     }
 }
 
@@ -244,12 +284,12 @@ private val DashboardState.NetworkWarningUi.messageRes: Int
         DashboardState.NetworkWarningUi.UnnamedNetwork -> R.string.files_network_unnamed
     }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
 private fun DashboardScreenPreview() {
     FServerTheme {
         DashboardScreenContent(
-            state = DashboardState(devices = DashboardState.SampleDevices),
+            state = DashboardState.Sample,
             onIntent = {},
             navigateToFiles = {},
             navigateToConnect = {},
@@ -259,31 +299,15 @@ private fun DashboardScreenPreview() {
     }
 }
 
-@Preview(name = "Device expanded", showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun DashboardScreenExpandedPreview() {
-    FServerTheme {
-        DashboardScreenContent(
-            state = DashboardState(
-                devices = DashboardState.SampleDevices,
-                expandedDevice = DashboardState.sampleDetailsOf(DashboardState.SampleDevices[1]),
-                networkWarning = DashboardState.NetworkWarningUi.DifferentNetwork,
-            ),
-            onIntent = {},
-            navigateToFiles = {},
-            navigateToConnect = {},
-            navigateToSourcePick = {},
-            navigateToSyncRequests = {},
-        )
-    }
-}
-
-@Preview(name = "Nothing connected", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "No sources", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun DashboardScreenEmptyPreview() {
     FServerTheme {
         DashboardScreenContent(
-            state = DashboardState(),
+            state = DashboardState(
+                storage = DashboardState.Sample.storage,
+                network = DashboardState.Sample.network,
+            ),
             onIntent = {},
             navigateToFiles = {},
             navigateToConnect = {},

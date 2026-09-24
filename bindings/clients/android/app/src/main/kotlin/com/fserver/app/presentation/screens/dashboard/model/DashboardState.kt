@@ -1,22 +1,66 @@
 package com.fserver.app.presentation.screens.dashboard.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
 data class DashboardState(
+    val storage: StorageUi? = null,
+    val links: List<LinkUi> = emptyList(),
+    val network: NetworkUi? = null,
+    /** Some discovery method is scanning right now. */
+    val discovering: Boolean = false,
     val devices: List<DeviceUi> = emptyList(),
-    val expandedDevice: DeviceDetailsUi? = null,
-    val syncRequest: SyncRequestUi? = null,
     val syncRequestsWaiting: Int = 0,
-    val syncRequestHintDismissed: Boolean = false,
     val networkWarning: NetworkWarningUi? = null,
 ) {
-    val showsSyncRequestHint: Boolean
-        get() = syncRequest != null && !syncRequestHintDismissed
+    /** Storage and links only mean something once at least one source exists. */
+    val hasLinks: Boolean
+        get() = links.isNotEmpty()
+
+    val onlineDevices: Int
+        get() = devices.count { it.online }
+
+    @Immutable
+    data class StorageUi(
+        val totalBytes: Long,
+        val freeBytes: Long,
+        val appBytes: Long,
+    ) {
+        val usedBytes: Long
+            get() = (totalBytes - freeBytes).coerceAtLeast(0)
+
+        val otherBytes: Long
+            get() = (usedBytes - appBytes).coerceAtLeast(0)
+    }
+
+    /** One source, read as "what goes where". */
+    @Immutable
+    data class LinkUi(
+        val id: String,
+        val label: String,
+        val deviceName: String,
+        val deviceKind: DeviceKind?,
+        val mode: SourceModeUi,
+        /** Files leave this phone; false when the peer is the one sending. */
+        val outgoing: Boolean,
+        val status: LinkStatusUi,
+        /** When it last synced, or why it is disabled. */
+        val statusDetail: String? = null,
+        val progress: Float? = null,
+    )
+
+    enum class LinkStatusUi { Pending, Active, Syncing, Disabled }
+
+    /** The link this phone is on. [name] is null when there is nothing readable to call it. */
+    @Immutable
+    data class NetworkUi(
+        val kind: NetworkKindUi,
+        val name: String?,
+    )
+
+    enum class NetworkKindUi { WiFi, Mobile, Wired, Other }
 
     @Immutable
     data class DeviceUi(
@@ -24,50 +68,9 @@ data class DashboardState(
         val name: String,
         val kind: DeviceKind?,
         val online: Boolean,
-        val itemCount: Int,
         val unreachable: Boolean = false,
+        val lastSeenLabel: String? = null,
     )
-
-    @Immutable
-    data class DeviceDetailsUi(
-        val id: String,
-        val name: String,
-        val kind: DeviceKind?,
-        val online: Boolean,
-        val addressLabel: String?,
-        val fingerprintLabel: String?,
-        val foundBy: TransportKind?,
-        val lastSeenLabel: String?,
-        val folders: List<FolderUi>,
-        val unreachable: UnreachableUi? = null,
-    )
-
-    @Immutable
-    data class UnreachableUi(
-        val reason: ReasonUi,
-        val triedLabel: String?,
-        val transport: TransportKind?,
-        val onOtherNetwork: Boolean,
-    )
-
-    enum class ReasonUi { NoRoute, Unreachable, Refused, NotAllowed, Failed }
-
-    @Immutable
-    data class FolderUi(
-        val id: String,
-        val name: String,
-        val path: String?,
-        val mode: SourceModeUi,
-        val status: FolderStatusUi,
-        val statusDetail: String? = null,
-        val itemCount: Int = 0,
-        val progress: Float? = null,
-    ) {
-        val accented: Boolean
-            get() = status == FolderStatusUi.Syncing
-    }
-
-    enum class FolderStatusUi { Pending, Active, Syncing, Disabled }
 
     /**
      * [UnnamedNetwork] is not a worse network, it is a network the app cannot identify: Android
@@ -84,64 +87,67 @@ data class DashboardState(
     }
 
     companion object {
-        val SampleDevices = listOf(
-            DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true, itemCount = 912),
-            DeviceUi("server", "Server", DeviceKind.Nas, online = true, itemCount = 312),
-            DeviceUi(
-                id = "home-pc",
-                name = "Home PC",
-                kind = DeviceKind.Desktop,
-                online = false,
-                itemCount = 74,
-                unreachable = true,
+        val Sample = DashboardState(
+            storage = StorageUi(
+                totalBytes = 128_000_000_000,
+                freeBytes = 20_000_000_000,
+                appBytes = 23_000_000_000,
             ),
-        )
-
-        val SampleFolders = listOf(
-            FolderUi(
-                id = "camera",
-                name = "Camera",
-                path = "/Camera",
-                mode = SourceModeUi.Offload,
-                status = FolderStatusUi.Syncing,
-                itemCount = 240,
-                progress = 0.4f,
+            links = listOf(
+                LinkUi(
+                    id = "camera",
+                    label = "Camera",
+                    deviceName = "Server",
+                    deviceKind = DeviceKind.Nas,
+                    mode = SourceModeUi.AutoUpload,
+                    outgoing = true,
+                    status = LinkStatusUi.Syncing,
+                    progress = 0.4f,
+                ),
+                LinkUi(
+                    id = "documents",
+                    label = "Documents",
+                    deviceName = "Laptop",
+                    deviceKind = DeviceKind.Laptop,
+                    mode = SourceModeUi.Sync,
+                    outgoing = true,
+                    status = LinkStatusUi.Active,
+                    statusDetail = "5 min. ago",
+                ),
+                LinkUi(
+                    id = "whatsapp",
+                    label = "WhatsApp Media",
+                    deviceName = "Server",
+                    deviceKind = DeviceKind.Nas,
+                    mode = SourceModeUi.Offload,
+                    outgoing = true,
+                    status = LinkStatusUi.Disabled,
+                    statusDetail = "declined by the peer",
+                ),
+                LinkUi(
+                    id = "downloads",
+                    label = "Downloads",
+                    deviceName = "Home PC",
+                    deviceKind = DeviceKind.Desktop,
+                    mode = SourceModeUi.AutoUpload,
+                    outgoing = false,
+                    status = LinkStatusUi.Pending,
+                ),
             ),
-            FolderUi(
-                id = "documents",
-                name = "Documents",
-                path = "/Documents",
-                mode = SourceModeUi.Sync,
-                status = FolderStatusUi.Active,
-                statusDetail = "yesterday",
-                itemCount = 62,
+            network = NetworkUi(NetworkKindUi.WiFi, "Home_5G"),
+            discovering = true,
+            devices = listOf(
+                DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true),
+                DeviceUi("server", "Server", DeviceKind.Nas, online = true),
+                DeviceUi(
+                    id = "home-pc",
+                    name = "Home PC",
+                    kind = DeviceKind.Desktop,
+                    online = false,
+                    lastSeenLabel = "yesterday",
+                ),
             ),
-            FolderUi(
-                id = "movies",
-                name = "Movies",
-                path = null,
-                mode = SourceModeUi.AutoUpload,
-                status = FolderStatusUi.Disabled,
-                statusDetail = "declined by the peer",
-            ),
-        )
-
-        fun sampleDetailsOf(device: DeviceUi): DeviceDetailsUi = DeviceDetailsUi(
-            id = device.id,
-            name = device.name,
-            kind = device.kind,
-            online = device.online,
-            addressLabel = "192.168.1.40".takeIf { device.online },
-            fingerprintLabel = "9f2c 4a01 b7d3 e820",
-            foundBy = TransportKind.MulticastDns,
-            lastSeenLabel = "yesterday",
-            folders = SampleFolders,
-            unreachable = UnreachableUi(
-                reason = ReasonUi.Unreachable,
-                triedLabel = "5 minutes ago",
-                transport = TransportKind.MulticastDns,
-                onOtherNetwork = true,
-            ).takeIf { device.unreachable },
+            syncRequestsWaiting = 3,
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.fserver.core.storage
 
+import com.fserver.common.model.FileSize
 import com.fserver.core.sync.model.SourceEntry
 import kotlinx.coroutines.flow.Flow
 
@@ -12,6 +13,9 @@ import kotlinx.coroutines.flow.Flow
 interface RegisteredSourcesRepository {
     /** Every registered source, newest first. */
     val sources: Flow<List<SourceEntry>>
+
+    /** Total size of the indexed files still present on this device, across every source. */
+    val indexedSize: Flow<FileSize>
 
     fun observeById(id: String): Flow<SourceEntry?>
 

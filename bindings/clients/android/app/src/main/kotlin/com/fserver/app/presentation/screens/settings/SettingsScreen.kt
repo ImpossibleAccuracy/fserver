@@ -46,17 +46,16 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            DkSectionLabel(
-                modifier = gutter,
-                text = stringResource(R.string.settings_section_connection),
-            )
-
             DkNavigationRow(
                 title = stringResource(R.string.settings_my_device),
                 supportingText = stringResource(R.string.settings_my_device_desc),
                 onClick = navigateToMyDevice,
             )
-            DkFadingDivider()
+
+            DkSectionLabel(
+                modifier = gutter,
+                text = stringResource(R.string.settings_section_connection),
+            )
 
             DkNavigationRow(
                 title = stringResource(R.string.settings_devices),

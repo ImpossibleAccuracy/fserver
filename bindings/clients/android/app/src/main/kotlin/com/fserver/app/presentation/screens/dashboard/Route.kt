@@ -11,9 +11,7 @@ fun EntryProviderScope<Destination>.dashboardEntry(
         DashboardScreen(
             navigateToFiles = { navigator.navigate(Destination.Files) },
             navigateToConnect = { navigator.navigate(Destination.Connect) },
-            navigateToSourcePick = { deviceId ->
-                navigator.navigate(Destination.Source.Setup.Pick(targetDeviceId = deviceId))
-            },
+            navigateToSourcePick = { navigator.navigate(Destination.Source.Setup.Pick()) },
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },
             navigateToSourceDetails = {
                 navigator.navigate(Destination.Files.SourceDetails(sourceId = it))
@@ -21,8 +19,6 @@ fun EntryProviderScope<Destination>.dashboardEntry(
             navigateToDeviceSettings = {
                 navigator.navigate(Destination.Settings.DeviceDetails(it))
             },
-            navigateToManualAddress = { navigator.navigate(Destination.ManualAddress) },
-            navigateToQrScan = { navigator.navigate(Destination.QrScan) },
         )
     }
 }
