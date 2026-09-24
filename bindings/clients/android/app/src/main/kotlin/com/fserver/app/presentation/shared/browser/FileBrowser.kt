@@ -2,6 +2,7 @@ package com.fserver.app.presentation.shared.browser
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,6 +54,8 @@ fun FileBrowser(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi,
     selection: FileBrowserSelection? = null,
+    /** Added to each layout's own padding; for insets the list should scroll under. */
+    contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
@@ -66,6 +69,7 @@ fun FileBrowser(
             modifier = modifier,
             preview = preview,
             selection = selection,
+            contentPadding = contentPadding,
             onFileClick = onFileClick,
             header = header,
         )
@@ -74,6 +78,7 @@ fun FileBrowser(
             modifier = modifier,
             preview = preview,
             selection = selection,
+            contentPadding = contentPadding,
             onFileClick = onFileClick,
             header = header,
         )
@@ -83,6 +88,7 @@ fun FileBrowser(
             preview = preview,
             onFileClick = onFileClick,
             selection = selection,
+            contentPadding = contentPadding,
             header = header,
         )
     }

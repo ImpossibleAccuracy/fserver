@@ -1,62 +1,22 @@
-package com.fserver.app.presentation.screens.files.list.model
+package com.fserver.app.presentation.screens.dashboard.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-import com.fserver.app.presentation.shared.browser.model.SampleFiles
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
-data class FilesState(
+data class DashboardState(
     val devices: List<DeviceUi> = emptyList(),
-    val selectedDeviceId: String? = null,
-    val filter: FilterUi = FilterUi.All,
-    val entries: FeedUi? = null,
     val expandedDevice: DeviceDetailsUi? = null,
     val syncRequest: SyncRequestUi? = null,
     val syncRequestsWaiting: Int = 0,
     val syncRequestHintDismissed: Boolean = false,
-    val isSyncing: Boolean = false,
     val networkWarning: NetworkWarningUi? = null,
 ) {
-    val selectedDevice: DeviceUi?
-        get() = devices.firstOrNull { it.id == selectedDeviceId }
-
     val showsSyncRequestHint: Boolean
-        get() = syncRequest != null && !syncRequestHintDismissed && selectedDevice == null
-
-    val hasDevices: Boolean
-        get() = devices.isNotEmpty()
-
-    val isFiltered: Boolean
-        get() = filter != FilterUi.All || selectedDevice != null
-
-    val showsFilters: Boolean
-        get() = entries?.preview?.isEmpty == false || isFiltered || entries?.isFiltered == true
-
-    val feedDevice: DeviceUi?
-        get() = devices.firstOrNull { it.id == entries?.deviceId }
-
-    val emptyReason: EmptyReasonUi
-        get() = when {
-            feedDevice != null -> EmptyReasonUi.NoDeviceFiles
-            entries?.filter == FilterUi.Local -> EmptyReasonUi.NoLocalFiles
-            entries?.filter == FilterUi.Cloud -> EmptyReasonUi.NoCloudFiles
-            hasDevices -> EmptyReasonUi.NoFiles
-            else -> EmptyReasonUi.NoDevices
-        }
-
-    @Immutable
-    data class FeedUi(
-        val preview: FileBrowserUi,
-        val filter: FilterUi,
-        val deviceId: String?,
-    ) {
-        val isFiltered: Boolean
-            get() = filter != FilterUi.All || deviceId != null
-    }
+        get() = syncRequest != null && !syncRequestHintDismissed
 
     @Immutable
     data class DeviceUi(
@@ -123,17 +83,7 @@ data class FilesState(
         val isActionable: Boolean get() = this == UnnamedNetwork
     }
 
-    enum class FilterUi { All, Local, Cloud }
-
-    enum class EmptyReasonUi { NoDevices, NoFiles, NoLocalFiles, NoCloudFiles, NoDeviceFiles }
-
     companion object {
-        val SampleEntries = FeedUi(
-            preview = FileBrowserUi.PlainList(FileBrowserUi.SampleFiles),
-            filter = FilterUi.All,
-            deviceId = null,
-        )
-
         val SampleDevices = listOf(
             DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true, itemCount = 912),
             DeviceUi("server", "Server", DeviceKind.Nas, online = true, itemCount = 312),

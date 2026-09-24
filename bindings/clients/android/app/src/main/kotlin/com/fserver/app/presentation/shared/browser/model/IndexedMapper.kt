@@ -2,6 +2,7 @@ package com.fserver.app.presentation.shared.browser.model
 
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileKindOf
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.sync.index.LocalIndexedFile
 
@@ -18,61 +19,80 @@ fun isMediaCollection(files: List<FileBrowserUi.PreviewContentEntry>): Boolean {
     return isMediaCollection
 }
 
-/** Flattens a list of [SyncFileEntry] into a list of [FileBrowserUi.File] for a given [directory]. */
-fun List<SyncFileEntry>.toFlatPreview(
-    directory: String = "/",
-): List<FileBrowserUi.File> {
-    val allFiles = associateWith { it.directory }
+/**
+ * Folds entries into a tree by their `/`-separated paths, each level sorted by [sort] with
+ * folders first. Directory sizes roll up their whole subtree.
+ */
+fun List<SyncFileEntry>.toTree(
+    sort: FileSortUi = FileSortUi.Name,
+    ascending: Boolean = true,
+): FileBrowserUi.Tree {
+    val root = EntryNode(path = "")
+    for (entry in this) {
+        val segments = entry.path.split('/').filter { it.isNotEmpty() }
+        if (segments.isEmpty()) continue
+        root.add(segments, entry)
+    }
 
-    val allDirectories = allFiles.values
-        .flatMap { dir ->
-            dir ?: return@flatMap listOf("/")
+    return FileBrowserUi.Tree(
+        directories = root.contentsUi(sort, ascending),
+    )
+}
 
-            dir.split('/')
-                .filter { it.isNotEmpty() }
-                .runningFold("") { acc, part ->
-                    "$acc/$part".normalizeDirectory()
-                }
+private class EntryNode(val path: String) {
+    val children = LinkedHashMap<String, EntryNode>()
+    val files = mutableListOf<SyncFileEntry>()
+    var bytes: Long = 0
+
+    fun add(segments: List<String>, entry: SyncFileEntry) {
+        bytes += entry.size.bytes
+
+        if (segments.size == 1) {
+            files += entry
+            return
         }
-        .filter { it.isNotEmpty() }
-        .toSet()
 
-    //Remark: directories and files are filtered separately
-    // Normally, we should create full virtual directory structure
-    // But it costs too much time and memory, so we just filter files and directories separately
-
-    val foundFiles = allFiles.filter { (_, fileDirectory) ->
-        isDirectoriesMatching(fileDirectory, directory)
+        val head = segments.first()
+        children.getOrPut(head) { EntryNode("$path/$head") }.add(segments.drop(1), entry)
     }
 
-    val foundDirectories = allDirectories.filter { path ->
-        if (path == directory) return@filter false
-
-        // Find only the immediate subdirectories of the current directory
-        val substring = path.substringAfter(directory, missingDelimiterValue = "")
-        if (substring.isBlank()) return@filter false
-
-        // Check if the substring contains any additional slashes, indicating it's a subdirectory
-        !substring.drop(1).contains("/")
-    }
-
-    return buildList(foundFiles.size + foundDirectories.size) {
-        for (directory in foundDirectories) {
-            this += FileBrowserUi.File(
-                id = directory,
-                path = directory,
-                name = directoryName(directory),
-                kind = FileKindUi.Folder,
-                locator = null,
-                size = null,
-                extensionLabel = null,
+    fun contentsUi(sort: FileSortUi, ascending: Boolean): List<FileBrowserUi.PreviewContentEntry> {
+        val directories = children.map { (name, node) ->
+            FileBrowserUi.Directory(
+                path = node.path,
+                name = name,
+                files = node.children.size + node.files.size,
+                size = FileSize(node.bytes),
+                contents = node.contentsUi(sort, ascending),
             )
         }
 
-        for (entry in foundFiles.keys) {
-            this += entry.asPreviewFile()
-        }
+        return directories.sortedWith(directoryComparator(sort, ascending)) +
+            files.map { it.asPreviewFile() }.sortedWith(fileComparator(sort, ascending))
     }
+}
+
+private fun directoryComparator(
+    sort: FileSortUi,
+    ascending: Boolean,
+): Comparator<FileBrowserUi.Directory> {
+    val comparator = when (sort) {
+        FileSortUi.Size -> compareBy<FileBrowserUi.Directory> { it.size.bytes }
+        else -> compareBy { it.name.lowercase() }
+    }
+    return if (ascending) comparator else comparator.reversed()
+}
+
+private fun fileComparator(sort: FileSortUi, ascending: Boolean): Comparator<FileBrowserUi.File> {
+    val comparator = when (sort) {
+        FileSortUi.Name -> compareBy { it.name.lowercase() }
+        FileSortUi.Date -> compareBy { it.modifiedAt }
+        FileSortUi.Size -> compareBy { it.size?.bytes }
+        FileSortUi.Kind -> compareBy<FileBrowserUi.File> { it.kind }
+            .thenBy { it.extensionLabel.orEmpty() }
+            .thenBy { it.name.lowercase() }
+    }
+    return if (ascending) comparator else comparator.reversed()
 }
 
 fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
@@ -102,23 +122,3 @@ val SyncFileEntry.locations: Set<FileBrowserUi.File.Location>
         if (localState is LocalIndexedFile.State.Present) add(FileBrowserUi.File.Location.Local)
         if (remoteState is LocalIndexedFile.State.Present) add(FileBrowserUi.File.Location.Remote)
     }
-
-fun directoryName(directory: String): String = directory.substringAfterLast("/")
-
-private val SyncFileEntry.directory: String?
-    get() = path.substringBeforeLast('/', missingDelimiterValue = "")
-        .takeIf { it.isNotEmpty() }
-        ?.normalizeDirectory()
-
-private fun isDirectoriesMatching(dir1: String?, dir2: String?): Boolean {
-    val normalized1 = dir1.normalizeDirectory()
-    val normalized2 = dir2.normalizeDirectory()
-
-    return normalized1 == normalized2
-}
-
-private fun String?.normalizeDirectory(): String =
-    this
-        ?.let { if (it.startsWith("/")) it else "/$it" }
-        ?.let { if (it.endsWith("/")) it.dropLast(1) else it }
-        ?.takeUnless { it.isEmpty() } ?: "/"

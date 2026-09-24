@@ -1,18 +1,14 @@
-package com.fserver.app.presentation.screens.files.list
+package com.fserver.app.presentation.screens.dashboard
 
 import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.screens.files.list.model.FilesIntent
-import com.fserver.app.presentation.screens.files.list.model.FilesState
-import com.fserver.app.presentation.screens.files.list.model.FilesUiEffect
-import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
+import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
+import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.screens.source.shared.model.toUi
-import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
 import com.fserver.core.files.FilesController
@@ -34,7 +30,6 @@ import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,14 +39,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class FilesViewModel(
+class DashboardViewModel(
     private val sourcesController: SourcesController,
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
@@ -62,21 +55,7 @@ class FilesViewModel(
     private val requirementsChecker: RequirementsChecker,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
-    private val effects = Channel<FilesUiEffect>(Channel.BUFFERED)
-    val uiEffects = effects.receiveAsFlow()
-
-    private val filesProviderHandler = FilesProviderHandler(
-        filesController = filesController,
-        registeredSourcesRepository = registeredSourcesRepository,
-        openFile = {
-            viewModelScope.launch {
-                effects.send(FilesUiEffect.OpenFile(it.asPreviewFile()))
-            }
-        }
-    )
-
     private val editable = MutableStateFlow(Editable())
-    private val refreshing = MutableStateFlow(false)
 
     /**
      * What is still missing before this device could name the network it is on. Kept from the last
@@ -85,44 +64,7 @@ class FilesViewModel(
      */
     private val networkRequirements = MutableStateFlow(RequirementReport.Satisfied)
 
-    private val entries: StateFlow<FilesState.FeedUi?> = combine(
-        editable.map { it.filter to it.selectedDeviceId }.distinctUntilChanged(),
-        registeredSourcesRepository.sources,
-    ) { (filter, deviceId), sources ->
-        Query(
-            filter = filter,
-            deviceId = deviceId,
-            sourceIds = deviceId?.let { id ->
-                sources.filter { it.deviceId == id }.map { it.id }.toSet()
-            },
-        )
-    }
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            filesProviderHandler
-                .loadPreviewFiles(
-                    requiredLocation = when (query.filter) {
-                        FilesState.FilterUi.All -> null
-                        FilesState.FilterUi.Local -> FileBrowserUi.File.Location.Local
-                        FilesState.FilterUi.Cloud -> FileBrowserUi.File.Location.Remote
-                    },
-                    sourceIds = query.sourceIds,
-                )
-                .map { files ->
-                    FilesState.FeedUi(
-                        preview = FileBrowserUi.PlainList(files),
-                        filter = query.filter,
-                        deviceId = query.deviceId,
-                    )
-                }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Lazily,
-            initialValue = null,
-        )
-
-    private val devices: Flow<List<FilesState.DeviceUi>> = combine(
+    private val devices: Flow<List<DashboardState.DeviceUi>> = combine(
         trustedDevicesRepository.devices,
         devicesRepository.devices.connected,
         registeredSourcesRepository.sources,
@@ -132,7 +74,7 @@ class FilesViewModel(
         deviceList(trusted, connected, sources, content, failures)
     }
 
-    private val expandedDevice: Flow<FilesState.DeviceDetailsUi?> = editable
+    private val expandedDevice: Flow<DashboardState.DeviceDetailsUi?> = editable
         .map { it.expandedDeviceId }
         .distinctUntilChanged()
         .flatMapLatest { deviceId ->
@@ -142,89 +84,48 @@ class FilesViewModel(
     private val chrome: Flow<Chrome> = combine(
         sourcesController.incomingRequests,
         trustedDevicesRepository.devices,
-        sourcesController.progress.passes,
-        refreshing,
         networkWarning(),
-    ) { requests, trusted, passes, isRefreshing, warning ->
+    ) { requests, trusted, warning ->
         Chrome(
             syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(trusted),
             syncRequestsWaiting = requests.size,
-            isSyncing = isRefreshing || passes.any { !it.isFinished },
             networkWarning = warning,
         )
     }
 
-    val state: StateFlow<FilesState> = combine(
+    val state: StateFlow<DashboardState> = combine(
         editable,
-        entries,
         devices,
         expandedDevice,
         chrome,
-    ) { edit, files, devices, expanded, chrome ->
-        FilesState(
+    ) { edit, devices, expanded, chrome ->
+        DashboardState(
             devices = devices,
-            selectedDeviceId = edit.selectedDeviceId.takeIf { id -> devices.any { it.id == id } },
-            filter = edit.filter,
-            entries = files,
             expandedDevice = expanded,
             syncRequest = chrome.syncRequest,
             syncRequestsWaiting = chrome.syncRequestsWaiting,
             syncRequestHintDismissed = edit.syncRequestHintDismissed,
-            isSyncing = chrome.isSyncing,
             networkWarning = chrome.networkWarning,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = FilesState(),
+        initialValue = DashboardState(),
     )
 
-    fun onIntent(intent: FilesIntent) {
+    fun onIntent(intent: DashboardIntent) {
         when (intent) {
-            is FilesIntent.DeviceClicked -> editable.update {
-                it.copy(selectedDeviceId = intent.deviceId.takeIf { id -> id != it.selectedDeviceId })
-            }
-
-            is FilesIntent.DeviceExpanded -> editable.update {
+            is DashboardIntent.DeviceExpanded -> editable.update {
                 it.copy(expandedDeviceId = intent.deviceId)
             }
 
-            FilesIntent.DeviceCollapsed -> editable.update { it.copy(expandedDeviceId = null) }
+            DashboardIntent.DeviceCollapsed -> editable.update { it.copy(expandedDeviceId = null) }
 
-            is FilesIntent.FilterSelected -> editable.update { it.copy(filter = intent.filter) }
-
-            FilesIntent.SyncRequestHintDismissed -> editable.update {
+            DashboardIntent.SyncRequestHintDismissed -> editable.update {
                 it.copy(syncRequestHintDismissed = true)
             }
 
-            FilesIntent.RefreshRequested -> runSync()
-
-            FilesIntent.NetworkWarningClicked -> reporter.report(networkRequirements.value)
-
-            is FilesIntent.EntryClicked -> openEntry(intent.entryId)
-        }
-    }
-
-    private fun openEntry(entryId: String) {
-        viewModelScope.launch {
-            val file = filesController.overallContent.value
-                .find { it.fileId == entryId }
-                ?: return@launch
-
-            filesProviderHandler.onItemClick(file)
-        }
-    }
-
-    private fun runSync() {
-        if (refreshing.value) return
-        refreshing.value = true
-
-        viewModelScope.launch {
-            runCatching { sourcesController.runSync() }
-                .exceptionOrNull()
-                ?.let { reporter.report(it, "Sync from the files screen failed") }
-
-            refreshing.value = false
+            DashboardIntent.NetworkWarningClicked -> reporter.report(networkRequirements.value)
         }
     }
 
@@ -234,7 +135,7 @@ class FilesViewModel(
         sources: List<SourceEntry>,
         content: List<SyncFileEntry>,
         failures: List<ReachabilityFailure>,
-    ): List<FilesState.DeviceUi> {
+    ): List<DashboardState.DeviceUi> {
         val online = connected.associateBy { it.deviceId }
         val itemCounts = itemCountsByDevice(sources, content)
         // Only the failures worth reporting: the rest read as a device that is simply offline.
@@ -249,7 +150,7 @@ class FilesViewModel(
                 val record = trusted.latest(deviceId)
                 val session = online[deviceId]
 
-                FilesState.DeviceUi(
+                DashboardState.DeviceUi(
                     id = deviceId,
                     name = session?.displayName ?: record?.displayName ?: deviceId,
                     kind = session?.kind ?: record?.metadata?.kind,
@@ -258,7 +159,7 @@ class FilesViewModel(
                     unreachable = session == null && deviceId in unreachable,
                 )
             }
-            .sortedWith(compareByDescending<FilesState.DeviceUi> { it.online }.thenBy { it.name })
+            .sortedWith(compareByDescending<DashboardState.DeviceUi> { it.online }.thenBy { it.name })
     }
 
     private fun itemCountsByDevice(
@@ -273,7 +174,7 @@ class FilesViewModel(
             .eachCount()
     }
 
-    private fun deviceDetails(deviceId: String): Flow<FilesState.DeviceDetailsUi> = combineMany(
+    private fun deviceDetails(deviceId: String): Flow<DashboardState.DeviceDetailsUi> = combineMany(
         trustedDevicesRepository.devices,
         devicesRepository.devices.device(deviceId),
         trustedDevicesRepository.observeKnownRoute(deviceId),
@@ -285,7 +186,7 @@ class FilesViewModel(
         val record = trusted.latest(deviceId)
         val bySource = content.groupBy { it.sourceId }
 
-        FilesState.DeviceDetailsUi(
+        DashboardState.DeviceDetailsUi(
             id = deviceId,
             name = device?.displayName ?: record?.displayName ?: deviceId,
             kind = device?.kind ?: record?.metadata?.kind,
@@ -315,7 +216,7 @@ class FilesViewModel(
         failure?.let { Reach(failure = it, network = network) }
     }
 
-    private fun networkWarning(): Flow<FilesState.NetworkWarningUi?> = combine(
+    private fun networkWarning(): Flow<DashboardState.NetworkWarningUi?> = combine(
         networkInfoRepository.networkInfo,
         trustedDevicesRepository.devices,
         devicesRepository.devices.connected,
@@ -323,10 +224,10 @@ class FilesViewModel(
         val knownNetworks = trusted.mapNotNull { it.metadata?.lastNetworkId }.toSet()
 
         when {
-            network == null -> FilesState.NetworkWarningUi.NoNetwork
+            network == null -> DashboardState.NetworkWarningUi.NoNetwork
 
             NetworkCapability.LOCAL_SUBNET !in network.capabilities ->
-                FilesState.NetworkWarningUi.NoLocalNetwork
+                DashboardState.NetworkWarningUi.NoLocalNetwork
 
             connected.isNotEmpty() || knownNetworks.isEmpty() -> null
 
@@ -335,7 +236,7 @@ class FilesViewModel(
             // Calling that "a different network" would be a guess drawn from a permission.
             network.id == null -> unnamedNetworkWarning()
 
-            network.id !in knownNetworks -> FilesState.NetworkWarningUi.DifferentNetwork
+            network.id !in knownNetworks -> DashboardState.NetworkWarningUi.DifferentNetwork
 
             else -> null
         }
@@ -346,18 +247,18 @@ class FilesViewModel(
      * is said when the grants are already in place: the network is then simply one Android will
      * not name, and there is no fix to offer.
      */
-    private suspend fun unnamedNetworkWarning(): FilesState.NetworkWarningUi? {
+    private suspend fun unnamedNetworkWarning(): DashboardState.NetworkWarningUi? {
         val report = requirementsChecker.forNetworkInfo()
         networkRequirements.value = report
 
-        return FilesState.NetworkWarningUi.UnnamedNetwork.takeUnless { report.isSatisfied }
+        return DashboardState.NetworkWarningUi.UnnamedNetwork.takeUnless { report.isSatisfied }
     }
 
     private data class Reach(
         val failure: ReachabilityFailure,
         val network: NetworkInfo?,
     ) {
-        fun toUi(lastNetworkId: String?) = FilesState.UnreachableUi(
+        fun toUi(lastNetworkId: String?) = DashboardState.UnreachableUi(
             reason = failure.reason.toUi(),
             triedLabel = failure.failedAt.relative(),
             transport = failure.transport,
@@ -366,22 +267,13 @@ class FilesViewModel(
         )
     }
 
-    private data class Query(
-        val filter: FilesState.FilterUi,
-        val deviceId: String?,
-        val sourceIds: Set<String>?,
-    )
-
     private data class Chrome(
         val syncRequest: SyncRequestUi?,
         val syncRequestsWaiting: Int,
-        val isSyncing: Boolean,
-        val networkWarning: FilesState.NetworkWarningUi?,
+        val networkWarning: DashboardState.NetworkWarningUi?,
     )
 
     private data class Editable(
-        val selectedDeviceId: String? = null,
-        val filter: FilesState.FilterUi = FilesState.FilterUi.All,
         val expandedDeviceId: String? = null,
         val syncRequestHintDismissed: Boolean = false,
     )
@@ -390,19 +282,19 @@ class FilesViewModel(
 private fun SourceEntry.toFolderUi(
     pass: SourcePass?,
     entries: List<SyncFileEntry>,
-): FilesState.FolderUi {
+): DashboardState.FolderUi {
     val running = pass?.isFinished == false
 
-    return FilesState.FolderUi(
+    return DashboardState.FolderUi(
         id = id,
         name = label,
         path = commonDirectoryOf(entries.map { it.path }),
         mode = syncMode.toUi(),
         status = when {
-            running -> FilesState.FolderStatusUi.Syncing
-            status is SourceEntry.Status.Pending -> FilesState.FolderStatusUi.Pending
-            status is SourceEntry.Status.Disabled -> FilesState.FolderStatusUi.Disabled
-            else -> FilesState.FolderStatusUi.Active
+            running -> DashboardState.FolderStatusUi.Syncing
+            status is SourceEntry.Status.Pending -> DashboardState.FolderStatusUi.Pending
+            status is SourceEntry.Status.Disabled -> DashboardState.FolderStatusUi.Disabled
+            else -> DashboardState.FolderStatusUi.Active
         },
         statusDetail = when {
             running -> null
@@ -428,12 +320,12 @@ private fun commonDirectoryOf(paths: List<String>): String? {
     return shared.takeIf { it.isNotEmpty() }?.joinToString(separator = "/", prefix = "/")
 }
 
-private fun FailedContact.Reason.toUi(): FilesState.ReasonUi = when (this) {
-    FailedContact.Reason.NoRoute -> FilesState.ReasonUi.NoRoute
-    FailedContact.Reason.Unreachable -> FilesState.ReasonUi.Unreachable
-    FailedContact.Reason.Refused -> FilesState.ReasonUi.Refused
-    FailedContact.Reason.NotAllowed -> FilesState.ReasonUi.NotAllowed
-    FailedContact.Reason.Failed -> FilesState.ReasonUi.Failed
+private fun FailedContact.Reason.toUi(): DashboardState.ReasonUi = when (this) {
+    FailedContact.Reason.NoRoute -> DashboardState.ReasonUi.NoRoute
+    FailedContact.Reason.Unreachable -> DashboardState.ReasonUi.Unreachable
+    FailedContact.Reason.Refused -> DashboardState.ReasonUi.Refused
+    FailedContact.Reason.NotAllowed -> DashboardState.ReasonUi.NotAllowed
+    FailedContact.Reason.Failed -> DashboardState.ReasonUi.Failed
 }
 
 private fun Instant.relative(): String = DateUtils.getRelativeTimeSpanString(

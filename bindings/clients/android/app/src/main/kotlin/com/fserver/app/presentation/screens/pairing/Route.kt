@@ -16,7 +16,7 @@ fun EntryProviderScope<Destination>.pairingEntry(
                 val returnedToPicker = navigator.popTo { it is Destination.Connect }
                 if (!returnedToPicker) {
                     // Not a sending flow, navigate to the file list
-                    navigator.navigateByBackstack(listOf(Destination.Files.List))
+                    navigator.navigateByBackstack(listOf(Destination.Dashboard))
                 }
             },
             navigateUp = { navigator.navigateUp() },

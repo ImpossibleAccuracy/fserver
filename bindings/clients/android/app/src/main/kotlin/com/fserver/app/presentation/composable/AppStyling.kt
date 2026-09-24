@@ -1,5 +1,10 @@
 package com.fserver.app.presentation.composable
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,30 +55,36 @@ fun AppStyling(
 
             if (!isOnTopRoute) {
                 bottomBarHeight = 0.dp
-                return@Scaffold
             }
 
-            DkNavigationBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged {
-                        with(density) {
-                            bottomBarHeight =
-                                it.height.toDp() - navigationBarInsets.calculateBottomPadding()
-                        }
-                    }
+            AnimatedVisibility(
+                visible = isOnTopRoute,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
             ) {
-                TopLevelDestination.entries.forEach { tab ->
-                    val isSelected = tab.destination == navigator.activeSection
+                DkNavigationBar(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged {
+                            if (!isOnTopRoute) return@onSizeChanged
+                            with(density) {
+                                bottomBarHeight =
+                                    it.height.toDp() - navigationBarInsets.calculateBottomPadding()
+                            }
+                        }
+                ) {
+                    TopLevelDestination.entries.forEach { tab ->
+                        val isSelected = tab.destination == navigator.activeSection
 
-                    DkNavigationBarItem(
-                        label = stringResource(tab.label),
-                        icon = tab.icon,
-                        selected = isSelected,
-                        onClick = {
-                            navigator.navigate(tab.destination)
-                        },
-                    )
+                        DkNavigationBarItem(
+                            label = stringResource(tab.label),
+                            icon = tab.icon,
+                            selected = isSelected,
+                            onClick = {
+                                navigator.navigate(tab.destination)
+                            },
+                        )
+                    }
                 }
             }
         },

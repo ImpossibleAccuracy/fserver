@@ -2,7 +2,7 @@ package com.fserver.app.presentation.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -14,10 +14,10 @@ enum class TopLevelDestination(
     @StringRes val label: Int,
     val icon: ImageVector,
 ) {
-    Files(
-        destination = Destination.Files.List,
-        label = R.string.tab_files,
-        icon = Icons.Default.Folder,
+    Dashboard(
+        destination = Destination.Dashboard,
+        label = R.string.tab_dashboard,
+        icon = Icons.Default.Dashboard,
     ),
     Activity(
         destination = Destination.Activity,

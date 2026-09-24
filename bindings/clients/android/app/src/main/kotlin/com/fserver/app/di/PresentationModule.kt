@@ -11,8 +11,8 @@ import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
 import com.fserver.app.presentation.screens.discovery.connect.ConnectViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
 import com.fserver.app.presentation.screens.discovery.qr.QrScanViewModel
-import com.fserver.app.presentation.screens.files.folder.FolderViewModel
-import com.fserver.app.presentation.screens.files.list.FilesViewModel
+import com.fserver.app.presentation.screens.dashboard.DashboardViewModel
+import com.fserver.app.presentation.screens.files.FilesViewModel
 import com.fserver.app.presentation.screens.onboarding.OnboardingViewModel
 import com.fserver.app.presentation.screens.pairing.PairingViewModel
 import com.fserver.app.presentation.screens.source.request.details.SyncRequestDetailsViewModel
@@ -52,8 +52,8 @@ val presentationModule = module {
     viewModelOf(::QrScanViewModel)
     viewModelOf(::ManualAddressViewModel)
     viewModelOf(::PairingViewModel)
+    viewModelOf(::DashboardViewModel)
     viewModelOf(::FilesViewModel)
-    viewModelOf(::FolderViewModel)
 
     viewModelOf(::SourceSetupViewModel)
     viewModelOf(::SyncRequestListViewModel)

@@ -60,6 +60,16 @@ sealed interface FileBrowserUi {
 
             return parent.takeIf { it.path != root?.path }
         }
+
+        /** Directories from the top of the tree down to [path], inclusive; empty if not found. */
+        fun trailTo(path: String): List<Directory> {
+            for (top in directories) {
+                if (top !is Directory) continue
+                val trail = top.trailTo(path)
+                if (trail.isNotEmpty()) return trail
+            }
+            return emptyList()
+        }
     }
 
 
@@ -132,6 +142,17 @@ sealed interface FileBrowserUi {
                 if (found != null) return found
             }
             return null
+        }
+
+        fun trailTo(path: String): List<Directory> {
+            if (this.path == path) return listOf(this)
+            for (child in contents) {
+                if (child !is Directory) continue
+
+                val trail = child.trailTo(path)
+                if (trail.isNotEmpty()) return listOf(this) + trail
+            }
+            return emptyList()
         }
 
         fun findDirectory(path: String): Directory? {

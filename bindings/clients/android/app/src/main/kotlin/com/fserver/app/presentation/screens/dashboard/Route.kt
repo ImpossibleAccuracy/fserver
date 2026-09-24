@@ -1,24 +1,20 @@
-package com.fserver.app.presentation.screens.files.list
+package com.fserver.app.presentation.screens.dashboard
 
 import androidx.navigation3.runtime.EntryProviderScope
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.navigation.AppNavigator
 
-fun EntryProviderScope<Destination>.filesListEntry(
+fun EntryProviderScope<Destination>.dashboardEntry(
     navigator: AppNavigator,
 ) {
-    entry<Destination.Files.List> {
-        FilesScreen(
+    entry<Destination.Dashboard> {
+        DashboardScreen(
+            navigateToFiles = { navigator.navigate(Destination.Files) },
             navigateToConnect = { navigator.navigate(Destination.Connect) },
             navigateToSourcePick = { deviceId ->
                 navigator.navigate(Destination.Source.Setup.Pick(targetDeviceId = deviceId))
             },
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },
-            navigateToFolder = { folder ->
-                navigator.navigate(
-                    Destination.Files.Folder(folderPath = folder)
-                )
-            },
             navigateToSourceDetails = {
                 navigator.navigate(Destination.Files.SourceDetails(sourceId = it))
             },

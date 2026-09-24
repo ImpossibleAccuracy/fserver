@@ -19,9 +19,7 @@
     <string name="action_continue">Continue</string>
     <string name="action_retry">Retry</string>
     <string name="action_later">Later</string>
-    <string name="action_view">View</string>
     <string name="action_undo">Undo</string>
-    <string name="action_connect">Connect</string>
 
     <!-- Onboarding -->
     <string name="onboarding_illustration_devices">illustration: two devices</string>
@@ -205,12 +203,19 @@
     <string name="fork_send_title">Send files from here</string>
 
     <!-- Bottom navigation -->
-    <string name="tab_files">Files</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_devices">Devices</string>
+    <string name="dashboard_browse_files">Browse files</string>
+    <string name="dashboard_browse_files_desc">Everything synced, from every device</string>
+    <string name="files_filter_title">Filters</string>
+    <string name="files_filter_device">Device</string>
+    <string name="files_filter_status">Status</string>
+    <string name="files_filter_any_device">All devices</string>
     <string name="tab_activity">Activity</string>
     <string name="tab_settings">Settings</string>
 
     <!-- Files browser -->
-    <string name="files_view_mode">View mode</string>
     <string name="files_state_remote">On the server, tap to download</string>
     <string name="files_state_local">Already on this device</string>
     <string name="files_state_offloaded">Offloaded, kept on the target device</string>
@@ -220,7 +225,6 @@
     <string name="files_filter_all">All</string>
     <string name="files_filter_local">Local</string>
     <string name="files_filter_cloud">Cloud</string>
-    <string name="files_device_items">%1$s · %2$d items</string>
     <string name="files_device_folders">Folders and modes</string>
     <string name="files_device_add_folder">Add folder</string>
     <string name="files_device_configure">Configure</string>
@@ -267,7 +271,6 @@
     <string name="files_title">Files</string>
     <string name="files_actions">What next?</string>
     <string name="files_empty_illustration">empty</string>
-    <string name="files_empty_title">Nothing here yet</string>
     <string name="files_empty_local_title">Nothing on this phone</string>
     <string name="files_empty_local_body">No synced file is stored locally right now. Clear the filter to see what the other devices hold.</string>
     <string name="files_empty_cloud_title">Nothing on other devices</string>

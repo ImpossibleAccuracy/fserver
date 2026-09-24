@@ -10,7 +10,7 @@ fun EntryProviderScope<Destination>.onboardingEntry(
     entry<Destination.Onboarding> {
         OnboardingScreen(
             // One-way: back from the feed must not reopen onboarding.
-            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Files.List)) },
+            navigateToFiles = { navigator.navigateByBackstack(listOf(Destination.Dashboard)) },
         )
     }
 }

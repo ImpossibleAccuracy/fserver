@@ -38,8 +38,8 @@ import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
 import com.fserver.app.presentation.screens.discovery.connect.connectEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
-import com.fserver.app.presentation.screens.files.folder.filesFolderEntry
-import com.fserver.app.presentation.screens.files.list.filesListEntry
+import com.fserver.app.presentation.screens.dashboard.dashboardEntry
+import com.fserver.app.presentation.screens.files.filesEntry
 import com.fserver.app.presentation.screens.source.details.filesSourceDetailsEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
@@ -239,8 +239,8 @@ private fun NavHostGraph(navigator: AppNavigator) {
             settingsAboutEntry(navigator)
             diagnosticEntry(navigator)
 
-            filesListEntry(navigator)
-            filesFolderEntry(navigator)
+            dashboardEntry(navigator)
+            filesEntry(navigator)
             filesSourceDetailsEntry(navigator)
 
             sourcePickEntry(navigator)

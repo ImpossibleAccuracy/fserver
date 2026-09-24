@@ -1,7 +1,0 @@
-package com.fserver.app.presentation.screens.files.folder.model
-
-import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-
-sealed interface FolderUiEffect {
-    data class OpenFile(val file: FileBrowserUi.File) : FolderUiEffect
-}

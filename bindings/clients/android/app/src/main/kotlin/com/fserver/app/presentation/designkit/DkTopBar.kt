@@ -81,12 +81,17 @@ fun DkTopBar(
         },
         colors = colors,
         navigationIcon = {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.action_back),
-                    )
+            AnimatedContent(
+                targetState = onBack,
+                contentKey = { it != null },
+            ) { onClick ->
+                if (onClick != null) {
+                    IconButton(onClick = onClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
                 }
             }
         },

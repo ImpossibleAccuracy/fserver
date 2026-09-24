@@ -36,7 +36,6 @@ class PresentationModuleTest {
             extraTypes = listOf(
                 String::class,
                 Context::class,
-                Destination.Files.Folder::class,
                 Destination.Pairing::class,
                 Destination.Settings.DeviceDetails::class,
                 Destination.Source.Done::class,

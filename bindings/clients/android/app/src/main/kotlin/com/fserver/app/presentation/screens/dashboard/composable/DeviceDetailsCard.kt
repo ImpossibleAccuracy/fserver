@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files.list.composable
+package com.fserver.app.presentation.screens.dashboard.composable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,7 +40,7 @@ import com.fserver.app.presentation.designkit.DkProgressBar
 import com.fserver.app.presentation.designkit.DkSecondaryButton
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.files.list.model.FilesState
+import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 
@@ -55,9 +55,9 @@ private val StatusDot = 5.dp
 @Composable
 fun DeviceDetailsCard(
     modifier: Modifier = Modifier,
-    device: FilesState.DeviceDetailsUi,
+    device: DashboardState.DeviceDetailsUi,
     onClose: () -> Unit,
-    onFolderClick: (FilesState.FolderUi) -> Unit,
+    onFolderClick: (DashboardState.FolderUi) -> Unit,
     onAddFolder: () -> Unit,
     onConfigure: () -> Unit,
     onReconnectByAddress: () -> Unit,
@@ -210,11 +210,11 @@ fun DeviceDetailsCard(
  * the point of the block is the next step, not the diagnosis.
  */
 @Composable
-private fun FilesState.UnreachableUi.explanation(): String = listOfNotNull(
+private fun DashboardState.UnreachableUi.explanation(): String = listOfNotNull(
     when (reason) {
-        FilesState.ReasonUi.NoRoute -> stringResource(R.string.files_device_unreachable_no_route)
+        DashboardState.ReasonUi.NoRoute -> stringResource(R.string.files_device_unreachable_no_route)
 
-        FilesState.ReasonUi.Unreachable -> transport
+        DashboardState.ReasonUi.Unreachable -> transport
             ?.let {
                 stringResource(
                     R.string.files_device_unreachable_offline,
@@ -223,12 +223,12 @@ private fun FilesState.UnreachableUi.explanation(): String = listOfNotNull(
             }
             ?: stringResource(R.string.files_device_unreachable_offline_plain)
 
-        FilesState.ReasonUi.Refused -> stringResource(R.string.files_device_unreachable_refused)
+        DashboardState.ReasonUi.Refused -> stringResource(R.string.files_device_unreachable_refused)
 
-        FilesState.ReasonUi.NotAllowed ->
+        DashboardState.ReasonUi.NotAllowed ->
             stringResource(R.string.files_device_unreachable_not_allowed)
 
-        FilesState.ReasonUi.Failed -> stringResource(R.string.files_device_unreachable_failed)
+        DashboardState.ReasonUi.Failed -> stringResource(R.string.files_device_unreachable_failed)
     },
     triedLabel?.let { stringResource(R.string.files_device_unreachable_tried, it) },
     stringResource(R.string.files_device_unreachable_other_network).takeIf { onOtherNetwork },
@@ -237,7 +237,7 @@ private fun FilesState.UnreachableUi.explanation(): String = listOfNotNull(
 @Composable
 private fun FolderRow(
     modifier: Modifier = Modifier,
-    folder: FilesState.FolderUi,
+    folder: DashboardState.FolderUi,
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -271,7 +271,7 @@ private fun FolderRow(
             contentPaddings = PaddingValues(horizontal = DkSpacing.md, vertical = DkSpacing.md),
         )
 
-        if (folder.status == FilesState.FolderStatusUi.Syncing) {
+        if (folder.status == DashboardState.FolderStatusUi.Syncing) {
             DkProgressBar(
                 modifier = Modifier.padding(
                     start = DkSpacing.md,
@@ -285,16 +285,16 @@ private fun FolderRow(
 }
 
 @Composable
-private fun FilesState.FolderUi.statusText(): String = when (status) {
-    FilesState.FolderStatusUi.Pending -> stringResource(R.string.files_folder_status_pending)
-    FilesState.FolderStatusUi.Syncing -> stringResource(R.string.files_folder_status_syncing)
+private fun DashboardState.FolderUi.statusText(): String = when (status) {
+    DashboardState.FolderStatusUi.Pending -> stringResource(R.string.files_folder_status_pending)
+    DashboardState.FolderStatusUi.Syncing -> stringResource(R.string.files_folder_status_syncing)
 
-    FilesState.FolderStatusUi.Disabled -> stringResource(
+    DashboardState.FolderStatusUi.Disabled -> stringResource(
         R.string.files_folder_status_disabled,
         statusDetail.orEmpty(),
     )
 
-    FilesState.FolderStatusUi.Active -> statusDetail
+    DashboardState.FolderStatusUi.Active -> statusDetail
         ?.let { stringResource(R.string.files_folder_status_synced, it) }
         ?: stringResource(R.string.files_folder_status_never)
 }
@@ -305,7 +305,7 @@ private fun DeviceDetailsCardUnreachablePreview() {
     FServerTheme {
         DeviceDetailsCard(
             modifier = Modifier.padding(DkSpacing.lg),
-            device = FilesState.sampleDetailsOf(FilesState.SampleDevices[2]),
+            device = DashboardState.sampleDetailsOf(DashboardState.SampleDevices[2]),
             onClose = {},
             onFolderClick = {},
             onAddFolder = {},
@@ -322,7 +322,7 @@ private fun DeviceDetailsCardPreview() {
     FServerTheme {
         DeviceDetailsCard(
             modifier = Modifier.padding(DkSpacing.lg),
-            device = FilesState.sampleDetailsOf(FilesState.SampleDevices[1]),
+            device = DashboardState.sampleDetailsOf(DashboardState.SampleDevices[1]),
             onClose = {},
             onFolderClick = {},
             onAddFolder = {},

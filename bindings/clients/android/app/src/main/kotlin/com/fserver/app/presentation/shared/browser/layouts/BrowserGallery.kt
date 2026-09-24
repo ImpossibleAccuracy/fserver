@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -41,6 +42,7 @@ fun BrowserGallery(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi.Gallery,
     selection: FileBrowserSelection? = null,
+    contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
@@ -50,7 +52,7 @@ fun BrowserGallery(
         contentPadding = PaddingValues(
             horizontal = DkSpacing.screenPadding,
             vertical = DkSpacing.sm,
-        ),
+        ) + contentPadding,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {

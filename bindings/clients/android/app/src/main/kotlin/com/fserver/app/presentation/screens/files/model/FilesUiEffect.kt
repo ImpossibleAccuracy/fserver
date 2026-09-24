@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.files.list.model
+package com.fserver.app.presentation.screens.files.model
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 

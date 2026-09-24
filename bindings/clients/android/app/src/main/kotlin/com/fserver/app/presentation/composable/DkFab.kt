@@ -1,6 +1,11 @@
 package com.fserver.app.presentation.composable
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -61,7 +66,7 @@ fun DkFab(
     onClick: () -> Unit,
     visible: Boolean = true,
 ) {
-    if (visible) {
+    AnimatedFab(visible = visible) {
         Box(modifier = modifier.reportFabSize()) {
             if (label == null) {
                 FloatingActionButton(onClick = onClick) {
@@ -76,8 +81,6 @@ fun DkFab(
             }
         }
     }
-
-    ReleaseFabSize()
 }
 
 @Immutable
@@ -99,7 +102,7 @@ fun DkFabMenu(
 
     BackHandler(enabled = expanded) { expanded = false }
 
-    if (visible) {
+    AnimatedFab(visible = visible) {
         FloatingActionButtonMenu(
             modifier = modifier.reportFabSize(),
             expanded = expanded,
@@ -133,8 +136,19 @@ fun DkFabMenu(
     LaunchedEffect(visible) {
         if (!visible) expanded = false
     }
+}
 
-    ReleaseFabSize()
+@Composable
+private fun AnimatedFab(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + scaleIn(),
+        exit = fadeOut() + scaleOut(),
+    ) {
+        content()
+        // Inside, so the reserved space goes once the exit has played out.
+        ReleaseFabSize()
+    }
 }
 
 @Composable

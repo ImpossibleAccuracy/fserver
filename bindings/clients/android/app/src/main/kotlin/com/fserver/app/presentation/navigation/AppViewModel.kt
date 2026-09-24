@@ -238,7 +238,7 @@ class AppViewModel(
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
         when (profile) {
             null -> Destination.Onboarding
-            else -> Destination.Files.List
+            else -> Destination.Dashboard
         }
 
     override fun onCleared() {

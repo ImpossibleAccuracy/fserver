@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,10 +32,11 @@ fun BrowserList(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi.PlainList,
     selection: FileBrowserSelection? = null,
+    contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
-    LazyColumn(modifier = modifier.fillMaxSize()) {
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
         if (header != null) {
             item(key = HeaderKey) { header() }
         }

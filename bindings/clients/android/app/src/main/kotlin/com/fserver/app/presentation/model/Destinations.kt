@@ -30,17 +30,13 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Onboarding : Destination, UnauthenticatedDestinations
 
+    /** Home tab: the devices, and the ways to add one or send something. */
     @Serializable
-    data object Files {
-        /** The content feed: every device in a row, everything they hold in one list. */
-        @Serializable
-        data object List : Destination
+    data object Dashboard : Destination
 
-        /** One folder of the feed */
-        @Serializable
-        data class Folder(
-            val folderPath: String,
-        ) : Destination
+    /** Every synced file as one tree, filtered by device and by where the bytes are. */
+    @Serializable
+    data object Files : Destination {
 
         /** One registered source, in full. A stub today — the real screen is still to be built. */
         @Serializable

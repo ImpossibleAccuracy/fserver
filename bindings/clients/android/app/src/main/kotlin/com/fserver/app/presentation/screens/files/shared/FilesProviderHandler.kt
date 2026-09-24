@@ -2,7 +2,6 @@ package com.fserver.app.presentation.screens.files.shared
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.locations
-import com.fserver.app.presentation.shared.browser.model.toFlatPreview
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
@@ -18,11 +17,11 @@ class FilesProviderHandler(
     private val registeredSourcesRepository: RegisteredSourcesRepository,
     private val openFile: (SyncFileEntry) -> Unit,
 ) {
-    fun loadPreviewFiles(
-        folder: String? = null,
+    /** Indexed entries matching the filters, with paths rooted at their source's origin. */
+    fun loadEntries(
         requiredLocation: FileBrowserUi.File.Location? = null,
         sourceIds: Set<String>? = null,
-    ): Flow<List<FileBrowserUi.File>> = combine(
+    ): Flow<List<SyncFileEntry>> = combine(
         filesController.overallContent.debounce(50.milliseconds),
         registeredSourcesRepository.sources,
     ) { entries, sources ->
@@ -36,7 +35,7 @@ class FilesProviderHandler(
             .values
             .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
 
-        // Filtered before flattening, so a folder is listed only while something in it matches.
+        // Filtered before the tree is built, so a folder is listed only while something in it matches.
         entries
             .filter { sourceIds == null || it.sourceId in sourceIds }
             .filter { requiredLocation == null || requiredLocation in it.locations }
@@ -49,7 +48,6 @@ class FilesProviderHandler(
 
                 it.copy(path = "$root/${it.path}")
             }
-            .toFlatPreview(directory = folder ?: "/")
     }
 
     suspend fun onItemClick(entry: SyncFileEntry) {

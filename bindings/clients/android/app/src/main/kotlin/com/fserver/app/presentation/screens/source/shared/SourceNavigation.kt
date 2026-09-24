@@ -25,7 +25,7 @@ val Destination.isSourceScreen: Boolean
  */
 fun AppNavigator.closeSourceFlow() {
     if (!popTo { !it.isSourceScreen }) {
-        navigate(Destination.Files.List)
+        navigate(Destination.Dashboard)
     }
 }
 

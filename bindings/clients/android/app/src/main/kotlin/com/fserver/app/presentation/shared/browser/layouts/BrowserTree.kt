@@ -2,12 +2,18 @@ package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -49,6 +55,7 @@ fun BrowserTree(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi.Tree,
     selection: FileBrowserSelection?,
+    contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
@@ -82,6 +89,7 @@ fun BrowserTree(
                     modifier = Modifier.fillMaxSize(),
                     visibleContent = directory.contents,
                     selection = walk,
+                    contentPadding = contentPadding,
                     onFileClick = onFileClick,
                 )
             } else {
@@ -89,12 +97,16 @@ fun BrowserTree(
                     modifier = Modifier.fillMaxSize(),
                     visibleContent = directory?.contents ?: preview.rootContents,
                     selection = walk,
+                    contentPadding = contentPadding,
                     onFileClick = onFileClick,
                 )
             }
         }
     }
 }
+
+private val FileBrowserUi.Directory?.depth: Int
+    get() = this?.path?.count { it == '/' } ?: -1
 
 /** The walk a read-only tree does on its own: open a folder, back out of it, nothing selected. */
 @Composable
@@ -115,6 +127,7 @@ private fun EntriesGrid(
     modifier: Modifier = Modifier,
     visibleContent: List<FileBrowserUi.PreviewContentEntry>,
     selection: FileBrowserSelection?,
+    contentPadding: PaddingValues,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     val (mediaItems, regularItems) = visibleContent.partition {
@@ -130,7 +143,7 @@ private fun EntriesGrid(
         contentPadding = PaddingValues(
             horizontal = DkSpacing.screenPadding,
             vertical = DkSpacing.sm,
-        ),
+        ) + contentPadding,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -168,11 +181,12 @@ private fun EntriesList(
     modifier: Modifier = Modifier,
     visibleContent: List<FileBrowserUi.PreviewContentEntry>,
     selection: FileBrowserSelection?,
+    contentPadding: PaddingValues,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(vertical = DkSpacing.xs),
+        contentPadding = PaddingValues(vertical = DkSpacing.xs) + contentPadding,
     ) {
         items(items = visibleContent, key = { it.path }) { row ->
             EntryListItem(
