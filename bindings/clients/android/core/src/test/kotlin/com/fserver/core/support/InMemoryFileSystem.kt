@@ -45,6 +45,23 @@ internal class InMemoryFileSystem : FileSystem {
         return path
     }
 
+    override suspend fun fileExists(path: String): Boolean = path in files
+
+    override suspend fun renameFile(
+        locator: String,
+        newName: String,
+        deleteOldOnConflict: Boolean,
+    ): String {
+        val bytes = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+        val target = locator.substringBeforeLast('/', "").let { if (it.isEmpty()) newName else "$it/$newName" }
+
+        if (target in files && !deleteOldOnConflict) throw FileSystemException.RenameRejected(locator, newName)
+
+        files.remove(locator)
+        files[target] = bytes
+        return target
+    }
+
     override suspend fun openFile(locator: String): InputStream =
         ByteArrayInputStream(files[locator] ?: throw FileSystemException.InvalidPath(locator))
 

@@ -24,7 +24,7 @@ internal sealed interface RemoteOperation {
         @Serializable
         data class Delete(
             override val key: IndexedFileKey,
-            val version: VersionDto?,
+            val version: VersionDto? = null,
         ) : File
 
         /**
@@ -39,7 +39,10 @@ internal sealed interface RemoteOperation {
         ) : File
 
         @Serializable
-        data class Download(override val key: IndexedFileKey) : File
+        data class Download(
+            override val key: IndexedFileKey,
+            val version: VersionDto? = null,
+        ) : File
     }
 
     /** Brackets a [FileServerMessages.UploadChunk] stream: [Init] before the first chunk, [UploadCompleted] after the last. */

@@ -1,6 +1,7 @@
 package com.fserver.core.sync.runner
 
 import com.fserver.common.utils.StageTimer
+import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -16,6 +17,7 @@ import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
+import com.fserver.files.upload.FileVersion
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
 import java.io.InputStream
@@ -33,17 +35,25 @@ internal class FileUploader(
     /**
      * Reported as one transfer whichever way it was asked for: a pass pushing the file, or a peer
      * asking us to hand it back. Both are this device sending bytes.
+     *
+     * @return hash of the bytes sent
      */
     suspend fun uploadFile(
         file: FileRecord,
+        version: FileVersion? = file.metadata.version,
         source: SourceEntry,
         session: PeerSession<FileServerMessages>,
-    ) {
+    ): ContentHash {
         val key = SyncProgressReporter.outgoing(source, file.id.value)
 
-        try {
-            stream(file, source, session, key)
-            progress.transferCompleted(key)
+        return try {
+            stream(
+                file = file,
+                version = version,
+                source = source,
+                session = session,
+                key = key,
+            ).also { progress.transferCompleted(key) }
         } catch (e: Throwable) {
             progress.transferFailed(key, e)
             throw e
@@ -52,10 +62,11 @@ internal class FileUploader(
 
     private suspend fun stream(
         file: FileRecord,
+        version: FileVersion?,
         source: SourceEntry,
         session: PeerSession<FileServerMessages>,
         key: FileTransferKey,
-    ) {
+    ): ContentHash {
         val locator = file.locator
             ?: error("Cannot upload file ${file.id} because it has no locator")
 
@@ -68,7 +79,10 @@ internal class FileUploader(
             session.runRemoteOperation(
                 operation = RemoteOperation.Upload.Init(
                     sourceId = source.id,
-                    file = file.toDto(source.id),
+                    file = file.toDto(
+                        sourceId = source.id,
+                        version = version,
+                    ),
                 )
             )
         }
@@ -131,6 +145,8 @@ internal class FileUploader(
         if (hasher != null) {
             localIndexer.recordHash(source, file, hash)
         }
+
+        return hash
     }
 
     /**

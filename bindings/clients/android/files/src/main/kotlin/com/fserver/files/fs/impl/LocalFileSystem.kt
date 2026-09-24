@@ -43,6 +43,37 @@ internal abstract class LocalFileSystem : SystemAdapter() {
         }
     }
 
+    final override suspend fun fileExists(path: String): Boolean {
+        val file = resolve(path)
+
+        return withContext(Dispatchers.IO) { file.isFile }
+    }
+
+    final override suspend fun renameFile(
+        locator: String,
+        newName: String,
+        deleteOldOnConflict: Boolean,
+    ): String {
+        val file = confine(locator)
+        val target = confine(File(file.parentFile, nameOf(newName)).path)
+
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) {
+            if (target.exists() && !(deleteOldOnConflict && target.isFile)) {
+                throw FileSystemException.RenameRejected(locator, newName)
+            }
+
+            // rename(2) replaces the target in one step, so there is no moment with neither file.
+            if (!file.renameTo(target)) throw FileSystemException.RenameRejected(locator, newName)
+
+            onFileChanged(file)
+            onFileChanged(target)
+
+            target.absolutePath
+        }
+    }
+
     final override suspend fun openFile(locator: String): InputStream {
         val file = confine(locator)
 

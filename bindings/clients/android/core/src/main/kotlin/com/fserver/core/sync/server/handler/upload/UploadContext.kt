@@ -29,9 +29,10 @@ import kotlin.time.Instant
  */
 internal class UploadContext(
     val file: FileRecord,
+    val downloadPath: String,
     val startedAt: Instant,
     key: IndexedFileKey,
-    private val fs: FileSystem,
+    val fs: FileSystem,
     private val buffered: AtomicInteger,
     private val progress: SyncProgressReporter,
     scope: CoroutineScope,
@@ -40,6 +41,9 @@ internal class UploadContext(
 
     /** Incoming whoever asked: a peer pushing to us, or a download this device requested. */
     val transferKey: FileTransferKey = SyncProgressReporter.incoming(key.sourceId, key.fileId)
+
+    val isDownloadingToTempFile: Boolean
+        get() = downloadPath != file.path
 
     /**
      * Where the receiving side's time goes: waiting for chunks, the disk, or hashing. A dominant
@@ -148,7 +152,7 @@ internal class UploadContext(
 
                 // Created on the first chunk, so an upload that never sends one leaves no file.
                 val target = locator ?: timer.time("create-file") {
-                    fs.createFile(file.path).also { locator = it }
+                    fs.createFile(downloadPath).also { locator = it }
                 }
 
                 timer.time("disk-write") {

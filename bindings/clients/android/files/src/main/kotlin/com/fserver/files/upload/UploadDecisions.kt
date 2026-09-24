@@ -33,12 +33,20 @@ sealed interface FileAction {
     val reason: String
 
     /** Send local bytes to the remote side. [file] must be [FileRecord.State.Present]. */
-    data class Upload(val file: FileRecord, override val reason: String) : FileAction {
+    data class Upload(
+        val file: FileRecord,
+        val version: FileVersion?,
+        override val reason: String
+    ) : FileAction {
         override val id: FileId get() = file.id
     }
 
     /** Pull remote bytes down. [FileRecord.path] says where they go. */
-    data class Download(val file: FileRecord, override val reason: String) : FileAction {
+    data class Download(
+        val file: FileRecord,
+        val version: FileVersion? = file.metadata.version,
+        override val reason: String
+    ) : FileAction {
         override val id: FileId get() = file.id
     }
 

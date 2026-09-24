@@ -50,9 +50,13 @@ class MirrorUploadStrategy : UploadStrategy {
             // which is exactly why a local tombstone has to survive long enough to be seen below.
             local == null -> remote!!.takeIf { it.state !is State.Deleted }?.let {
                 if (params.restoreMissingLocalFiles) {
-                    FileAction.Download(it, "missing locally")
+                    FileAction.Download(file = it, reason = "missing locally")
                 } else {
-                    FileAction.DeleteRemote(it, version = null, reason = "one-way mirror, absent locally")
+                    FileAction.DeleteRemote(
+                        file = it,
+                        version = null,
+                        reason = "one-way mirror, absent locally"
+                    )
                 }
             }
 
@@ -83,7 +87,11 @@ class MirrorUploadStrategy : UploadStrategy {
                 Causality.Newer ->
                     if (localState is State.Deleted) {
                         hashBeforeDeleting(local, remote)
-                            ?: FileAction.DeleteRemote(remote, local.metadata.version, "deleted locally")
+                            ?: FileAction.DeleteRemote(
+                                remote,
+                                local.metadata.version,
+                                "deleted locally"
+                            )
                     } else {
                         uploadIfPossible(local, "edited locally after remote deletion")
                     }
@@ -91,9 +99,16 @@ class MirrorUploadStrategy : UploadStrategy {
                 Causality.Older ->
                     if (remoteState is State.Deleted) {
                         hashBeforeDeleting(local, remote)
-                            ?: FileAction.DeleteLocal(local, remote.metadata.version, "deleted remotely")
+                            ?: FileAction.DeleteLocal(
+                                local,
+                                remote.metadata.version,
+                                "deleted remotely"
+                            )
                     } else {
-                        FileAction.Download(remote, "edited remotely after local deletion")
+                        FileAction.Download(
+                            file = remote,
+                            reason = "edited remotely after local deletion"
+                        )
                     }
 
                 Causality.Equal, Causality.Concurrent ->
@@ -115,12 +130,20 @@ class MirrorUploadStrategy : UploadStrategy {
                     Causality.Newer -> uploadIfPossible(local, "newer locally")
                         ?: FileAction.Conflict(local, remote, "newer locally but bytes are evicted")
 
-                    Causality.Older -> FileAction.Download(remote, "newer remotely")
+                    Causality.Older -> FileAction.Download(file = remote, reason = "newer remotely")
 
-                    Causality.Concurrent -> FileAction.Conflict(local, remote, "edited on both sides")
+                    Causality.Concurrent -> FileAction.Conflict(
+                        local,
+                        remote,
+                        "edited on both sides"
+                    )
 
                     // Same history, different bytes: an edit one side never versioned.
-                    Causality.Equal -> FileAction.Conflict(local, remote, "same version, different content")
+                    Causality.Equal -> FileAction.Conflict(
+                        local,
+                        remote,
+                        "same version, different content"
+                    )
                 }
             }
         }
@@ -185,5 +208,5 @@ class MirrorUploadStrategy : UploadStrategy {
     /** Only a [State.Present] file has bytes to send; an evicted one knows its hash but not itself. */
     private fun uploadIfPossible(local: FileRecord, reason: String): FileAction? =
         local.takeIf { it.state is State.Present }
-            ?.let { FileAction.Upload(it, reason) }
+            ?.let { FileAction.Upload(it, it.metadata.version, reason) }
 }

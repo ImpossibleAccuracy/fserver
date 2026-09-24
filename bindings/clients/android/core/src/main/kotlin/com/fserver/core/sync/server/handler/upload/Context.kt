@@ -26,8 +26,18 @@ internal suspend fun SessionContext.start(
         throw TransferException.TooManyUploadsException(MaxConcurrentUploads)
     }
 
+    val downloadPath = if (fs.fileExists(file.path)) {
+        // atomic write to a temp file, then rename to the real path when done
+        // TODO: collides with a user's own "<name>.temp" and with leftovers of a crashed upload;
+        //  needs a reserved unique name the scanner skips
+        "${file.path}.temp"
+    } else {
+        file.path
+    }
+
     val started = UploadContext(
         file = file,
+        downloadPath = downloadPath,
         startedAt = startedAt,
         key = key,
         fs = fs,

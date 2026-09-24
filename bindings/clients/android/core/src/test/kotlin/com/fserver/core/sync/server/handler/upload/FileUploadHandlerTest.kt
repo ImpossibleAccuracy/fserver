@@ -125,10 +125,8 @@ class FileUploadHandlerTest {
     fun `a path that walks out of the source writes nothing outside it`() = runTest {
         val escapee = File(temp.root, "escaped.txt")
 
-        init(owner, path = "../escaped.txt")
-        handler.queueChunk(chunk("x".toByteArray()), context)
-
-        val failure = runCatching { complete(owner, "x".toByteArray()) }.exceptionOrNull()
+        // Refused at Init: checking for an existing file already resolves the path.
+        val failure = runCatching { init(owner, path = "../escaped.txt") }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
         assertFalse(escapee.exists())

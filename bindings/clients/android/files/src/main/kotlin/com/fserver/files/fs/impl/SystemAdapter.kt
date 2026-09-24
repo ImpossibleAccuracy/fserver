@@ -41,6 +41,10 @@ internal fun segmentsOf(path: String): List<String> {
     return segments
 }
 
+/** [name] as a single path segment, for [FileSystem.renameFile]. Throws if it is anything more. */
+internal fun nameOf(name: String): String =
+    segmentsOf(name).singleOrNull() ?: throw FileSystemException.InvalidPath(name)
+
 /** Helper to collect files and report progress. Thread-safe. */
 private class ScanCollector(
     private val scope: ProducerScope<ScanProgress>,

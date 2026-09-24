@@ -17,6 +17,23 @@ interface FileSystem {
     /** Create a file at [path]. */
     suspend fun createFile(path: String): String
 
+    /** True when a file exists at [path], same shape as [createFile] takes. */
+    suspend fun fileExists(path: String): Boolean
+
+    /**
+     * Rename the file at [locator] to [newName] - a name, not a path - within its directory.
+     * With [deleteOldOnConflict], a file already named [newName] is replaced; otherwise it is a refusal.
+     *
+     * @return new locator for the file
+     * @throws com.fserver.common.exception.FileSystemException.RenameRejected when the rename did
+     *   not happen. The file then stays at [locator], and a file it was to replace stays too.
+     */
+    suspend fun renameFile(
+        locator: String,
+        newName: String,
+        deleteOldOnConflict: Boolean = false,
+    ): String
+
     /** Open the file at [locator] for reading. */
     suspend fun openFile(locator: String): InputStream
 

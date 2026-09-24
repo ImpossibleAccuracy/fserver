@@ -175,6 +175,7 @@ class UploadContextTest {
             content = null,
             metadata = FileRecord.Metadata(size = 0, lastModified = TestEpoch, version = null),
         ),
+        downloadPath = Path,
         startedAt = TestEpoch,
         key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId),
         fs = fs,

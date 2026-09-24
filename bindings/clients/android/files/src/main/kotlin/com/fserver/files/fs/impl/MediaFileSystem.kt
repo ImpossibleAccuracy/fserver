@@ -101,25 +101,7 @@ internal class MediaFileSystem(
      * row nothing clears expires instead of arriving.
      */
     override suspend fun createFile(path: String): String = withContext(Dispatchers.IO) {
-        val segments = segmentsOf(path)
-
-        // MediaStore keeps every file under a top-level directory it recognises, so
-        // "<volume>/<directory>/<name>" is the shortest path it can hold.
-        if (segments.size < 3) throw FileSystemException.InvalidPath(path)
-
-        val volume = volumeName(segments.first())
-
-        // Checked before the provider is touched at all: MediaStore answers an unknown volume with
-        // a raw IllegalArgumentException, from the query as readily as from the insert.
-        if (volume !in MediaStore.getExternalVolumeNames(context)) {
-            throw FileSystemException.InvalidPath(path)
-        }
-
-        val collection = MediaStore.Files.getContentUri(volume)
-        val name = segments.last()
-        val relativePath = segments
-            .subList(1, segments.size - 1)
-            .joinToString(separator = "/", postfix = "/")
+        val (collection, relativePath, name) = rowOf(path)
 
         // Checked rather than left to MediaStore, which renames a colliding insert instead of
         // refusing it — and a renamed file no longer matches the path the peer holds.
@@ -141,6 +123,104 @@ internal class MediaFileSystem(
         } ?: throw FileSystemException.CreationFailed(path)
 
         uri.toString()
+    }
+
+    override suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) {
+        val (collection, relativePath, name) = rowOf(path)
+
+        find(collection, relativePath, name) != null
+    }
+
+    /** Same dance as [TreeFileSystem.renameFile]: a row in the way is moved aside, not deleted. */
+    override suspend fun renameFile(
+        locator: String,
+        newName: String,
+        deleteOldOnConflict: Boolean,
+    ): String = withContext(Dispatchers.IO) {
+        val name = nameOf(newName)
+        val uri = locator.toUri()
+
+        val (volume, relativePath, original) = context.contentResolver
+            .query(
+                uri,
+                arrayOf(
+                    MediaStore.Files.FileColumns.VOLUME_NAME,
+                    MediaStore.Files.FileColumns.RELATIVE_PATH,
+                    MediaStore.Files.FileColumns.DISPLAY_NAME,
+                ),
+                null,
+                null,
+                null,
+            )
+            ?.use {
+                if (!it.moveToFirst()) return@use null
+                Triple(it.getString(0) ?: return@use null, it.getString(1).orEmpty(), it.getString(2) ?: return@use null)
+            }
+            ?: throw FileSystemException.InvalidPath(locator)
+
+        if (original == name) return@withContext locator
+
+        val existing = find(MediaStore.Files.getContentUri(volume), relativePath, name)
+        if (existing != null && !deleteOldOnConflict) {
+            throw FileSystemException.RenameRejected(locator, newName)
+        }
+
+        if (existing != null && !rename(existing, name + AsideSuffix)) {
+            throw FileSystemException.RenameRejected(locator, newName)
+        }
+
+        if (!rename(uri, name)) {
+            existing?.let { rename(it, name) }
+            throw FileSystemException.RenameRejected(locator, newName)
+        }
+
+        existing?.let { runCatching { context.contentResolver.delete(it, null, null) } }
+
+        // A row keeps its uri through a rename.
+        locator
+    }
+
+    /** False when MediaStore refused, or quietly picked another name than [name]. */
+    private fun rename(uri: Uri, name: String): Boolean {
+        val values = ContentValues().apply {
+            put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
+        }
+
+        val updated = try {
+            context.contentResolver.update(uri, values, null, null) > 0
+        } catch (e: Exception) {
+            // Includes the RecoverableSecurityException for a row another app owns.
+            false
+        }
+
+        return updated && context.contentResolver
+            .query(uri, arrayOf(MediaStore.Files.FileColumns.DISPLAY_NAME), null, null, null)
+            ?.use { it.moveToFirst() && it.getString(0) == name } == true
+    }
+
+    /**
+     * The collection, `RELATIVE_PATH` and name a volume-led [path] maps to. MediaStore keeps every
+     * file under a top-level directory it recognises, so "<volume>/<directory>/<name>" is the
+     * shortest path it can hold.
+     */
+    private fun rowOf(path: String): Triple<Uri, String, String> {
+        val segments = segmentsOf(path)
+
+        if (segments.size < 3) throw FileSystemException.InvalidPath(path)
+
+        val volume = volumeName(segments.first())
+
+        // Checked before the provider is touched at all: MediaStore answers an unknown volume with
+        // a raw IllegalArgumentException, from the query as readily as from the insert.
+        if (volume !in MediaStore.getExternalVolumeNames(context)) {
+            throw FileSystemException.InvalidPath(path)
+        }
+
+        val relativePath = segments
+            .subList(1, segments.size - 1)
+            .joinToString(separator = "/", postfix = "/")
+
+        return Triple(MediaStore.Files.getContentUri(volume), relativePath, segments.last())
     }
 
     override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
@@ -207,5 +287,9 @@ internal class MediaFileSystem(
     private fun volumeName(volumeId: String): String = when (volumeId) {
         SourcePaths.PrimaryVolume -> MediaStore.VOLUME_EXTERNAL_PRIMARY
         else -> volumeId
+    }
+
+    companion object {
+        private const val AsideSuffix = ".fserver-replaced"
     }
 }

@@ -26,7 +26,10 @@ internal fun LocalIndexedFile.toDto(): FileRecordDto = FileRecordDto(
     ),
 )
 
-internal fun FileRecord.toDto(sourceId: String): FileRecordDto = FileRecordDto(
+internal fun FileRecord.toDto(
+    sourceId: String,
+    version: FileVersion? = metadata.version,
+): FileRecordDto = FileRecordDto(
     id = id.value,
     sourceId = sourceId,
     path = path,
@@ -35,7 +38,7 @@ internal fun FileRecord.toDto(sourceId: String): FileRecordDto = FileRecordDto(
     metadata = FileRecordDto.Metadata(
         size = metadata.size,
         lastModified = metadata.lastModified,
-        version = metadata.version?.toDto(),
+        version = version?.toDto(),
     ),
 )
 
@@ -69,7 +72,7 @@ internal fun FileRecordDto.toRemoteIndexed(seenAt: Instant) = RemoteIndexedFile(
 )
 
 /** Zero counter means "no edits", same as an absent one, so it is dropped rather than refused. */
-private fun VersionDto.toFiles() =
+internal fun VersionDto.toFiles() =
     FileVersion(
         vector = VersionVector(vector.filterValues { it != 0L }),
         hlc = hlc,

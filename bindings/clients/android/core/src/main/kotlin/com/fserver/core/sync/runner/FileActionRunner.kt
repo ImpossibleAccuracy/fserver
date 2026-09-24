@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.RemoteOperation
@@ -7,17 +8,18 @@ import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
-import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.model.SyncPreferences
-import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileRecord
+import com.fserver.files.upload.FileVersion
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -47,14 +49,7 @@ internal class FileActionRunner(
             is FileAction.DeleteRemote -> deleteRemoteFile(action, source)
             is FileAction.MergeVersion -> mergeVersion(action, source)
             is FileAction.Download -> downloadFile(action, source)
-            is FileAction.Upload -> {
-                val session = remoteFetcher.connectToDevice(source)
-                fileUploader.uploadFile(
-                    file = action.file,
-                    source = source,
-                    session = session,
-                )
-            }
+            is FileAction.Upload -> uploadFile(source, action)
         }
     }
 
@@ -86,15 +81,131 @@ internal class FileActionRunner(
 
         when (prefs.conflictResolution) {
             SyncPreferences.ConflictResolution.LastWriteWins -> {
-                // TODO: save winner and delete loser
+                val local = action.local.metadata.version
+                val remote = action.remote.metadata.version
+
+                val localWins = when {
+                    local == remote ->
+                        // If both sides have the same version, the device with the higher ID wins
+                        storage.identity.localDevice().deviceId > source.deviceId
+
+                    local == null -> false // No local version, remote wins
+                    remote == null -> true // Remote has no version, local wins
+                    else -> local.compareHlc(remote) // Last Write Wins based on HLC comparison
+                }
+
+                val mergedVersion = local?.merge(remote) ?: remote
+
+                val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+
+                // The transfer leaves the loser's side at mergedVersion; the winner's side adopts it
+                // here, so both agree now rather than on the next pass.
+                if (localWins) {
+                    when (action.local.state) {
+                        is FileRecord.State.Present -> {
+                            val sent = uploadFile(
+                                source = source,
+                                action = FileAction.Upload(
+                                    file = action.local,
+                                    version = mergedVersion,
+                                    reason = "Conflict resolution: local wins"
+                                )
+                            )
+
+                            adoptLocally(
+                                source = source,
+                                key = key,
+                                file = action.local,
+                                version = mergedVersion,
+                                expected = sent
+                            )
+                        }
+
+                        is FileRecord.State.Deleted -> {
+                            if (action.remote.state is FileRecord.State.Present) {
+                                deleteRemoteFile(
+                                    action = FileAction.DeleteRemote(
+                                        file = action.remote,
+                                        version = mergedVersion,
+                                        reason = "Conflict resolution: local wins"
+                                    ),
+                                    source = source,
+                                )
+
+                                adoptLocally(
+                                    source = source,
+                                    key = key,
+                                    file = action.local,
+                                    version = mergedVersion,
+                                    expected = null
+                                )
+                            }
+                        }
+
+                        is FileRecord.State.Evicted -> {
+                            // evicted version cannot win
+                            Timber.w("Conflict resolution: evicted local file ${action.local.path} win LWW over remote ${action.remote.path}")
+                        }
+                    }
+                } else {
+                    when (action.remote.state) {
+                        is FileRecord.State.Present -> {
+                            downloadFile(
+                                action = FileAction.Download(
+                                    file = action.remote,
+                                    version = mergedVersion,
+                                    reason = "Conflict resolution: remote wins"
+                                ),
+                                source = source,
+                            )
+
+                            // An unhashed remote was hashed on the way: our copy holds its bytes now.
+                            val received = action.remote.content ?: storage.index.findFile(key)?.hash
+                            if (received != null) {
+                                adoptRemotely(
+                                    source = source,
+                                    key = key,
+                                    file = action.remote,
+                                    version = mergedVersion,
+                                    expected = received
+                                )
+                            }
+                        }
+
+                        is FileRecord.State.Deleted -> {
+                            if (action.local.state is FileRecord.State.Present) {
+                                deleteLocalFile(
+                                    action = FileAction.DeleteLocal(
+                                        file = action.local,
+                                        version = mergedVersion,
+                                        reason = "Conflict resolution: remote wins"
+                                    ),
+                                    source = source,
+                                )
+
+                                adoptRemotely(
+                                    source = source,
+                                    key = key,
+                                    file = action.remote,
+                                    version = mergedVersion,
+                                    expected = null
+                                )
+                            }
+                        }
+
+                        is FileRecord.State.Evicted -> {
+                            // evicted version cannot win
+                            Timber.w("Conflict resolution: evicted remote file ${action.remote.path} win LWW over local ${action.local.path}")
+                        }
+                    }
+                }
             }
 
             SyncPreferences.ConflictResolution.KeepBoth -> {
+                Timber.w("Conflict resolution not implemented yet for ${action.local.path} and ${action.remote.path}")
                 // TODO: save both variants to .conflict folder
             }
         }
-
-        Timber.w("Conflict resolution not implemented yet for ${action.local.path} and ${action.remote.path}")
     }
 
     private suspend fun evictFile(
@@ -170,28 +281,60 @@ internal class FileActionRunner(
     ) {
         val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
 
-        if (action.local.metadata.version != action.version) {
-            localIndexer.adoptVersion(
-                source = source,
+        adoptLocally(
+            source = source,
+            key = key,
+            file = action.local,
+            version = action.version,
+            expected = action.local.content.takeUnless { action.local.state is FileRecord.State.Deleted },
+        )
+
+        adoptRemotely(
+            source = source,
+            key = key,
+            file = action.remote,
+            version = action.version,
+            expected = action.remote.content.takeUnless { action.remote.state is FileRecord.State.Deleted },
+        )
+    }
+
+    /** Records [version] for [file] here, unless it already has it. [expected] null means deleted. */
+    private suspend fun adoptLocally(
+        source: SourceEntry,
+        key: IndexedFileKey,
+        file: FileRecord,
+        version: FileVersion?,
+        expected: ContentHash?,
+    ) {
+        if (version == null || file.metadata.version == version) return
+
+        localIndexer.adoptVersion(
+            source = source,
+            key = key,
+            version = version.toIndexed(),
+            expected = expected,
+        )
+    }
+
+    /** Asks the peer to record [version] for [file], unless it already has it. */
+    private suspend fun adoptRemotely(
+        source: SourceEntry,
+        key: IndexedFileKey,
+        file: FileRecord,
+        version: FileVersion?,
+        expected: ContentHash?,
+    ) {
+        if (version == null || file.metadata.version == version) return
+
+        val session = remoteFetcher.connectToDevice(source)
+
+        session.runRemoteOperation(
+            operation = RemoteOperation.File.AdoptVersion(
                 key = key,
-                version = action.version.toIndexed(),
-                expected = action.local.content.takeUnless { action.local.state is FileRecord.State.Deleted },
-            )
-        }
-
-        if (action.remote.metadata.version != action.version) {
-            val session = remoteFetcher.connectToDevice(source)
-
-            session.runRemoteOperation(
-                operation = RemoteOperation.File.AdoptVersion(
-                    key = key,
-                    version = action.version.toDto(),
-                    expected = action.remote.content
-                        ?.takeUnless { action.remote.state is FileRecord.State.Deleted }
-                        ?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
-                ),
-            )
-        }
+                version = version.toDto(),
+                expected = expected?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
+            ),
+        )
     }
 
     private suspend fun downloadFile(
@@ -202,9 +345,23 @@ internal class FileActionRunner(
 
         session.runRemoteOperation(
             operation = RemoteOperation.File.Download(
-                IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
+                version = action.version?.toDto(),
             ),
             timeout = downloadTimeout(action.file.metadata.size),
+        )
+    }
+
+    private suspend fun uploadFile(
+        source: SourceEntry,
+        action: FileAction.Upload
+    ): ContentHash {
+        val session = remoteFetcher.connectToDevice(source)
+        return fileUploader.uploadFile(
+            file = action.file,
+            version = action.version,
+            source = source,
+            session = session,
         )
     }
 

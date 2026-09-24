@@ -52,6 +52,7 @@ internal class LocalChangesIndexer(
             .associateBy { it.path }
             .toMutableMap()
 
+        // TODO: filter out temp files
         val actualState = node.openSource(source.location.toFiles())
             .scan()
             .result().getOrThrow()

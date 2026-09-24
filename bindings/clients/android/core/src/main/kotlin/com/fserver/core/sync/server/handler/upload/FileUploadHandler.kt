@@ -25,7 +25,7 @@ import timber.log.Timber
  * Receives a file the peer pushes: `Upload.Init`, then chunks, then `Upload.UploadCompleted`.
  *
  * The bytes never touch this class - it opens an [UploadContext] per file and lets that write them
- * off the session collector. See [com.fserver.core.sync.server.SessionContext] for why.
+ * off the session collector. See [SessionContext] for why.
  */
 internal class FileUploadHandler(
     private val authorizer: SourceAuthorizer,
@@ -44,8 +44,6 @@ internal class FileUploadHandler(
                 val source = authorizer.authorizedSource(session.identity, operation.sourceId)
                 val now = timeProvider.now()
 
-                // TODO: delete file if it exists already
-
                 // Nothing else clears an upload whose sender stopped mid-stream.
                 context.pruneStaleUploads(now)
 
@@ -63,6 +61,8 @@ internal class FileUploadHandler(
                     totalBytes = operation.file.metadata.size
                 )
 
+                // TODO: lock file on disk, so no one can edit/delete it
+
                 Timber.i("Upload started for ${operation.file.id} from source ${source.id} by peer ${session.identity.deviceId}")
             }
 
@@ -77,6 +77,8 @@ internal class FileUploadHandler(
                     Timber.i("Upload completed for ${operation.key.fileId} from source ${source.id} by peer ${session.identity.deviceId}")
                 } catch (e: Throwable) {
                     // Nothing points at these bytes, and the next attempt starts from zero.
+                    // TODO: once renameFile ran, the locator abandon() deletes may be the finished
+                    //  file - a backend that keeps it through a rename (SAF, MediaStore) loses it here
                     withContext(NonCancellable) { upload.abandon() }
                     throw e
                 }
@@ -138,10 +140,23 @@ internal class FileUploadHandler(
             )
         }
 
+        val resultLocator = if (upload.isDownloadingToTempFile) {
+            timer.time("rename") {
+                val filename = upload.file.path.substringAfterLast('/')
+
+                upload.fs.renameFile(
+                    locator = locator,
+                    newName = filename,
+                    deleteOldOnConflict = true,
+                )
+            }
+        } else {
+            locator
+        }
+
         // Recorded as the disk reports it, or the next scan reads a mismatch as a local edit.
         val modifiedAt = timer.time("settle-mtime") {
-            node.openSource(source.location.toFiles())
-                .settleLastModified(locator, upload.file.metadata.lastModified)
+            upload.fs.settleLastModified(resultLocator, upload.file.metadata.lastModified)
         }
 
         val saved = timer.time("index-lookup") { storage.index.findFile(operation.key) }
@@ -151,7 +166,7 @@ internal class FileUploadHandler(
             .toIndexed(
                 id = saved?.id ?: IdGenerator.nextId,
                 sourceId = source.id,
-                locator = locator,
+                locator = resultLocator,
                 currentTime = timeProvider.now(),
             )
             .copy(modifiedAt = modifiedAt)

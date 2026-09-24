@@ -4,6 +4,7 @@ import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.dto.toFiles
 import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.toFileRecord
@@ -59,8 +60,11 @@ internal class FileOperationHandler(
             is RemoteOperation.File.Download -> {
                 // Peer requests us to send them the file. It goes back over the session that asked
                 // for it, which is not necessarily the one the source normally syncs over.
+                val record = file.toFileRecord()
+
                 fileUploader.uploadFile(
-                    file = file.toFileRecord(),
+                    file = record,
+                    version = operation.version?.toFiles() ?: record.metadata.version,
                     source = source,
                     session = session,
                 )

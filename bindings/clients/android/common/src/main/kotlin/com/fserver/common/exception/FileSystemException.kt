@@ -13,4 +13,6 @@ sealed class FileSystemException(message: String, cause: Throwable? = null) :
     class NotDirectory(val path: String) : FileSystemException("Path is not directory: $path")
     class AlreadyExists(path: String) : FileSystemException("File already exists at path: $path")
     class CreationFailed(path: String) : FileSystemException("Failed to create file at path: $path")
+    class RenameRejected(locator: String, newName: String) :
+        FileSystemException("Rename rejected: $locator -> $newName")
 }

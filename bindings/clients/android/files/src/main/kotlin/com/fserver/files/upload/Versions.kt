@@ -8,10 +8,19 @@ data class FileVersion(
     /** Device that made the version. */
     val originDevice: String,
 ) {
-    /** Version covering both histories, stamped like the later of the two so all sides agree. */
-    fun merge(other: FileVersion): FileVersion {
-        val later = maxOf(this, other, compareBy<FileVersion>({ it.hlc }, { it.originDevice }))
+    /** Version covering both histories, stamped like the latter of the two so all sides agree. */
+    fun merge(other: FileVersion?): FileVersion {
+        if (other == null) return this
+        val later = maxOf(this, other, HlcComparator)
         return later.copy(vector = vector.merge(other.vector))
+    }
+
+    fun compareHlc(other: FileVersion): Boolean {
+        return HlcComparator.compare(this, other) >= 0
+    }
+
+    companion object {
+        val HlcComparator = compareBy<FileVersion>({ it.hlc }, { it.originDevice })
     }
 }
 
@@ -21,7 +30,9 @@ data class VersionVector(val counters: Map<String, Long> = emptyMap()) {
 
     /** Everything either side has seen. */
     fun merge(other: VersionVector): VersionVector =
-        VersionVector((counters.keys + other.counters.keys).associateWith { maxOf(this[it], other[it]) })
+        VersionVector(
+            (counters.keys + other.counters.keys)
+                .associateWith { maxOf(this[it], other[it]) })
 
     /** Where this version stands relative to [other]. */
     fun compare(other: VersionVector): Causality {
