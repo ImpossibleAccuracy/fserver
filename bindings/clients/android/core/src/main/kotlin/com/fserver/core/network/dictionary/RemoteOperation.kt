@@ -44,21 +44,4 @@ internal sealed interface RemoteOperation {
             val version: VersionDto? = null,
         ) : File
     }
-
-    /** Brackets a [FileServerMessages.UploadChunk] stream: [Init] before the first chunk, [UploadCompleted] after the last. */
-    @Serializable
-    sealed interface Upload : RemoteOperation {
-        @Serializable
-        data class Init(
-            val sourceId: String,
-            val file: FileRecordDto
-        ) : Upload
-
-        @Serializable
-        data class UploadCompleted(
-            val key: IndexedFileKey,
-            val hash: String,
-            val algorithm: String,
-        ) : Upload
-    }
 }

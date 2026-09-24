@@ -15,4 +15,7 @@ sealed class TransferException(message: String, cause: Throwable? = null) :
 
     class PendingChunksOverflowException(occupiedBytes: Int, maxBytes: Int) :
         TransferException("Pending chunks overflow: occupied $occupiedBytes bytes, but max is $maxBytes bytes")
+
+    class ChunkOutOfBoundsException(offset: Long, length: Int, size: Long) :
+        TransferException("Chunk [$offset, +$length) is outside the declared size $size")
 }

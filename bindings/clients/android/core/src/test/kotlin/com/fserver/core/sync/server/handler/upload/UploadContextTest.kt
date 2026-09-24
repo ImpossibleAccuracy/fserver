@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler.upload
 
+import com.fserver.common.exception.TransferException
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.support.InMemoryFileSystem
 import com.fserver.core.support.MutableTimeProvider
@@ -18,7 +19,6 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.security.MessageDigest
@@ -43,69 +43,92 @@ class UploadContextTest {
     }
 
     @Test
-    fun `chunks in order land as one file, and the hash is over the file`() = runTest {
-        val upload = upload()
+    fun `chunks in order land as one file`() = runTest {
+        val upload = upload(size = 11)
 
         assertTrue(upload.offer(chunk(offset = 0, bytes = "hello ".toByteArray())))
         assertTrue(upload.offer(chunk(offset = 6, bytes = "world".toByteArray())))
         upload.await()
 
-        assertArrayEquals("hello world".toByteArray(), fs.bytesAt(Path))
-        assertEquals(sha256("hello world".toByteArray()), upload.hasher.compute().value)
+        assertArrayEquals("hello world".toByteArray(), fs.bytesAt(Staging))
+        assertTrue(upload.isWhole)
+        assertEquals(sha256("hello world"), upload.hash().value)
     }
 
     @Test
-    fun `chunks that overtake each other are written in offset order`() = runTest {
-        val upload = upload()
+    fun `chunks that overtake each other are written at their own offsets`() = runTest {
+        val upload = upload(size = 11)
 
         upload.offer(chunk(offset = 6, bytes = "world".toByteArray()))
-        upload.offer(chunk(offset = 0, bytes = "hello ".toByteArray()))
         upload.await()
 
-        assertArrayEquals("hello world".toByteArray(), fs.bytesAt(Path))
-        // Hashed in write order, not arrival order - otherwise the receiver and the sender
-        // disagree about a file that arrived intact.
-        assertEquals(sha256("hello world".toByteArray()), upload.hasher.compute().value)
+        // Written, but the gap in front of it means nothing is whole yet.
+        assertEquals(0, upload.prefix)
+
+        val resumed = upload(size = 11)
+        resumed.offer(chunk(offset = 6, bytes = "world".toByteArray()))
+        resumed.offer(chunk(offset = 0, bytes = "hello ".toByteArray()))
+        resumed.await()
+
+        assertArrayEquals("hello world".toByteArray(), fs.bytesAt(Staging))
+        assertEquals(11, resumed.prefix)
+        // Hashed in offset order, the early chunk read back from disk once the gap was filled.
+        assertEquals(sha256("hello world"), resumed.hash().value)
     }
 
     @Test
-    fun `an upload that sends no chunk leaves no file behind`() = runTest {
-        val upload = upload()
+    fun `a chunk past the size Init declared is refused and never touches the disk`() = runTest {
+        val upload = upload(size = 4)
 
-        upload.await()
-
-        assertNull(upload.locator)
-        assertTrue(fs.createdPaths.isEmpty())
-    }
-
-    @Test
-    fun `a chunk at an offset the stream never reaches never touches the disk`() = runTest {
-        val upload = upload()
-
-        // Nothing fills the gap in front of it, so it may not be written at its own offset:
-        // a seek to it would leave a file the size of whatever the peer claimed.
+        // A seek to it would leave a file the size of whatever the peer claimed.
         upload.offer(chunk(offset = Long.MAX_VALUE / 2, bytes = "x".toByteArray()))
-        upload.await()
 
-        assertNull(upload.locator)
-        assertTrue(fs.createdPaths.isEmpty())
+        val failure = runCatching { upload.await() }.exceptionOrNull()
+
+        assertTrue(failure is TransferException.ChunkOutOfBoundsException)
+        assertEquals(0, fs.bytesAt(Staging)?.size)
     }
 
     @Test
     fun `a chunk the peer resent is dropped and its bytes are given back`() = runTest {
-        val upload = upload()
+        val upload = upload(size = 3)
 
         upload.offer(chunk(offset = 0, bytes = "abc".toByteArray()))
         upload.offer(chunk(offset = 0, bytes = "abc".toByteArray()))
         upload.await()
 
-        assertArrayEquals("abc".toByteArray(), fs.bytesAt(Path))
+        assertArrayEquals("abc".toByteArray(), fs.bytesAt(Staging))
         assertEquals(0, buffered.get())
     }
 
     @Test
+    fun `bytes an earlier attempt committed are not written again`() = runTest {
+        fs.createFile(Staging).openWriter().use { it.write(offset = 0, bytes = "abc".toByteArray()) }
+        val upload = upload(size = 6, committed = 3, create = false)
+
+        upload.offer(chunk(offset = 0, bytes = "XYZ".toByteArray()))
+        upload.offer(chunk(offset = 3, bytes = "def".toByteArray()))
+        upload.await()
+
+        assertArrayEquals("abcdef".toByteArray(), fs.bytesAt(Staging))
+        assertTrue(upload.isWhole)
+        // The committed bytes are hashed from disk: the hasher of the earlier attempt is gone.
+        assertEquals(sha256("abcdef"), upload.hash().value)
+    }
+
+    @Test
+    fun `a resume with every byte already committed still has the whole hash`() = runTest {
+        fs.createFile(Staging).openWriter().use { it.write(offset = 0, bytes = "abc".toByteArray()) }
+        val upload = upload(size = 3, committed = 3, create = false)
+
+        upload.await()
+
+        assertEquals(sha256("abc"), upload.hash().value)
+    }
+
+    @Test
     fun `the session buffer is handed back once the bytes are on disk`() = runTest {
-        val upload = upload()
+        val upload = upload(size = 1024)
 
         upload.offer(chunk(offset = 0, bytes = ByteArray(1024)))
         upload.await()
@@ -117,7 +140,7 @@ class UploadContextTest {
     fun `a chunk that does not fit the session buffer is refused, not queued`() = runTest {
         // One byte short of the cap: any chunk at all overflows it.
         buffered.set(SessionContext.InFlightChunkBytesLimit - 1)
-        val upload = upload()
+        val upload = upload(size = 64)
 
         val accepted = upload.offer(chunk(offset = 0, bytes = ByteArray(64)))
 
@@ -125,64 +148,70 @@ class UploadContextTest {
         // Refusing must not eat the budget it briefly reserved, or the session starves itself.
         assertEquals(SessionContext.InFlightChunkBytesLimit - 1, buffered.get())
 
-        upload.abandon()
+        upload.close()
     }
 
     @Test
-    fun `abandoning drops the half-written file and frees the buffer`() = runTest {
-        val upload = upload()
+    fun `a flush syncs the descriptor and reports what is safe to record`() = runTest {
+        val upload = upload(size = 100)
+
+        upload.offer(chunk(offset = 0, bytes = "0123".toByteArray()))
+        upload.await()
+
+        assertEquals(4, upload.flush())
+        assertEquals(listOf(Staging), fs.synced)
+    }
+
+    @Test
+    fun `closing keeps the staged bytes and frees the buffer`() = runTest {
+        val upload = upload(size = 100)
 
         upload.offer(chunk(offset = 0, bytes = "partial".toByteArray()))
         upload.await()
-        upload.abandon()
+        upload.close()
 
-        assertTrue(fs.deleted.contains(Path))
-        assertNull(fs.bytesAt(Path))
+        assertArrayEquals("partial".toByteArray(), fs.bytesAt(Staging))
+        assertTrue(fs.deleted.isEmpty())
         assertEquals(0, buffered.get())
     }
 
     @Test
-    fun `an upload whose backend refuses the path fails instead of writing`() = runTest {
-        fs.rejectCreate = { path -> IllegalArgumentException("refused $path") }
-        val upload = upload()
+    fun `bytes whose write failed are handed back to the session buffer`() = runTest {
+        val upload = upload(size = 1)
+        fs.openFile(Staging)!!.delete()
 
         upload.offer(chunk(offset = 0, bytes = "x".toByteArray()))
 
-        val failure = runCatching { upload.await() }.exceptionOrNull()
-
-        assertTrue(failure is IllegalArgumentException)
-        assertTrue(fs.createdPaths.isEmpty())
+        assertTrue(runCatching { upload.await() }.isFailure)
+        assertEquals(0, buffered.get())
     }
 
-    @Test
-    fun `bytes whose write failed are handed back to the session buffer`() {
-        // TODO: they are not. `write()` takes a chunk out of `outOfOrder` before writing it, so a
-        //  failing write (a path the backend refuses, a full disk) loses the reservation: neither
-        //  the loop nor `release()` ever calls `give()` for it. Every failed chunk permanently
-        //  costs the session part of its 50 MiB budget, and enough of them starve it until the
-        //  peer reconnects. Give the bytes back on the failure path, then assert:
-        //  fs.rejectCreate = { IllegalArgumentException(it) }
-        //  upload.offer(chunk(0, "x".toByteArray())); runCatching { upload.await() }
-        //  assertEquals(0, buffered.get())
-    }
-
-    private fun upload(): UploadContext = UploadContext(
+    private suspend fun upload(
+        size: Long,
+        committed: Long = 0,
+        create: Boolean = fs.bytesAt(Staging) == null,
+    ): UploadContext {
+        val staged = if (create) fs.createFile(Staging) else fs.openFile(Staging)!!
+        return UploadContext(
         file = FileRecord(
             id = FileId(FileIdValue),
-            path = Path,
+            path = "dir/photo.jpg",
             locator = null,
             state = FileRecord.State.Present(),
             content = null,
-            metadata = FileRecord.Metadata(size = 0, lastModified = TestEpoch, version = null),
+            metadata = FileRecord.Metadata(size = size, lastModified = TestEpoch, version = null),
         ),
-        downloadPath = Path,
-        startedAt = TestEpoch,
         key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId),
         fs = fs,
+        staging = staged,
+        out = staged.openWriter(),
+        committed = committed,
+        startedAt = TestEpoch,
         buffered = buffered,
         progress = progress,
         scope = scope,
     )
+    }
 
     private fun chunk(offset: Long, bytes: ByteArray) = FileServerMessages.UploadChunk(
         sourceId = SourceId,
@@ -191,12 +220,12 @@ class UploadContextTest {
         bytes = bytes,
     )
 
-    private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+    private fun sha256(text: String): String =
+        MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
         const val SourceId = "source-1"
         const val FileIdValue = "file-1"
-        const val Path = "dir/photo.jpg"
+        const val Staging = "staging/data"
     }
 }

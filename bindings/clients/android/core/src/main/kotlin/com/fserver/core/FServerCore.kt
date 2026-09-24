@@ -2,6 +2,7 @@ package com.fserver.core
 
 import com.fserver.core.di.coreModule
 import com.fserver.core.files.FilesController
+import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DeviceReachability
@@ -11,6 +12,7 @@ import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.server.PeerRequestServer
+import com.fserver.core.sync.server.handler.upload.UploadStaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -133,6 +135,9 @@ class FServerCore private constructor(
                     )
                 )
             }.koin
+
+            // Uploads a previous process left staged and nobody came back for.
+            koin.get<GarbageCollector>().collectGarbageAsync()
 
             return FServerCore(
                 koin = koin,

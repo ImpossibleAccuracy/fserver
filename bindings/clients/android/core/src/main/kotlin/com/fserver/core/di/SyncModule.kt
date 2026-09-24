@@ -15,6 +15,7 @@ import com.fserver.core.sync.server.PeerRequestServer
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
+import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
@@ -45,6 +46,7 @@ internal val syncModule = module {
     singleOf(::SyncLeaseHandler)
     singleOf(::FileOperationHandler)
     singleOf(::FileUploadHandler)
+    singleOf(::UploadStaging)
 
     singleOf(::FileUploader)
     singleOf(::FileActionRunner)

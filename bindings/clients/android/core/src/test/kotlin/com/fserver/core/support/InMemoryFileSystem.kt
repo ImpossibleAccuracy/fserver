@@ -5,6 +5,7 @@ import com.fserver.common.task.ProgressTask
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.ScanProgress
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -21,6 +22,7 @@ internal class InMemoryFileSystem : FileSystem {
 
     val createdPaths: MutableList<String> = mutableListOf()
     val deleted: MutableList<String> = mutableListOf()
+    val synced: MutableList<String> = mutableListOf()
 
     /** Set to have [createFile] fail, the way a backend refuses a path outside its root. */
     var rejectCreate: ((String) -> Throwable?)? = null
@@ -46,6 +48,18 @@ internal class InMemoryFileSystem : FileSystem {
         return InMemoryFile(path)
     }
 
+    override suspend fun checkPath(path: String) {
+        rejectCreate?.invoke(path)?.let { throw it }
+    }
+
+    override suspend fun place(file: FsFile, path: String): FsFile {
+        checkPath(path)
+
+        files[path] = file.read().use { it.readBytes() }
+        file.delete()
+        return InMemoryFile(path)
+    }
+
     override suspend fun fileExists(path: String): Boolean = path in files
 
     override suspend fun openFile(locator: String): FsFile? =
@@ -55,13 +69,25 @@ internal class InMemoryFileSystem : FileSystem {
         override suspend fun read(): InputStream =
             ByteArrayInputStream(files[locator] ?: throw FileSystemException.InvalidPath(locator))
 
-        override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
-            val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
-            val end = (offset + length).toInt()
+        override suspend fun openWriter(): FsWriter {
+            if (locator !in files) throw FileSystemException.InvalidPath(locator)
 
-            val grown = if (current.size < end) current.copyOf(end) else current
-            bytes.copyInto(grown, destinationOffset = offset.toInt(), startIndex = 0, endIndex = length)
-            files[locator] = grown
+            return object : FsWriter {
+                override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
+                    val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+                    val end = (offset + length).toInt()
+
+                    val grown = if (current.size < end) current.copyOf(end) else current
+                    bytes.copyInto(grown, destinationOffset = offset.toInt(), startIndex = 0, endIndex = length)
+                    files[locator] = grown
+                }
+
+                override suspend fun sync() {
+                    synced += locator
+                }
+
+                override fun close() = Unit
+            }
         }
 
         override suspend fun rename(newName: String, deleteOldOnConflict: Boolean): FsFile {

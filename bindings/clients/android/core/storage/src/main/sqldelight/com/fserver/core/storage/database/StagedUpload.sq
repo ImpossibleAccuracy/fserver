@@ -1,0 +1,44 @@
+-- Uploads a peer has not finished pushing here, parked in staging. The server recalls one lazily,
+-- on the peer's next Init for the same file, and resumes from committedOffset.
+--
+-- Cascades with its source; the staging file it leaves is garbage collection's to find.
+CREATE TABLE stagedUpload (
+    sourceId            TEXT    NOT NULL REFERENCES source(id) ON DELETE CASCADE,
+    fileId              TEXT    NOT NULL,
+    deviceId            TEXT    NOT NULL,
+    locator             TEXT    NOT NULL,
+    -- What the peer said it sends. Another size or version is another file: start over.
+    size                INTEGER NOT NULL,
+    modifiedAtEpochMs   INTEGER NOT NULL,
+    versionHlc          INTEGER,
+    versionOrigin       TEXT,
+    committedOffset     INTEGER NOT NULL,
+    startedAtEpochMs    INTEGER NOT NULL,
+    touchedAtEpochMs    INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, fileId)
+);
+
+selectAll:
+SELECT *
+FROM stagedUpload;
+
+selectByKey:
+SELECT *
+FROM stagedUpload
+WHERE sourceId = ? AND fileId = ?;
+
+upsert:
+INSERT OR REPLACE INTO stagedUpload(
+    sourceId, fileId, deviceId, locator, size, modifiedAtEpochMs, versionHlc, versionOrigin,
+    committedOffset, startedAtEpochMs, touchedAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+checkpoint:
+UPDATE stagedUpload
+SET committedOffset = ?, touchedAtEpochMs = ?
+WHERE sourceId = ? AND fileId = ?;
+
+delete:
+DELETE FROM stagedUpload
+WHERE sourceId = ? AND fileId = ?;

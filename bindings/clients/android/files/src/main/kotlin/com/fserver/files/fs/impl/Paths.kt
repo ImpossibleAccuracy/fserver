@@ -26,6 +26,23 @@ internal fun segmentsOf(path: String): List<String> {
 internal fun nameOf(name: String): String =
     segmentsOf(name).singleOrNull() ?: throw FileSystemException.InvalidPath(name)
 
+/**
+ * Where [FileSystem.place] copies before renaming over the target: "photo.jpg" becomes
+ * "photo.fserver-part.jpg", so the extension stays last and a media backend takes the name.
+ */
+internal fun partNameOf(name: String): String {
+    val dot = name.lastIndexOf('.')
+    return if (dot <= 0) "$name$PartMarker" else "${name.substring(0, dot)}$PartMarker${name.substring(dot)}"
+}
+
+/** [path] with its name swapped for [partNameOf] it. */
+internal fun partPathOf(path: String): String {
+    val segments = segmentsOf(path)
+    return (segments.dropLast(1) + partNameOf(segments.last())).joinToString("/")
+}
+
+private const val PartMarker = ".fserver-part"
+
 /** Mime type guessed from [name]'s extension, so a provider keeps the name it was given. */
 internal fun mimeTypeOf(name: String): String =
     MimeTypeMap.getSingleton()

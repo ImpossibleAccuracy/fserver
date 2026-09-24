@@ -5,11 +5,12 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import com.fserver.common.exception.FileSystemException
+import com.fserver.files.fs.FsWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.nio.ByteBuffer
+import java.io.OutputStream
 
 // Byte I/O for files served by a ContentProvider: the same call for every provider, unlike
 // creating, renaming and deleting.
@@ -26,27 +27,22 @@ internal suspend fun readProviderFile(context: Context, uri: Uri): InputStream =
  * of a seekable descriptor cannot serve a transfer here at all.
  */
 @SuppressLint("Recycle")
-internal suspend fun writeProviderFile(
-    context: Context,
-    uri: Uri,
-    offset: Long,
-    bytes: ByteArray,
-    length: Int,
-): Unit = withContext(Dispatchers.IO) {
-    val descriptor = context.contentResolver.openFileDescriptor(uri, "rw")
-        ?: throw FileSystemException.InvalidPath(uri.toString())
+internal suspend fun openProviderWriter(context: Context, uri: Uri): FsWriter =
+    withContext(Dispatchers.IO) {
+        val descriptor = context.contentResolver.openFileDescriptor(uri, "rw")
+            ?: throw FileSystemException.InvalidPath(uri.toString())
 
-    descriptor.use { pfd ->
-        // Built from the descriptor, so the stream does not own it: only `pfd` closes the fd.
-        val channel = FileOutputStream(pfd.fileDescriptor).channel
-        val buffer = ByteBuffer.wrap(bytes, 0, length)
-        var written = 0L
-
-        while (buffer.hasRemaining()) {
-            written += channel.write(buffer, offset + written)
-        }
+        // Built from the descriptor, so the stream does not own it: only `descriptor` closes the fd.
+        ChannelWriter(FileOutputStream(descriptor.fileDescriptor).channel, onClose = descriptor::close)
     }
-}
+
+@SuppressLint("Recycle")
+internal suspend fun openProviderOutput(context: Context, uri: Uri): OutputStream =
+    withContext(Dispatchers.IO) {
+        // "wt": a plain "w" leaves the old tail behind on some providers.
+        context.contentResolver.openOutputStream(uri, "wt")
+            ?: throw FileSystemException.InvalidPath(uri.toString())
+    }
 
 internal fun Cursor.longOrZero(column: Int): Long =
     if (isNull(column)) 0L else getLong(column)

@@ -181,7 +181,7 @@ internal class PeerRequestServer(
         try {
             session.incoming.collect { event ->
                 if (event.message.isOrderSensitive()) {
-                    // Ordered on purpose: Init -> chunks -> UploadCompleted, and acquire -> release,
+                    // Ordered on purpose: Init -> chunks -> Complete, and acquire -> release,
                     // only mean anything in arrival order - dispatching them concurrently reorders
                     // them, and a release overtaking its acquire strands the lease until it expires.
                     handle(session, event, context)
@@ -203,8 +203,8 @@ internal class PeerRequestServer(
                 }
             }
         } finally {
-            // An upload the peer never finished is half a file that nothing will ever point at.
-            withContext(NonCancellable) { context.abandonAll() }
+            // An upload the peer never finished waits in staging for it to come back.
+            withContext(NonCancellable) { uploads.sessionEnded(context) }
         }
     }
 
@@ -252,9 +252,12 @@ internal class PeerRequestServer(
             is FileServerMessages.UploadChunk ->
                 uploads.queueChunk(message, context)
 
+            is FileServerMessages.Upload ->
+                uploads.handle(event, message, session, context)
+
             is FileServerMessages.OperationWithConfirmation.Request -> {
                 val result = runCatchingCancellable {
-                    runOperation(session, message.instance, context)
+                    runOperation(session, message.instance)
                 }
 
                 val reply = event.reply
@@ -288,12 +291,9 @@ internal class PeerRequestServer(
     private suspend fun runOperation(
         session: PeerSession<FileServerMessages>,
         operation: RemoteOperation,
-        context: SessionContext,
     ) {
         when (operation) {
             is RemoteOperation.File -> fileOperations.handle(session, operation)
-
-            is RemoteOperation.Upload -> uploads.handle(session, operation, context)
         }
     }
 
@@ -323,7 +323,7 @@ internal class PeerRequestServer(
     /** Messages that only mean anything in the order they were sent. */
     private fun FileServerMessages.isOrderSensitive(): Boolean = when (this) {
         is FileServerMessages.UploadChunk -> true
-        is FileServerMessages.OperationWithConfirmation.Request -> instance is RemoteOperation.Upload
+        is FileServerMessages.Upload -> true
         is FileServerMessages.AcquireSyncLease.Request -> true
         is FileServerMessages.AcquireSyncLease.ReleaseLease -> true
         else -> false

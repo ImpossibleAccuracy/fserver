@@ -103,8 +103,8 @@ class DirectoryFileSystemTest {
     fun `writes land at the offset they were given and read back whole`() = runTest {
         val file = fs.createFile("a.txt")
 
-        file.write(offset = 0, bytes = "hello ".toByteArray())
-        file.write(offset = 6, bytes = "world".toByteArray())
+        file.openWriter().use { it.write(offset = 0, bytes = "hello ".toByteArray()) }
+        file.openWriter().use { it.write(offset = 6, bytes = "world".toByteArray()) }
 
         assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
@@ -114,7 +114,7 @@ class DirectoryFileSystemTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
-            fs.openFile(target.absolutePath)!!.write(offset = 0, bytes = "overwritten".toByteArray())
+            fs.openFile(target.absolutePath)!!.openWriter().use { it.write(offset = 0, bytes = "overwritten".toByteArray()) }
         }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)

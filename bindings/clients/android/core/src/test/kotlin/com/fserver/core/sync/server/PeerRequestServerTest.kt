@@ -2,9 +2,9 @@ package com.fserver.core.sync.server
 
 import android.content.ContextWrapper
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
@@ -12,16 +12,17 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
+import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
@@ -70,9 +71,14 @@ class PeerRequestServerTest {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
-    private val node = FilesNode.create(ContextWrapper(null))
-    private val indexer =
+    private val node by lazy {
+        FilesNode.create(ContextWrapper(null), stagingDir = File(temp.root, "staging"))
+    }
+    private val indexer by lazy {
         LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
+    }
+    private val staging by lazy { UploadStaging(storage, node, clock) }
+    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background) }
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)
     private val incoming = FakeIncomingConnections()
@@ -148,18 +154,15 @@ class PeerRequestServerTest {
     }
 
     @Test
-    fun `a session that ends abandons the uploads it left half written`() = runTest {
+    fun `a session that ends parks its uploads in staging for the peer to resume`() = runTest {
         start()
         val session = connect()
         val replies = FakePeerSession.Replies()
 
         session.deliver(
-            FileServerMessages.OperationWithConfirmation.Request(
-                operationId = "op-1",
-                instance = RemoteOperation.Upload.Init(
-                    sourceId = SourceId,
-                    file = fileDto(id = FileIdValue, sourceId = SourceId, path = FileName),
-                ),
+            FileServerMessages.Upload.Init(
+                sourceId = SourceId,
+                file = fileDto(id = FileIdValue, sourceId = SourceId, path = FileName, size = 100),
             ),
             replies.channel,
         )
@@ -168,12 +171,14 @@ class PeerRequestServerTest {
         session.deliver(
             FileServerMessages.UploadChunk(SourceId, FileIdValue, 0, "half a file".toByteArray())
         )
-        awaitTrue { File(root, FileName).exists() }
+        val key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
+        awaitTrue { File(temp.root, "staging/$SourceId/$FileIdValue/data").length() == 11L }
 
         session.close()
 
-        // Nothing points at those bytes and nothing ever will: the next attempt starts at zero.
-        awaitTrue { !File(root, FileName).exists() }
+        // Flushed and recorded, so the next Init picks up from here; the source never saw a byte.
+        awaitTrue { storage.uploads.find(key)?.committedOffset == 11L }
+        assertTrue(root.listFiles().isNullOrEmpty())
     }
 
     @Test
@@ -229,7 +234,7 @@ class PeerRequestServerTest {
             sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock),
             fetchFiles = fetchFiles,
             publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
-            leases = SyncLeaseHandler(authorizer(), storage, registry),
+            leases = SyncLeaseHandler(authorizer(), storage, registry, garbageCollector),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),
                 storage = storage,
@@ -237,7 +242,7 @@ class PeerRequestServerTest {
                 localIndexer = indexer,
                 fileUploader = FileUploader(indexer, node, progress),
             ),
-            uploads = FileUploadHandler(authorizer(), storage, node, clock, progress),
+            uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress),
             devicesRepository = mockk(relaxed = true),
             requirementsChecker = FakeRequirementsChecker(),
             backgroundScope = background,

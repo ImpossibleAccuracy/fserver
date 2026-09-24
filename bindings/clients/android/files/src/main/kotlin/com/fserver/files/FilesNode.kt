@@ -5,6 +5,8 @@ import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
 import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FileSystemEntryPoint
+import com.fserver.files.fs.impl.local.DirectoryFileSystem
+import java.io.File
 
 /**
  * Entry point to `:files`. Build one per process and keep it.
@@ -15,14 +17,29 @@ import com.fserver.files.fs.FileSystemEntryPoint
  */
 class FilesNode private constructor(
     private val context: Context,
+    private val stagingDir: File?,
 ) {
     private val fileSystem: FileSystemEntryPoint by lazy { FileSystemEntryPoint(context) }
 
+    private val staging: FileSystem by lazy {
+        DirectoryFileSystem.staging(stagingDir ?: File(context.cacheDir, StagingDirectory))
+    }
+
     fun openSource(source: FileSystemSource): FileSystem = fileSystem.open(source)
 
+    /**
+     * App-private scratch space for bytes on their way into a source. It is cache: the system may
+     * clear it under storage pressure, so nothing here may be the only copy of anything.
+     */
+    fun openStaging(): FileSystem = staging
+
     companion object {
-        fun create(context: Context): FilesNode = FilesNode(
+        private const val StagingDirectory = "downloads"
+
+        /** @param stagingDir overrides `cacheDir/downloads` for [openStaging]. */
+        fun create(context: Context, stagingDir: File? = null): FilesNode = FilesNode(
             context = context,
+            stagingDir = stagingDir,
         )
     }
 }

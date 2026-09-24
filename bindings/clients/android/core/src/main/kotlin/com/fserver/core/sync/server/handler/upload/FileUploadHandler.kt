@@ -3,9 +3,10 @@ package com.fserver.core.sync.server.handler.upload
 import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.StageTimer
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
@@ -22,68 +23,42 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /**
- * Receives a file the peer pushes: `Upload.Init`, then chunks, then `Upload.UploadCompleted`.
+ * Receives a file the peer pushes: [Upload.Init], then chunks, then [Upload.Complete].
  *
- * The bytes never touch this class - it opens an [UploadContext] per file and lets that write them
- * off the session collector. See [SessionContext] for why.
+ * Chunks land in [UploadStaging], not in the source: the source's backend is touched once, when
+ * the file is whole. The bytes never touch this class - it opens an [UploadContext] per file and
+ * lets that write them off the session collector. See [SessionContext] for why.
  */
 internal class FileUploadHandler(
     private val authorizer: SourceAuthorizer,
     private val storage: FServerStorage,
     private val node: FilesNode,
+    private val staging: UploadStaging,
     private val timeProvider: TimeProvider,
     private val progress: SyncProgressReporter,
 ) {
     suspend fun handle(
+        event: PeerSession.Inbound<FileServerMessages>,
+        message: Upload,
         session: PeerSession<FileServerMessages>,
-        operation: RemoteOperation.Upload,
         context: SessionContext,
     ) {
-        when (operation) {
-            is RemoteOperation.Upload.Init -> {
-                val source = authorizer.authorizedSource(session.identity, operation.sourceId)
-                val now = timeProvider.now()
-
-                // Nothing else clears an upload whose sender stopped mid-stream.
-                context.pruneStaleUploads(now)
-
-                val upload = context.start(
-                    source = source,
-                    file = operation.file.toFileRecord(),
-                    fs = node.openSource(source.location.toFiles()),
-                    startedAt = now,
-                    progress = progress,
+        val answer = runCatchingCancellable { answer(session, message, context) }
+            .getOrElse { t ->
+                Timber.w(
+                    t,
+                    "Upload ${message::class.simpleName} for ${message.key} from ${session.identity.deviceId} failed"
                 )
-
-                progress.transferStarted(
-                    key = upload.transferKey,
-                    path = operation.file.path,
-                    totalBytes = operation.file.metadata.size
-                )
-
-                // TODO: lock file on disk, so no one can edit/delete it
-
-                Timber.i("Upload started for ${operation.file.id} from source ${source.id} by peer ${session.identity.deviceId}")
+                Upload.Failed(key = message.key, reason = t.message ?: "Unknown error")
             }
 
-            is RemoteOperation.Upload.UploadCompleted -> {
-                val source = authorizer.authorizedSource(session.identity, operation.key.sourceId)
-
-                val upload = context.uploads.remove(operation.key)
-                    ?: throw TransferException.UploadNotFoundException(operation.key.fileId)
-
-                try {
-                    finish(operation, source, upload)
-                    Timber.i("Upload completed for ${operation.key.fileId} from source ${source.id} by peer ${session.identity.deviceId}")
-                } catch (e: Throwable) {
-                    // Nothing points at these bytes, and the next attempt starts from zero.
-                    // TODO: once rename ran, the locator abandon() deletes may be the finished
-                    //  file - a backend that keeps it through a rename (SAF, MediaStore) loses it here
-                    withContext(NonCancellable) { upload.abandon() }
-                    throw e
-                }
-            }
+        val reply = event.reply
+        if (reply == null) {
+            Timber.w("Cannot answer ${message::class.simpleName} from ${session.identity.deviceId}: no reply channel")
+            return
         }
+
+        reply(answer)
     }
 
     fun queueChunk(
@@ -113,9 +88,119 @@ internal class FileUploadHandler(
         )
     }
 
-    /** Waits for the bytes to land, checks them against what the peer promised, then indexes them. */
+    /** The session is gone: its uploads wait in staging for the peer to come back. */
+    suspend fun sessionEnded(context: SessionContext) {
+        context.parkAll(staging)
+    }
+
+    private suspend fun answer(
+        session: PeerSession<FileServerMessages>,
+        message: Upload,
+        context: SessionContext,
+    ): Upload = when (message) {
+        is FileServerMessages.Response ->
+            throw IllegalStateException("Cannot answer a response: $message")
+
+        is Upload.Init -> init(session, message, context)
+        is Upload.Status -> status(session, message, context)
+        is Upload.Complete -> complete(session, message, context)
+    }
+
+    private suspend fun init(
+        session: PeerSession<FileServerMessages>,
+        message: Upload.Init,
+        context: SessionContext,
+    ): Upload {
+        val source = authorizer.authorizedSource(session.identity, message.sourceId)
+        val now = timeProvider.now()
+
+        // Nothing else parks an upload whose sender stopped mid-stream.
+        context.pruneStaleUploads(now, staging)
+
+        val file = message.file.toFileRecord()
+        val fs = node.openSource(source.location.toFiles())
+
+        // Refused before anything is staged, not once it all arrived.
+        fs.checkPath(file.path)
+
+        val upload = context.start(
+            source = source,
+            file = file,
+            deviceId = session.identity.deviceId,
+            fs = fs,
+            staging = staging,
+            startedAt = now,
+            progress = progress,
+        )
+
+        progress.transferStarted(
+            key = upload.transferKey,
+            path = file.path,
+            totalBytes = file.metadata.size,
+        )
+
+        if (upload.prefix > 0) progress.transferAdvanced(upload.transferKey, upload.prefix)
+
+        Timber.i("Upload of ${file.id} into source ${source.id} by peer ${session.identity.deviceId} starts at ${upload.prefix}")
+
+        return Upload.Received(key = upload.key, offset = upload.prefix)
+    }
+
+    /** A checkpoint: the answer is what survives a crash from here on. */
+    private suspend fun status(
+        session: PeerSession<FileServerMessages>,
+        message: Upload.Status,
+        context: SessionContext,
+    ): Upload {
+        authorizer.authorizedSource(session.identity, message.key.sourceId)
+
+        val upload = context.uploads[message.key]
+            ?: throw TransferException.UploadNotFoundException(message.key.fileId)
+
+        // A dead writer takes no more chunks: the sender Inits again, which parks this one.
+        upload.failure?.let { throw it }
+
+        val offset = upload.flush()
+        staging.checkpoint(upload.key, offset)
+
+        return Upload.Received(key = upload.key, offset = offset)
+    }
+
+    private suspend fun complete(
+        session: PeerSession<FileServerMessages>,
+        message: Upload.Complete,
+        context: SessionContext,
+    ): Upload {
+        val source = authorizer.authorizedSource(session.identity, message.key.sourceId)
+
+        val upload = context.uploads.remove(message.key)
+            ?: throw TransferException.UploadNotFoundException(message.key.fileId)
+
+        val written = runCatchingCancellable { upload.await() }
+
+        // Refused chunks, or a writer that died: park what arrived, the sender Inits again.
+        if (written.isFailure || !upload.isWhole) {
+            withContext(NonCancellable) { park(upload, staging) }
+            written.exceptionOrNull()?.let { throw it }
+
+            return Upload.Received(key = upload.key, offset = upload.prefix)
+        }
+
+        try {
+            finish(message, source, upload)
+        } catch (e: Throwable) {
+            progress.transferFailed(upload.transferKey, e)
+            throw e
+        }
+
+        Timber.i("Upload completed for ${message.key.fileId} from source ${source.id} by peer ${session.identity.deviceId}")
+
+        return Upload.Completed(upload.key)
+    }
+
+    /** Checks the staged bytes against the hash, places them in the source, then indexes them. */
     private suspend fun finish(
-        operation: RemoteOperation.Upload.UploadCompleted,
+        message: Upload.Complete,
         source: SourceEntry,
         upload: UploadContext,
     ) {
@@ -123,39 +208,34 @@ internal class FileUploadHandler(
         // every part of it is counted.
         val timer = StageTimer("finish ${upload.file.id}")
 
-        // Wait rest of the chunks to arrive
-        timer.time("await-chunks") { upload.await() }
+        // Whole and flushed: a placement that fails is retried without a byte resent.
+        timer.time("flush") { staging.checkpoint(upload.key, upload.flush()) }
+        upload.stop()
 
-        val written = upload.target // Set when chunks are written to disk
-            ?: throw TransferException.FileNotFoundException("No bytes written for ${operation.key.fileId} in source ${source.id}")
+        val computedHash = upload.hash()
 
-        val computedHash = timer.time("hash-compute") { upload.hasher.compute() }
-
-        if (operation.hash != computedHash.value || operation.algorithm != computedHash.algorithm) {
+        if (message.hash != computedHash.value || message.algorithm != computedHash.algorithm) {
             // File was corrupted in transit, or the peer sent the wrong hash.
-            // Either way, we cannot trust it.
+            // Either way, we cannot trust it, and nothing staged is worth resuming.
+            withContext(NonCancellable) { staging.discard(upload.key, upload.staging.locator) }
+
             throw TransferException.UploadHashMismatchException(
-                expectedHash = operation.hash,
+                expectedHash = message.hash,
                 actualHash = computedHash.value,
             )
         }
 
-        val result = if (upload.isDownloadingToTempFile) {
-            timer.time("rename") {
-                val filename = upload.file.path.substringAfterLast('/')
+        // A failed placement keeps staging and its row, so the next attempt only places again.
+        val result = timer.time("place") { upload.fs.place(upload.staging, upload.file.path) }
 
-                written.rename(newName = filename, deleteOldOnConflict = true)
-            }
-        } else {
-            written
-        }
+        staging.discard(upload.key, locator = null)
 
         // Recorded as the disk reports it, or the next scan reads a mismatch as a local edit.
         val modifiedAt = timer.time("settle-mtime") {
             result.settleLastModified(upload.file.metadata.lastModified)
         }
 
-        val saved = timer.time("index-lookup") { storage.index.findFile(operation.key) }
+        val saved = timer.time("index-lookup") { storage.index.findFile(message.key) }
 
         val indexed = upload.file
             .copy(content = computedHash)

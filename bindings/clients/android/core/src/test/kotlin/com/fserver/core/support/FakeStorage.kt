@@ -16,12 +16,14 @@ import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
+import com.fserver.core.store.sync.UploadStagingStore
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
+import com.fserver.core.sync.model.StagedUpload
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.setup.IncomingSourceRequest
@@ -54,6 +56,7 @@ internal class FakeStorage(
     override val sources: FakeSourcesStore = FakeSourcesStore(clock, index)
     override val sourceRequests: FakeSourceRequestsStore = FakeSourceRequestsStore()
     override val preferences: FakeSyncStore = FakeSyncStore()
+    override val uploads: FakeUploadStagingStore = FakeUploadStagingStore()
 }
 
 @OptIn(FServerStorageApi::class)
@@ -279,5 +282,26 @@ internal class FakeSyncStore : SyncStore {
 
     override suspend fun saveClock(timestamp: HlcTimestamp) {
         clock = timestamp
+    }
+}
+
+@OptIn(FServerStorageApi::class)
+internal class FakeUploadStagingStore : UploadStagingStore {
+    private val rows = linkedMapOf<IndexedFileKey, StagedUpload>()
+
+    override suspend fun all(): List<StagedUpload> = rows.values.toList()
+
+    override suspend fun find(key: IndexedFileKey): StagedUpload? = rows[key]
+
+    override suspend fun upsert(upload: StagedUpload) {
+        rows[IndexedFileKey(fileId = upload.fileId, sourceId = upload.sourceId)] = upload
+    }
+
+    override suspend fun checkpoint(key: IndexedFileKey, offset: Long, at: Instant) {
+        rows[key]?.let { rows[key] = it.copy(committedOffset = offset, touchedAt = at) }
+    }
+
+    override suspend fun delete(key: IndexedFileKey) {
+        rows.remove(key)
     }
 }

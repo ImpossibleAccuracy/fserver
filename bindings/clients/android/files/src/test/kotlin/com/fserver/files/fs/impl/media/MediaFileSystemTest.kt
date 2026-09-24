@@ -1,5 +1,6 @@
 package com.fserver.files.fs.impl.media
 
+import com.fserver.files.fs.impl.BytesFile
 import android.content.Context
 import android.provider.MediaStore
 import androidx.core.net.toUri
@@ -97,8 +98,8 @@ class MediaFileSystemTest {
         val file = create("a.jpg")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        file.write(offset = 6, bytes = "world".toByteArray())
-        file.write(offset = 0, bytes = "hello ".toByteArray())
+        file.openWriter().use { it.write(offset = 6, bytes = "world".toByteArray()) }
+        file.openWriter().use { it.write(offset = 0, bytes = "hello ".toByteArray()) }
 
         assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
@@ -107,7 +108,7 @@ class MediaFileSystemTest {
     fun `only the requested length of a chunk is written`() = runTest {
         val file = create("a.jpg")
 
-        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.openWriter().use { it.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3) }
 
         assertEquals("abc", file.read().use { String(it.readBytes()) })
     }
@@ -197,6 +198,19 @@ class MediaFileSystemTest {
             .exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
+    }
+
+    @Test
+    fun `a placed file takes the name of the row it replaces`() = runTest {
+        val old = create("a.jpg")
+        val staged = BytesFile("new")
+
+        val placed = fs.place(staged, pathOf("a.jpg"))
+
+        assertEquals("a.jpg", read(placed.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("new", placed.read().use { String(it.readBytes()) })
+        assertEquals(null, fs.openFile(old.locator))
+        assertTrue(staged.deleted)
     }
 
     private suspend fun create(name: String): FsFile = fs.createFile(pathOf(name))

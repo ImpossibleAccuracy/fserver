@@ -162,8 +162,9 @@ private fun TransferException.toAppError(): AppError = when (this) {
     is TransferException.UploadNotFoundException,
         -> AppError(UiText.of(R.string.error_file_missing))
 
-    is TransferException.UploadHashMismatchException ->
-        AppError(UiText.of(R.string.error_transfer_corrupted))
+    is TransferException.UploadHashMismatchException,
+    is TransferException.ChunkOutOfBoundsException,
+        -> AppError(UiText.of(R.string.error_transfer_corrupted))
 
     is TransferException.TooManyUploadsException,
     is TransferException.PendingChunksOverflowException,
@@ -176,5 +177,7 @@ private fun FileSystemException.toAppError(): AppError = when (this) {
         -> AppError(UiText.of(R.string.error_path_invalid))
 
     is FileSystemException.AlreadyExists -> AppError(UiText.of(R.string.error_file_exists))
-    is FileSystemException.CreationFailed -> AppError(UiText.of(R.string.error_file_create_failed))
+    is FileSystemException.CreationFailed,
+    is FileSystemException.RenameRejected,
+        -> AppError(UiText.of(R.string.error_file_create_failed))
 }

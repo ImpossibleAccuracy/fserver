@@ -115,8 +115,8 @@ class RootFileSystemTest {
         val file = fs.createFile("primary/a.txt")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        file.write(offset = 6, bytes = "world".toByteArray())
-        file.write(offset = 0, bytes = "hello ".toByteArray())
+        file.openWriter().use { it.write(offset = 6, bytes = "world".toByteArray()) }
+        file.openWriter().use { it.write(offset = 0, bytes = "hello ".toByteArray()) }
 
         assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
@@ -125,7 +125,7 @@ class RootFileSystemTest {
     fun `only the requested length of a chunk is written`() = runTest {
         val file = fs.createFile("primary/a.txt")
 
-        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.openWriter().use { it.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3) }
 
         assertEquals("abc", File(file.locator).readText())
     }
@@ -151,7 +151,7 @@ class RootFileSystemTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
-            fs.openFile(target.absolutePath)!!.write(offset = 0, bytes = "overwritten".toByteArray())
+            fs.openFile(target.absolutePath)!!.openWriter().use { it.write(offset = 0, bytes = "overwritten".toByteArray()) }
         }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)

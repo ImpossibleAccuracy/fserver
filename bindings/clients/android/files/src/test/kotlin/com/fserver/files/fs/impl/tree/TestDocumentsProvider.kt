@@ -93,6 +93,28 @@ class TestDocumentsProvider : DocumentsProvider() {
         if (!fileOf(documentId).deleteRecursively()) throw FileNotFoundException(documentId)
     }
 
+    /** A name already taken is refused, as a provider that does not pick a free one would. */
+    override fun renameDocument(documentId: String, displayName: String): String {
+        val file = fileOf(documentId)
+        val target = File(file.parentFile, displayName)
+
+        if (target.exists() || !file.renameTo(target)) throw FileNotFoundException(displayName)
+
+        return documentIdOf(target)
+    }
+
+    /** Ids from [parentDocumentId] - or the root - down to the document; what `TreeFile` finds a parent by. */
+    override fun findDocumentPath(parentDocumentId: String?, childDocumentId: String): DocumentsContract.Path {
+        val ids = generateSequence(fileOf(childDocumentId)) { if (it == root) null else it.parentFile }
+            .map(::documentIdOf)
+            .toList()
+            .reversed()
+
+        val from = parentDocumentId?.let { ids.indexOf(it).coerceAtLeast(0) } ?: 0
+
+        return DocumentsContract.Path(if (parentDocumentId == null) RootDocumentId else null, ids.drop(from))
+    }
+
     override fun openDocument(
         documentId: String,
         mode: String,
@@ -147,6 +169,7 @@ class TestDocumentsProvider : DocumentsProvider() {
 
         private const val DocumentFlags = DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE or
             DocumentsContract.Document.FLAG_SUPPORTS_DELETE or
+            DocumentsContract.Document.FLAG_SUPPORTS_RENAME or
             DocumentsContract.Document.FLAG_SUPPORTS_WRITE
 
         private val DefaultRootProjection = arrayOf(

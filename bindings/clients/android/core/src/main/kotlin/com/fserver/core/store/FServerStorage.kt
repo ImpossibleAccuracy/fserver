@@ -8,6 +8,7 @@ import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
+import com.fserver.core.store.sync.UploadStagingStore
 
 /**
  * Everything the engine persists, handed in by the host.
@@ -34,6 +35,9 @@ interface FServerStorage {
 
     /** Sources a peer asked this device to host, until its user answers. */
     val sourceRequests: SourceRequestsStore
+
+    /** Uploads a peer has not finished pushing here. */
+    val uploads: UploadStagingStore
 
     /** Sync settings shared by every source. */
     val preferences: SyncStore

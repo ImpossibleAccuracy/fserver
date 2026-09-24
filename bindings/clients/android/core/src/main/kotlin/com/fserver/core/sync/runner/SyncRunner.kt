@@ -2,6 +2,7 @@ package com.fserver.core.sync.runner
 
 import com.fserver.common.exception.SyncException
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
@@ -10,6 +11,7 @@ import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.files.upload.FileAction
@@ -37,6 +39,7 @@ internal class SyncRunner(
     private val constraintChecker: DeviceConstraintChecker,
     private val leaseNegotiator: SyncLeaseNegotiator,
     private val progress: SyncProgressReporter,
+    private val garbageCollector: GarbageCollector,
     private val backgroundScope: BackgroundScope,
 ) {
     private val mutex = Mutex()
@@ -88,6 +91,8 @@ internal class SyncRunner(
                 Timber.e(e, "Source pass failed for ${source.id}")
             }
         }
+
+        garbageCollector.collectGarbageAsync()
     }
 
     /** One source, under a lease the peer agreed to. */

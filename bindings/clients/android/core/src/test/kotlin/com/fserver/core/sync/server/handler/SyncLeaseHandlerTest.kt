@@ -11,6 +11,7 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.net.session.PeerSession
+import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertNotNull
@@ -30,7 +31,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry)
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, mockk(relaxed = true))
 
     @Before
     fun setUp() = runBlocking {

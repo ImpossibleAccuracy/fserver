@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server.handler
 
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.lease.SyncLeaseRegistry
@@ -15,6 +16,7 @@ internal class SyncLeaseHandler(
     private val authorizer: SourceAuthorizer,
     private val storage: FServerStorage,
     private val leaseRegistry: SyncLeaseRegistry,
+    private val garbageCollector: GarbageCollector,
 ) {
     suspend fun answer(
         event: PeerSession.Inbound<FileServerMessages>,
@@ -91,6 +93,8 @@ internal class SyncLeaseHandler(
             leaseId = message.leaseId,
             failure = message.failure,
         )
+
+        garbageCollector.collectGarbageAsync()
     }
 
     /** How a refusal reaches the peer: [ResolvedIncomingSource.Gone] is final, everything else is "not now". */

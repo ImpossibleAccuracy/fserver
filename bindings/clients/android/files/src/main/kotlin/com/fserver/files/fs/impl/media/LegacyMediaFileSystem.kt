@@ -1,5 +1,6 @@
 package com.fserver.files.fs.impl.media
 
+import com.fserver.files.fs.impl.local.placeLocal
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.os.Environment
@@ -49,6 +50,13 @@ internal class LegacyMediaFileSystem(
 
     override suspend fun createFile(path: String): FsFile =
         open(createLocalFile(resolve(path), path, ::onFileChanged))
+
+    override suspend fun checkPath(path: String) {
+        resolve(path)
+    }
+
+    override suspend fun place(file: FsFile, path: String): FsFile =
+        placeLocal(file, resolve(path), ::open, ::onFileChanged)
 
     override suspend fun fileExists(path: String): Boolean {
         val file = resolve(path)

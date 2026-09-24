@@ -140,6 +140,20 @@ class FileOperationHandlerTest {
     }
 
     @Test
+    fun `a download the peer already holds part of resumes from there, hashing the whole file`() = runTest {
+        val resuming = session(OwnerId, resumeFrom = 5)
+
+        handler.handle(resuming, RemoteOperation.File.Download(key()))
+
+        val chunks = resuming.sent.filterIsInstance<FileServerMessages.UploadChunk>()
+        val complete = resuming.requested.filterIsInstance<FileServerMessages.Upload.Complete>().single()
+
+        assertEquals(5L, chunks.first().offset)
+        assertEquals(Contents.substring(5), String(chunks.fold(ByteArray(0)) { acc, c -> acc + c.bytes }))
+        assertEquals(sha256(Contents.toByteArray()), complete.hash)
+    }
+
+    @Test
     fun `a download for the paired device streams the file back`() = runTest {
         handler.handle(owner, RemoteOperation.File.Download(key()))
 
@@ -167,11 +181,18 @@ class FileOperationHandlerTest {
 
     private fun key() = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
 
-    private fun session(deviceId: String) = FakePeerSession(
+    /** A peer that takes every upload, holding [resumeFrom] bytes of it before the first chunk. */
+    private fun session(deviceId: String, resumeFrom: Long = 0) = FakePeerSession(
         identity = peerIdentity(deviceId),
         responder = { message ->
-            (message as? FileServerMessages.OperationWithConfirmation.Request)?.let {
-                FileServerMessages.OperationWithConfirmation.Completed(it.operationId)
+            when (message) {
+                is FileServerMessages.OperationWithConfirmation.Request ->
+                    FileServerMessages.OperationWithConfirmation.Completed(message.operationId)
+
+                is FileServerMessages.Upload.Init -> FileServerMessages.Upload.Received(message.key, resumeFrom)
+                is FileServerMessages.Upload.Status -> FileServerMessages.Upload.Received(message.key, resumeFrom)
+                is FileServerMessages.Upload.Complete -> FileServerMessages.Upload.Completed(message.key)
+                else -> null
             }
         },
     )

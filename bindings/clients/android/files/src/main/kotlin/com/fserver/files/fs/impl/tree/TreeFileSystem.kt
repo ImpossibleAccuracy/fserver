@@ -1,5 +1,7 @@
 package com.fserver.files.fs.impl.tree
 
+import com.fserver.files.fs.impl.placeByCopy
+import com.fserver.files.fs.impl.partPathOf
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -151,6 +153,17 @@ internal class TreeFileSystem(
         ) ?: throw FileSystemException.CreationFailed(path)
 
         TreeFile(context, created)
+    }
+
+    override suspend fun checkPath(path: String) {
+        segmentsOf(path)
+    }
+
+    /** Copied into a part beside the target, then renamed over it - [TreeFile.rename] keeps the old one aside until then. */
+    override suspend fun place(file: FsFile, path: String): FsFile {
+        val part = createFile(partPathOf(path)) as TreeFile
+
+        return placeByCopy(file, part) { it.rename(segmentsOf(path).last(), deleteOldOnConflict = true) }
     }
 
     override suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) {

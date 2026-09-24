@@ -21,13 +21,6 @@ internal class SessionContext(val scope: CoroutineScope) {
 
     val collector = StageTimer("session-collector")
 
-    /** Drops every upload still open, and the half-written files they left behind. */
-    suspend fun abandonAll() {
-        val open = uploads.values.toList()
-        uploads.clear()
-        open.forEach { it.abandon() }
-    }
-
     companion object {
         /** Uploads one peer may have open at once. Each holds a writer and a file of its own. */
         const val MaxConcurrentUploads = 8

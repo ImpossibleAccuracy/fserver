@@ -14,6 +14,10 @@ class FileHasher(val algorithm: String = HASH_ALGORITHM) {
         digest.update(data, 0, bytesRead)
     }
 
+    fun write(data: ByteArray, offset: Int, length: Int) {
+        digest.update(data, offset, length)
+    }
+
     fun compute(): ContentHash {
         val hash = digest.digest().joinToString("") { "%02x".format(it) }
 

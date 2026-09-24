@@ -1,5 +1,6 @@
 package com.fserver.files.fs.impl.tree
 
+import com.fserver.files.fs.impl.BytesFile
 import android.content.Context
 import android.provider.DocumentsContract
 import com.fserver.common.exception.FileSystemException
@@ -41,6 +42,19 @@ class TreeFileSystemTest {
             context = context,
             source = FileSystemSource.Tree(TestDocumentsProvider.treeUri().toString()),
         )
+    }
+
+    @Test
+    fun `a placed file replaces the one at its path, and no part is left behind`() = runTest {
+        File(root, "photos").mkdirs()
+        File(root, "photos/a.txt").writeText("old")
+        val staged = BytesFile("new")
+
+        fs.place(staged, "photos/a.txt")
+
+        assertEquals("new", File(root, "photos/a.txt").readText())
+        assertEquals(listOf("a.txt"), File(root, "photos").list()!!.toList())
+        assertTrue(staged.deleted)
     }
 
     @After
@@ -160,8 +174,8 @@ class TreeFileSystemTest {
         val file = fs.createFile("a.txt")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        file.write(offset = 6, bytes = "world".toByteArray())
-        file.write(offset = 0, bytes = "hello ".toByteArray())
+        file.openWriter().use { it.write(offset = 6, bytes = "world".toByteArray()) }
+        file.openWriter().use { it.write(offset = 0, bytes = "hello ".toByteArray()) }
 
         assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
@@ -170,7 +184,7 @@ class TreeFileSystemTest {
     fun `only the requested length of a chunk is written`() = runTest {
         val file = fs.createFile("a.txt")
 
-        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.openWriter().use { it.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3) }
 
         assertEquals("abc", File(root, "a.txt").readText())
     }

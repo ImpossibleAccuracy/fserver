@@ -30,6 +30,13 @@ internal class RootFileSystem(
     override suspend fun createFile(path: String): FsFile =
         open(createLocalFile(resolve(path), path))
 
+    override suspend fun checkPath(path: String) {
+        resolve(path)
+    }
+
+    override suspend fun place(file: FsFile, path: String): FsFile =
+        placeLocal(file, resolve(path), ::open)
+
     override suspend fun fileExists(path: String): Boolean {
         val file = resolve(path)
 

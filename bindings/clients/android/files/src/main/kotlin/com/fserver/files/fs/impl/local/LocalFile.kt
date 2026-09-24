@@ -2,17 +2,24 @@ package com.fserver.files.fs.impl.local
 
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.impl.StreamTarget
+import com.fserver.files.fs.impl.ChannelWriter
 import com.fserver.files.fs.impl.nameOf
+import com.fserver.files.fs.impl.partNameOf
+import com.fserver.files.fs.impl.placeByCopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.io.RandomAccessFile
 import kotlin.time.Instant
 
 /** A file served by [File], where the locator is an absolute path. */
 internal class LocalFile(
-    private val file: File,
+    internal val file: File,
     /**
      * owning source's bound - what a locator may reach is the whole security boundary
      * for these backends, and a rename target must stay inside it too.
@@ -23,23 +30,25 @@ internal class LocalFile(
      * write does not report, since a chunk is not a change anything outside this source can see yet.
      */
     private val onChanged: (File) -> Unit = {},
-) : FsFile {
+) : FsFile, StreamTarget {
     override val locator: String = file.absolutePath
 
     override suspend fun read(): InputStream = withContext(Dispatchers.IO) {
         file.inputStream()
     }
 
-    override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
+    override suspend fun openWriter(): FsWriter {
         if (!file.isFile) throw FileSystemException.InvalidPath(locator)
 
-        withContext(Dispatchers.IO) {
-            RandomAccessFile(file, "rw").use { ra ->
-                ra.seek(offset)
-                ra.write(bytes, 0, length)
-            }
-        }
+        return withContext(Dispatchers.IO) { ChannelWriter(RandomAccessFile(file, "rw").channel) }
     }
+
+    /** Creates the file when it is missing: [placeLocal] copies into a part that is not there yet. */
+    override suspend fun openOutput(): OutputStream =
+        withContext(Dispatchers.IO) { FileOutputStream(file) }
+
+    /** Tells the owning source this file was renamed away by [placeLocal]. */
+    internal fun movedAway() = onChanged(file)
 
     override suspend fun rename(newName: String, deleteOldOnConflict: Boolean): FsFile {
         val target = confine(File(file.parentFile, nameOf(newName)).path)
@@ -78,6 +87,45 @@ internal class LocalFile(
             file.setLastModified(time.toEpochMilliseconds())
             Instant.fromEpochMilliseconds(file.lastModified())
         }
+    }
+}
+
+/**
+ * [com.fserver.files.fs.FileSystem.place] for the local backends: rename(2) onto [target], which
+ * replaces whatever is there in one step. Across mounts - app storage to `/storage/...` - that is
+ * `EXDEV`, so the bytes are copied beside [target] and renamed over it instead.
+ *
+ * @param target already resolved and confined by the owning source
+ * @param open wraps a file of the owning source; [onChanged] is what that source runs on a change
+ */
+internal suspend fun placeLocal(
+    file: FsFile,
+    target: File,
+    open: (File) -> FsFile,
+    onChanged: (File) -> Unit = {},
+): FsFile {
+    val renamed = withContext(Dispatchers.IO) {
+        if (target.isDirectory) throw FileSystemException.InvalidPath(target.path)
+        target.parentFile?.mkdirs()
+
+        file is LocalFile && file.file.renameTo(target)
+    }
+
+    if (renamed) {
+        (file as LocalFile).movedAway()
+        onChanged(target)
+        return open(target)
+    }
+
+    val part = File(target.parentFile, partNameOf(target.name))
+
+    return placeByCopy(file, LocalFile(part, { File(it) })) {
+        withContext(Dispatchers.IO) {
+            if (!part.renameTo(target)) throw FileSystemException.RenameRejected(part.path, target.name)
+        }
+
+        onChanged(target)
+        open(target)
     }
 }
 

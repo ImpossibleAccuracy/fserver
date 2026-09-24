@@ -1,22 +1,23 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
-import com.fserver.common.utils.StageTimer
 import com.fserver.common.model.ContentHash
+import com.fserver.common.utils.StageTimer
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
 import com.fserver.core.network.dictionary.dto.toDto
-import com.fserver.core.network.utils.runRemoteOperation
-
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.runner.FileUploader.Companion.MinChunkSize
 import com.fserver.files.FilesNode
+import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
 import com.fserver.net.session.PeerSession
@@ -24,9 +25,12 @@ import timber.log.Timber
 import java.io.InputStream
 
 /**
- * Streams one local file to the peer: [RemoteOperation.Upload.Init], chunks, then
- * [RemoteOperation.Upload.UploadCompleted] with the hash. Split out of [FileActionRunner] because it
- * is the one action with a multi-message protocol of its own.
+ * Streams one local file to the peer: [Upload.Init], chunks, then [Upload.Complete] with the hash.
+ * Split out of [FileActionRunner] because it is the one action with a multi-message protocol of its
+ * own.
+ *
+ * The receiver stages what arrives and answers every step with how far it got, so a dropped
+ * upload resumes from there instead of starting over - within this call, and across passes.
  */
 internal class FileUploader(
     private val localIndexer: LocalChangesIndexer,
@@ -75,118 +79,263 @@ internal class FileUploader(
         // to tell is to count. See StageTimer.enabled to take it back out.
         val timer = StageTimer("upload ${file.id}")
 
-        // Run as operation to confirm that the peer is ready to receive the file
-        timer.time("init-rtt") {
-            session.runRemoteOperation(
-                operation = RemoteOperation.Upload.Init(
-                    sourceId = source.id,
-                    file = file.toDto(
-                        sourceId = source.id,
-                        version = version,
-                    ),
-                )
-            )
-        }
-
-        progress.transferStarted(key, file.path, file.metadata.size)
+        val uploadKey = IndexedFileKey(fileId = file.id.value, sourceId = source.id)
+        val init = Upload.Init(
+            sourceId = source.id,
+            file = file.toDto(
+                sourceId = source.id,
+                version = version,
+            ),
+        )
 
         val chunkSize = chunkSize(session, source.id, file.id.value)
-        val hasher = if (file.content == null) FileHasher() else null
-
         timer.count("chunkSize", chunkSize.toLong())
 
         val fs = node.openSource(source.location.toFiles())
         val opened = fs.openFile(locator)
             ?: throw TransferException.FileNotFoundException("File ${file.id} is gone from $locator")
 
-        opened.read().use { stream ->
-            var offset = 0L
-            val buffer = ByteArray(chunkSize)
+        val digest = if (file.content == null) Digest() else null
 
-            while (true) {
-                val bytesRead = timer.time("disk-read") { stream.fill(buffer) }
-                if (bytesRead == 0) break
+        var resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
+        progress.transferStarted(key, file.path, file.metadata.size)
 
-                timer.time("hash") { hasher?.write(buffer, bytesRead) }
+        repeat(MaxAttempts) { attempt ->
+            if (attempt > 0) {
+                timer.count("resumes")
+                Timber.i("Resuming upload of ${file.id} from $resumeFrom, attempt ${attempt + 1}")
+            }
 
-                val chunk = timer.time("copy") { buffer.copyOf(bytesRead) }
+            val sent = sendFrom(
+                offset = resumeFrom,
+                file = opened,
+                uploadKey = uploadKey,
+                chunkSize = chunkSize,
+                digest = digest,
+                session = session,
+                key = key,
+                timer = timer,
+            )
 
-                // TODO: ask peer about it's state each N chunks, to retry/resume/abort if needed
-                timer.time("send") {
-                    session.send(
-                        FileServerMessages.UploadChunk(
-                            sourceId = source.id,
-                            fileId = file.id.value,
-                            offset = offset,
-                            // Trimmed to what was read: the receiver takes the length from the frame.
-                            bytes = chunk,
-                        )
-                    ).getOrThrow()
+            if (!sent) {
+                resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
+                return@repeat
+            }
+
+            val hash = digest?.hash ?: file.content!!
+
+            val answer = timer.time("completed-rtt") {
+                session.ask(
+                    Upload.Complete(
+                        key = uploadKey,
+                        hash = hash.value,
+                        algorithm = hash.algorithm,
+                    )
+                )
+            }
+
+            if (answer is Upload.Completed) {
+                Timber.i(timer.summary())
+
+                if (digest != null) {
+                    localIndexer.recordHash(source, file, hash)
                 }
 
-                offset += bytesRead
-                progress.transferAdvanced(key, offset)
+                return hash
+            }
 
-                timer.count("bytes", bytesRead.toLong())
-                timer.count("chunks")
+            // Bytes went missing on the way: the receiver parked what it has, so open it again.
+            resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
+        }
+
+        throw SyncException.RemoteRejectedException(
+            "Peer ${session.identity.deviceId} did not take ${file.id} in $MaxAttempts attempts"
+        )
+    }
+
+    /**
+     * Sends [file] from [offset] to its end.
+     *
+     * @return false when the receiver no longer knows the upload, so it must be [Upload.Init]ed again.
+     */
+    private suspend fun sendFrom(
+        offset: Long,
+        file: FsFile,
+        uploadKey: IndexedFileKey,
+        chunkSize: Int,
+        digest: Digest?,
+        session: PeerSession<FileServerMessages>,
+        key: FileTransferKey,
+        timer: StageTimer,
+    ): Boolean = file.read().use { stream ->
+        val buffer = ByteArray(chunkSize)
+        val statusEvery = (StatusIntervalBytes / chunkSize).toInt().coerceAtLeast(1)
+
+        // Bytes the receiver already has are read only if the hash has not seen them yet.
+        var position =
+            timer.time("skip") { stream.skipFully(minOf(offset, digest?.hashedTo ?: offset)) }
+
+        // refill digest with bytes the receiver already has
+        while (position < offset) {
+            val read = timer.time("disk-read") {
+                stream.fill(buffer, length = minOf(buffer.size.toLong(), offset - position).toInt())
+            }
+            if (read == 0) break
+
+            timer.time("hash") { digest?.feed(position, buffer, read) }
+            position += read
+        }
+
+        var sinceStatus = 0
+
+        // send bytes the receiver does not have yet, feeding the hash as we go
+        while (true) {
+            val bytesRead = timer.time("disk-read") { stream.fill(buffer) }
+            if (bytesRead == 0) break
+
+            timer.time("hash") { digest?.feed(position, buffer, bytesRead) }
+
+            val chunk = timer.time("copy") { buffer.copyOf(bytesRead) }
+
+            timer.time("send") {
+                session.send(
+                    FileServerMessages.UploadChunk(
+                        sourceId = uploadKey.sourceId,
+                        fileId = uploadKey.fileId,
+                        offset = position,
+                        // Trimmed to what was read: the receiver takes the length from the frame.
+                        bytes = chunk,
+                    )
+                ).getOrThrow()
+            }
+
+            position += bytesRead
+            progress.transferAdvanced(key, position)
+
+            timer.count("bytes", bytesRead.toLong())
+            timer.count("chunks")
+
+            if (++sinceStatus == statusEvery) {
+                sinceStatus = 0
+                if (!timer.time("status-rtt") { session.status(uploadKey) }) return@use false
             }
         }
 
-        val hash = hasher?.compute() ?: file.content!!
+        true
+    }
 
-        timer.time("completed-rtt") {
-            session.runRemoteOperation(
-                operation = RemoteOperation.Upload.UploadCompleted(
-                    key = IndexedFileKey(fileId = file.id.value, sourceId = source.id),
-                    hash = hash.value,
-                    algorithm = hash.algorithm,
-                )
+    /** True while the receiver still has the upload open. Its answer is its checkpoint. */
+    private suspend fun PeerSession<FileServerMessages>.status(uploadKey: IndexedFileKey): Boolean =
+        when (val answer = request(Upload.Status(uploadKey)).getOrThrow()) {
+            is Upload.Received -> true
+
+            is Upload.Failed -> {
+                Timber.i("Peer ${identity.deviceId} lost upload $uploadKey: ${answer.reason}")
+                false
+            }
+
+            else -> error("Unexpected response to Upload.Status: $answer")
+        }
+
+    /** Asks [message] and returns the answer, throwing when the peer refused it. */
+    private suspend fun PeerSession<FileServerMessages>.ask(message: Upload): Upload =
+        when (val answer = request(message).getOrThrow()) {
+            is Upload.Failed -> throw SyncException.RemoteRejectedException(
+                "Peer ${identity.deviceId} refused ${message::class.simpleName} for ${message.key}: ${answer.reason}"
             )
+
+            is Upload -> answer.also {
+                check(it.key == message.key) { "Answer for ${it.key} to ${message.key}" }
+            }
+
+            else -> error("Unexpected response to ${message::class.simpleName}: $answer")
         }
-
-        Timber.i(timer.summary())
-
-        if (hasher != null) {
-            localIndexer.recordHash(source, file, hash)
-        }
-
-        return hash
-    }
-
-    /**
-     * How many bytes of file go in one message, so that the message fills one frame and no more.
-     *
-     * The session carries a bigger message by splitting it, which costs a second frame for a
-     * handful of bytes; sizing the chunk to what a frame actually holds - its payload budget, less
-     * what the codec writes around the bytes - avoids the split rather than relying on it.
-     */
-    private fun chunkSize(
-        session: PeerSession<FileServerMessages>,
-        sourceId: String,
-        fileId: String,
-    ): Int = (session.maxPayloadSize - UploadChunkCodec.headerSize(sourceId, fileId))
-        .coerceAtLeast(MinChunkSize)
-
-    /**
-     * Fills [buffer] to the brim, or to the end of the file.
-     *
-     * A single read is free to return less than it was asked for, and every short read would be a
-     * frame carrying less than it could - the whole point of sizing the buffer to the frame.
-     */
-    private fun InputStream.fill(buffer: ByteArray): Int {
-        var filled = 0
-
-        while (filled < buffer.size) {
-            val read = read(buffer, filled, buffer.size - filled)
-            if (read == -1) break
-            filled += read
-        }
-
-        return filled
-    }
 
     companion object {
         /** Only reachable on a link whose frames barely fit a handshake; the session then splits. */
-        private const val MinChunkSize = 4 * 1024 // 4 KiB
+        const val MinChunkSize = 4 * 1024 // 4 KiB
+
+        /** How often the receiver is asked to checkpoint: what a crash costs, at most. */
+        private const val StatusIntervalBytes = 64L * 1024 * 1024 // 64 MiB
+
+        /** Inits, one per lost upload or missing bytes, before the upload is given up. */
+        private const val MaxAttempts = 3
     }
+}
+
+/**
+ * The file's hash, fed each byte once and in order however often resume re-reads it.
+ * Resume from past [hashedTo] reads the gap for the hash without sending it.
+ */
+private class Digest {
+    private val hasher = FileHasher()
+
+    var hashedTo = 0L
+        private set
+
+    val hash: ContentHash by lazy { hasher.compute() }
+
+    fun feed(position: Long, buffer: ByteArray, length: Int) {
+        val end = position + length
+        if (end <= hashedTo) return
+
+        val from = (hashedTo - position).coerceAtLeast(0).toInt()
+        hasher.write(buffer, from, length - from)
+        hashedTo = end
+    }
+}
+
+private fun Upload.offset(): Long =
+    (this as? Upload.Received)?.offset ?: error("Expected Upload.Received, got $this")
+
+/**
+ * How many bytes of file go in one message, so that the message fills one frame and no more.
+ *
+ * The session carries a bigger message by splitting it, which costs a second frame for a
+ * handful of bytes; sizing the chunk to what a frame actually holds - its payload budget, less
+ * what the codec writes around the bytes - avoids the split rather than relying on it.
+ */
+private fun chunkSize(
+    session: PeerSession<FileServerMessages>,
+    sourceId: String,
+    fileId: String,
+): Int = (session.maxPayloadSize - UploadChunkCodec.headerSize(sourceId, fileId))
+    .coerceAtLeast(MinChunkSize)
+
+/**
+ * Fills [buffer] to the brim, or to the end of the file.
+ *
+ * A single read is free to return less than it was asked for, and every short read would be a
+ * frame carrying less than it could - the whole point of sizing the buffer to the frame.
+ */
+private fun InputStream.fill(buffer: ByteArray, length: Int = buffer.size): Int {
+    var filled = 0
+
+    while (filled < length) {
+        val read = read(buffer, filled, length - filled)
+        if (read == -1) break
+        filled += read
+    }
+
+    return filled
+}
+
+/** Skips up to [count] bytes, fewer only at the end of the file. */
+private fun InputStream.skipFully(count: Long): Long {
+    var skipped = 0L
+
+    while (skipped < count) {
+        val step = skip(count - skipped)
+
+        if (step > 0) {
+            skipped += step
+            continue
+        }
+
+        // skip() may return 0 before the end: one read tells the two apart.
+        if (read() == -1) break
+        skipped++
+    }
+
+    return skipped
 }

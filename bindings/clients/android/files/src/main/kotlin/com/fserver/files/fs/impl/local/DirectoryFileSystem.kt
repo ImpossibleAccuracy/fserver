@@ -27,12 +27,21 @@ import kotlin.time.Instant
  */
 internal class DirectoryFileSystem(
     private val root: File,
+    /** Removes the directories a deleted or moved file leaves empty, up to [root]. */
+    private val pruneEmptyDirs: Boolean = false,
 ) : FileSystem {
 
     override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
 
     override suspend fun createFile(path: String): FsFile =
-        open(createLocalFile(resolve(path), path))
+        open(createLocalFile(resolve(path), path, ::onChanged))
+
+    override suspend fun checkPath(path: String) {
+        resolve(path)
+    }
+
+    override suspend fun place(file: FsFile, path: String): FsFile =
+        placeLocal(file, resolve(path), ::open, ::onChanged)
 
     override suspend fun fileExists(path: String): Boolean {
         val file = resolve(path)
@@ -43,7 +52,17 @@ internal class DirectoryFileSystem(
     override suspend fun openFile(locator: String): FsFile? =
         existingLocalFile(confine(locator), locator)?.let(::open)
 
-    private fun open(file: File): FsFile = LocalFile(file, ::confine)
+    private fun open(file: File): FsFile = LocalFile(file, ::confine, ::onChanged)
+
+    private fun onChanged(file: File) {
+        if (!pruneEmptyDirs || file.exists()) return
+
+        // delete() refuses a directory that still holds anything, which ends the walk.
+        var dir = file.parentFile
+        while (dir != null && dir.isUnder(root.canonicalFile) && dir.delete()) {
+            dir = dir.parentFile
+        }
+    }
 
     private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
@@ -94,6 +113,10 @@ internal class DirectoryFileSystem(
          * Nothing outside the app can reach what lands here, no runtime permission gates it, and
          * it goes with an uninstall.
          */
+        /** Scratch space: every file is transient, so nothing keeps the directories it leaves. */
+        fun staging(root: File): DirectoryFileSystem =
+            DirectoryFileSystem(root, pruneEmptyDirs = true)
+
         fun internal(context: Context, bucket: String): DirectoryFileSystem =
             DirectoryFileSystem(File(File(context.filesDir, SourcesDirectory), bucket))
     }

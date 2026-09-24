@@ -1,5 +1,7 @@
 package com.fserver.files.fs.impl.media
 
+import com.fserver.files.fs.impl.placeByCopy
+import com.fserver.files.fs.impl.partPathOf
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -133,6 +135,25 @@ internal class MediaFileSystem(
         } ?: throw FileSystemException.CreationFailed(path)
 
         MediaFile(context, uri)
+    }
+
+    override suspend fun checkPath(path: String) {
+        rowOf(path)
+    }
+
+    /** A new row takes the bytes; the old one is deleted only then, and the new one takes its name. */
+    override suspend fun place(file: FsFile, path: String): FsFile {
+        val (collection, relativePath, name) = rowOf(path)
+        val part = createFile(partPathOf(path)) as MediaFile
+
+        return placeByCopy(file, part) { created ->
+            withContext(Dispatchers.IO) {
+                findMediaRow(context, collection, relativePath, name)
+                    ?.let { context.contentResolver.delete(it, null, null) }
+            }
+
+            created.rename(name)
+        }
     }
 
     override suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) {

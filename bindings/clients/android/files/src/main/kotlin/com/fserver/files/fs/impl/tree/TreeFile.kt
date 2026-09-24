@@ -6,27 +6,32 @@ import android.os.Build
 import android.provider.DocumentsContract
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.impl.StreamTarget
+import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.nameOf
 import com.fserver.files.fs.impl.readProviderFile
-import com.fserver.files.fs.impl.writeProviderFile
+import com.fserver.files.fs.impl.openProviderWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.io.InputStream
+import java.io.OutputStream
 import kotlin.time.Instant
 
 /** A document in a tree granted through the Storage Access Framework; the locator is its uri. */
 internal class TreeFile(
     private val context: Context,
     private val uri: Uri,
-) : FsFile {
+) : FsFile, StreamTarget {
     override val locator: String = uri.toString()
 
     override suspend fun read(): InputStream = readProviderFile(context, uri)
 
-    override suspend fun write(offset: Long, bytes: ByteArray, length: Int) =
-        writeProviderFile(context, uri, offset, bytes, length)
+    override suspend fun openWriter(): FsWriter = openProviderWriter(context, uri)
+
+    override suspend fun openOutput(): OutputStream = openProviderOutput(context, uri)
 
     /**
      * A file in the way is moved aside rather than deleted, so a failed rename can put it back.

@@ -9,15 +9,19 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.impl.StreamTarget
+import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.isMediaName
 import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.nameOf
 import com.fserver.files.fs.impl.readProviderFile
 import com.fserver.files.fs.impl.tree.TreeFile
-import com.fserver.files.fs.impl.writeProviderFile
+import com.fserver.files.fs.impl.openProviderWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
+import java.io.OutputStream
 import kotlin.time.Instant
 
 /** A MediaStore row; the locator is its uri, which a rename keeps. */
@@ -25,13 +29,14 @@ import kotlin.time.Instant
 internal class MediaFile(
     private val context: Context,
     private val uri: Uri,
-) : FsFile {
+) : FsFile, StreamTarget {
     override val locator: String = uri.toString()
 
     override suspend fun read(): InputStream = readProviderFile(context, uri)
 
-    override suspend fun write(offset: Long, bytes: ByteArray, length: Int) =
-        writeProviderFile(context, uri, offset, bytes, length)
+    override suspend fun openWriter(): FsWriter = openProviderWriter(context, uri)
+
+    override suspend fun openOutput(): OutputStream = openProviderOutput(context, uri)
 
     /** Same dance as [TreeFile.rename]: a row in the way is moved aside, not deleted. */
     override suspend fun rename(

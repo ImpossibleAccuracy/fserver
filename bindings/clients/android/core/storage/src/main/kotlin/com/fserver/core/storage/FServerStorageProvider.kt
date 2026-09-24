@@ -17,6 +17,7 @@ import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
 import com.fserver.core.storage.internal.SyncStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
+import com.fserver.core.storage.internal.UploadStagingStoreImpl
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
@@ -26,6 +27,7 @@ import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
+import com.fserver.core.store.sync.UploadStagingStore
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CoroutineScope
 
@@ -73,6 +75,7 @@ class FServerStorageProvider private constructor(
     }
     private val sourceRequestsStore by lazy { SourceRequestsStoreImpl(database) }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
+    private val uploadStagingStore by lazy { UploadStagingStoreImpl(database) }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
@@ -95,6 +98,7 @@ class FServerStorageProvider private constructor(
         override val sources: SourcesStore get() = sourcesStore
         override val sourceRequests: SourceRequestsStore get() = sourceRequestsStore
         override val preferences: SyncStore get() = syncStore
+        override val uploads: UploadStagingStore get() = uploadStagingStore
     }
 
     /**

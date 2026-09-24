@@ -11,12 +11,8 @@ interface FsFile {
     /** Open the file for reading. */
     suspend fun read(): InputStream
 
-    /** Write [bytes] starting at [offset]. Throws if nothing was written. */
-    suspend fun write(
-        offset: Long,
-        bytes: ByteArray,
-        length: Int = bytes.size,
-    )
+    /** Open the file for positional writes, one descriptor for as many as the caller makes. */
+    suspend fun openWriter(): FsWriter
 
     /**
      * Rename the file to [newName] - a name, not a path - within its directory.

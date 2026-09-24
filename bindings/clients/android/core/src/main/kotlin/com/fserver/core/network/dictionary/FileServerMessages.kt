@@ -2,6 +2,7 @@ package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.SyncFailureReason
 import kotlinx.serialization.Serializable
 
@@ -116,9 +117,58 @@ internal sealed interface FileServerMessages {
     }
 
     /**
+     * Pushes one file: [Init], then [UploadChunk]s, then [Complete], with [Status] between chunks.
+     *
+     * The receiver stages the bytes and keeps them across a dropped session, so every request is
+     * answered with [Received] - where to send from - and a sender resumes instead of restarting.
+     */
+    @Serializable
+    sealed interface Upload : FileServerMessages {
+        val key: IndexedFileKey
+
+        /** Opens the upload, or picks up the one this file already has staged. */
+        @Serializable
+        data class Init(
+            val sourceId: String,
+            val file: FileRecordDto,
+        ) : Upload {
+            override val key: IndexedFileKey get() = IndexedFileKey(fileId = file.id, sourceId = sourceId)
+        }
+
+        /** Asks how far the receiver got. [Failed] means the upload is gone: [Init] it again. */
+        @Serializable
+        data class Status(override val key: IndexedFileKey) : Upload
+
+        /** All chunks sent. Answered [Completed], or [Received] when bytes are missing. */
+        @Serializable
+        data class Complete(
+            override val key: IndexedFileKey,
+            val hash: String,
+            val algorithm: String,
+        ) : Upload
+
+        /** The receiver durably holds `[0, offset)`: the sender goes on from [offset]. */
+        @Serializable
+        data class Received(
+            override val key: IndexedFileKey,
+            val offset: Long,
+        ) : Upload, Response
+
+        /** The file is in place and indexed. */
+        @Serializable
+        data class Completed(override val key: IndexedFileKey) : Upload, Response
+
+        @Serializable
+        data class Failed(
+            override val key: IndexedFileKey,
+            val reason: String,
+        ) : Upload, Response
+    }
+
+    /**
      * Upload single chunk of file.
      *
-     * @see RemoteOperation.Upload
+     * @see Upload
      */
     @Serializable
     class UploadChunk(
