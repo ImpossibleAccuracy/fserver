@@ -557,6 +557,7 @@
     <!-- Send flow: what the scan found, before anything is done with it -->
     <string name="source_preview_truncated">Showing %1$d of %2$d files</string>
     <string name="file_browser_empty">The scan found nothing here.</string>
+    <string name="file_viewer_enable_notifications">Allow notifications to keep playing in the background</string>
     <string name="file_viewer_open_failed">No app on this phone opens that file.</string>
     <string name="file_browser_directory_count">%1$d items · %2$s</string>
     <string name="file_browser_volume_primary">Internal storage</string>

@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -63,6 +64,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.viewer.ImageViewer
 import com.fserver.app.presentation.shared.viewer.viewer.MediaViewer
+import com.fserver.app.presentation.shared.viewer.viewer.NotificationsButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -222,6 +224,11 @@ private fun FileViewer(
                 modifier = Modifier.graphicsLayer { alpha = 1f - progress() },
                 name = file.name,
                 onClose = onClose,
+                actions = {
+                    if (file.kind == FileKindUi.Video || file.kind == FileKindUi.Audio) {
+                        NotificationsButton()
+                    }
+                },
             )
         }
     }
@@ -263,6 +270,7 @@ private fun ViewerTitle(
     modifier: Modifier = Modifier,
     name: String,
     onClose: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = modifier
@@ -296,6 +304,7 @@ private fun ViewerTitle(
                 .weight(1f)
                 .padding(end = DkSpacing.lg),
         )
+        actions()
     }
 }
 

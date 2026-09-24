@@ -35,9 +35,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -53,12 +57,14 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
+import com.fserver.app.playback.BackgroundPlayback
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.fileViewerContent
 import com.fserver.app.presentation.shared.viewer.imageModel
 import com.fserver.app.presentation.shared.viewer.thumbnailCacheKey
+import org.koin.compose.koinInject
 
 /**
  * Plays a video or an audio file, starting right away. [showControls] is owned by the viewer, so
@@ -224,17 +230,33 @@ private fun AudioArtwork(
     }
 }
 
-/** Released with the viewer, paused whenever the app leaves the screen. */
+/**
+ * Released with the viewer. When the app leaves the screen, playback goes on under a media
+ * notification, or pauses if notifications are off.
+ */
 @Composable
 private fun rememberViewerPlayer(file: FileBrowserUi.File): Player {
     val context = LocalContext.current
+    val playback = koinInject<BackgroundPlayback>()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val player = remember(context, file.locator) { context.viewerPlayer(file) }
+    val session = remember(player) { playback.newSession(player) }
 
-    DisposableEffect(player) {
-        onDispose { player.release() }
-    }
-    LifecycleStartEffect(player) {
-        onStopOrDispose { player.pause() }
+    DisposableEffect(lifecycle, player) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> playback.stop(session)
+                Lifecycle.Event.ON_STOP -> if (!player.playWhenReady || !playback.start(session)) player.pause()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            playback.stop(session)
+            session.release()
+            player.release()
+        }
     }
 
     return player
@@ -243,9 +265,18 @@ private fun rememberViewerPlayer(file: FileBrowserUi.File): Player {
 private fun Context.viewerPlayer(file: FileBrowserUi.File): Player =
     ExoPlayer.Builder(this)
         .setAudioAttributes(AudioAttributes.DEFAULT, true)
+        .setHandleAudioBecomingNoisy(true)
+        .setWakeMode(C.WAKE_MODE_LOCAL)
         .build()
         .apply {
-            file.localUri()?.let { setMediaItem(MediaItem.fromUri(it)) }
+            file.localUri()?.let { uri ->
+                setMediaItem(
+                    MediaItem.Builder()
+                        .setUri(uri)
+                        .setMediaMetadata(MediaMetadata.Builder().setDisplayTitle(file.name).build())
+                        .build(),
+                )
+            }
             prepare()
             playWhenReady = true
         }

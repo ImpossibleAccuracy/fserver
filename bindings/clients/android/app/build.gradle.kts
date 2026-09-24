@@ -139,6 +139,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.ui.compose.material3)
+    implementation(libs.androidx.media3.session)
 
     // Logging
     implementation(libs.timber)

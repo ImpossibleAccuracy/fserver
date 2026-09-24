@@ -2,6 +2,7 @@ package com.fserver.app.di
 
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
+import com.fserver.app.playback.BackgroundPlayback
 import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.navigation.AppViewModel
@@ -24,6 +25,7 @@ import com.fserver.app.presentation.screens.settings.details.DeviceDetailsViewMo
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
 import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
 import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -35,6 +37,7 @@ import org.koin.dsl.module
  */
 val presentationModule = module {
     single<DemoContentSource> { SampleContentSource() }
+    single { BackgroundPlayback(androidContext()) }
 
     // One bus for the whole app: `AppViewModel` reads it, everything else only writes. Bound
     // under both types so a screen cannot take a dependency on the reading half.
