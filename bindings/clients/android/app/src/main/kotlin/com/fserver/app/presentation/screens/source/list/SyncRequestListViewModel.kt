@@ -2,11 +2,11 @@ package com.fserver.app.presentation.screens.source.list
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListIntent
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListState
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.channels.Channel

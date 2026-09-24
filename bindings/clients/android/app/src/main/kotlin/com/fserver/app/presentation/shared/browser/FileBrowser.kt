@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.composable
+package com.fserver.app.presentation.shared.browser
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,10 +16,10 @@ import androidx.compose.ui.text.style.TextAlign
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.PreviewGallery
-import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.PreviewList
-import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.PreviewTree
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.layouts.BrowserGallery
+import com.fserver.app.presentation.shared.browser.layouts.BrowserList
+import com.fserver.app.presentation.shared.browser.layouts.BrowserTree
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 
 /**
  * What turns a preview into a picker. Left out, the preview is read-only.
@@ -32,10 +32,10 @@ import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePr
  * address in both cases, which is what a caller does something with afterward.
  */
 @Immutable
-class SourcePreviewSelection(
-    val selected: SourcePreviewUi.PreviewContentEntry?,
-    val onSelectFile: ((SourcePreviewUi.File) -> Unit)? = null,
-    val onSelectDirectory: ((SourcePreviewUi.Directory) -> Unit)? = null,
+class FileBrowserSelection(
+    val selected: FileBrowserUi.PreviewContentEntry?,
+    val onSelectFile: ((FileBrowserUi.File) -> Unit)? = null,
+    val onSelectDirectory: ((FileBrowserUi.Directory) -> Unit)? = null,
     /** Open parent directory of the selected entry, if any */
     val walkUp: (() -> Unit)? = null,
 )
@@ -49,20 +49,20 @@ class SourcePreviewSelection(
  * layout; picking one is a separate gesture, and only when [selection] says so.
  */
 @Composable
-fun SourcePreview(
+fun FileBrowser(
     modifier: Modifier = Modifier,
-    preview: SourcePreviewUi,
-    selection: SourcePreviewSelection? = null,
+    preview: FileBrowserUi,
+    selection: FileBrowserSelection? = null,
     header: @Composable (() -> Unit)? = null,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     if (preview.isEmpty) {
-        SourcePreviewEmpty(modifier = modifier, header = header)
+        FileBrowserEmpty(modifier = modifier, header = header)
         return
     }
 
     when (preview) {
-        is SourcePreviewUi.Gallery -> PreviewGallery(
+        is FileBrowserUi.Gallery -> BrowserGallery(
             modifier = modifier,
             preview = preview,
             selection = selection,
@@ -70,7 +70,7 @@ fun SourcePreview(
             header = header,
         )
 
-        is SourcePreviewUi.PlainList -> PreviewList(
+        is FileBrowserUi.PlainList -> BrowserList(
             modifier = modifier,
             preview = preview,
             selection = selection,
@@ -78,7 +78,7 @@ fun SourcePreview(
             header = header,
         )
 
-        is SourcePreviewUi.Tree -> PreviewTree(
+        is FileBrowserUi.Tree -> BrowserTree(
             modifier = modifier,
             preview = preview,
             onFileClick = onFileClick,
@@ -91,7 +91,7 @@ fun SourcePreview(
 
 /** The header every layout puts above the content: where it came from, and how much. */
 @Composable
-fun SourcePreviewHeader(
+fun FileBrowserHeader(
     title: String,
     detail: String,
     modifier: Modifier = Modifier,
@@ -112,7 +112,7 @@ fun SourcePreviewHeader(
 }
 
 @Composable
-private fun SourcePreviewEmpty(
+private fun FileBrowserEmpty(
     modifier: Modifier = Modifier,
     header: @Composable (() -> Unit)? = null,
 ) {
@@ -126,7 +126,7 @@ private fun SourcePreviewEmpty(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.source_preview_empty),
+                text = stringResource(R.string.file_browser_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

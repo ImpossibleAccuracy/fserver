@@ -42,10 +42,10 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.files.folder.model.FolderIntent
 import com.fserver.app.presentation.screens.files.folder.model.FolderState
 import com.fserver.app.presentation.screens.files.folder.model.FolderUiEffect
-import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
-import com.fserver.app.presentation.screens.source.shared.preview.model.SampleFiles
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowser
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.SampleFiles
+import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
@@ -56,7 +56,7 @@ fun FolderScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val fileOpener = rememberSourceFileOpener()
+    val fileOpener = LocalFileOpener.current
 
     LaunchedEffect(Unit) {
         viewModel.uiEffects.collect { effect ->
@@ -128,7 +128,7 @@ private fun FolderScreenContent(
                     DkInlineSpinner()
                 }
             } else {
-                SourcePreview(
+                FileBrowser(
                     preview = state.entries,
                     onFileClick = {
                         if (it.kind == FileKindUi.Folder) {
@@ -233,7 +233,7 @@ private fun FolderScreenPreview() {
             state = FolderState(
                 title = "Camera",
                 summary = "MacOS",
-                entries = SourcePreviewUi.Gallery(SourcePreviewUi.SampleFiles),
+                entries = FileBrowserUi.Gallery(FileBrowserUi.SampleFiles),
                 showsCloudNotice = true,
             ),
             onIntent = {},
@@ -251,7 +251,7 @@ private fun FolderScreenListPreview() {
             state = FolderState(
                 title = "Documents",
                 summary = "Windows 11",
-                entries = SourcePreviewUi.PlainList(SourcePreviewUi.SampleFiles),
+                entries = FileBrowserUi.PlainList(FileBrowserUi.SampleFiles),
                 sort = FolderState.SortUi.Size,
                 sortAscending = false,
             ),

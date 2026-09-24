@@ -3,7 +3,6 @@ package com.fserver.app.presentation.screens.files.list
 import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.screens.files.list.model.FilesUiEffect
@@ -12,15 +11,16 @@ import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequ
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.screens.source.shared.model.toUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.asPreviewFile
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.asPreviewFile
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.FailedContact
+import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.ReachabilityFailure
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -103,14 +103,14 @@ class FilesViewModel(
                 .loadPreviewFiles(
                     requiredLocation = when (query.filter) {
                         FilesState.FilterUi.All -> null
-                        FilesState.FilterUi.Local -> SourcePreviewUi.File.Location.Local
-                        FilesState.FilterUi.Cloud -> SourcePreviewUi.File.Location.Remote
+                        FilesState.FilterUi.Local -> FileBrowserUi.File.Location.Local
+                        FilesState.FilterUi.Cloud -> FileBrowserUi.File.Location.Remote
                     },
                     sourceIds = query.sourceIds,
                 )
                 .map { files ->
                     FilesState.FeedUi(
-                        preview = SourcePreviewUi.PlainList(files),
+                        preview = FileBrowserUi.PlainList(files),
                         filter = query.filter,
                         deviceId = query.deviceId,
                     )

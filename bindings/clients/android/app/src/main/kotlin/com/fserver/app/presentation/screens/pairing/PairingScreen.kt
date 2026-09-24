@@ -41,12 +41,12 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
-import com.fserver.app.presentation.error.AppError
-import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.pairing.model.PairingIntent
 import com.fserver.app.presentation.screens.pairing.model.PairingState
 import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind

@@ -37,16 +37,16 @@ import com.fserver.app.presentation.screens.source.setup.access.model.SourceAcce
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessUiEffect
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
-import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceScanResult
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewHeader
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
-import com.fserver.app.presentation.screens.source.shared.preview.composable.layouts.displayLabel
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowser
+import com.fserver.app.presentation.shared.browser.FileBrowserHeader
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.layouts.displayLabel
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.scan.DirectoryScanProgress
@@ -58,7 +58,7 @@ fun SourceAccessScreen(
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val fileOpener = rememberSourceFileOpener()
+    val fileOpener = LocalFileOpener.current
     val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     val requester = rememberSourceAccessRequester { grant ->
@@ -98,7 +98,7 @@ private fun SourceAccessScreenContent(
     state: SourceAccessState,
     newIntent: (SourceAccessIntent) -> Unit,
     onRequestAccess: () -> Unit,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    onFileClick: (FileBrowserUi.File) -> Unit,
     onContinue: () -> Unit,
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
@@ -111,17 +111,17 @@ private fun SourceAccessScreenContent(
             DkTopBar(
                 title = when (selected) {
                     null -> stringResource(state.kind.titleRes)
-                    is SourcePreviewUi.Directory -> selected.displayLabel()
+                    is FileBrowserUi.Directory -> selected.displayLabel()
                     else -> selected.name
                 },
                 subtitle = when (selected) {
-                    is SourcePreviewUi.Directory -> stringResource(
-                        R.string.source_preview_directory_count,
+                    is FileBrowserUi.Directory -> stringResource(
+                        R.string.file_browser_directory_count,
                         selected.files,
                         selected.size.formatted(),
                     )
 
-                    is SourcePreviewUi.File -> selected.size?.formatted()
+                    is FileBrowserUi.File -> selected.size?.formatted()
 
                     else -> null
                 },
@@ -244,8 +244,8 @@ private fun SourceAccessScreenContent(
 private fun ScannedBody(
     modifier: Modifier = Modifier,
     state: SourceAccessState,
-    selection: SourcePreviewSelection?,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    selection: FileBrowserSelection?,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     val preview = state.preview
     if (preview == null) {
@@ -268,14 +268,14 @@ private fun ScannedBody(
         state.bytes.formatted(),
     )
 
-    SourcePreview(
+    FileBrowser(
         modifier = modifier,
         preview = preview,
         onFileClick = onFileClick,
         selection = selection,
         header = {
             if (!state.isPickingDirectory) {
-                SourcePreviewHeader(
+                FileBrowserHeader(
                     title = state.label.ifEmpty { stringResource(state.kind.titleRes) },
                     detail = summary,
                 )
@@ -506,9 +506,9 @@ private fun SourceAccessPreviewPreview() {
                 label = "/DCIM/Projects",
                 files = 842,
                 bytes = FileSize(6_549_123_072L),
-                preview = SourcePreviewUi.PlainList(
+                preview = FileBrowserUi.PlainList(
                     files = listOf(
-                        SourcePreviewUi.File(
+                        FileBrowserUi.File(
                             id = "1",
                             path = "IMG_0001.jpg",
                             name = "IMG_0001.jpg",
@@ -517,7 +517,7 @@ private fun SourceAccessPreviewPreview() {
                             size = FileSize(4_210_000),
                             extensionLabel = null,
                         ),
-                        SourcePreviewUi.File(
+                        FileBrowserUi.File(
                             id = "2",
                             path = "notes.pdf",
                             name = "notes.pdf",
@@ -549,22 +549,22 @@ private fun SourceAccessDirectoryPickPreview() {
                 phase = SourceAccessState.Phase.Scanned,
                 files = 12_408,
                 bytes = FileSize(41_200_000_000L),
-                preview = SourcePreviewUi.Tree(
+                preview = FileBrowserUi.Tree(
                     directories = listOf(
-                        SourcePreviewUi.Directory(
+                        FileBrowserUi.Directory(
                             path = "/storage/emulated/0",
                             name = "primary",
                             files = 12_408,
                             size = FileSize(41_200_000_000L),
                             isVolume = true,
                             contents = listOf(
-                                SourcePreviewUi.Directory(
+                                FileBrowserUi.Directory(
                                     path = "/storage/emulated/0/DCIM",
                                     name = "DCIM",
                                     files = 2_310,
                                     size = FileSize(19_100_000_000L),
                                     contents = listOf(
-                                        SourcePreviewUi.Directory(
+                                        FileBrowserUi.Directory(
                                             path = "/storage/emulated/0/DCIM/Camera",
                                             name = "Camera",
                                             files = 2_140,
@@ -572,7 +572,7 @@ private fun SourceAccessDirectoryPickPreview() {
                                         ),
                                     ),
                                 ),
-                                SourcePreviewUi.Directory(
+                                FileBrowserUi.Directory(
                                     path = "/storage/emulated/0/Download",
                                     name = "Download",
                                     files = 87,

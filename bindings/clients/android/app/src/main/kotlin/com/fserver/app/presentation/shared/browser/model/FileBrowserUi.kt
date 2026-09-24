@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.model
+package com.fserver.app.presentation.shared.browser.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -12,13 +12,13 @@ import kotlin.time.Instant
  * rather than being decided again by every screen that shows one.
  */
 @Immutable
-sealed interface SourcePreviewUi {
+sealed interface FileBrowserUi {
     val isEmpty: Boolean
 
     /** Flat rows, newest walk order. What a single folder reads as. */
     data class PlainList(
         val files: List<File>,
-    ) : SourcePreviewUi {
+    ) : FileBrowserUi {
         override val isEmpty: Boolean
             get() = files.isEmpty()
     }
@@ -26,7 +26,7 @@ sealed interface SourcePreviewUi {
     /** Tiles. What a gallery reads as. */
     data class Gallery(
         val files: List<File>,
-    ) : SourcePreviewUi {
+    ) : FileBrowserUi {
         override val isEmpty: Boolean
             get() = files.isEmpty()
     }
@@ -34,7 +34,7 @@ sealed interface SourcePreviewUi {
     /** Folders and the files in them, nested. What a whole device reads as. */
     data class Tree(
         val directories: List<PreviewContentEntry> = emptyList(),
-    ) : SourcePreviewUi {
+    ) : FileBrowserUi {
         override val isEmpty: Boolean
             get() = directories.isEmpty()
 
@@ -63,7 +63,7 @@ sealed interface SourcePreviewUi {
     }
 
 
-    /** A single file or directory in a [SourcePreviewUi]. */
+    /** A single file or directory in a [FileBrowserUi]. */
     sealed interface PreviewContentEntry {
         val name: String
         val path: String

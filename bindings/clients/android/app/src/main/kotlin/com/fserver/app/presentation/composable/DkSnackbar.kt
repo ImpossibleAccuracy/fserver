@@ -11,7 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.model.UiText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch

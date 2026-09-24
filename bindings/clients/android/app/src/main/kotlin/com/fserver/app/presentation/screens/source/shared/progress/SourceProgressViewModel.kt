@@ -2,12 +2,12 @@ package com.fserver.app.presentation.screens.source.shared.progress
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.shared.model.nameOf
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressState
 import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressUiEffect
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController

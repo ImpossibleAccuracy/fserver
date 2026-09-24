@@ -2,16 +2,16 @@ package com.fserver.app.presentation.screens.files.folder
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.folder.model.FolderIntent
 import com.fserver.app.presentation.screens.files.folder.model.FolderState
 import com.fserver.app.presentation.screens.files.folder.model.FolderUiEffect
-import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.asPreviewFile
-import com.fserver.app.presentation.screens.source.shared.preview.model.directoryName
-import com.fserver.app.presentation.screens.source.shared.preview.model.isMediaCollection
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.asPreviewFile
+import com.fserver.app.presentation.shared.browser.model.directoryName
+import com.fserver.app.presentation.shared.browser.model.isMediaCollection
 import com.fserver.core.files.FilesController
 import com.fserver.core.storage.RegisteredSourcesRepository
 import kotlinx.coroutines.channels.Channel
@@ -62,11 +62,11 @@ class FolderViewModel(
                 val sorted = it.sorted(edit.sort, edit.sortAscending)
                 val isMedia = edit.forceMediaPreviewType ?: isMediaCollection(sorted)
 
-                if (isMedia) SourcePreviewUi.Gallery(sorted)
-                else SourcePreviewUi.PlainList(sorted)
+                if (isMedia) FileBrowserUi.Gallery(sorted)
+                else FileBrowserUi.PlainList(sorted)
             },
             showsCloudNotice = files != null &&
-                    files.any { it.location == SourcePreviewUi.File.Location.Remote },
+                    files.any { it.location == FileBrowserUi.File.Location.Remote },
             sort = edit.sort,
             sortAscending = edit.sortAscending,
         )
@@ -111,21 +111,21 @@ class FolderViewModel(
     )
 }
 
-private fun List<SourcePreviewUi.File>.sorted(
+private fun List<FileBrowserUi.File>.sorted(
     sort: FolderState.SortUi,
     ascending: Boolean,
-): List<SourcePreviewUi.File> {
+): List<FileBrowserUi.File> {
     val comparator = when (sort) {
-        FolderState.SortUi.Name -> compareBy<SourcePreviewUi.File> { it.name.lowercase() }
+        FolderState.SortUi.Name -> compareBy<FileBrowserUi.File> { it.name.lowercase() }
         FolderState.SortUi.Date -> compareBy { it.modifiedAt }
         FolderState.SortUi.Size -> compareBy { it.size?.bytes }
-        FolderState.SortUi.Kind -> compareBy<SourcePreviewUi.File> { it.kind }
+        FolderState.SortUi.Kind -> compareBy<FileBrowserUi.File> { it.kind }
             .thenBy { it.extensionLabel.orEmpty() }
             .thenBy { it.name.lowercase() }
     }
 
     return sortedWith(
-        compareByDescending<SourcePreviewUi.File> { it.kind == FileKindUi.Folder }
+        compareByDescending<FileBrowserUi.File> { it.kind == FileKindUi.Folder }
             .then(if (ascending) comparator else comparator.reversed())
     )
 }

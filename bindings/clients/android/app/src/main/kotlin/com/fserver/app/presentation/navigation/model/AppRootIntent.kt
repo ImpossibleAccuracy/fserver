@@ -2,6 +2,7 @@ package com.fserver.app.presentation.navigation.model
 
 import androidx.lifecycle.Lifecycle
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 
 sealed interface AppRootIntent {
     data object AcceptIncomingConnection : AppRootIntent
@@ -12,6 +13,9 @@ sealed interface AppRootIntent {
 
     data object AcceptPendingConfirmation : AppRootIntent
     data object RejectPendingConfirmation : AppRootIntent
+
+    data class ViewFile(val file: FileBrowserUi.File) : AppRootIntent
+    data object CloseFileViewer : AppRootIntent
 
     data class ForegroundStateChanged(
         val lifecycle: Lifecycle.State,

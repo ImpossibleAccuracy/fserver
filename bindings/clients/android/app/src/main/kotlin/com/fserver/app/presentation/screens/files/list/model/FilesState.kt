@@ -3,8 +3,8 @@ package com.fserver.app.presentation.screens.files.list.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.SampleFiles
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.SampleFiles
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.model.DeviceKind
 
@@ -50,7 +50,7 @@ data class FilesState(
 
     @Immutable
     data class FeedUi(
-        val preview: SourcePreviewUi,
+        val preview: FileBrowserUi,
         val filter: FilterUi,
         val deviceId: String?,
     ) {
@@ -129,7 +129,7 @@ data class FilesState(
 
     companion object {
         val SampleEntries = FeedUi(
-            preview = SourcePreviewUi.PlainList(SourcePreviewUi.SampleFiles),
+            preview = FileBrowserUi.PlainList(FileBrowserUi.SampleFiles),
             filter = FilterUi.All,
             deviceId = null,
         )

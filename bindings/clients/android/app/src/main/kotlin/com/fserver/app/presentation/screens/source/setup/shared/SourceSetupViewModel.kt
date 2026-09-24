@@ -3,13 +3,13 @@ package com.fserver.app.presentation.screens.source.setup.shared
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.setup.access.SourceAccessHandler
 import com.fserver.app.presentation.screens.source.setup.conditions.SourceConditionsHandler
 import com.fserver.app.presentation.screens.source.setup.mode.SourceModeHandler
 import com.fserver.app.presentation.screens.source.setup.pick.SourcePickHandler
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.sync.SourcesController

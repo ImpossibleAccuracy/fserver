@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.error
+package com.fserver.app.presentation.shared.error
 
 import com.fserver.core.requirement.RequirementReport
 import kotlinx.coroutines.channels.Channel

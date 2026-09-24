@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.files.shared
 
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.toFlatPreview
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.toFlatPreview
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
@@ -19,9 +19,9 @@ class FilesProviderHandler(
 ) {
     fun loadPreviewFiles(
         folder: String? = null,
-        requiredLocation: SourcePreviewUi.File.Location? = null,
+        requiredLocation: FileBrowserUi.File.Location? = null,
         sourceIds: Set<String>? = null,
-    ): Flow<List<SourcePreviewUi.File>> = combine(
+    ): Flow<List<FileBrowserUi.File>> = combine(
         filesController.overallContent.debounce(50.milliseconds),
         registeredSourcesRepository.sources,
     ) { entries, sources ->

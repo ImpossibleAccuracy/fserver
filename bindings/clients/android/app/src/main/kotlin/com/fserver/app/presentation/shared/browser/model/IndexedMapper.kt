@@ -1,26 +1,26 @@
-package com.fserver.app.presentation.screens.source.shared.preview.model
+package com.fserver.app.presentation.shared.browser.model
 
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.core.files.SyncFileEntry
 
 /** Returns true if the given [files] contain a majority of media files. */
-fun isMediaCollection(files: List<SourcePreviewUi.PreviewContentEntry>): Boolean {
+fun isMediaCollection(files: List<FileBrowserUi.PreviewContentEntry>): Boolean {
     val media = files.count {
         when (it) {
-            is SourcePreviewUi.Directory -> false
-            is SourcePreviewUi.File -> it.kind.isMedia
+            is FileBrowserUi.Directory -> false
+            is FileBrowserUi.File -> it.kind.isMedia
         }
     }
 
-    val isMediaCollection = media.toDouble() / files.size > SourcePreviewUi.MediaRatioThreshold
+    val isMediaCollection = media.toDouble() / files.size > FileBrowserUi.MediaRatioThreshold
     return isMediaCollection
 }
 
-/** Flattens a list of [SyncFileEntry] into a list of [SourcePreviewUi.File] for a given [directory]. */
+/** Flattens a list of [SyncFileEntry] into a list of [FileBrowserUi.File] for a given [directory]. */
 fun List<SyncFileEntry>.toFlatPreview(
     directory: String = "/",
-): List<SourcePreviewUi.File> {
+): List<FileBrowserUi.File> {
     val allFiles = associateWith { it.directory }
 
     val allDirectories = allFiles.values
@@ -57,7 +57,7 @@ fun List<SyncFileEntry>.toFlatPreview(
 
     return buildList(foundFiles.size + foundDirectories.size) {
         for (directory in foundDirectories) {
-            this += SourcePreviewUi.File(
+            this += FileBrowserUi.File(
                 id = directory,
                 path = directory,
                 name = directoryName(directory),
@@ -74,12 +74,12 @@ fun List<SyncFileEntry>.toFlatPreview(
     }
 }
 
-fun SyncFileEntry.asPreviewFile(): SourcePreviewUi.File {
+fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
     val name = path.substringAfterLast('/')
     val kind = fileKindOf(name)
     val extension = name.substringAfterLast(".", missingDelimiterValue = "")
 
-    return SourcePreviewUi.File(
+    return FileBrowserUi.File(
         id = fileId,
         path = path,
         name = name,
@@ -88,8 +88,8 @@ fun SyncFileEntry.asPreviewFile(): SourcePreviewUi.File {
         size = size,
         modifiedAt = modifiedAt,
         location = when {
-            isRemote -> SourcePreviewUi.File.Location.Remote
-            else -> SourcePreviewUi.File.Location.Local
+            isRemote -> FileBrowserUi.File.Location.Remote
+            else -> FileBrowserUi.File.Location.Local
         },
         extensionLabel = when {
             kind.isMedia -> null

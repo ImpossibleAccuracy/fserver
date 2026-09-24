@@ -2,8 +2,8 @@ package com.fserver.app.di
 
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
-import com.fserver.app.presentation.error.ErrorBus
-import com.fserver.app.presentation.error.ErrorReporter
+import com.fserver.app.presentation.shared.error.ErrorBus
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.screens.activity.ActivityViewModel
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel

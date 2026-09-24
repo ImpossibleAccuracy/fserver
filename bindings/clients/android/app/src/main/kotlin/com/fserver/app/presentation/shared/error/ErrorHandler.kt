@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.error
+package com.fserver.app.presentation.shared.error
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

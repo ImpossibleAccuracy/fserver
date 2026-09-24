@@ -5,9 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.composable.toUi
-import com.fserver.app.presentation.error.ErrorBus
-import com.fserver.app.presentation.error.toAppError
+import com.fserver.app.presentation.shared.error.ErrorBus
+import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
@@ -48,7 +49,7 @@ class AppViewModel(
     private val appSettings: AppSettingsStore,
     private val fServerCore: FServerCore,
     private val lifecycleController: LifecycleController,
-    private val errorBus: ErrorBus,
+    private val errorBus: com.fserver.app.presentation.shared.error.ErrorBus,
 ) : ViewModel() {
     private val presenceHandover = lifecycleController.presenceHandover()
 
@@ -70,11 +71,14 @@ class AppViewModel(
     private val pending =
         MutableStateFlow<List<IncomingConnection>>(emptyList())
 
+    private val viewedFile = MutableStateFlow<FileBrowserUi.File?>(null)
+
     val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
         devicesRepository.pendingConfirmation,
-    ) { destination, pending, pendingConfirmation ->
+        viewedFile,
+    ) { destination, pending, pendingConfirmation, viewedFile ->
         destination ?: return@combine null
 
         AppRootState(
@@ -82,6 +86,7 @@ class AppViewModel(
             incomingConnection = pending.firstOrNull()?.toUi(),
             pendingConfirmation = pendingConfirmation?.toUi(),
             incomingTransfer = null,
+            viewedFile = viewedFile,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -169,6 +174,10 @@ class AppViewModel(
 
             is AppRootIntent.RejectPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = false)
+
+            is AppRootIntent.ViewFile -> viewedFile.value = intent.file
+
+            is AppRootIntent.CloseFileViewer -> viewedFile.value = null
 
             is AppRootIntent.ForegroundStateChanged -> handleForegroundState(intent)
         }

@@ -2,7 +2,6 @@ package com.fserver.app.presentation.screens.source.request.location
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationIntent
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationState
@@ -10,6 +9,7 @@ import com.fserver.app.presentation.screens.source.request.location.model.SyncRe
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.toLocation
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.channels.Channel

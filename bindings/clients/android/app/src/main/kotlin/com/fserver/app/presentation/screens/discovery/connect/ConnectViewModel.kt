@@ -4,11 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.firstAction
 import com.fserver.app.presentation.composable.model.toRows
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectIntent
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectState
 import com.fserver.app.presentation.screens.discovery.connect.model.ConnectUiEffect
 import com.fserver.app.presentation.screens.discovery.shared.toCardUi
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.TransportKind

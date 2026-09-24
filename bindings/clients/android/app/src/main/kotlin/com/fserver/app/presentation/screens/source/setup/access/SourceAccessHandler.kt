@@ -1,16 +1,16 @@
 package com.fserver.app.presentation.screens.source.setup.access
 
 import android.content.Context
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessState
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessUiEffect
 import com.fserver.app.presentation.screens.source.setup.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
-import com.fserver.app.presentation.screens.source.shared.preview.model.toPreview
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.toPreview
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SourceLocation
@@ -44,7 +44,7 @@ class SourceAccessHandler(
     private var scanJob: Job? = null
 
     val state: StateFlow<SourceAccessState?> = combine(flow, editable) { shared, local ->
-        val previewSelection = if (local.selectable) SourcePreviewSelection(
+        val previewSelection = if (local.selectable) FileBrowserSelection(
             selected = local.selection,
             onSelectFile = null,
             onSelectDirectory = { entry ->
@@ -124,7 +124,7 @@ class SourceAccessHandler(
     private fun confirmDirectory() {
         val entry = editable.value.selection ?: return
 
-        if (entry !is SourcePreviewUi.Directory) {
+        if (entry !is FileBrowserUi.Directory) {
             throw IllegalStateException("Expected a directory, got $entry")
         }
 
@@ -225,8 +225,8 @@ class SourceAccessHandler(
     }
 
     /** Where a back gesture inside the preview lands: one folder up, or the top of the tree. */
-    private fun Editable.parentOfSelection(): SourcePreviewUi.Directory? =
-        (preview as? SourcePreviewUi.Tree)?.parentOf(selection)
+    private fun Editable.parentOfSelection(): FileBrowserUi.Directory? =
+        (preview as? FileBrowserUi.Tree)?.parentOf(selection)
 
     private fun SourceAccessGrant.directory(): SourceLocation? = when (this) {
         SourceAccessGrant.Denied -> null
@@ -243,9 +243,9 @@ class SourceAccessHandler(
         val location: SourceLocation.Selectable? = null,
         val files: Int = 0,
         val bytes: FileSize = FileSize(0),
-        val preview: SourcePreviewUi? = null,
+        val preview: FileBrowserUi? = null,
         val progress: DirectoryScanProgress? = null,
         val selectable: Boolean = false,
-        val selection: SourcePreviewUi.PreviewContentEntry? = null
+        val selection: FileBrowserUi.PreviewContentEntry? = null
     )
 }

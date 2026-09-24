@@ -54,9 +54,9 @@ import com.fserver.app.presentation.screens.files.list.model.FilesIntent
 import com.fserver.app.presentation.screens.files.list.model.FilesState
 import com.fserver.app.presentation.screens.files.list.model.FilesUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
-import com.fserver.app.presentation.screens.source.setup.shared.rememberSourceFileOpener
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowser
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -75,7 +75,7 @@ fun FilesScreen(
     navigateToQrScan: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val fileOpener = rememberSourceFileOpener()
+    val fileOpener = LocalFileOpener.current
 
     LaunchedEffect(Unit) {
         viewModel.uiEffects.collect { effect ->
@@ -110,7 +110,7 @@ private fun FilesScreenContent(
     navigateToConnect: () -> Unit,
     navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
-    navigateToFolder: (SourcePreviewUi.File) -> Unit,
+    navigateToFolder: (FileBrowserUi.File) -> Unit,
     navigateToSourceDetails: (String) -> Unit = {},
     navigateToDeviceSettings: (String) -> Unit,
     navigateToManualAddress: () -> Unit = {},
@@ -186,7 +186,7 @@ private fun FilesFeed(
     navigateToConnect: () -> Unit,
     navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
-    navigateToFolder: (SourcePreviewUi.File) -> Unit,
+    navigateToFolder: (FileBrowserUi.File) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         state.networkWarning?.let { warning ->
@@ -286,7 +286,7 @@ private fun FilesFeed(
                     isRefreshing = state.isSyncing,
                     onRefresh = { onIntent(FilesIntent.RefreshRequested) },
                 ) {
-                    SourcePreview(
+                    FileBrowser(
                         modifier = Modifier.fillMaxSize(),
                         preview = state.entries.preview,
                         onFileClick = { entry ->
@@ -515,7 +515,7 @@ private fun FilesScreenEmptyFilterPreview() {
                 devices = FilesState.SampleDevices,
                 filter = FilesState.FilterUi.Cloud,
                 entries = FilesState.FeedUi(
-                    preview = SourcePreviewUi.PlainList(emptyList()),
+                    preview = FileBrowserUi.PlainList(emptyList()),
                     filter = FilesState.FilterUi.Cloud,
                     deviceId = null,
                 ),
@@ -580,7 +580,7 @@ private fun FilesScreenEmptyPreview() {
         FilesScreenContent(
             state = FilesState(
                 entries = FilesState.FeedUi(
-                    preview = SourcePreviewUi.PlainList(emptyList()),
+                    preview = FileBrowserUi.PlainList(emptyList()),
                     filter = FilesState.FilterUi.All,
                     deviceId = null,
                 ),

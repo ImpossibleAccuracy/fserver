@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.composable.layouts
+package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -32,29 +32,29 @@ import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.screens.source.shared.preview.composable.FileRadio
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
-import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileRadio
+import com.fserver.app.presentation.shared.browser.icon
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
 
 
 @Composable
-fun PreviewTree(
+fun BrowserTree(
     modifier: Modifier = Modifier,
-    preview: SourcePreviewUi.Tree,
-    selection: SourcePreviewSelection?,
+    preview: FileBrowserUi.Tree,
+    selection: FileBrowserSelection?,
     header: @Composable (() -> Unit)? = null,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     // Walking the folders is what a tree is for, picking one out of it is not: a caller that owns
     // no selection still gets the walk, kept here instead.
     val walk = selection ?: rememberTreeWalk(preview)
 
     val visibleDirectory = remember(walk.selected) {
-        walk.selected as? SourcePreviewUi.Directory
+        walk.selected as? FileBrowserUi.Directory
     }
 
     BackHandler(
@@ -95,11 +95,11 @@ fun PreviewTree(
 
 /** The walk a read-only tree does on its own: open a folder, back out of it, nothing selected. */
 @Composable
-private fun rememberTreeWalk(preview: SourcePreviewUi.Tree): SourcePreviewSelection {
-    var opened by remember(preview) { mutableStateOf<SourcePreviewUi.Directory?>(null) }
+private fun rememberTreeWalk(preview: FileBrowserUi.Tree): FileBrowserSelection {
+    var opened by remember(preview) { mutableStateOf<FileBrowserUi.Directory?>(null) }
 
     return remember(preview, opened) {
-        SourcePreviewSelection(
+        FileBrowserSelection(
             selected = opened,
             onSelectDirectory = { opened = it },
             walkUp = { opened = preview.parentOf(opened) },
@@ -110,14 +110,14 @@ private fun rememberTreeWalk(preview: SourcePreviewUi.Tree): SourcePreviewSelect
 @Composable
 private fun EntriesGrid(
     modifier: Modifier = Modifier,
-    visibleContent: List<SourcePreviewUi.PreviewContentEntry>,
-    selection: SourcePreviewSelection?,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    visibleContent: List<FileBrowserUi.PreviewContentEntry>,
+    selection: FileBrowserSelection?,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     val (mediaItems, regularItems) = visibleContent.partition {
         when (it) {
-            is SourcePreviewUi.Directory -> false
-            is SourcePreviewUi.File -> it.kind.isMedia
+            is FileBrowserUi.Directory -> false
+            is FileBrowserUi.File -> it.kind.isMedia
         }
     }
 
@@ -134,7 +134,7 @@ private fun EntriesGrid(
         items(
             items = regularItems,
             key = { it.path },
-            contentType = { if (it is SourcePreviewUi.Directory) "directory" else "file" },
+            contentType = { if (it is FileBrowserUi.Directory) "directory" else "file" },
             span = { GridItemSpan(maxLineSpan) }
         ) {
             EntryListItem(
@@ -147,11 +147,11 @@ private fun EntriesGrid(
         items(
             items = mediaItems,
             key = { it.path },
-            contentType = { if (it is SourcePreviewUi.Directory) "directory" else "file" },
+            contentType = { if (it is FileBrowserUi.Directory) "directory" else "file" },
         ) {
-            if (it !is SourcePreviewUi.File) return@items // GridItemSpan is only for files, directories are always full-width
+            if (it !is FileBrowserUi.File) return@items // GridItemSpan is only for files, directories are always full-width
 
-            PreviewGalleryTile(
+            BrowserGalleryTile(
                 file = it,
                 selection = selection,
                 onFileClick = onFileClick,
@@ -163,9 +163,9 @@ private fun EntriesGrid(
 @Composable
 private fun EntriesList(
     modifier: Modifier = Modifier,
-    visibleContent: List<SourcePreviewUi.PreviewContentEntry>,
-    selection: SourcePreviewSelection?,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    visibleContent: List<FileBrowserUi.PreviewContentEntry>,
+    selection: FileBrowserSelection?,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier,
@@ -183,16 +183,16 @@ private fun EntriesList(
 
 @Composable
 private fun EntryListItem(
-    selection: SourcePreviewSelection?,
-    row: SourcePreviewUi.PreviewContentEntry,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    selection: FileBrowserSelection?,
+    row: FileBrowserUi.PreviewContentEntry,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     when (row) {
-        is SourcePreviewUi.Directory -> {
+        is FileBrowserUi.Directory -> {
             DkListRow(
                 title = row.displayLabel(),
                 subtitle = stringResource(
-                    R.string.source_preview_directory_count,
+                    R.string.file_browser_directory_count,
                     row.files,
                     row.size.formatted(),
                 ),
@@ -212,7 +212,7 @@ private fun EntryListItem(
             )
         }
 
-        is SourcePreviewUi.File -> DkListRow(
+        is FileBrowserUi.File -> DkListRow(
             title = row.name,
             titleMaxLines = 2,
             subtitle = row.size?.formatted(),
@@ -229,23 +229,23 @@ private fun EntryListItem(
 }
 
 @Composable
-fun SourcePreviewUi.Directory.displayLabel(): String =
+fun FileBrowserUi.Directory.displayLabel(): String =
     if (isVolume && name == SourcePaths.PrimaryVolume) {
-        stringResource(R.string.source_preview_volume_primary)
+        stringResource(R.string.file_browser_volume_primary)
     } else {
         name
     }
 
 @Preview(name = "Tree", showBackground = true)
 @Composable
-private fun SourcePreviewTreePreview() {
+private fun FileBrowserTreePreview() {
     FServerTheme {
-        PreviewTree(
-            preview = SourcePreviewUi.Tree(
+        BrowserTree(
+            preview = FileBrowserUi.Tree(
                 directories = SampleVolumes,
             ),
             onFileClick = {},
-            selection = SourcePreviewSelection(
+            selection = FileBrowserSelection(
                 selected = null,
                 onSelectDirectory = {},
             ),
@@ -254,20 +254,20 @@ private fun SourcePreviewTreePreview() {
 }
 
 private val SampleVolumes = listOf(
-    SourcePreviewUi.Directory(
+    FileBrowserUi.Directory(
         path = "/storage/emulated/0",
         name = SourcePaths.PrimaryVolume,
         files = 12_408,
         size = FileSize(41_200_000_000L),
         isVolume = true,
         contents = listOf(
-            SourcePreviewUi.Directory(
+            FileBrowserUi.Directory(
                 path = "/storage/emulated/0/DCIM",
                 name = "DCIM",
                 files = 2_310,
                 size = FileSize(19_100_000_000L),
                 contents = listOf(
-                    SourcePreviewUi.Directory(
+                    FileBrowserUi.Directory(
                         path = "/storage/emulated/0/DCIM/Camera",
                         name = "Camera",
                         files = 2_140,
@@ -276,7 +276,7 @@ private val SampleVolumes = listOf(
                     ),
                 ),
             ),
-            SourcePreviewUi.Directory(
+            FileBrowserUi.Directory(
                 path = "/storage/emulated/0/Download",
                 name = "Download",
                 files = 87,
@@ -285,14 +285,14 @@ private val SampleVolumes = listOf(
             ),
         ),
     ),
-    SourcePreviewUi.Directory(
+    FileBrowserUi.Directory(
         path = "/storage/1B0C-4F2A",
         name = "1B0C-4F2A",
         files = 640,
         size = FileSize(8_900_000_000L),
         isVolume = true,
     ),
-    SourcePreviewUi.File(
+    FileBrowserUi.File(
         id = "1",
         path = "primary/DCIM/Camera/IMG_0001.jpg",
         name = "IMG_0001.jpg",

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.composable.layouts
+package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -17,11 +20,11 @@ import androidx.compose.ui.unit.dp
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.designkit.DkMediaTile
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.source.shared.preview.composable.FileRadio
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewHeader
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
-import com.fserver.app.presentation.screens.source.shared.preview.composable.rememberSourceThumbnail
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowserHeader
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileRadio
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.viewer.FileThumbnail
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
@@ -30,12 +33,12 @@ private const val HeaderKey = "header"
 
 /** Tiles: a gallery is judged by what it looks like, so nothing but the files is on screen. */
 @Composable
-fun PreviewGallery(
+fun BrowserGallery(
     modifier: Modifier = Modifier,
-    preview: SourcePreviewUi.Gallery,
-    selection: SourcePreviewSelection? = null,
+    preview: FileBrowserUi.Gallery,
+    selection: FileBrowserSelection? = null,
     header: @Composable (() -> Unit)? = null,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
@@ -52,7 +55,7 @@ fun PreviewGallery(
         }
 
         items(items = preview.files, key = { it.path }) { file ->
-            PreviewGalleryTile(
+            BrowserGalleryTile(
                 file = file,
                 selection = selection,
                 onFileClick = onFileClick,
@@ -62,20 +65,33 @@ fun PreviewGallery(
 }
 
 @Composable
-fun PreviewGalleryTile(
-    file: SourcePreviewUi.File,
-    selection: SourcePreviewSelection?,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+fun BrowserGalleryTile(
+    modifier: Modifier = Modifier,
+    file: FileBrowserUi.File,
+    selection: FileBrowserSelection?,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
-    // TODO: replace with coil
-    val thumbnail by rememberSourceThumbnail(file)
+    val hasThumbnail = file.kind.isMedia
+    var isThumbnailLoaded by remember(file.locator) { mutableStateOf(false) }
 
-    Box {
+    Box(modifier = modifier) {
         DkMediaTile(
-            extensionLabel = file.extensionLabel,
-            thumbnail = thumbnail,
+            extensionLabel = file.extensionLabel.takeUnless { isThumbnailLoaded },
+            thumbnail = if (hasThumbnail) {
+                {
+                    FileThumbnail(
+                        modifier = Modifier.matchParentSize(),
+                        file = file,
+                        onLoaded = { isThumbnailLoaded = true },
+                    )
+                }
+            } else {
+                null
+            },
+            label = file.name.takeUnless { file.kind == FileKindUi.Image },
             onClick = { onFileClick(file) },
         )
+
         // On the tile rather than beside it: a grid has no gutter to put a control in.
         Box(modifier = Modifier.align(Alignment.TopStart)) {
             FileRadio(
@@ -88,15 +104,15 @@ fun PreviewGalleryTile(
 
 @Preview(name = "Gallery", showBackground = true)
 @Composable
-private fun SourcePreviewGalleryPreview() {
+private fun FileBrowserGalleryPreview() {
     FServerTheme {
-        PreviewGallery(
-            preview = SourcePreviewUi.Gallery(
-                files = listOf(SampleImage, SampleDocument),
+        BrowserGallery(
+            preview = FileBrowserUi.Gallery(
+                files = listOf(SampleImage, SampleAudio, SampleDocument),
             ),
             onFileClick = {},
             header = {
-                SourcePreviewHeader(
+                FileBrowserHeader(
                     title = "/DCIM/Projects",
                     detail = "842 files · 6.1 GB"
                 )
@@ -105,7 +121,7 @@ private fun SourcePreviewGalleryPreview() {
     }
 }
 
-private val SampleImage = SourcePreviewUi.File(
+private val SampleImage = FileBrowserUi.File(
     id = "1",
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
@@ -115,7 +131,17 @@ private val SampleImage = SourcePreviewUi.File(
     extensionLabel = null,
 )
 
-private val SampleDocument = SourcePreviewUi.File(
+private val SampleAudio = FileBrowserUi.File(
+    id = "3",
+    path = "primary/Music/track.mp3",
+    name = "track.mp3",
+    kind = FileKindUi.Audio,
+    locator = "/storage/emulated/0/Music/track.mp3",
+    size = FileSize(6_300_000),
+    extensionLabel = "MP3",
+)
+
+private val SampleDocument = FileBrowserUi.File(
     id = "2",
     path = "primary/Documents/report.pdf",
     name = "report.pdf",

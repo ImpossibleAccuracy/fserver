@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanIntent
 import com.fserver.app.presentation.screens.discovery.qr.model.QrScanState
-import com.fserver.app.presentation.error.ErrorReporter
-import com.fserver.app.presentation.error.toAppError
+import com.fserver.app.presentation.shared.error.ErrorBus
+import com.fserver.app.presentation.shared.error.ErrorReporter
+import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.common.exception.MalformedQrException
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository

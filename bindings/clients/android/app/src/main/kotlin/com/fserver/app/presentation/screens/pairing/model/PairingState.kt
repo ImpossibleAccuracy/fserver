@@ -2,8 +2,8 @@ package com.fserver.app.presentation.screens.pairing.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
-import com.fserver.app.presentation.error.AppError
 import com.fserver.app.presentation.model.UiText
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 

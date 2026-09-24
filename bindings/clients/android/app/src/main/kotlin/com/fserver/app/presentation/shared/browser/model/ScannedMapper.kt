@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.model
+package com.fserver.app.presentation.shared.browser.model
 
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileExtension
@@ -11,29 +11,29 @@ import com.fserver.core.files.scan.ScannedFile
 fun List<ScannedFile>.toPreview(
     kind: SourceKindUi,
     volumes: List<SourceLocation.Root.Volume> = emptyList(),
-): SourcePreviewUi = when (kind) {
-    SourceKindUi.Media -> SourcePreviewUi.Gallery(
+): FileBrowserUi = when (kind) {
+    SourceKindUi.Media -> FileBrowserUi.Gallery(
         files = sortedByDescending { it.lastModified }
             .map { it.toPreviewFile() },
     )
 
     SourceKindUi.Folder,
-    SourceKindUi.AppStorage -> SourcePreviewUi.PlainList(
+    SourceKindUi.AppStorage -> FileBrowserUi.PlainList(
         files = sortedByDescending { it.lastModified }
             .map { it.toPreviewFile() },
     )
 
-    SourceKindUi.WholeDevice -> SourcePreviewUi.Tree(
+    SourceKindUi.WholeDevice -> FileBrowserUi.Tree(
         directories = toDirectoryTree(volumes),
     )
 }
 
-private fun ScannedFile.toPreviewFile(): SourcePreviewUi.File {
+private fun ScannedFile.toPreviewFile(): FileBrowserUi.File {
     val name = path.substringAfterLast('/')
     val extension = name.fileExtension
     val kind = fileKindOf(name)
 
-    return SourcePreviewUi.File(
+    return FileBrowserUi.File(
         id = locator,
         path = path,
         name = name,
@@ -57,7 +57,7 @@ private fun ScannedFile.toPreviewFile(): SourcePreviewUi.File {
  */
 private fun List<ScannedFile>.toDirectoryTree(
     volumes: List<SourceLocation.Root.Volume>,
-): List<SourcePreviewUi.Directory> {
+): List<FileBrowserUi.Directory> {
     if (isEmpty()) return emptyList()
 
     val mounts = volumes.associate { it.id to it.path }
@@ -125,7 +125,7 @@ private class DirectoryNode(val label: String) {
         children.getOrPut(head) { DirectoryNode(head) }.add(segments.drop(1), file)
     }
 
-    fun toUi(path: String, isVolume: Boolean = false): SourcePreviewUi.Directory {
+    fun toUi(path: String, isVolume: Boolean = false): FileBrowserUi.Directory {
         val directories = children.values
             .sortedByDescending { it.bytes }
             .map { it.toUi(path = "$path/${it.label}") }
@@ -136,7 +136,7 @@ private class DirectoryNode(val label: String) {
 
         val contents = directories.plus(files)
 
-        return SourcePreviewUi.Directory(
+        return FileBrowserUi.Directory(
             path = path,
             name = label,
             files = contents.size,

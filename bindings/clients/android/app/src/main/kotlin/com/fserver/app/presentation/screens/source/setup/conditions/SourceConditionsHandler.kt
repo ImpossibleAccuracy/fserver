@@ -1,8 +1,8 @@
 package com.fserver.app.presentation.screens.source.setup.conditions
 
 import com.fserver.app.R
-import com.fserver.app.presentation.error.ErrorReporter
-import com.fserver.app.presentation.error.toAppError
+import com.fserver.app.presentation.shared.error.ErrorBus
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
@@ -12,6 +12,7 @@ import com.fserver.app.presentation.screens.source.setup.conditions.model.Source
 import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SyncMode

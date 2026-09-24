@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.composable
+package com.fserver.app.presentation.shared.browser
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile

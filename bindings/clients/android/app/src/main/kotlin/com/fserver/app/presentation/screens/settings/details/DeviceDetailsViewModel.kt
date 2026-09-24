@@ -3,12 +3,12 @@ package com.fserver.app.presentation.screens.settings.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.labelRes
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
 import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.shared.model.latest
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -98,7 +98,9 @@ class DeviceDetailsViewModel(
     private suspend fun forget() {
         trustedDevices.forget(key.deviceId)
         devicesRepository.disconnect(key.deviceId)
-            .onFailure { reporter.report(it, "forgot ${key.deviceId} but could not close its session") }
+            .onFailure {
+                reporter.report(it, "forgot ${key.deviceId} but could not close its session")
+            }
 
         effects.send(DeviceDetailsUiEffect.NavigateBack)
     }

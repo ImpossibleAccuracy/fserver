@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.qr.model
 
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.error.AppError
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.core.network.info.model.PeerLocator
 
 @Immutable

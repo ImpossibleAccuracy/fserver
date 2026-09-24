@@ -1,11 +1,11 @@
 package com.fserver.app.presentation.designkit
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,10 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -29,19 +29,23 @@ import androidx.compose.ui.unit.dp
  * Previews are fetched and cached ahead of time; the file itself is not — [badge] is where
  * the caller says so, via [DkMediaTileBadge].
  *
- * [thumbnail] fills the slot once one is decoded; until then the tile is the same empty square,
- * so a grid never reflows as previews arrive.
+ * [thumbnail] is drawn clipped to the tile, and loads however the caller likes; until it has
+ * something the tile is the same empty square, so a grid never reflows as previews arrive.
+ *
+ * [label] is one small line along the bottom, over a scrim so it reads on any thumbnail.
  */
 @Composable
 fun DkMediaTile(
     modifier: Modifier = Modifier,
     extensionLabel: String? = null,
     durationLabel: String? = null,
-    thumbnail: ImageBitmap? = null,
+    label: String? = null,
+    thumbnail: (@Composable BoxScope.() -> Unit)? = null,
     badge: @Composable (BoxScope.() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val isMedia = extensionLabel == null
+
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -56,13 +60,11 @@ fun DkMediaTile(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         if (thumbnail != null) {
-            Image(
-                bitmap = thumbnail,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            Box(
                 modifier = Modifier
                     .matchParentSize()
                     .clip(RoundedCornerShape(6.dp)),
+                content = thumbnail,
             )
         }
         if (extensionLabel != null) {
@@ -81,9 +83,26 @@ fun DkMediaTile(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+        if (label != null) {
+            Text(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, LabelScrim)))
+                    .padding(horizontal = DkSpacing.xs, vertical = DkSpacing.xxs),
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         badge?.invoke(this)
     }
 }
+
+private val LabelScrim = Color.Black.copy(alpha = 0.6f)
 
 /**
  * Corner marker for a tile — availability, a pin, a selection tick. Placed bottom-right so it
@@ -97,12 +116,12 @@ fun BoxScope.DkMediaTileBadge(
     contentDescription: String? = null,
 ) {
     Icon(
-        imageVector = icon,
-        contentDescription = contentDescription,
-        tint = tint,
         modifier = modifier
             .align(Alignment.BottomEnd)
             .padding(5.dp)
             .size(12.dp),
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = tint,
     )
 }

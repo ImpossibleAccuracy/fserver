@@ -2,10 +2,10 @@ package com.fserver.app.presentation.screens.discovery.manual
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
-import com.fserver.app.presentation.error.toAppError
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressIntent
 import com.fserver.app.presentation.screens.discovery.manual.model.ManualAddressState
+import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.core.Constants
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository

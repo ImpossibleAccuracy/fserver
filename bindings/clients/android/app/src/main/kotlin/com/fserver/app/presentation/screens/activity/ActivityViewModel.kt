@@ -2,11 +2,11 @@ package com.fserver.app.presentation.screens.activity
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.error.ErrorReporter
 import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.activity.model.ActivityIntent
 import com.fserver.app.presentation.screens.activity.model.ActivityState
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.model.FileSize
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController

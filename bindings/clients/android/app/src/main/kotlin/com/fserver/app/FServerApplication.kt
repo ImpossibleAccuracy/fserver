@@ -1,6 +1,12 @@
 package com.fserver.app
 
 import android.app.Application
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.video.VideoFrameDecoder
+import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
+import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
 import com.fserver.app.di.coreModule
 import com.fserver.app.di.dataModule
 import com.fserver.app.di.domainModule
@@ -16,7 +22,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import timber.log.Timber
 
-class FServerApplication : Application() {
+class FServerApplication : Application(), SingletonImageLoader.Factory {
 
     /** Lives as long as the process. Android gives `Application` no teardown to cancel it on. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -46,4 +52,12 @@ class FServerApplication : Application() {
         // every process the app is started in, including the one WorkManager wakes.
         syncScheduler.start(appScope)
     }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .components {
+                add(VideoFrameDecoder.Factory())
+                add(AudioArtworkFetcher.Factory(), AudioArtwork::class)
+            }
+            .build()
 }

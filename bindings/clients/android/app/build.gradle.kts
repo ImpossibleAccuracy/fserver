@@ -131,6 +131,15 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
+    // Image loading - thumbnails and the image viewer
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
+
+    // Media playback - video and audio viewer
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui.compose)
+    implementation(libs.androidx.media3.ui.compose.material3)
+
     // Logging
     implementation(libs.timber)
 

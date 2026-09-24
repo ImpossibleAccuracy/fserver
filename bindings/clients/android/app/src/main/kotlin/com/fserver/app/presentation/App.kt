@@ -24,11 +24,11 @@ import com.fserver.app.presentation.composable.AppStyling
 import com.fserver.app.presentation.composable.IncomingConnectionSheet
 import com.fserver.app.presentation.composable.IncomingFilesSheet
 import com.fserver.app.presentation.composable.PendingConfirmationDialog
-import com.fserver.app.presentation.error.ErrorHandler
 import com.fserver.app.presentation.navigation.AppNavigator
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.navigation.LocalResultEventBus
 import com.fserver.app.presentation.navigation.model.AppRootIntent
+import com.fserver.app.presentation.navigation.model.AppRootState
 import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.rememberResultEventBus
 import com.fserver.app.presentation.navigation.rememberSharedViewModelStoreNavEntryDecorator
@@ -59,6 +59,10 @@ import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
 import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
 import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
 import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
+import com.fserver.app.presentation.shared.error.ErrorHandler
+import com.fserver.app.presentation.shared.viewer.FileViewerHost
+import com.fserver.app.presentation.shared.viewer.LocalFileOpener
+import com.fserver.app.presentation.shared.viewer.rememberFileOpener
 import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
 
@@ -77,9 +81,13 @@ fun FServerApp(
     val uiState by viewModel.state.collectAsState()
     val state = uiState ?: return
 
-    val lifecycleOwner = LocalLifecycleOwner.current
     val navigator = rememberAppNavigator(state.startDestination)
+    val resultBus = rememberResultEventBus()
+    val fileOpener = rememberFileOpener(
+        onView = { viewModel.onIntent(AppRootIntent.ViewFile(it)) },
+    )
 
+    val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner, navigator) {
         val currentDestinationFlow = snapshotFlow { navigator.currentTopDestination }
 
@@ -87,17 +95,35 @@ fun FServerApp(
             lifecycleOwner.lifecycle.currentStateFlow,
             currentDestinationFlow,
             ::Pair
-        )
-            .collect { (lifecycle, destination) ->
-                viewModel.onIntent(
-                    AppRootIntent.ForegroundStateChanged(
-                        lifecycle = lifecycle,
-                        destination = destination,
-                    )
+        ).collect { (lifecycle, destination) ->
+            viewModel.onIntent(
+                AppRootIntent.ForegroundStateChanged(
+                    lifecycle = lifecycle,
+                    destination = destination,
                 )
-            }
+            )
+        }
     }
 
+    CompositionLocalProvider(
+        LocalFileOpener provides fileOpener,
+        LocalResultEventBus provides resultBus,
+    ) {
+        FileViewerHost(
+            viewed = state.viewedFile,
+            onClose = { viewModel.onIntent(AppRootIntent.CloseFileViewer) },
+        ) {
+            AppContent(viewModel = viewModel, state = state, navigator = navigator)
+        }
+    }
+}
+
+@Composable
+private fun AppContent(
+    viewModel: AppViewModel,
+    state: AppRootState,
+    navigator: AppNavigator,
+) {
     AppStyling(
         navigator = navigator,
     ) {
@@ -154,82 +180,80 @@ fun FServerApp(
 
 @Composable
 private fun NavHostGraph(navigator: AppNavigator) {
-    CompositionLocalProvider(LocalResultEventBus provides rememberResultEventBus()) {
-        NavDisplay(
-            backStack = navigator.activeBackStack,
-            onBack = { navigator.navigateUp() },
-            sceneStrategies = listOf(
-                remember { BottomSheetSceneStrategy() }
-            ),
-            entryDecorators = listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberSharedViewModelStoreNavEntryDecorator(),
-            ),
+    NavDisplay(
+        backStack = navigator.activeBackStack,
+        onBack = { navigator.navigateUp() },
+        sceneStrategies = listOf(
+            remember { BottomSheetSceneStrategy() }
+        ),
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberSharedViewModelStoreNavEntryDecorator(),
+        ),
 
-            transitionSpec = {
-                slideInVertically(
-                    animationSpec = tween(400, easing = EmphasizedDecelerate),
-                    initialOffsetY = ::smallOffset
+        transitionSpec = {
+            slideInVertically(
+                animationSpec = tween(400, easing = EmphasizedDecelerate),
+                initialOffsetY = ::smallOffset
+            )
+                .plus(fadeIn(tween(250, delayMillis = 50, easing = EmphasizedDecelerate)))
+                .togetherWith(
+                    fadeOut(tween(200, easing = EmphasizedAccelerate))
                 )
-                    .plus(fadeIn(tween(250, delayMillis = 50, easing = EmphasizedDecelerate)))
-                    .togetherWith(
-                        fadeOut(tween(200, easing = EmphasizedAccelerate))
-                    )
-            },
-            popTransitionSpec = {
-                fadeIn(tween(250, easing = EmphasizedDecelerate))
-                    .togetherWith(
-                        slideOutVertically(
-                            animationSpec = tween(400, easing = EmphasizedAccelerate),
-                            targetOffsetY = ::smallOffset
-                        ).plus(fadeOut(tween(200, easing = EmphasizedAccelerate)))
-                    )
-            },
-            predictivePopTransitionSpec = {
-                scaleIn(
-                    initialScale = 0.9f,
-                    animationSpec = tween(400, easing = EmphasizedDecelerate)
+        },
+        popTransitionSpec = {
+            fadeIn(tween(250, easing = EmphasizedDecelerate))
+                .togetherWith(
+                    slideOutVertically(
+                        animationSpec = tween(400, easing = EmphasizedAccelerate),
+                        targetOffsetY = ::smallOffset
+                    ).plus(fadeOut(tween(200, easing = EmphasizedAccelerate)))
                 )
-                    .plus(fadeIn(tween(250, easing = EmphasizedDecelerate)))
-                    .togetherWith(
-                        scaleOut(
-                            targetScale = 0.9f,
-                            animationSpec = tween(400, easing = EmphasizedAccelerate)
-                        ).plus(fadeOut(tween(250, easing = EmphasizedAccelerate)))
-                    )
-            },
-            entryProvider = entryProvider {
-                onboardingEntry(navigator)
-                connectEntry(navigator)
-                qrScanEntry(navigator)
-                manualAddressEntry(navigator)
-                pairingEntry(navigator)
-                activityEntry(navigator)
-                settingsEntry(navigator)
-                settingsDevicesEntry(navigator)
-                settingsDeviceDetailsEntry(navigator)
-                settingsSecurityEntry(navigator)
-                settingsPinChangeEntry(navigator)
-                settingsAboutEntry(navigator)
-                diagnosticEntry(navigator)
+        },
+        predictivePopTransitionSpec = {
+            scaleIn(
+                initialScale = 0.9f,
+                animationSpec = tween(400, easing = EmphasizedDecelerate)
+            )
+                .plus(fadeIn(tween(250, easing = EmphasizedDecelerate)))
+                .togetherWith(
+                    scaleOut(
+                        targetScale = 0.9f,
+                        animationSpec = tween(400, easing = EmphasizedAccelerate)
+                    ).plus(fadeOut(tween(250, easing = EmphasizedAccelerate)))
+                )
+        },
+        entryProvider = entryProvider {
+            onboardingEntry(navigator)
+            connectEntry(navigator)
+            qrScanEntry(navigator)
+            manualAddressEntry(navigator)
+            pairingEntry(navigator)
+            activityEntry(navigator)
+            settingsEntry(navigator)
+            settingsDevicesEntry(navigator)
+            settingsDeviceDetailsEntry(navigator)
+            settingsSecurityEntry(navigator)
+            settingsPinChangeEntry(navigator)
+            settingsAboutEntry(navigator)
+            diagnosticEntry(navigator)
 
-                filesListEntry(navigator)
-                filesFolderEntry(navigator)
-                filesActionsEntry(navigator)
-                filesSourceDetailsEntry(navigator)
+            filesListEntry(navigator)
+            filesFolderEntry(navigator)
+            filesActionsEntry(navigator)
+            filesSourceDetailsEntry(navigator)
 
-                sourcePickEntry(navigator)
-                sourceAccessEntry(navigator)
-                sourceModeEntry(navigator)
-                sourceConditionsEntry(navigator)
+            sourcePickEntry(navigator)
+            sourceAccessEntry(navigator)
+            sourceModeEntry(navigator)
+            sourceConditionsEntry(navigator)
 
-                syncRequestListEntry(navigator)
-                syncRequestDetailsEntry(navigator)
-                syncRequestLocationEntry(navigator)
+            syncRequestListEntry(navigator)
+            syncRequestDetailsEntry(navigator)
+            syncRequestLocationEntry(navigator)
 
-                sourceProgressEntry(navigator)
-                sourceDoneEntry(navigator)
-            },
-        )
-    }
+            sourceProgressEntry(navigator)
+            sourceDoneEntry(navigator)
+        },
+    )
 }

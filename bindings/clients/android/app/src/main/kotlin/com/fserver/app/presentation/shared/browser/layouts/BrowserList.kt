@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.preview.composable.layouts
+package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,12 +11,12 @@ import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.screens.source.shared.preview.composable.FileRadio
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreview
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewHeader
-import com.fserver.app.presentation.screens.source.shared.preview.composable.SourcePreviewSelection
-import com.fserver.app.presentation.screens.source.shared.preview.composable.icon
-import com.fserver.app.presentation.screens.source.shared.preview.model.SourcePreviewUi
+import com.fserver.app.presentation.shared.browser.FileBrowser
+import com.fserver.app.presentation.shared.browser.FileBrowserHeader
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileRadio
+import com.fserver.app.presentation.shared.browser.icon
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
@@ -24,12 +24,12 @@ private const val HeaderKey = "header"
 
 /** Rows: name, size, and what kind of file it is. The row is the touch target that opens it. */
 @Composable
-fun PreviewList(
+fun BrowserList(
     modifier: Modifier = Modifier,
-    preview: SourcePreviewUi.PlainList,
-    selection: SourcePreviewSelection? = null,
+    preview: FileBrowserUi.PlainList,
+    selection: FileBrowserSelection? = null,
     header: @Composable (() -> Unit)? = null,
-    onFileClick: (SourcePreviewUi.File) -> Unit,
+    onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize()) {
         if (header != null) {
@@ -56,15 +56,15 @@ fun PreviewList(
 
 @Preview(name = "List", showBackground = true)
 @Composable
-private fun SourcePreviewListPreview() {
+private fun FileBrowserListPreview() {
     FServerTheme {
-        SourcePreview(
-            preview = SourcePreviewUi.PlainList(
+        FileBrowser(
+            preview = FileBrowserUi.PlainList(
                 files = listOf(SampleImage, SampleDocument),
             ),
             onFileClick = {},
             header = {
-                SourcePreviewHeader(
+                FileBrowserHeader(
                     title = "/DCIM/Projects",
                     detail = "842 files · 6.1 GB"
                 )
@@ -75,14 +75,14 @@ private fun SourcePreviewListPreview() {
 
 @Preview(name = "List, selectable", showBackground = true)
 @Composable
-private fun SourcePreviewSelectableListPreview() {
+private fun FileBrowserSelectableListPreview() {
     FServerTheme {
-        SourcePreview(
-            preview = SourcePreviewUi.PlainList(
+        FileBrowser(
+            preview = FileBrowserUi.PlainList(
                 files = listOf(SampleImage, SampleDocument),
             ),
             onFileClick = {},
-            selection = SourcePreviewSelection(
+            selection = FileBrowserSelection(
                 selected = SampleImage,
                 onSelectFile = {},
             ),
@@ -90,7 +90,7 @@ private fun SourcePreviewSelectableListPreview() {
     }
 }
 
-private val SampleImage = SourcePreviewUi.File(
+private val SampleImage = FileBrowserUi.File(
     id = "1",
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
@@ -100,7 +100,7 @@ private val SampleImage = SourcePreviewUi.File(
     extensionLabel = null,
 )
 
-private val SampleDocument = SourcePreviewUi.File(
+private val SampleDocument = FileBrowserUi.File(
     id = "2",
     path = "primary/Documents/report.pdf",
     name = "report.pdf",
