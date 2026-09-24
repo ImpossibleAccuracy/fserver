@@ -1,10 +1,17 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.local
 
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.impl.isUnder
+import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -16,8 +23,25 @@ import kotlin.time.Instant
 
 internal class RootFileSystem(
     private val source: FileSystemSource.Root,
-) : LocalFileSystem() {
-    override suspend fun scanFiles(
+) : FileSystem {
+
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+
+    override suspend fun createFile(path: String): FsFile =
+        open(createLocalFile(resolve(path), path))
+
+    override suspend fun fileExists(path: String): Boolean {
+        val file = resolve(path)
+
+        return withContext(Dispatchers.IO) { file.isFile }
+    }
+
+    override suspend fun openFile(locator: String): FsFile? =
+        existingLocalFile(confine(locator), locator)?.let(::open)
+
+    private fun open(file: File): FsFile = LocalFile(file, ::confine)
+
+    private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = coroutineScope {
         for (volume in source.volumes) {
@@ -57,7 +81,7 @@ internal class RootFileSystem(
      * [path] is volume-led, the way a scan here reports it: the first segment names the volume the
      * rest of the path lives on.
      */
-    override fun resolve(path: String): File {
+    private fun resolve(path: String): File {
         val segments = segmentsOf(path)
 
         val mount = source.volumes
@@ -78,7 +102,7 @@ internal class RootFileSystem(
      * A root source has no single directory to be confined to, so the mounted volumes are the whole
      * bound: a locator that resolves outside every one of them reaches nothing.
      */
-    override fun confine(locator: String): File =
+    private fun confine(locator: String): File =
         File(locator).canonicalFile.also { file ->
             if (source.volumes.none { file.isUnder(mountOf(it)) }) {
                 throw FileSystemException.InvalidPath(locator)

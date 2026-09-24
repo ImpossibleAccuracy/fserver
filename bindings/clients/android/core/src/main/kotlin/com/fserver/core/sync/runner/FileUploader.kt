@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.StageTimer
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
@@ -95,7 +96,10 @@ internal class FileUploader(
         timer.count("chunkSize", chunkSize.toLong())
 
         val fs = node.openSource(source.location.toFiles())
-        fs.openFile(locator).use { stream ->
+        val opened = fs.openFile(locator)
+            ?: throw TransferException.FileNotFoundException("File ${file.id} is gone from $locator")
+
+        opened.read().use { stream ->
             var offset = 0L
             val buffer = ByteArray(chunkSize)
 

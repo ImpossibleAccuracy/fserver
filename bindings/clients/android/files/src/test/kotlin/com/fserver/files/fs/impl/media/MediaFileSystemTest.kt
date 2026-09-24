@@ -1,13 +1,15 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.media
 
 import android.content.Context
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FsFile
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -42,17 +44,17 @@ class MediaFileSystemTest {
 
     @Test
     fun `a file is created at the relative path its canonical path names`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        assertEquals("$Directory/", read(locator, MediaStore.Files.FileColumns.RELATIVE_PATH))
-        assertEquals("a.jpg", read(locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("$Directory/", read(file.locator, MediaStore.Files.FileColumns.RELATIVE_PATH))
+        assertEquals("a.jpg", read(file.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
     @Test
     fun `the mime type is derived from the name`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        assertEquals("image/jpeg", read(locator, MediaStore.Files.FileColumns.MIME_TYPE))
+        assertEquals("image/jpeg", read(file.locator, MediaStore.Files.FileColumns.MIME_TYPE))
     }
 
     @Test
@@ -80,31 +82,42 @@ class MediaFileSystemTest {
     }
 
     @Test
+    fun `a file opens by its locator and a gone one opens as null`() = runTest {
+        val file = create("a.jpg")
+
+        assertEquals(file.locator, fs.openFile(file.locator)?.locator)
+
+        file.delete()
+
+        assertNull(fs.openFile(file.locator))
+    }
+
+    @Test
     fun `writes land at the offset they were given and read back whole`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
-        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
+        file.write(offset = 6, bytes = "world".toByteArray())
+        file.write(offset = 0, bytes = "hello ".toByteArray())
 
-        assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
+        assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
 
     @Test
     fun `only the requested length of a chunk is written`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        fs.writeFile(locator, offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
 
-        assertEquals("abc", fs.openFile(locator).use { String(it.readBytes()) })
+        assertEquals("abc", file.read().use { String(it.readBytes()) })
     }
 
     @Test
     fun `a file is renamed in place and keeps its locator`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        assertEquals(locator, fs.renameFile(locator, "b.jpg"))
-        assertEquals("b.jpg", read(locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals(file.locator, file.rename("b.jpg").locator)
+        assertEquals("b.jpg", read(file.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
     @Test
@@ -112,11 +125,11 @@ class MediaFileSystemTest {
         val a = create("a.jpg")
         val b = create("b.jpg")
 
-        val failure = runCatching { fs.renameFile(a, "b.jpg") }.exceptionOrNull()
+        val failure = runCatching { a.rename("b.jpg") }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.RenameRejected)
-        assertEquals("a.jpg", read(a, MediaStore.Files.FileColumns.DISPLAY_NAME))
-        assertEquals("b.jpg", read(b, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("a.jpg", read(a.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("b.jpg", read(b.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
     @Test
@@ -124,35 +137,35 @@ class MediaFileSystemTest {
         val a = create("a.jpg")
         val b = create("b.jpg")
 
-        fs.renameFile(a, "b.jpg", deleteOldOnConflict = true)
+        a.rename("b.jpg", deleteOldOnConflict = true)
 
-        assertEquals("b.jpg", read(a, MediaStore.Files.FileColumns.DISPLAY_NAME))
-        assertEquals(null, read(b, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("b.jpg", read(a.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals(null, read(b.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
     @Test
     fun `a rename to a name the scan would not report is refused`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        val failure = runCatching { fs.renameFile(locator, "a.txt") }.exceptionOrNull()
+        val failure = runCatching { file.rename("a.txt") }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
-        assertEquals("a.jpg", read(locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
+        assertEquals("a.jpg", read(file.locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
     @Test
     fun `a file is deleted and deleting it again is not an error`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        assertTrue(fs.deleteFile(locator))
-        assertTrue(fs.deleteFile(locator))
+        assertTrue(file.delete())
+        assertTrue(file.delete())
     }
 
     @Test
     fun `a row another app owns is not deleted and does not throw`() = runTest {
         val locator = provider.addForeign("$Directory/", "theirs.jpg", "image/jpeg").toString()
 
-        assertFalse(fs.deleteFile(locator))
+        assertFalse(fs.openFile(locator)!!.delete())
         assertEquals("theirs.jpg", read(locator, MediaStore.Files.FileColumns.DISPLAY_NAME))
     }
 
@@ -186,7 +199,7 @@ class MediaFileSystemTest {
         assertTrue(failure is FileSystemException.InvalidPath)
     }
 
-    private suspend fun create(name: String): String = fs.createFile(pathOf(name))
+    private suspend fun create(name: String): FsFile = fs.createFile(pathOf(name))
 
     private fun pathOf(name: String): String = "${SourcePaths.PrimaryVolume}/$Directory/$name"
 

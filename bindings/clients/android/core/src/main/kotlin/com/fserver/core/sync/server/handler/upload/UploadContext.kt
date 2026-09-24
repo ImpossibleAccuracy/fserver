@@ -9,6 +9,7 @@ import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.files.fs.FileSystem
+import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,8 +53,11 @@ internal class UploadContext(
     private val timer = StageTimer("download ${file.id}")
 
     /** Where the bytes landed. Meaningful once [await] returned. */
-    var locator: String? = null
+    var target: FsFile? = null
         private set
+
+    val locator: String?
+        get() = target?.locator
 
     /** What the writer died of, if it did. Read by the collector, so kept visible to it. */
     @Volatile
@@ -115,9 +119,9 @@ internal class UploadContext(
         release()
         progress.transferFailed(transferKey, failure)
 
-        val written = locator ?: return
+        val written = target ?: return
 
-        runCatchingCancellable { fs.deleteFile(written) }
+        runCatchingCancellable { written.delete() }
             .onFailure { Timber.w(it, "Cannot delete the partial upload of ${file.path}") }
     }
 
@@ -151,12 +155,12 @@ internal class UploadContext(
                 val next = outOfOrder.remove(offset) ?: break
 
                 // Created on the first chunk, so an upload that never sends one leaves no file.
-                val target = locator ?: timer.time("create-file") {
-                    fs.createFile(downloadPath).also { locator = it }
+                val file = target ?: timer.time("create-file") {
+                    fs.createFile(downloadPath).also { target = it }
                 }
 
                 timer.time("disk-write") {
-                    fs.writeFile(locator = target, offset = next.offset, bytes = next.bytes)
+                    file.write(offset = next.offset, bytes = next.bytes)
                 }
 
                 timer.time("hash") { hasher.write(next.bytes, next.bytes.size) }

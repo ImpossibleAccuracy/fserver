@@ -41,7 +41,7 @@ internal class FileOperationHandler(
                 val fs = node.openSource(source.location.toFiles())
 
                 // Thrown, not logged: the peer records this as done on our side once we confirm.
-                if (!fs.deleteFile(file.locator)) {
+                if (fs.openFile(file.locator)?.delete() == false) {
                     throw IllegalStateException("Failed to delete ${file.path} from source ${source.id}")
                 }
 

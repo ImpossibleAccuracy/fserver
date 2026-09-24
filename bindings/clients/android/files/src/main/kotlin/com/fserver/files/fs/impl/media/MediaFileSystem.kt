@@ -1,4 +1,4 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.media
 
 import android.content.ContentUris
 import android.content.ContentValues
@@ -10,8 +10,16 @@ import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.impl.isMediaName
+import com.fserver.files.fs.impl.mimeTypeOf
+import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -21,9 +29,11 @@ import kotlin.time.Instant
 /** Every image, video and audio file the MediaStore indexes, newest first. */
 @RequiresApi(Build.VERSION_CODES.Q)
 internal class MediaFileSystem(
-    context: Context,
-) : ProviderFileSystem(context) {
-    override suspend fun scanFiles(
+    private val context: Context,
+) : FileSystem {
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+
+    private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ): Unit = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -97,15 +107,15 @@ internal class MediaFileSystem(
      * the name become `RELATIVE_PATH`.
      *
      * The row is published straight away rather than staged with `IS_PENDING`: the
-     * [com.fserver.files.fs.FileSystem] contract has no call to clear the flag on, and a pending
+     * [FileSystem] contract has no call to clear the flag on, and a pending
      * row nothing clears expires instead of arriving.
      */
-    override suspend fun createFile(path: String): String = withContext(Dispatchers.IO) {
+    override suspend fun createFile(path: String): FsFile = withContext(Dispatchers.IO) {
         val (collection, relativePath, name) = rowOf(path)
 
         // Checked rather than left to MediaStore, which renames a colliding insert instead of
         // refusing it — and a renamed file no longer matches the path the peer holds.
-        if (find(collection, relativePath, name) != null) {
+        if (findMediaRow(context, collection, relativePath, name) != null) {
             throw FileSystemException.AlreadyExists(path)
         }
 
@@ -122,82 +132,19 @@ internal class MediaFileSystem(
             throw FileSystemException.InvalidPath(path)
         } ?: throw FileSystemException.CreationFailed(path)
 
-        uri.toString()
+        MediaFile(context, uri)
     }
 
     override suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) {
         val (collection, relativePath, name) = rowOf(path)
 
-        find(collection, relativePath, name) != null
+        findMediaRow(context, collection, relativePath, name) != null
     }
 
-    /** Same dance as [TreeFileSystem.renameFile]: a row in the way is moved aside, not deleted. */
-    override suspend fun renameFile(
-        locator: String,
-        newName: String,
-        deleteOldOnConflict: Boolean,
-    ): String = withContext(Dispatchers.IO) {
-        val name = nameOf(newName)
+    override suspend fun openFile(locator: String): FsFile? = withContext(Dispatchers.IO) {
         val uri = locator.toUri()
 
-        if (!isMediaName(name)) throw FileSystemException.InvalidPath(newName)
-
-        val (volume, relativePath, original) = context.contentResolver
-            .query(
-                uri,
-                arrayOf(
-                    MediaStore.Files.FileColumns.VOLUME_NAME,
-                    MediaStore.Files.FileColumns.RELATIVE_PATH,
-                    MediaStore.Files.FileColumns.DISPLAY_NAME,
-                ),
-                null,
-                null,
-                null,
-            )
-            ?.use {
-                if (!it.moveToFirst()) return@use null
-                Triple(it.getString(0) ?: return@use null, it.getString(1).orEmpty(), it.getString(2) ?: return@use null)
-            }
-            ?: throw FileSystemException.InvalidPath(locator)
-
-        if (original == name) return@withContext locator
-
-        val existing = find(MediaStore.Files.getContentUri(volume), relativePath, name)
-        if (existing != null && !deleteOldOnConflict) {
-            throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        if (existing != null && !rename(existing, name + AsideSuffix)) {
-            throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        if (!rename(uri, name)) {
-            existing?.let { rename(it, name) }
-            throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        existing?.let { runCatching { context.contentResolver.delete(it, null, null) } }
-
-        // A row keeps its uri through a rename.
-        locator
-    }
-
-    /** False when MediaStore refused, or quietly picked another name than [name]. */
-    private fun rename(uri: Uri, name: String): Boolean {
-        val values = ContentValues().apply {
-            put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
-        }
-
-        val updated = try {
-            context.contentResolver.update(uri, values, null, null) > 0
-        } catch (e: Exception) {
-            // Includes the RecoverableSecurityException for a row another app owns.
-            false
-        }
-
-        return updated && context.contentResolver
-            .query(uri, arrayOf(MediaStore.Files.FileColumns.DISPLAY_NAME), null, null, null)
-            ?.use { it.moveToFirst() && it.getString(0) == name } == true
+        if (mediaRowExists(context, uri)) MediaFile(context, uri) else null
     }
 
     /**
@@ -226,67 +173,6 @@ internal class MediaFileSystem(
         return Triple(MediaStore.Files.getContentUri(volume), relativePath, segments.last())
     }
 
-    override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
-        val uri = locator.toUri()
-
-        val deleted = try {
-            context.contentResolver.delete(uri, null, null) > 0
-        } catch (e: SecurityException) {
-            // Includes the RecoverableSecurityException for a row another app owns.
-            return@withContext false
-        }
-
-        // A row that is already gone counts as deleted, so a repeated delete is not a failure.
-        deleted || !exists(uri)
-    }
-
-    /** MediaStore owns DATE_MODIFIED, so this only reads back what a scan will see. */
-    override suspend fun settleLastModified(locator: String, time: Instant): Instant =
-        withContext(Dispatchers.IO) {
-            context.contentResolver
-                .query(
-                    locator.toUri(),
-                    arrayOf(MediaStore.Files.FileColumns.DATE_MODIFIED),
-                    null,
-                    null,
-                    null,
-                )
-                ?.use { cursor ->
-                    if (!cursor.moveToFirst()) throw FileSystemException.InvalidPath(locator)
-                    // Seconds, as the scan reads it.
-                    Instant.fromEpochSeconds(if (cursor.isNull(0)) 0L else cursor.getLong(0))
-                }
-                ?: throw FileSystemException.InvalidPath(locator)
-        }
-
-    /** The row at [relativePath] + [name] in [collection], or null when there is none. */
-    private fun find(collection: Uri, relativePath: String, name: String): Uri? {
-        val selection = "${MediaStore.Files.FileColumns.RELATIVE_PATH} = ? AND " +
-            "${MediaStore.Files.FileColumns.DISPLAY_NAME} = ?"
-
-        context.contentResolver
-            .query(
-                /* uri = */ collection,
-                /* projection = */ arrayOf(MediaStore.Files.FileColumns._ID),
-                /* selection = */ selection,
-                /* selectionArgs = */ arrayOf(relativePath, name),
-                /* sortOrder = */ null,
-            )
-            ?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    return ContentUris.withAppendedId(collection, cursor.getLong(0))
-                }
-            }
-
-        return null
-    }
-
-    private fun exists(uri: Uri): Boolean =
-        context.contentResolver
-            .query(uri, arrayOf(MediaStore.Files.FileColumns._ID), null, null, null)
-            ?.use { it.count > 0 }
-            ?: false
-
     /** Aligned with the volume ids a [com.fserver.files.fs.FileSystemSource.Root] scan reports. */
     private fun volumeId(volumeName: String?): String = when (volumeName) {
         null, MediaStore.VOLUME_EXTERNAL_PRIMARY -> SourcePaths.PrimaryVolume
@@ -297,9 +183,5 @@ internal class MediaFileSystem(
     private fun volumeName(volumeId: String): String = when (volumeId) {
         SourcePaths.PrimaryVolume -> MediaStore.VOLUME_EXTERNAL_PRIMARY
         else -> volumeId
-    }
-
-    companion object {
-        private const val AsideSuffix = ".fserver-replaced"
     }
 }

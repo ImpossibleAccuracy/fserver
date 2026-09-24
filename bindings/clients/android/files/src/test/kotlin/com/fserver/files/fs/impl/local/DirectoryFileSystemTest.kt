@@ -1,9 +1,10 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.local
 
 import com.fserver.common.exception.FileSystemException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -36,9 +37,9 @@ class DirectoryFileSystemTest {
 
     @Test
     fun `a file is created under the source, with its directories`() = runTest {
-        val locator = fs.createFile("photos/2024/a.jpg")
+        val file = fs.createFile("photos/2024/a.jpg")
 
-        assertEquals(File(root, "photos/2024/a.jpg").canonicalPath, File(locator).canonicalPath)
+        assertEquals(File(root, "photos/2024/a.jpg").canonicalPath, File(file.locator).canonicalPath)
         assertTrue(File(root, "photos/2024/a.jpg").exists())
     }
 
@@ -64,11 +65,11 @@ class DirectoryFileSystemTest {
     fun `an absolute path is nested under the source rather than obeyed`() = runTest {
         val target = File(outside, "absolute.txt")
 
-        val locator = fs.createFile(target.absolutePath)
+        val file = fs.createFile(target.absolutePath)
 
         // `File(root, "/x/y")` resolves under root, so an absolute path from a peer lands inside
         // the source instead of at the address it named. Nothing escapes - assert both halves.
-        assertTrue(File(locator).canonicalPath.startsWith(root.canonicalPath + File.separator))
+        assertTrue(File(file.locator).canonicalPath.startsWith(root.canonicalPath + File.separator))
         assertFalse(target.exists())
     }
 
@@ -100,12 +101,12 @@ class DirectoryFileSystemTest {
 
     @Test
     fun `writes land at the offset they were given and read back whole`() = runTest {
-        val locator = fs.createFile("a.txt")
+        val file = fs.createFile("a.txt")
 
-        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
-        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
+        file.write(offset = 0, bytes = "hello ".toByteArray())
+        file.write(offset = 6, bytes = "world".toByteArray())
 
-        assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
+        assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
 
     @Test
@@ -113,7 +114,7 @@ class DirectoryFileSystemTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
-            fs.writeFile(target.absolutePath, offset = 0, bytes = "overwritten".toByteArray())
+            fs.openFile(target.absolutePath)!!.write(offset = 0, bytes = "overwritten".toByteArray())
         }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
@@ -133,15 +134,15 @@ class DirectoryFileSystemTest {
     fun `a locator outside the source cannot be deleted through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
-        val failure = runCatching { fs.deleteFile(target.absolutePath) }.exceptionOrNull()
+        val failure = runCatching { fs.openFile(target.absolutePath)?.delete() }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
         assertTrue(target.exists())
     }
 
     @Test
-    fun `deleting something that is already gone is not an error`() = runTest {
-        assertTrue(fs.deleteFile(File(root, "never-existed.txt").absolutePath))
+    fun `a locator with nothing behind it opens as null`() = runTest {
+        assertNull(fs.openFile(File(root, "never-existed.txt").absolutePath))
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.ScanProgress
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -26,7 +27,7 @@ internal class InMemoryFileSystem : FileSystem {
 
     fun bytesAt(locator: String): ByteArray? = files[locator]
 
-    /** mtime per locator, as [settleLastModified] left it. */
+    /** mtime per locator, as [FsFile.settleLastModified] left it. */
     val modified: MutableMap<String, Instant> = mutableMapOf()
 
     /** Set to model a backend that owns mtime and ignores the requested one. */
@@ -35,57 +36,54 @@ internal class InMemoryFileSystem : FileSystem {
     override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> =
         throw UnsupportedOperationException("scan is not part of the upload path")
 
-    override suspend fun createFile(path: String): String {
+    override suspend fun createFile(path: String): FsFile {
         rejectCreate?.invoke(path)?.let { throw it }
 
         if (files.containsKey(path)) throw FileSystemException.AlreadyExists(path)
 
         createdPaths += path
         files[path] = ByteArray(0)
-        return path
+        return InMemoryFile(path)
     }
 
     override suspend fun fileExists(path: String): Boolean = path in files
 
-    override suspend fun renameFile(
-        locator: String,
-        newName: String,
-        deleteOldOnConflict: Boolean,
-    ): String {
-        val bytes = files[locator] ?: throw FileSystemException.InvalidPath(locator)
-        val target = locator.substringBeforeLast('/', "").let { if (it.isEmpty()) newName else "$it/$newName" }
+    override suspend fun openFile(locator: String): FsFile? =
+        if (locator in files) InMemoryFile(locator) else null
 
-        if (target in files && !deleteOldOnConflict) throw FileSystemException.RenameRejected(locator, newName)
+    private inner class InMemoryFile(override val locator: String) : FsFile {
+        override suspend fun read(): InputStream =
+            ByteArrayInputStream(files[locator] ?: throw FileSystemException.InvalidPath(locator))
 
-        files.remove(locator)
-        files[target] = bytes
-        return target
-    }
+        override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
+            val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+            val end = (offset + length).toInt()
 
-    override suspend fun openFile(locator: String): InputStream =
-        ByteArrayInputStream(files[locator] ?: throw FileSystemException.InvalidPath(locator))
+            val grown = if (current.size < end) current.copyOf(end) else current
+            bytes.copyInto(grown, destinationOffset = offset.toInt(), startIndex = 0, endIndex = length)
+            files[locator] = grown
+        }
 
-    override suspend fun writeFile(
-        locator: String,
-        offset: Long,
-        bytes: ByteArray,
-        length: Int,
-    ) {
-        val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
-        val end = (offset + length).toInt()
+        override suspend fun rename(newName: String, deleteOldOnConflict: Boolean): FsFile {
+            val bytes = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+            val target = locator.substringBeforeLast('/', "").let { if (it.isEmpty()) newName else "$it/$newName" }
 
-        val grown = if (current.size < end) current.copyOf(end) else current
-        bytes.copyInto(grown, destinationOffset = offset.toInt(), startIndex = 0, endIndex = length)
-        files[locator] = grown
-    }
+            if (target in files && !deleteOldOnConflict) throw FileSystemException.RenameRejected(locator, newName)
 
-    override suspend fun deleteFile(locator: String): Boolean {
-        deleted += locator
-        return files.remove(locator) != null
-    }
+            files.remove(locator)
+            files[target] = bytes
+            return InMemoryFile(target)
+        }
 
-    override suspend fun settleLastModified(locator: String, time: Instant): Instant {
-        if (locator !in files) throw FileSystemException.InvalidPath(locator)
-        return (fixedModified ?: time).also { modified[locator] = it }
+        override suspend fun delete(): Boolean {
+            deleted += locator
+            files.remove(locator)
+            return true
+        }
+
+        override suspend fun settleLastModified(time: Instant): Instant {
+            if (locator !in files) throw FileSystemException.InvalidPath(locator)
+            return (fixedModified ?: time).also { modified[locator] = it }
+        }
     }
 }

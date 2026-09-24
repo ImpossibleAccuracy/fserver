@@ -1,17 +1,24 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.tree
 
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
+import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.impl.longOrZero
+import com.fserver.files.fs.impl.mimeTypeOf
+import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -20,10 +27,12 @@ import java.io.FileNotFoundException
 import kotlin.time.Instant
 
 internal class TreeFileSystem(
-    context: Context,
+    private val context: Context,
     private val source: FileSystemSource.Tree,
-) : ProviderFileSystem(context) {
-    override suspend fun scanFiles(
+) : FileSystem {
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+
+    private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val uri = source.path.toUri()
@@ -112,7 +121,7 @@ internal class TreeFileSystem(
      * The mime type is guessed from the extension because a provider appends one of its own to a
      * name whose extension does not match — and the name is what a rescan derives the path from.
      */
-    override suspend fun createFile(path: String): String = withContext(Dispatchers.IO) {
+    override suspend fun createFile(path: String): FsFile = withContext(Dispatchers.IO) {
         val segments = segmentsOf(path)
 
         val root = DocumentFile.fromTreeUri(context, source.path.toUri())
@@ -141,7 +150,7 @@ internal class TreeFileSystem(
             /* displayName = */ name,
         ) ?: throw FileSystemException.CreationFailed(path)
 
-        created.toString()
+        TreeFile(context, created)
     }
 
     override suspend fun fileExists(path: String): Boolean = withContext(Dispatchers.IO) {
@@ -155,145 +164,24 @@ internal class TreeFileSystem(
         current.isFile
     }
 
-    /**
-     * A file in the way is moved aside rather than deleted, so a failed rename can put it back.
-     * Finding it needs the parent, which only [DocumentsContract.findDocumentPath] gives (API 26+,
-     * and optional for a provider) - without it a name already taken is a refusal.
-     */
-    override suspend fun renameFile(
-        locator: String,
-        newName: String,
-        deleteOldOnConflict: Boolean,
-    ): String = withContext(Dispatchers.IO) {
-        val name = nameOf(newName)
-        val uri = locator.toUri()
-        val original = displayName(uri) ?: throw FileSystemException.InvalidPath(locator)
-
-        if (original == name) return@withContext locator
-
-        val existing = parentOf(uri)?.let { childNamed(it, name) }
-        if (existing != null && !deleteOldOnConflict) {
-            throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        val aside = existing?.let {
-            renameDocument(it, name + AsideSuffix)
-                ?: throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        // A provider may pick a free name instead of the one asked for, and that is a refusal too.
-        val renamed = renameDocument(uri, name)
-        if (renamed == null || displayName(renamed) != name) {
-            renamed?.let { renameDocument(it, original) }
-            aside?.let { renameDocument(it, name) }
-            throw FileSystemException.RenameRejected(locator, newName)
-        }
-
-        aside?.let { runCatching { DocumentsContract.deleteDocument(context.contentResolver, it) } }
-
-        renamed.toString()
-    }
-
-    private fun displayName(uri: Uri): String? =
-        context.contentResolver
-            .query(uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
-            ?.use { if (it.moveToFirst()) it.getString(0) else null }
-
-    /** Null when the provider cannot rename, or refuses: the caller rolls back either way. */
-    private fun renameDocument(uri: Uri, name: String): Uri? =
-        try {
-            DocumentsContract.renameDocument(context.contentResolver, uri, name)
-        } catch (e: Exception) {
-            null
-        }
-
-    private fun parentOf(uri: Uri): Uri? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
-
-        val ids = try {
-            DocumentsContract.findDocumentPath(context.contentResolver, uri)?.path
-        } catch (e: Exception) {
-            null
-        } ?: return null
-
-        return ids.getOrNull(ids.size - 2)
-            ?.let { DocumentsContract.buildDocumentUriUsingTree(uri, it) }
-    }
-
-    private fun childNamed(parent: Uri, name: String): Uri? {
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            parent,
-            DocumentsContract.getDocumentId(parent),
-        )
-
-        context.contentResolver
-            .query(
-                childrenUri,
-                arrayOf(
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                ),
-                null,
-                null,
-                null,
-            )
-            ?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    if (cursor.getString(1) == name) {
-                        return DocumentsContract.buildDocumentUriUsingTree(parent, cursor.getString(0))
-                    }
-                }
-            }
-
-        return null
-    }
-
-    /**
-     * API 29+ throws where older releases returned false. Only "not found" counts as deleted: an
-     * unreadable document is not known to be gone.
-     */
-    override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
+    /** Only the document's own existence is checked: the uri came from a scan of this tree. */
+    override suspend fun openFile(locator: String): FsFile? = withContext(Dispatchers.IO) {
         val uri = locator.toUri()
 
-        try {
-            DocumentsContract.deleteDocument(context.contentResolver, uri) || !exists(uri)
-        } catch (e: FileNotFoundException) {
-            true
-        } catch (e: Exception) {
-            // Unsupported by the provider, or the grant is gone.
-            false
-        }
-    }
-
-    private fun exists(uri: Uri): Boolean =
-        try {
-            displayName(uri) != null
-        } catch (e: FileNotFoundException) {
-            false
-        } catch (e: Exception) {
-            true
-        }
-
-    /** A provider owns its documents' mtime, so this only reads back what a scan will see. */
-    override suspend fun settleLastModified(locator: String, time: Instant): Instant =
-        withContext(Dispatchers.IO) {
+        val mimeType = try {
             context.contentResolver
-                .query(
-                    locator.toUri(),
-                    arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
-                    null,
-                    null,
-                    null,
-                )
-                ?.use { cursor ->
-                    if (!cursor.moveToFirst()) throw FileSystemException.InvalidPath(locator)
-                    Instant.fromEpochMilliseconds(cursor.longOrZero(0))
-                }
-                ?: throw FileSystemException.InvalidPath(locator)
+                .query(uri, arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getString(0) ?: "" else null }
+        } catch (e: FileNotFoundException) {
+            null
+        } ?: return@withContext null
+
+        if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+            throw FileSystemException.InvalidPath(locator)
         }
 
-    private fun android.database.Cursor.longOrZero(column: Int): Long =
-        if (isNull(column)) 0L else getLong(column)
+        TreeFile(context, uri)
+    }
 
     companion object {
         private const val ColumnDocumentId = 0
@@ -301,8 +189,6 @@ internal class TreeFileSystem(
         private const val ColumnSize = 2
         private const val ColumnDisplayName = 3
         private const val ColumnLastModified = 4
-
-        private const val AsideSuffix = ".fserver-replaced"
 
         private val Projection = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,

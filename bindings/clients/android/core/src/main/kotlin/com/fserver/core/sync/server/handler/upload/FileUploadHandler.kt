@@ -77,7 +77,7 @@ internal class FileUploadHandler(
                     Timber.i("Upload completed for ${operation.key.fileId} from source ${source.id} by peer ${session.identity.deviceId}")
                 } catch (e: Throwable) {
                     // Nothing points at these bytes, and the next attempt starts from zero.
-                    // TODO: once renameFile ran, the locator abandon() deletes may be the finished
+                    // TODO: once rename ran, the locator abandon() deletes may be the finished
                     //  file - a backend that keeps it through a rename (SAF, MediaStore) loses it here
                     withContext(NonCancellable) { upload.abandon() }
                     throw e
@@ -126,7 +126,7 @@ internal class FileUploadHandler(
         // Wait rest of the chunks to arrive
         timer.time("await-chunks") { upload.await() }
 
-        val locator = upload.locator // Locator is set when chunks are written to disk
+        val written = upload.target // Set when chunks are written to disk
             ?: throw TransferException.FileNotFoundException("No bytes written for ${operation.key.fileId} in source ${source.id}")
 
         val computedHash = timer.time("hash-compute") { upload.hasher.compute() }
@@ -140,23 +140,19 @@ internal class FileUploadHandler(
             )
         }
 
-        val resultLocator = if (upload.isDownloadingToTempFile) {
+        val result = if (upload.isDownloadingToTempFile) {
             timer.time("rename") {
                 val filename = upload.file.path.substringAfterLast('/')
 
-                upload.fs.renameFile(
-                    locator = locator,
-                    newName = filename,
-                    deleteOldOnConflict = true,
-                )
+                written.rename(newName = filename, deleteOldOnConflict = true)
             }
         } else {
-            locator
+            written
         }
 
         // Recorded as the disk reports it, or the next scan reads a mismatch as a local edit.
         val modifiedAt = timer.time("settle-mtime") {
-            upload.fs.settleLastModified(resultLocator, upload.file.metadata.lastModified)
+            result.settleLastModified(upload.file.metadata.lastModified)
         }
 
         val saved = timer.time("index-lookup") { storage.index.findFile(operation.key) }
@@ -166,7 +162,7 @@ internal class FileUploadHandler(
             .toIndexed(
                 id = saved?.id ?: IdGenerator.nextId,
                 sourceId = source.id,
-                locator = resultLocator,
+                locator = result.locator,
                 currentTime = timeProvider.now(),
             )
             .copy(modifiedAt = modifiedAt)

@@ -1,4 +1,4 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.local
 
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.SourcePaths
@@ -62,9 +62,9 @@ class RootFileSystemTest {
 
     @Test
     fun `a file is created on the volume its path names, with its directories`() = runTest {
-        val locator = fs.createFile("1A2B-3C4D/photos/2024/a.jpg")
+        val file = fs.createFile("1A2B-3C4D/photos/2024/a.jpg")
 
-        assertEquals(File(card, "photos/2024/a.jpg").canonicalPath, File(locator).canonicalPath)
+        assertEquals(File(card, "photos/2024/a.jpg").canonicalPath, File(file.locator).canonicalPath)
         assertTrue(File(card, "photos/2024/a.jpg").exists())
         assertFalse(File(primary, "photos/2024/a.jpg").exists())
     }
@@ -112,29 +112,29 @@ class RootFileSystemTest {
 
     @Test
     fun `writes land at the offset they were given and read back whole`() = runTest {
-        val locator = fs.createFile("primary/a.txt")
+        val file = fs.createFile("primary/a.txt")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
-        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
+        file.write(offset = 6, bytes = "world".toByteArray())
+        file.write(offset = 0, bytes = "hello ".toByteArray())
 
-        assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
+        assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
 
     @Test
     fun `only the requested length of a chunk is written`() = runTest {
-        val locator = fs.createFile("primary/a.txt")
+        val file = fs.createFile("primary/a.txt")
 
-        fs.writeFile(locator, offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
 
-        assertEquals("abc", File(locator).readText())
+        assertEquals("abc", File(file.locator).readText())
     }
 
     @Test
     fun `a locator on another volume of the same source is still reachable`() = runTest {
         val target = File(card, "shared.txt").apply { writeText("shared") }
 
-        assertEquals("shared", fs.openFile(target.absolutePath).use { String(it.readBytes()) })
+        assertEquals("shared", fs.openFile(target.absolutePath)!!.read().use { String(it.readBytes()) })
     }
 
     @Test
@@ -151,7 +151,7 @@ class RootFileSystemTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
-            fs.writeFile(target.absolutePath, offset = 0, bytes = "overwritten".toByteArray())
+            fs.openFile(target.absolutePath)!!.write(offset = 0, bytes = "overwritten".toByteArray())
         }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
@@ -162,7 +162,7 @@ class RootFileSystemTest {
     fun `a locator outside every volume cannot be deleted through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
-        val failure = runCatching { fs.deleteFile(target.absolutePath) }.exceptionOrNull()
+        val failure = runCatching { fs.openFile(target.absolutePath)?.delete() }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
         assertTrue(target.exists())
@@ -170,18 +170,18 @@ class RootFileSystemTest {
 
     @Test
     fun `a file is deleted, and deleting it again is not an error`() = runTest {
-        val locator = fs.createFile("primary/a.txt")
+        val file = fs.createFile("primary/a.txt")
 
-        assertTrue(fs.deleteFile(locator))
-        assertFalse(File(locator).exists())
-        assertTrue(fs.deleteFile(locator))
+        assertTrue(file.delete())
+        assertFalse(File(file.locator).exists())
+        assertTrue(file.delete())
     }
 
     @Test
-    fun `a directory is not a file the peer may delete`() = runTest {
+    fun `a directory is not a file that can be opened`() = runTest {
         val directory = File(primary, "DCIM").apply { mkdirs() }
 
-        val failure = runCatching { fs.deleteFile(directory.absolutePath) }.exceptionOrNull()
+        val failure = runCatching { fs.openFile(directory.absolutePath) }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
         assertTrue(directory.exists())

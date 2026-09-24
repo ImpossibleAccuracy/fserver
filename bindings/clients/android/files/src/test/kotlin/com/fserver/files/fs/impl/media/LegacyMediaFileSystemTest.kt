@@ -1,8 +1,9 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.media
 
 import android.content.Context
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FsFile
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -46,9 +47,9 @@ class LegacyMediaFileSystemTest {
 
     @Test
     fun `a file is created under the volume its path leads with`() = runTest {
-        val locator = fs.createFile("${SourcePaths.PrimaryVolume}/DCIM/2024/a.jpg")
+        val file = fs.createFile("${SourcePaths.PrimaryVolume}/DCIM/2024/a.jpg")
 
-        assertEquals(File(volume, "DCIM/2024/a.jpg").canonicalPath, File(locator).canonicalPath)
+        assertEquals(File(volume, "DCIM/2024/a.jpg").canonicalPath, File(file.locator).canonicalPath)
         assertTrue(File(volume, "DCIM/2024/a.jpg").isFile)
     }
 
@@ -87,12 +88,12 @@ class LegacyMediaFileSystemTest {
 
     @Test
     fun `a rename to a name the scan would not report is refused`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        val failure = runCatching { fs.renameFile(locator, "a.txt") }.exceptionOrNull()
+        val failure = runCatching { file.rename("a.txt") }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
-        assertTrue(File(locator).isFile)
+        assertTrue(File(file.locator).isFile)
         assertFalse(File(volume, "DCIM/a.txt").exists())
     }
 
@@ -107,22 +108,22 @@ class LegacyMediaFileSystemTest {
 
     @Test
     fun `writes land at the offset they were given and read back whole`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
-        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
+        file.write(offset = 6, bytes = "world".toByteArray())
+        file.write(offset = 0, bytes = "hello ".toByteArray())
 
-        assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
+        assertEquals("hello world", file.read().use { String(it.readBytes()) })
     }
 
     @Test
     fun `only the requested length of a chunk is written`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        fs.writeFile(locator, offset = 0, bytes = "abcdef".toByteArray(), length = 3)
+        file.write(offset = 0, bytes = "abcdef".toByteArray(), length = 3)
 
-        assertEquals("abc", File(locator).readText())
+        assertEquals("abc", File(file.locator).readText())
     }
 
     @Test
@@ -139,7 +140,7 @@ class LegacyMediaFileSystemTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
-            fs.writeFile(target.absolutePath, offset = 0, bytes = "overwritten".toByteArray())
+            fs.openFile(target.absolutePath)!!.write(offset = 0, bytes = "overwritten".toByteArray())
         }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
@@ -150,7 +151,7 @@ class LegacyMediaFileSystemTest {
     fun `a locator outside the volume cannot be deleted through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
-        val failure = runCatching { fs.deleteFile(target.absolutePath) }.exceptionOrNull()
+        val failure = runCatching { fs.openFile(target.absolutePath)?.delete() }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
         assertTrue(target.exists())
@@ -158,13 +159,13 @@ class LegacyMediaFileSystemTest {
 
     @Test
     fun `a file is deleted and deleting it again is not an error`() = runTest {
-        val locator = create("a.jpg")
+        val file = create("a.jpg")
 
-        assertTrue(fs.deleteFile(locator))
-        assertFalse(File(locator).exists())
-        assertTrue(fs.deleteFile(locator))
+        assertTrue(file.delete())
+        assertFalse(File(file.locator).exists())
+        assertTrue(file.delete())
     }
 
-    private suspend fun create(name: String): String =
+    private suspend fun create(name: String): FsFile =
         fs.createFile("${SourcePaths.PrimaryVolume}/DCIM/$name")
 }

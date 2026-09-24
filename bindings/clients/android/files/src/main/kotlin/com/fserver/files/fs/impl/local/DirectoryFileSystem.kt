@@ -1,10 +1,16 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.local
 
 import android.content.Context
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.impl.isUnder
+import com.fserver.files.fs.impl.scanTask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -21,9 +27,25 @@ import kotlin.time.Instant
  */
 internal class DirectoryFileSystem(
     private val root: File,
-) : LocalFileSystem() {
+) : FileSystem {
 
-    override suspend fun scanFiles(
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+
+    override suspend fun createFile(path: String): FsFile =
+        open(createLocalFile(resolve(path), path))
+
+    override suspend fun fileExists(path: String): Boolean {
+        val file = resolve(path)
+
+        return withContext(Dispatchers.IO) { file.isFile }
+    }
+
+    override suspend fun openFile(locator: String): FsFile? =
+        existingLocalFile(confine(locator), locator)?.let(::open)
+
+    private fun open(file: File): FsFile = LocalFile(file, ::confine)
+
+    private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ) = withContext(Dispatchers.IO) {
         // Nothing hosted here yet: the directory is created by the first file that arrives.
@@ -50,9 +72,9 @@ internal class DirectoryFileSystem(
     }
 
     // Canonical before the check: `File(root, "../x").path` still starts with root.
-    override fun resolve(path: String): File = ensureInRoot(File(root, path).canonicalFile, path)
+    private fun resolve(path: String): File = ensureInRoot(File(root, path).canonicalFile, path)
 
-    override fun confine(locator: String): File =
+    private fun confine(locator: String): File =
         ensureInRoot(File(locator).canonicalFile, locator)
 
     /**

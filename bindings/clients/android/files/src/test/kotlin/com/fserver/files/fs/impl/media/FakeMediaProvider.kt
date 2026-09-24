@@ -1,4 +1,4 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.media
 
 import android.content.ContentProvider
 import android.content.ContentUris

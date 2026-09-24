@@ -1,4 +1,4 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.tree
 
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -12,10 +12,10 @@ import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
-import java.io.File
 import org.robolectric.Robolectric
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowContentResolver
+import java.io.File
 import java.io.FileNotFoundException
 
 /**
@@ -43,10 +43,14 @@ class TestDocumentsProvider : DocumentsProvider() {
         return cursor
     }
 
-    override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor =
-        MatrixCursor(projection ?: DefaultDocumentProjection).also {
-            addRow(it, fileOf(documentId), documentId)
+    override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor {
+        val file = fileOf(documentId)
+        if (!file.exists()) throw FileNotFoundException(documentId)
+
+        return MatrixCursor(projection ?: DefaultDocumentProjection).also {
+            addRow(it, file, documentId)
         }
+    }
 
     override fun queryChildDocuments(
         parentDocumentId: String,

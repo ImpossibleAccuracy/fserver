@@ -21,6 +21,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 
@@ -201,7 +202,9 @@ internal class LocalChangesIndexer(
 
         withContext(Dispatchers.IO) {
             val fs = node.openSource(source.location.toFiles())
-            fs.openFile(locator).use { stream ->
+            val file = fs.openFile(locator) ?: throw FileNotFoundException(locator)
+
+            file.read().use { stream ->
                 val buffer = ByteArray(HashChunkSize)
                 var bytesRead: Int
 

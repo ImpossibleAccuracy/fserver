@@ -2,11 +2,11 @@ package com.fserver.files.fs
 
 import android.content.Context
 import android.os.Build
-import com.fserver.files.fs.impl.DirectoryFileSystem
-import com.fserver.files.fs.impl.LegacyMediaFileSystem
-import com.fserver.files.fs.impl.MediaFileSystem
-import com.fserver.files.fs.impl.RootFileSystem
-import com.fserver.files.fs.impl.TreeFileSystem
+import com.fserver.files.fs.impl.local.DirectoryFileSystem
+import com.fserver.files.fs.impl.local.RootFileSystem
+import com.fserver.files.fs.impl.media.LegacyMediaFileSystem
+import com.fserver.files.fs.impl.media.MediaFileSystem
+import com.fserver.files.fs.impl.tree.TreeFileSystem
 import java.io.File
 
 /**

@@ -1,4 +1,4 @@
-package com.fserver.files.fs.impl
+package com.fserver.files.fs.impl.media
 
 import android.content.Context
 import android.media.MediaScannerConnection
@@ -6,8 +6,19 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
+import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
+import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.impl.isMediaName
+import com.fserver.files.fs.impl.isUnder
+import com.fserver.files.fs.impl.local.LocalFile
+import com.fserver.files.fs.impl.local.createLocalFile
+import com.fserver.files.fs.impl.local.existingLocalFile
+import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -30,12 +41,28 @@ import kotlin.time.Instant
 internal class LegacyMediaFileSystem(
     private val context: Context,
     externalStorage: File = primaryVolume(),
-) : LocalFileSystem() {
+) : FileSystem {
 
     private val root: File = externalStorage.canonicalFile
 
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+
+    override suspend fun createFile(path: String): FsFile =
+        open(createLocalFile(resolve(path), path, ::onFileChanged))
+
+    override suspend fun fileExists(path: String): Boolean {
+        val file = resolve(path)
+
+        return withContext(Dispatchers.IO) { file.isFile }
+    }
+
+    override suspend fun openFile(locator: String): FsFile? =
+        existingLocalFile(confine(locator), locator)?.let(::open)
+
+    private fun open(file: File): FsFile = LocalFile(file, ::confine, ::onFileChanged)
+
     @Suppress("DEPRECATION")
-    override suspend fun scanFiles(
+    private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
     ): Unit = withContext(Dispatchers.IO) {
         val collection = MediaStore.Files.getContentUri(ExternalVolume)
@@ -75,11 +102,13 @@ internal class LegacyMediaFileSystem(
             }
     }
 
-    override fun resolve(path: String): File {
+    private fun resolve(path: String): File {
         val segments = segmentsOf(path)
 
         // One volume is all MediaStore indexes here, so it is the only one a path may name.
-        if (segments.first() != SourcePaths.PrimaryVolume) throw FileSystemException.InvalidPath(path)
+        if (segments.first() != SourcePaths.PrimaryVolume) throw FileSystemException.InvalidPath(
+            path
+        )
 
         // The volume itself is a directory, not a file the peer may create.
         if (segments.size < 2) throw FileSystemException.InvalidPath(path)
@@ -87,7 +116,7 @@ internal class LegacyMediaFileSystem(
         return owned(File(root, segments.drop(1).joinToString("/")).canonicalFile, path)
     }
 
-    override fun confine(locator: String): File = owned(File(locator).canonicalFile, locator)
+    private fun confine(locator: String): File = owned(File(locator).canonicalFile, locator)
 
     /**
      * [file], if this source holds it: under [root] and media. Anything else the scan never
@@ -101,7 +130,7 @@ internal class LegacyMediaFileSystem(
      * A file the index has never heard of is a file the next scan will not report — so the peer
      * would keep sending it, forever.
      */
-    override fun onFileChanged(file: File) {
+    private fun onFileChanged(file: File) {
         MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
     }
 

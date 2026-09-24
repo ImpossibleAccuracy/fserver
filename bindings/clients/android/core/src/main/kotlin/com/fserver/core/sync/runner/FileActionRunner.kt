@@ -219,7 +219,8 @@ internal class FileActionRunner(
 
         withContext(NonCancellable) {
             val fs = node.openSource(source.location.toFiles())
-            val deleted = fs.deleteFile(locator)
+            // Nothing there is as good as deleted.
+            val deleted = fs.openFile(locator)?.delete() ?: true
 
             if (!deleted) {
                 Timber.w("Failed to evict file ${action.file.id} at ${action.file.path} from source ${source.id}")
@@ -244,7 +245,8 @@ internal class FileActionRunner(
 
         withContext(NonCancellable) {
             val fs = node.openSource(source.location.toFiles())
-            val deleted = fs.deleteFile(locator)
+            // Nothing there is as good as deleted.
+            val deleted = fs.openFile(locator)?.delete() ?: true
 
             if (!deleted) {
                 Timber.w("Failed to delete file ${action.file.id} at ${action.file.path} from source ${source.id}")
