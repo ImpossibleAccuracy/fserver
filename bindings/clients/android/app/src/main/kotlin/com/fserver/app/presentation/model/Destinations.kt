@@ -42,13 +42,6 @@ sealed interface Destination : NavKey {
             val folderPath: String,
         ) : Destination
 
-        /**
-         * The fork behind the "+" button: open someone else's files, or share your own. Both
-         * ways out are the same two the empty file list offers.
-         */
-        @Serializable
-        data object Actions : Overlay
-
         /** One registered source, in full. A stub today — the real screen is still to be built. */
         @Serializable
         data class SourceDetails(val sourceId: String) : Destination
@@ -145,6 +138,10 @@ sealed interface Destination : NavKey {
      */
     @Serializable
     data object Settings : Destination {
+
+        /** How this phone presents itself: its name on the network and its connection code. */
+        @Serializable
+        data object MyDevice : Destination
 
         /** Sessions open right now, and the keys trusted to open one without asking again. */
         @Serializable

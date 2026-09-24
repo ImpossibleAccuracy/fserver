@@ -21,12 +21,13 @@ import com.fserver.app.presentation.theme.FServerTheme
 /**
  * Settings root.
  *
- * Four rows, no state: every line either leads further in or does not belong here. The supporting
+ * Five rows, no state: every line either leads further in or does not belong here. The supporting
  * line describes what the screen behind it covers — never a count or a value, because a root that
  * reports state is a root the user has to come back to for it.
  */
 @Composable
 fun SettingsScreen(
+    navigateToMyDevice: () -> Unit,
     navigateToDevices: () -> Unit,
     navigateToSecurity: () -> Unit,
     navigateToDiagnostics: () -> Unit,
@@ -49,6 +50,13 @@ fun SettingsScreen(
                 modifier = gutter,
                 text = stringResource(R.string.settings_section_connection),
             )
+
+            DkNavigationRow(
+                title = stringResource(R.string.settings_my_device),
+                supportingText = stringResource(R.string.settings_my_device_desc),
+                onClick = navigateToMyDevice,
+            )
+            DkFadingDivider()
 
             DkNavigationRow(
                 title = stringResource(R.string.settings_devices),
@@ -89,6 +97,7 @@ fun SettingsScreen(
 private fun SettingsScreenPreview() {
     FServerTheme {
         SettingsScreen(
+            navigateToMyDevice = {},
             navigateToDevices = {},
             navigateToSecurity = {},
             navigateToDiagnostics = {},

@@ -7,9 +7,7 @@ sealed interface SecurityIntent {
     data class ServerPasswordChanged(val enabled: Boolean) : SecurityIntent
     data class PinChanged(val enabled: Boolean) : SecurityIntent
     data class BiometricChanged(val enabled: Boolean) : SecurityIntent
-    data class QrConnectChanged(val enabled: Boolean) : SecurityIntent
 
-    data class DeviceRenamed(val name: String) : SecurityIntent
     data class ServerPasswordSet(val password: String) : SecurityIntent
 
     data object WarningDismissed : SecurityIntent

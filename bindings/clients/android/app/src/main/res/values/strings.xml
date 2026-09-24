@@ -19,7 +19,7 @@
     <string name="action_continue">Continue</string>
     <string name="action_retry">Retry</string>
     <string name="action_later">Later</string>
-    <string name="action_reset">Reset</string>
+    <string name="action_view">View</string>
     <string name="action_undo">Undo</string>
     <string name="action_connect">Connect</string>
 
@@ -202,9 +202,7 @@
 
     <!-- The fork every entry point offers: open someone else\'s files, or share your own -->
     <string name="fork_connect_title">Connect to a computer</string>
-    <string name="fork_connect_subtitle">Find a device on the network and open its files</string>
     <string name="fork_send_title">Send files from here</string>
-    <string name="fork_send_sheet_subtitle">Photos and videos, a folder, or the whole device</string>
 
     <!-- Bottom navigation -->
     <string name="tab_files">Files</string>
@@ -212,7 +210,6 @@
     <string name="tab_settings">Settings</string>
 
     <!-- Files browser -->
-    <string name="files_send_file">Send file</string>
     <string name="files_view_mode">View mode</string>
     <string name="files_state_remote">On the server, tap to download</string>
     <string name="files_state_local">Already on this device</string>
@@ -366,6 +363,8 @@
     <string name="settings_title">Settings</string>
     <string name="settings_section_connection">Connection</string>
     <string name="settings_section_other">Other</string>
+    <string name="settings_my_device">My device</string>
+    <string name="settings_my_device_desc">Name on the network and connection code</string>
     <string name="settings_devices">Devices</string>
     <string name="settings_devices_desc">Connections and trusted computers</string>
     <string name="settings_security">Security</string>
@@ -383,6 +382,8 @@
     <string name="devices_connect_new">Connect a new device</string>
     <string name="devices_empty">No device is connected or remembered yet.</string>
     <string name="devices_qr_action">Show connection code</string>
+    <string name="my_device_title">My device</string>
+    <string name="my_device_qr_desc">A QR code another device scans to connect here</string>
     <string name="devices_qr_title">Connect to this device</string>
     <string name="devices_qr_hint">Scan this from the other device. The code carries this device\'s address and the fingerprint of its key, so the other side can tell it apart from an impostor.</string>
     <string name="devices_qr_address_label">Reachable at</string>
@@ -424,8 +425,6 @@
     <string name="security_method_pin_desc">Asked for at launch</string>
     <string name="security_method_biometric">Fingerprint</string>
     <string name="security_method_biometric_desc">Instead of the PIN</string>
-    <string name="security_method_qr">Connect by QR code</string>
-    <string name="security_method_qr_desc">The code replaces comparison and password</string>
     <string name="security_action_change">Change</string>
     <string name="security_last_method_warning">One confirmation method has to stay on, or no device could ever connect.</string>
     <string name="security_rename_title">Name on the network</string>
@@ -564,6 +563,7 @@
     <string name="file_viewer_open_failed">No app on this phone opens that file.</string>
     <string name="file_browser_directory_count">%1$d items · %2$s</string>
     <string name="file_browser_volume_primary">Internal storage</string>
+    <string name="file_location_remote">On another device</string>
     <string name="source_preview_directory_confirm">Use this folder</string>
 
     <!-- Send flow: one mode per source -->

@@ -1,9 +1,11 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -14,6 +16,7 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.shared.browser.FileBrowser
 import com.fserver.app.presentation.shared.browser.FileBrowserHeader
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.RemoteOnlyBadge
 import com.fserver.app.presentation.shared.browser.FileRadio
 import com.fserver.app.presentation.shared.browser.icon
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -43,10 +46,13 @@ fun BrowserList(
                 onClick = { onFileClick(file) },
                 leading = { DkThumbnail(icon = file.kind.icon()) },
                 trailing = {
-                    FileRadio(
-                        file = file,
-                        selection = selection
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RemoteOnlyBadge(file = file)
+                        FileRadio(
+                            file = file,
+                            selection = selection
+                        )
+                    }
                 },
             )
             DkFadingDivider()
@@ -58,7 +64,7 @@ fun BrowserList(
 @Composable
 private fun FileBrowserListPreview() {
     FServerTheme {
-        FileBrowser(
+        BrowserList(
             preview = FileBrowserUi.PlainList(
                 files = listOf(SampleImage, SampleDocument),
             ),
@@ -77,7 +83,7 @@ private fun FileBrowserListPreview() {
 @Composable
 private fun FileBrowserSelectableListPreview() {
     FServerTheme {
-        FileBrowser(
+        BrowserList(
             preview = FileBrowserUi.PlainList(
                 files = listOf(SampleImage, SampleDocument),
             ),

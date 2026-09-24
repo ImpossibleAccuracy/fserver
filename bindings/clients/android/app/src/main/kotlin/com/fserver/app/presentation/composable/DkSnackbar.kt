@@ -2,11 +2,15 @@ package com.fserver.app.presentation.composable
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidedValue
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -68,9 +72,19 @@ fun DkSnackbar(
     modifier: Modifier = Modifier,
     state: SnackbarHostState,
 ) {
-    // TODO: add swipe to dismiss
     SnackbarHost(
         modifier = modifier,
         hostState = state,
-    )
+    ) { data ->
+        // Keyed by the snackbar, so the next one starts settled rather than already swiped away.
+        key(data) {
+            SwipeToDismissBox(
+                state = rememberSwipeToDismissBoxState(),
+                backgroundContent = {},
+                onDismiss = { data.dismiss() },
+            ) {
+                Snackbar(snackbarData = data)
+            }
+        }
+    }
 }

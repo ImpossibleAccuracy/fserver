@@ -9,12 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,7 +20,6 @@ import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkIcon
-import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
@@ -32,7 +27,6 @@ import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.settings.devices.composable.ConnectionQrSheet
 import com.fserver.app.presentation.screens.settings.devices.model.DevicesState
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.device.model.DeviceKind
@@ -70,21 +64,12 @@ private fun DevicesScreen(
     navigateToConnect: () -> Unit,
     navigateUp: () -> Unit,
 ) {
-    var showInvitation by rememberSaveable { mutableStateOf(false) }
-
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
                 title = stringResource(R.string.devices_title),
                 onBack = navigateUp,
-                actions = {
-                    DkIconButton(
-                        onClick = { showInvitation = true },
-                        icon = Icons.Default.QrCode2,
-                        contentDescription = stringResource(R.string.devices_qr_action),
-                    )
-                },
             )
         },
         bottomBar = {
@@ -122,13 +107,6 @@ private fun DevicesScreen(
                     text = stringResource(R.string.devices_empty),
                 )
             }
-        }
-
-        if (showInvitation) {
-            ConnectionQrSheet(
-                invitation = state.invitation,
-                onDismiss = { showInvitation = false },
-            )
         }
     }
 }

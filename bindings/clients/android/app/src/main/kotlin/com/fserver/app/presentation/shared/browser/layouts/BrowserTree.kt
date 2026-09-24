@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,6 +35,7 @@ import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.RemoteOnlyBadge
 import com.fserver.app.presentation.shared.browser.FileRadio
 import com.fserver.app.presentation.shared.browser.icon
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -223,7 +226,12 @@ private fun EntryListItem(
                     size = 48.dp,
                 )
             },
-            trailing = { FileRadio(file = row, selection = selection) },
+            trailing = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RemoteOnlyBadge(file = row)
+                    FileRadio(file = row, selection = selection)
+                }
+            },
         )
     }
 }

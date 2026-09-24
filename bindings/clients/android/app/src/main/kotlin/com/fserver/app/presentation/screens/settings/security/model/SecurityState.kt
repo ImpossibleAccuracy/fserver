@@ -10,12 +10,10 @@ package com.fserver.app.presentation.screens.settings.security.model
 data class SecurityState(
     val isDiscoverable: Boolean = true,
     val isDiscoveryEnabled: Boolean = true,
-    val deviceName: String = "",
     val isCodeComparison: Boolean = false,
     val isServerPassword: Boolean = false,
     val isPinEnabled: Boolean = false,
     val isBiometricUnlock: Boolean = false,
-    val isQrConnect: Boolean = true,
     /** Raised when the user tried to switch off the only peer method still standing. */
     val showLastMethodWarning: Boolean = false,
 )

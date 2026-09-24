@@ -11,6 +11,8 @@ import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
 import coil3.request.Options
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Coil model for the picture embedded in an audio file's tags. */
 internal data class AudioArtwork(val uri: Uri)
@@ -27,7 +29,7 @@ internal class AudioArtworkFetcher(
     private val options: Options,
 ) : Fetcher {
 
-    override suspend fun fetch(): FetchResult {
+    override suspend fun fetch(): FetchResult = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         val picture = try {
             retriever.setDataSource(options.context, data.uri)
@@ -46,7 +48,7 @@ internal class AudioArtworkFetcher(
         )
         checkNotNull(decoded) { "Undecodable artwork in ${data.uri}" }
 
-        return ImageFetchResult(
+        ImageFetchResult(
             image = decoded.withoutLetterbox().asImage(),
             isSampled = sample > 1,
             dataSource = DataSource.DISK,

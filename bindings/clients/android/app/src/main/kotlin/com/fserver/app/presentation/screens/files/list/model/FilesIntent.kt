@@ -5,7 +5,6 @@ sealed interface FilesIntent {
     data class DeviceExpanded(val deviceId: String) : FilesIntent
     data object DeviceCollapsed : FilesIntent
     data class FilterSelected(val filter: FilesState.FilterUi) : FilesIntent
-    data object FilterCleared : FilesIntent
     data class EntryClicked(val entryId: String) : FilesIntent
     data object RefreshRequested : FilesIntent
     data object SyncRequestHintDismissed : FilesIntent

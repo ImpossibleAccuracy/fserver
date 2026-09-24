@@ -1,16 +1,11 @@
 package com.fserver.app.presentation.screens.settings.security
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,8 +26,8 @@ import com.fserver.app.presentation.designkit.DkSettingsRow
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitch
 import com.fserver.app.presentation.designkit.DkSwitchRow
-import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.screens.settings.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -55,7 +50,7 @@ fun SecurityScreen(
 }
 
 /** What a dialog is currently editing. Kept in the composition — none of it outlives the screen. */
-private enum class SecurityEditor { None, DeviceName, ServerPassword }
+private enum class SecurityEditor { None, ServerPassword }
 
 /**
  * Visibility above, confirmation methods below.
@@ -109,17 +104,7 @@ private fun SecurityScreen(
                 checked = state.isDiscoveryEnabled,
                 onCheckedChange = { onIntent(SecurityIntent.DiscoveryChanged(it)) },
             )
-            DkFadingDivider()
 
-            DkSettingsRow(
-                title = stringResource(R.string.security_device_name),
-                supportingText = state.deviceName.ifEmpty {
-                    stringResource(R.string.security_device_name_desc)
-                },
-                trailing = {
-                    ChangeButton(onClick = { editor = SecurityEditor.DeviceName })
-                },
-            )
 
             DkSectionLabel(
                 modifier = gutter,
@@ -169,40 +154,23 @@ private fun SecurityScreen(
                     }
                 },
             )
-            DkFadingDivider()
 
-            // Nothing to stand in for while there is no PIN, so the switch stays shut.
-            DkSwitchRow(
-                title = stringResource(R.string.security_method_biometric),
-                supportingText = stringResource(R.string.security_method_biometric_desc),
-                checked = state.isBiometricUnlock,
-                enabled = state.isPinEnabled,
-                onCheckedChange = { onIntent(SecurityIntent.BiometricChanged(it)) },
-            )
-            DkFadingDivider()
+            // Nothing to stand in for while there is no PIN, so the row is not offered at all.
+            if (state.isPinEnabled) {
+                DkFadingDivider()
 
-            DkSwitchRow(
-                title = stringResource(R.string.security_method_qr),
-                supportingText = stringResource(R.string.security_method_qr_desc),
-                checked = state.isQrConnect,
-                onCheckedChange = { onIntent(SecurityIntent.QrConnectChanged(it)) },
-            )
+                DkSwitchRow(
+                    title = stringResource(R.string.security_method_biometric),
+                    supportingText = stringResource(R.string.security_method_biometric_desc),
+                    checked = state.isBiometricUnlock,
+                    onCheckedChange = { onIntent(SecurityIntent.BiometricChanged(it)) },
+                )
+            }
         }
     }
 
     when (editor) {
         SecurityEditor.None -> Unit
-
-        SecurityEditor.DeviceName -> TextEditorDialog(
-            title = stringResource(R.string.security_rename_title),
-            label = stringResource(R.string.security_device_name),
-            initialValue = state.deviceName,
-            onDismiss = { editor = SecurityEditor.None },
-            onConfirm = {
-                onIntent(SecurityIntent.DeviceRenamed(it))
-                editor = SecurityEditor.None
-            },
-        )
 
         // Never pre-filled: the field is this device's own secret, and putting it back on screen
         // to be edited is one shoulder-surf away from giving it up.
@@ -229,49 +197,6 @@ private fun ChangeButton(onClick: () -> Unit) {
     )
 }
 
-@Composable
-private fun TextEditorDialog(
-    title: String,
-    label: String,
-    initialValue: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-    hint: String? = null,
-    isPassword: Boolean = false,
-) {
-    var value by remember { mutableStateOf(initialValue) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        title = { Text(text = title, style = MaterialTheme.typography.titleMedium) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.md)) {
-                if (hint != null) DkInfoBox(text = hint)
-                DkTextField(
-                    label = label,
-                    value = value,
-                    onValueChange = { value = it },
-                    isPassword = isPassword,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(value.trim()) },
-                enabled = value.isNotBlank(),
-            ) {
-                Text(stringResource(R.string.action_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
-        },
-    )
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun SecurityScreenPreview() {
@@ -280,12 +205,10 @@ private fun SecurityScreenPreview() {
             state = SecurityState(
                 isDiscoverable = true,
                 isDiscoveryEnabled = true,
-                deviceName = "Pixel 8",
                 isCodeComparison = true,
                 isServerPassword = true,
                 isPinEnabled = true,
                 isBiometricUnlock = false,
-                isQrConnect = true,
             ),
             onIntent = {},
             navigateToPinChange = {},

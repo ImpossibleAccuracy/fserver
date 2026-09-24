@@ -31,9 +31,6 @@ class AppSettingsStore(
     /** TODO: needs `androidx.biometric`; today it is remembered and never checked. */
     val biometricUnlock: Flow<Boolean> = flag(BIOMETRIC, default = false)
 
-    /** TODO: QR carries no auth method of its own yet — see `AuthMethod`. */
-    val qrConnect: Flow<Boolean> = flag(QR_CONNECT, default = true)
-
     suspend fun setDiscoverable(enabled: Boolean) = set(DISCOVERABLE, enabled)
 
     suspend fun setDiscoveryEnabled(enabled: Boolean) = set(DISCOVERY, enabled)
@@ -42,8 +39,6 @@ class AppSettingsStore(
 
     /** Turning the PIN off takes biometric unlock with it: it has nothing left to stand in for. */
     suspend fun setBiometricUnlock(enabled: Boolean) = set(BIOMETRIC, enabled)
-
-    suspend fun setQrConnect(enabled: Boolean) = set(QR_CONNECT, enabled)
 
     private fun flag(key: Preferences.Key<Boolean>, default: Boolean): Flow<Boolean> =
         dataStore.data.map { it[key] ?: default }
@@ -60,6 +55,5 @@ class AppSettingsStore(
         val DISCOVERY = booleanPreferencesKey("net_discovery")
         val PIN_ENABLED = booleanPreferencesKey("lock_pin_enabled")
         val BIOMETRIC = booleanPreferencesKey("lock_biometric")
-        val QR_CONNECT = booleanPreferencesKey("auth_qr_connect")
     }
 }

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.settings.devices.model.DevicesState
 import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.network.device.model.DeviceInvitation
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -32,8 +31,7 @@ class DevicesViewModel(
         devicesRepository.devices.connected,
         devicesRepository.devices.known,
         trustedDevices.devices,
-        devicesRepository.advertising.invitation,
-    ) { connected, visibleTrusted, trusted, invitation ->
+    ) { connected, visibleTrusted, trusted ->
         val connectedIds = connected.mapTo(mutableSetOf()) { it.deviceId }
 
         DevicesState(
@@ -42,7 +40,6 @@ class DevicesViewModel(
                 .distinctBy { it.deviceId }
                 .filterNot { it.deviceId in connectedIds }
                 .map { it.toUi(visibleTrusted) },
-            invitation = invitation?.toUi() ?: DevicesState.InvitationUi.Unavailable,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -50,14 +47,6 @@ class DevicesViewModel(
         initialValue = DevicesState(),
     )
 }
-
-private fun DeviceInvitation.toUi() = DevicesState.InvitationUi.Ready(
-    payload = payload,
-    addresses = routes.map {
-        DevicesState.AddressUi(address = it.address, transport = it.transport)
-    },
-    fingerprintGroups = fingerprint.groups,
-)
 
 private fun ForeignDevice.toUi() = DevicesState.DeviceUi(
     deviceId = deviceId,

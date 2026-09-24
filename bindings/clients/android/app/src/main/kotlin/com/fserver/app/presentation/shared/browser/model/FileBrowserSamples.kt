@@ -24,7 +24,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             locator = "/storage/emulated/0/DCIM/Camera/IMG_0001.jpg",
             size = FileSize(4_210_000),
             modifiedAt = Instant.fromEpochMilliseconds(1_757_000_000_000),
-            location = FileBrowserUi.File.Location.Local,
+            locations = setOf(FileBrowserUi.File.Location.Local, FileBrowserUi.File.Location.Remote),
             extensionLabel = null,
         ),
         FileBrowserUi.File(
@@ -35,7 +35,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             locator = "/storage/emulated/0/Documents/report.pdf",
             size = FileSize(820_000),
             modifiedAt = Instant.fromEpochMilliseconds(1_756_000_000_000),
-            location = FileBrowserUi.File.Location.Local,
+            locations = setOf(FileBrowserUi.File.Location.Local),
             extensionLabel = "PDF",
         ),
         FileBrowserUi.File(
@@ -46,7 +46,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             locator = null,
             size = FileSize(1_920_000_000),
             modifiedAt = Instant.fromEpochMilliseconds(1_754_000_000_000),
-            location = FileBrowserUi.File.Location.Remote,
+            locations = setOf(FileBrowserUi.File.Location.Remote),
             extensionLabel = "ZIP",
         ),
         FileBrowserUi.File(
@@ -57,7 +57,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             locator = null,
             size = FileSize(36_400_000),
             modifiedAt = Instant.fromEpochMilliseconds(1_750_000_000_000),
-            location = FileBrowserUi.File.Location.Remote,
+            locations = setOf(FileBrowserUi.File.Location.Remote),
             extensionLabel = null,
         ),
     )

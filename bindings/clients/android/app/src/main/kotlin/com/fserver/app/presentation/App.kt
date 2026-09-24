@@ -38,15 +38,15 @@ import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
 import com.fserver.app.presentation.screens.discovery.connect.connectEntry
 import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
-import com.fserver.app.presentation.screens.files.actions.filesActionsEntry
 import com.fserver.app.presentation.screens.files.folder.filesFolderEntry
 import com.fserver.app.presentation.screens.files.list.filesListEntry
-import com.fserver.app.presentation.screens.files.source.filesSourceDetailsEntry
+import com.fserver.app.presentation.screens.source.details.filesSourceDetailsEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
 import com.fserver.app.presentation.screens.pairing.pairingEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
 import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
+import com.fserver.app.presentation.screens.settings.mydevice.settingsMyDeviceEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
@@ -231,6 +231,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             pairingEntry(navigator)
             activityEntry(navigator)
             settingsEntry(navigator)
+            settingsMyDeviceEntry(navigator)
             settingsDevicesEntry(navigator)
             settingsDeviceDetailsEntry(navigator)
             settingsSecurityEntry(navigator)
@@ -240,7 +241,6 @@ private fun NavHostGraph(navigator: AppNavigator) {
 
             filesListEntry(navigator)
             filesFolderEntry(navigator)
-            filesActionsEntry(navigator)
             filesSourceDetailsEntry(navigator)
 
             sourcePickEntry(navigator)

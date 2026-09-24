@@ -80,10 +80,21 @@ sealed interface FileBrowserUi {
         val size: FileSize?,
         /** Null on a directory row, which stands for many files at once. */
         val modifiedAt: Instant? = null,
-        val location: Location? = null,
+        /** Where the bytes are held. A synced file is in both; empty when unknown (a scan). */
+        val locations: Set<Location> = emptySet(),
         /** Set on a non-media file, which has no thumbnail to fall back on in the gallery. */
         val extensionLabel: String?,
     ) : PreviewContentEntry {
+        val isLocal: Boolean
+            get() = Location.Local in locations
+
+        val isRemote: Boolean
+            get() = Location.Remote in locations
+
+        /** Needs a reachable peer to open. */
+        val isRemoteOnly: Boolean
+            get() = isRemote && !isLocal
+
         enum class Location {
             Local,
             Remote,

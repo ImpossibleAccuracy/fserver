@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.files.shared
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.locations
 import com.fserver.app.presentation.shared.browser.model.toFlatPreview
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
@@ -35,8 +36,10 @@ class FilesProviderHandler(
             .values
             .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
 
+        // Filtered before flattening, so a folder is listed only while something in it matches.
         entries
             .filter { sourceIds == null || it.sourceId in sourceIds }
+            .filter { requiredLocation == null || requiredLocation in it.locations }
             .map {
                 val source = sourcesByIds[it.sourceId]!!
                 val root = when (source.id) {
@@ -47,10 +50,6 @@ class FilesProviderHandler(
                 it.copy(path = "$root/${it.path}")
             }
             .toFlatPreview(directory = folder ?: "/")
-            .let { files ->
-                if (requiredLocation == null) files
-                else files.filter { it.location == requiredLocation }
-            }
     }
 
     suspend fun onItemClick(entry: SyncFileEntry) {

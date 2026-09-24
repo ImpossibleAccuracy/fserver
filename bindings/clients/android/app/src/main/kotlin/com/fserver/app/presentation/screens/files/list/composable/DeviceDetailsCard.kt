@@ -243,9 +243,11 @@ private fun FolderRow(
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.small
 
+    // Filled and chevroned like a card you press, not a line of text: a tap opens the folder.
     Column(
         modifier = modifier
             .clip(shape)
+            .background(colors.surfaceContainerHigh)
             .border(
                 width = 1.dp,
                 color = if (folder.accented) colors.primary else colors.outlineVariant,
@@ -265,11 +267,7 @@ private fun FolderRow(
             ).joinToString(" · "),
             subtitleMaxLines = 2,
             onClick = onClick,
-            trailing = {
-                if (folder.path != null) {
-                    DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
-                }
-            },
+            trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
             contentPaddings = PaddingValues(horizontal = DkSpacing.md, vertical = DkSpacing.md),
         )
 

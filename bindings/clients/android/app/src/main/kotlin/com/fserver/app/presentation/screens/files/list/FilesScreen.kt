@@ -2,6 +2,8 @@ package com.fserver.app.presentation.screens.files.list
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +15,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -37,7 +37,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.DkFab
+import com.fserver.app.presentation.composable.DkFabMenu
+import com.fserver.app.presentation.composable.DkFabMenuItem
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.designkit.DkFilterChip
 import com.fserver.app.presentation.designkit.DkGhostButton
@@ -45,6 +46,7 @@ import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
+import com.fserver.app.presentation.designkit.DkProgressBar
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
@@ -64,7 +66,6 @@ import org.koin.androidx.compose.koinViewModel
 fun FilesScreen(
     modifier: Modifier = Modifier,
     viewModel: FilesViewModel = koinViewModel(),
-    navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
@@ -89,7 +90,6 @@ fun FilesScreen(
         modifier = modifier,
         state = state,
         onIntent = viewModel::onIntent,
-        navigateToActions = navigateToActions,
         navigateToConnect = navigateToConnect,
         navigateToSourcePick = navigateToSourcePick,
         navigateToSyncRequests = navigateToSyncRequests,
@@ -106,7 +106,6 @@ private fun FilesScreenContent(
     modifier: Modifier = Modifier,
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
-    navigateToActions: () -> Unit,
     navigateToConnect: () -> Unit,
     navigateToSourcePick: (String?) -> Unit,
     navigateToSyncRequests: () -> Unit,
@@ -122,21 +121,23 @@ private fun FilesScreenContent(
             DkTopBar(
                 modifier = Modifier.alpha(if (state.expandedDevice != null) 0.35f else 1f),
                 title = stringResource(R.string.files_title),
-                actions = {
-                    IconButton(onClick = navigateToActions) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.action_more),
-                        )
-                    }
-                },
             )
         },
         floatingActionButton = {
-            DkFab(
-                icon = Icons.Default.Add,
-                label = stringResource(R.string.files_send_file),
-                onClick = navigateToActions,
+            DkFabMenu(
+                items = listOf(
+                    DkFabMenuItem(
+                        icon = Icons.Default.SwapHoriz,
+                        label = stringResource(R.string.fork_connect_title),
+                        onClick = navigateToConnect,
+                    ),
+                    DkFabMenuItem(
+                        icon = Icons.Default.Upload,
+                        label = stringResource(R.string.fork_send_title),
+                        onClick = { navigateToSourcePick(null) },
+                    ),
+                ),
+                contentDescription = stringResource(R.string.files_actions),
                 visible = state.expandedDevice == null,
             )
         },
@@ -255,7 +256,7 @@ private fun FilesFeed(
                     SelectionSummary(
                         modifier = Modifier.padding(start = DkSpacing.screenPadding),
                         device = selected,
-                        onClear = { onIntent(FilesIntent.FilterCleared) },
+                        onView = { onIntent(FilesIntent.DeviceExpanded(selected.id)) },
                     )
                 }
             }
@@ -279,11 +280,13 @@ private fun FilesFeed(
                     navigateToSourcePick = { navigateToSourcePick(null) },
                 )
             } else {
+                // The pull only triggers the sync: its spinner lets go at once, and the bar on top
+                // reports the run however it was started.
                 PullToRefreshBox(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    isRefreshing = state.isSyncing,
+                    isRefreshing = false,
                     onRefresh = { onIntent(FilesIntent.RefreshRequested) },
                 ) {
                     FileBrowser(
@@ -297,6 +300,16 @@ private fun FilesFeed(
                             }
                         }
                     )
+
+                    // Qualified: the enclosing Column's scoped overload would win otherwise.
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        visible = state.isSyncing,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                    ) {
+                        DkProgressBar(progress = null)
+                    }
                 }
             }
         }
@@ -338,7 +351,7 @@ private fun FilterChips(
 private fun SelectionSummary(
     modifier: Modifier = Modifier,
     device: FilesState.DeviceUi,
-    onClear: () -> Unit,
+    onView: () -> Unit,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -350,7 +363,7 @@ private fun SelectionSummary(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        DkGhostButton(text = stringResource(R.string.action_reset), onClick = onClear)
+        DkGhostButton(text = stringResource(R.string.action_view), onClick = onView)
     }
 }
 
@@ -475,7 +488,6 @@ private fun FilesScreenPreview() {
                 entries = FilesState.SampleEntries,
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},
@@ -496,7 +508,6 @@ private fun FilesScreenFilteredPreview() {
                 entries = FilesState.SampleEntries.copy(deviceId = "server"),
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},
@@ -521,7 +532,6 @@ private fun FilesScreenEmptyFilterPreview() {
                 ),
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},
@@ -542,7 +552,6 @@ private fun FilesScreenExpandedPreview() {
                 expandedDevice = FilesState.sampleDetailsOf(FilesState.SampleDevices[1]),
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},
@@ -563,7 +572,6 @@ private fun FilesScreenNetworkWarningPreview() {
                 networkWarning = FilesState.NetworkWarningUi.DifferentNetwork,
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},
@@ -586,7 +594,6 @@ private fun FilesScreenEmptyPreview() {
                 ),
             ),
             onIntent = {},
-            navigateToActions = {},
             navigateToConnect = {},
             navigateToSourcePick = {},
             navigateToSyncRequests = {},

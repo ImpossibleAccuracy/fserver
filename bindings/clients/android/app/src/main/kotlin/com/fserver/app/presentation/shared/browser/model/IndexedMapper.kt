@@ -3,6 +3,7 @@ package com.fserver.app.presentation.shared.browser.model
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.core.files.SyncFileEntry
+import com.fserver.core.sync.index.LocalIndexedFile
 
 /** Returns true if the given [files] contain a majority of media files. */
 fun isMediaCollection(files: List<FileBrowserUi.PreviewContentEntry>): Boolean {
@@ -87,16 +88,20 @@ fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
         locator = locator,
         size = size,
         modifiedAt = modifiedAt,
-        location = when {
-            isRemote -> FileBrowserUi.File.Location.Remote
-            else -> FileBrowserUi.File.Location.Local
-        },
+        locations = locations,
         extensionLabel = when {
             kind.isMedia -> null
             else -> extension.ifEmpty { "?" }.uppercase()
         },
     )
 }
+
+/** Sides holding the bytes right now. An evicted copy is known but not held, so it is not listed. */
+val SyncFileEntry.locations: Set<FileBrowserUi.File.Location>
+    get() = buildSet {
+        if (localState is LocalIndexedFile.State.Present) add(FileBrowserUi.File.Location.Local)
+        if (remoteState is LocalIndexedFile.State.Present) add(FileBrowserUi.File.Location.Remote)
+    }
 
 fun directoryName(directory: String): String = directory.substringAfterLast("/")
 

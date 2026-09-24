@@ -65,8 +65,7 @@ class FolderViewModel(
                 if (isMedia) FileBrowserUi.Gallery(sorted)
                 else FileBrowserUi.PlainList(sorted)
             },
-            showsCloudNotice = files != null &&
-                    files.any { it.location == FileBrowserUi.File.Location.Remote },
+            showsCloudNotice = files != null && files.any { it.isRemoteOnly },
             sort = edit.sort,
             sortAscending = edit.sortAscending,
         )

@@ -193,10 +193,6 @@ class FilesViewModel(
 
             is FilesIntent.FilterSelected -> editable.update { it.copy(filter = intent.filter) }
 
-            FilesIntent.FilterCleared -> editable.update {
-                it.copy(selectedDeviceId = null, filter = FilesState.FilterUi.All)
-            }
-
             FilesIntent.SyncRequestHintDismissed -> editable.update {
                 it.copy(syncRequestHintDismissed = true)
             }

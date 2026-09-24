@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.devices.composable
+package com.fserver.app.presentation.screens.settings.mydevice.composable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +30,7 @@ import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.DkTagStyle
-import com.fserver.app.presentation.screens.settings.devices.model.DevicesState
+import com.fserver.app.presentation.screens.settings.mydevice.model.MyDeviceState
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.TransportKind
 
@@ -38,7 +38,7 @@ import com.fserver.core.network.TransportKind
 @Composable
 fun ConnectionQrSheet(
     modifier: Modifier = Modifier,
-    invitation: DevicesState.InvitationUi,
+    invitation: MyDeviceState.InvitationUi,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -63,13 +63,13 @@ fun ConnectionQrSheet(
             )
 
             when (invitation) {
-                DevicesState.InvitationUi.Loading -> PendingCode()
+                MyDeviceState.InvitationUi.Loading -> PendingCode()
 
-                DevicesState.InvitationUi.Unavailable -> DkCaption(
+                MyDeviceState.InvitationUi.Unavailable -> DkCaption(
                     text = stringResource(R.string.devices_qr_unavailable),
                 )
 
-                is DevicesState.InvitationUi.Ready -> ReadyCode(invitation = invitation)
+                is MyDeviceState.InvitationUi.Ready -> ReadyCode(invitation = invitation)
             }
         }
     }
@@ -101,7 +101,7 @@ private fun PendingCode(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ReadyCode(
-    invitation: DevicesState.InvitationUi.Ready,
+    invitation: MyDeviceState.InvitationUi.Ready,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -128,7 +128,7 @@ private fun ReadyCode(
 @Composable
 private fun AddressRow(
     modifier: Modifier = Modifier,
-    address: DevicesState.AddressUi,
+    address: MyDeviceState.AddressUi,
 ) {
     Row(
         modifier = modifier
@@ -152,10 +152,10 @@ private fun AddressRow(
 private fun ConnectionQrSheetPreview() {
     FServerTheme {
         ConnectionQrSheet(
-            invitation = DevicesState.InvitationUi.Ready(
+            invitation = MyDeviceState.InvitationUi.Ready(
                 payload = """{"ip":"192.168.1.42","port":29470,"deviceId":"a1","nearby":true}""",
                 addresses = listOf(
-                    DevicesState.AddressUi("192.168.1.42:29470", TransportKind.MulticastDns),
+                    MyDeviceState.AddressUi("192.168.1.42:29470", TransportKind.MulticastDns),
                 ),
                 fingerprintGroups = listOf("9f2c", "4a01", "b7d3", "e820"),
             ),

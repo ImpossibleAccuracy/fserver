@@ -8,12 +8,10 @@ import com.fserver.app.presentation.screens.settings.security.model.SecurityStat
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.storage.AuthSettingsRepository
-import com.fserver.core.storage.DeviceIdentityRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,7 +25,6 @@ import kotlinx.coroutines.launch
 class SecurityViewModel(
     private val appSettings: AppSettingsStore,
     private val authSettings: AuthSettingsRepository,
-    private val identity: DeviceIdentityRepository,
 ) : ViewModel() {
 
     private val lastMethodWarning = MutableStateFlow(false)
@@ -35,24 +32,16 @@ class SecurityViewModel(
     val state: StateFlow<SecurityState> = combine(
         authSettings.offeredMethods,
         combine(appSettings.discoverable, appSettings.discoveryEnabled, ::Pair),
-        combine(
-            appSettings.pinEnabled,
-            appSettings.biometricUnlock,
-            appSettings.qrConnect,
-            ::Triple,
-        ),
-        identity.localDevice.map { it.displayName },
+        combine(appSettings.pinEnabled, appSettings.biometricUnlock, ::Pair),
         lastMethodWarning,
-    ) { offered, (discoverable, discovery), (pin, biometric, qr), name, warning ->
+    ) { offered, (discoverable, discovery), (pin, biometric), warning ->
         SecurityState(
             isDiscoverable = discoverable,
             isDiscoveryEnabled = discovery,
-            deviceName = name,
             isCodeComparison = offered.any { it is OfferedAuthMethod.ConfirmFingerprint },
             isServerPassword = offered.any { it is OfferedAuthMethod.Password },
             isPinEnabled = pin,
             isBiometricUnlock = biometric,
-            isQrConnect = qr,
             showLastMethodWarning = warning,
         )
     }.stateIn(
@@ -81,17 +70,12 @@ class SecurityViewModel(
             is SecurityIntent.BiometricChanged ->
                 launchUpdate { appSettings.setBiometricUnlock(intent.enabled) }
 
-            is SecurityIntent.QrConnectChanged ->
-                launchUpdate { appSettings.setQrConnect(intent.enabled) }
-
             is SecurityIntent.ServerPasswordSet -> launchUpdate {
                 // Setting a password is an explicit act, so it also opens the method: storing a
                 // secret nothing would ever ask for is the more surprising outcome.
                 authSettings.setServerPassword(intent.password)
                 authSettings.setEnabled(AuthMethod.Password, enabled = true)
             }
-
-            is SecurityIntent.DeviceRenamed -> launchUpdate { identity.setDisplayName(intent.name) }
 
             SecurityIntent.WarningDismissed -> lastMethodWarning.value = false
         }

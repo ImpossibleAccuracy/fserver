@@ -1,14 +1,26 @@
 package com.fserver.app.presentation.composable
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,23 +61,8 @@ fun DkFab(
     onClick: () -> Unit,
     visible: Boolean = true,
 ) {
-    val density = LocalDensity.current
-    val state = LocalFabHostState.current
-
     if (visible) {
-        Box(
-            modifier = modifier
-                .onSizeChanged {
-                    with(density) {
-                        state?.setup(
-                            DpSize(
-                                width = it.width.toDp(),
-                                height = it.height.toDp(),
-                            )
-                        )
-                    }
-                },
-        ) {
+        Box(modifier = modifier.reportFabSize()) {
             if (label == null) {
                 FloatingActionButton(onClick = onClick) {
                     Icon(imageVector = icon, contentDescription = null)
@@ -79,6 +76,82 @@ fun DkFab(
             }
         }
     }
+
+    ReleaseFabSize()
+}
+
+@Immutable
+data class DkFabMenuItem(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit,
+)
+
+/** A toggle FAB that fans out into [items]. Picking one, or pressing back, folds it again. */
+@Composable
+fun DkFabMenu(
+    modifier: Modifier = Modifier,
+    items: List<DkFabMenuItem>,
+    contentDescription: String? = null,
+    visible: Boolean = true,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = expanded) { expanded = false }
+
+    if (visible) {
+        FloatingActionButtonMenu(
+            modifier = modifier.reportFabSize(),
+            expanded = expanded,
+            button = {
+                ToggleFloatingActionButton(
+                    checked = expanded,
+                    onCheckedChange = { expanded = it },
+                ) {
+                    val progress = { checkedProgress }
+                    Icon(
+                        modifier = Modifier.animateIcon(progress),
+                        imageVector = if (checkedProgress > 0.5f) Icons.Default.Close else Icons.Default.Add,
+                        contentDescription = contentDescription,
+                    )
+                }
+            },
+        ) {
+            items.forEach { item ->
+                FloatingActionButtonMenuItem(
+                    onClick = {
+                        expanded = false
+                        item.onClick()
+                    },
+                    icon = { Icon(imageVector = item.icon, contentDescription = null) },
+                    text = { Text(text = item.label) },
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(visible) {
+        if (!visible) expanded = false
+    }
+
+    ReleaseFabSize()
+}
+
+@Composable
+private fun Modifier.reportFabSize(): Modifier {
+    val density = LocalDensity.current
+    val state = LocalFabHostState.current
+
+    return onSizeChanged {
+        with(density) {
+            state?.setup(DpSize(width = it.width.toDp(), height = it.height.toDp()))
+        }
+    }
+}
+
+@Composable
+private fun ReleaseFabSize() {
+    val state = LocalFabHostState.current
 
     DisposableEffect(Unit) {
         onDispose {
