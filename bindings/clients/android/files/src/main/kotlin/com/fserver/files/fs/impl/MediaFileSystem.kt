@@ -140,6 +140,8 @@ internal class MediaFileSystem(
         val name = nameOf(newName)
         val uri = locator.toUri()
 
+        if (!isMediaName(name)) throw FileSystemException.InvalidPath(newName)
+
         val (volume, relativePath, original) = context.contentResolver
             .query(
                 uri,
@@ -207,6 +209,7 @@ internal class MediaFileSystem(
         val segments = segmentsOf(path)
 
         if (segments.size < 3) throw FileSystemException.InvalidPath(path)
+        if (!isMediaName(segments.last())) throw FileSystemException.InvalidPath(path)
 
         val volume = volumeName(segments.first())
 
@@ -226,8 +229,15 @@ internal class MediaFileSystem(
     override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
         val uri = locator.toUri()
 
+        val deleted = try {
+            context.contentResolver.delete(uri, null, null) > 0
+        } catch (e: SecurityException) {
+            // Includes the RecoverableSecurityException for a row another app owns.
+            return@withContext false
+        }
+
         // A row that is already gone counts as deleted, so a repeated delete is not a failure.
-        context.contentResolver.delete(uri, null, null) > 0 || !exists(uri)
+        deleted || !exists(uri)
     }
 
     /** MediaStore owns DATE_MODIFIED, so this only reads back what a scan will see. */

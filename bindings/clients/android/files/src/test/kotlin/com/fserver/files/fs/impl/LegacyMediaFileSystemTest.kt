@@ -1,8 +1,6 @@
 package com.fserver.files.fs.impl
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.SourcePaths
 import kotlinx.coroutines.test.runTest
@@ -13,21 +11,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.File
 
 /**
- * The media source on the devices that predate scoped storage.
- *
- * The volume root is injected, so everything but the walk runs on any api level — the walk is the
- * one part that needs a pre-Android-10 MediaStore and is left to a device that has one.
- *
- * Names are camelCase, not backticked: a backticked name puts spaces into the lambda classes
- * `runTest` generates, and D8 refuses those below dex 040.
+ * The media source on the devices that predate scoped storage. The volume root is injected; the
+ * walk needs a pre-Android-10 MediaStore and is not covered here.
  */
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
 class LegacyMediaFileSystemTest {
 
-    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val context: Context = RuntimeEnvironment.getApplication()
 
     private lateinit var volume: File
     private lateinit var outside: File
@@ -48,7 +45,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aFileIsCreatedUnderTheVolumeItsPathLeadsWith() = runTest {
+    fun `a file is created under the volume its path leads with`() = runTest {
         val locator = fs.createFile("${SourcePaths.PrimaryVolume}/DCIM/2024/a.jpg")
 
         assertEquals(File(volume, "DCIM/2024/a.jpg").canonicalPath, File(locator).canonicalPath)
@@ -56,7 +53,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aPathLeadingWithAnotherVolumeIsRefused() = runTest {
+    fun `a path leading with another volume is refused`() = runTest {
         // Only the primary volume is indexed here, so no other id can be honoured.
         val failure = runCatching { fs.createFile("1A2B-3C4D/DCIM/a.jpg") }.exceptionOrNull()
 
@@ -64,14 +61,14 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun theVolumeAloneIsADirectoryNotAFileThePeerMayCreate() = runTest {
+    fun `the volume alone is a directory, not a file the peer may create`() = runTest {
         val failure = runCatching { fs.createFile(SourcePaths.PrimaryVolume) }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
     }
 
     @Test
-    fun aPathThatWalksOffTheVolumeIsRefused() = runTest {
+    fun `a path that walks off the volume is refused`() = runTest {
         val failure = runCatching {
             fs.createFile("${SourcePaths.PrimaryVolume}/../legacy-outside/evil.txt")
         }.exceptionOrNull()
@@ -81,7 +78,26 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aFileThatIsAlreadyThereIsNotSilentlyOverwritten() = runTest {
+    fun `a file the scan would not report is refused`() = runTest {
+        val failure = runCatching { create("a.txt") }.exceptionOrNull()
+
+        assertTrue(failure is FileSystemException.InvalidPath)
+        assertFalse(File(volume, "DCIM/a.txt").exists())
+    }
+
+    @Test
+    fun `a rename to a name the scan would not report is refused`() = runTest {
+        val locator = create("a.jpg")
+
+        val failure = runCatching { fs.renameFile(locator, "a.txt") }.exceptionOrNull()
+
+        assertTrue(failure is FileSystemException.InvalidPath)
+        assertTrue(File(locator).isFile)
+        assertFalse(File(volume, "DCIM/a.txt").exists())
+    }
+
+    @Test
+    fun `a file that is already there is not silently overwritten`() = runTest {
         create("a.jpg")
 
         val failure = runCatching { create("a.jpg") }.exceptionOrNull()
@@ -90,18 +106,18 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun writesLandAtTheOffsetTheyWereGivenAndReadBackWhole() = runTest {
+    fun `writes land at the offset they were given and read back whole`() = runTest {
         val locator = create("a.jpg")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        assertTrue(fs.writeFile(locator, offset = 6, bytes = "world".toByteArray()))
-        assertTrue(fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray()))
+        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
+        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
 
         assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
     }
 
     @Test
-    fun onlyTheRequestedLengthOfAChunkIsWritten() = runTest {
+    fun `only the requested length of a chunk is written`() = runTest {
         val locator = create("a.jpg")
 
         fs.writeFile(locator, offset = 0, bytes = "abcdef".toByteArray(), length = 3)
@@ -110,7 +126,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aLocatorOutsideTheVolumeCannotBeReadThrough() = runTest {
+    fun `a locator outside the volume cannot be read through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching { fs.openFile(target.absolutePath) }.exceptionOrNull()
@@ -119,7 +135,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aLocatorOutsideTheVolumeCannotBeWrittenThrough() = runTest {
+    fun `a locator outside the volume cannot be written through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching {
@@ -131,7 +147,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aLocatorOutsideTheVolumeCannotBeDeletedThrough() = runTest {
+    fun `a locator outside the volume cannot be deleted through`() = runTest {
         val target = File(outside, "secret.txt").apply { writeText("secret") }
 
         val failure = runCatching { fs.deleteFile(target.absolutePath) }.exceptionOrNull()
@@ -141,7 +157,7 @@ class LegacyMediaFileSystemTest {
     }
 
     @Test
-    fun aFileIsDeletedAndDeletingItAgainIsNotAnError() = runTest {
+    fun `a file is deleted and deleting it again is not an error`() = runTest {
         val locator = create("a.jpg")
 
         assertTrue(fs.deleteFile(locator))

@@ -1,14 +1,21 @@
 package com.fserver.files.fs.impl
 
+import android.content.ContentProvider
+import android.content.ContentValues
 import android.content.Context
+import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
 import java.io.File
+import org.robolectric.Robolectric
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.shadows.ShadowContentResolver
 import java.io.FileNotFoundException
 
 /**
@@ -154,10 +161,74 @@ class TestDocumentsProvider : DocumentsProvider() {
             DocumentsContract.Document.COLUMN_FLAGS,
         )
 
+        /**
+         * Registers the provider with Robolectric's resolver. `attachInfo` refuses a provider that
+         * is not exported, grant-capable and behind MANAGE_DOCUMENTS, as the manifest would declare it.
+         */
+        fun register() {
+            val info = ProviderInfo().apply {
+                authority = Authority
+                exported = true
+                grantUriPermissions = true
+                readPermission = android.Manifest.permission.MANAGE_DOCUMENTS
+                writePermission = android.Manifest.permission.MANAGE_DOCUMENTS
+            }
+
+            val provider = Robolectric.buildContentProvider(TestDocumentsProvider::class.java)
+                .create(info)
+                .get()
+
+            val bridge = Bridge(provider).apply {
+                attachInfo(RuntimeEnvironment.getApplication(), ProviderInfo().also { it.authority = Authority })
+            }
+
+            ShadowContentResolver.registerProviderInternal(Authority, bridge)
+        }
+
         /** The tree uri a picker would have handed back for this provider's root. */
         fun treeUri(): Uri = DocumentsContract.buildTreeDocumentUri(Authority, RootDocumentId)
 
         /** Where the tree actually lives, so a test can set it up and assert on it directly. */
         fun rootDirectory(context: Context): File = File(context.cacheDir, RootDirectory)
+    }
+
+    /**
+     * Robolectric's resolver still calls the pre-O `query`, which [DocumentsProvider] seals off with
+     * a throw. This forwards it to the bundle overload the framework would call.
+     */
+    private class Bridge(private val target: DocumentsProvider) : ContentProvider() {
+        override fun onCreate(): Boolean = true
+
+        override fun query(
+            uri: Uri,
+            projection: Array<out String>?,
+            selection: String?,
+            selectionArgs: Array<out String>?,
+            sortOrder: String?,
+        ): Cursor? = target.query(uri, projection, null as Bundle?, null)
+
+        override fun call(method: String, arg: String?, extras: Bundle?): Bundle? =
+            target.call(method, arg, extras)
+
+        override fun call(authority: String, method: String, arg: String?, extras: Bundle?): Bundle? =
+            target.call(authority, method, arg, extras)
+
+        override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? =
+            target.openFile(uri, mode)
+
+        override fun getType(uri: Uri): String? = target.getType(uri)
+
+        override fun insert(uri: Uri, values: ContentValues?): Uri? =
+            throw UnsupportedOperationException()
+
+        override fun update(
+            uri: Uri,
+            values: ContentValues?,
+            selection: String?,
+            selectionArgs: Array<out String>?,
+        ): Int = throw UnsupportedOperationException()
+
+        override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int =
+            throw UnsupportedOperationException()
     }
 }

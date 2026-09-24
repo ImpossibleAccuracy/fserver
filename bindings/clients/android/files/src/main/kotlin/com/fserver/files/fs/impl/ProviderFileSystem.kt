@@ -2,7 +2,6 @@ package com.fserver.files.fs.impl
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import com.fserver.common.exception.FileSystemException
 import kotlinx.coroutines.Dispatchers
@@ -10,8 +9,6 @@ import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
-
-private const val DefaultMimeType = "application/octet-stream"
 
 /**
  * Backends served by a ContentProvider, where a locator is a uri and every byte moves through the
@@ -38,9 +35,9 @@ internal abstract class ProviderFileSystem(
         offset: Long,
         bytes: ByteArray,
         length: Int,
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         val descriptor = context.contentResolver.openFileDescriptor(locator.toUri(), "rw")
-            ?: return@withContext false
+            ?: throw FileSystemException.InvalidPath(locator)
 
         descriptor.use { pfd ->
             // Built from the descriptor, so the stream does not own it: only `pfd` closes the fd.
@@ -52,13 +49,5 @@ internal abstract class ProviderFileSystem(
                 written += channel.write(buffer, offset + written)
             }
         }
-
-        true
     }
-
-    /** Mime type guessed from the extension, so a provider keeps the name it was given. */
-    protected fun mimeTypeOf(name: String): String =
-        MimeTypeMap.getSingleton()
-            .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
-            ?: DefaultMimeType
 }

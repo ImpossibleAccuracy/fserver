@@ -84,15 +84,18 @@ internal class LegacyMediaFileSystem(
         // The volume itself is a directory, not a file the peer may create.
         if (segments.size < 2) throw FileSystemException.InvalidPath(path)
 
-        return File(root, segments.drop(1).joinToString("/")).canonicalFile.also {
-            if (!it.isUnder(root)) throw FileSystemException.InvalidPath(path)
-        }
+        return owned(File(root, segments.drop(1).joinToString("/")).canonicalFile, path)
     }
 
-    override fun confine(locator: String): File =
-        File(locator).canonicalFile.also {
-            if (!it.isUnder(root)) throw FileSystemException.InvalidPath(locator)
-        }
+    override fun confine(locator: String): File = owned(File(locator).canonicalFile, locator)
+
+    /**
+     * [file], if this source holds it: under [root] and media. Anything else the scan never
+     * reports, so creating or renaming into it would lose the file to the peer.
+     */
+    private fun owned(file: File, path: String): File = file.also {
+        if (!it.isUnder(root) || !isMediaName(it.name)) throw FileSystemException.InvalidPath(path)
+    }
 
     /**
      * A file the index has never heard of is a file the next scan will not report — so the peer

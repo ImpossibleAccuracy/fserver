@@ -89,18 +89,16 @@ internal abstract class LocalFileSystem : SystemAdapter() {
         offset: Long,
         bytes: ByteArray,
         length: Int,
-    ): Boolean {
+    ) {
         val file = confine(locator)
 
         if (!file.isFile) throw FileSystemException.InvalidPath(locator)
 
-        return withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             RandomAccessFile(file, "rw").use { ra ->
                 ra.seek(offset)
                 ra.write(bytes, 0, length)
             }
-
-            true
         }
     }
 

@@ -1,8 +1,6 @@
 package com.fserver.files.fs.impl
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FileSystemSource
 import kotlinx.coroutines.test.runTest
@@ -13,27 +11,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.io.File
 
 /**
- * A source reached through the Storage Access Framework.
- *
- * Instrumented rather than unit-tested: document ids, tree uris and the child checks around them
- * are the framework's, and a fake resolver would only assert that the fake agrees with itself.
- *
- * Names are camelCase, not backticked: a backticked name puts spaces into the lambda classes
- * `runTest` generates, and D8 refuses those below dex 040.
+ * A source reached through the Storage Access Framework, against [TestDocumentsProvider]: document
+ * ids, tree uris and the child checks around them still go through `DocumentsContract`.
  */
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
 class TreeFileSystemTest {
 
-    private val context: Context = ApplicationProvider.getApplicationContext()
+    private val context: Context = RuntimeEnvironment.getApplication()
 
     private lateinit var root: File
     private lateinit var fs: TreeFileSystem
 
     @Before
     fun setUp() {
+        TestDocumentsProvider.register()
+
         root = TestDocumentsProvider.rootDirectory(context)
         root.deleteRecursively()
         root.mkdirs()
@@ -50,7 +47,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aScanReportsPathsRelativeToTheGrantedTree() = runTest {
+    fun `a scan reports paths relative to the granted tree`() = runTest {
         File(root, "photos").mkdirs()
         File(root, "photos/a.jpg").writeText("a")
         File(root, "b.txt").writeText("b")
@@ -61,14 +58,14 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aFileIsCreatedUnderTheTreeWithItsDirectories() = runTest {
+    fun `a file is created under the tree with its directories`() = runTest {
         fs.createFile("photos/2024/a.jpg")
 
         assertTrue(File(root, "photos/2024/a.jpg").isFile)
     }
 
     @Test
-    fun aCreatedFileKeepsTheNameItWasGiven() = runTest {
+    fun `a created file keeps the name it was given`() = runTest {
         // The mime type is guessed from the extension precisely so the provider does not append
         // one of its own - a renamed file no longer matches the path the peer holds.
         val locator = fs.createFile("notes/todo.txt")
@@ -80,7 +77,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun anExistingDirectoryOnTheWayDownIsReusedNotDuplicated() = runTest {
+    fun `an existing directory on the way down is reused, not duplicated`() = runTest {
         fs.createFile("photos/a.jpg")
         fs.createFile("photos/b.jpg")
 
@@ -91,7 +88,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aFileThatIsAlreadyThereIsNotSilentlyOverwritten() = runTest {
+    fun `a file that is already there is not silently overwritten`() = runTest {
         fs.createFile("a.txt")
 
         val failure = runCatching { fs.createFile("a.txt") }.exceptionOrNull()
@@ -100,7 +97,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aDirectoryCannotBeCreatedOverWithAFile() = runTest {
+    fun `a directory cannot be created over with a file`() = runTest {
         File(root, "photos").mkdirs()
 
         val failure = runCatching { fs.createFile("photos") }.exceptionOrNull()
@@ -109,7 +106,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aPathComponentThatIsAFileNotADirectoryIsRefused() = runTest {
+    fun `a path component that is a file, not a directory, is refused`() = runTest {
         File(root, "photos").writeText("not a directory")
 
         val failure = runCatching { fs.createFile("photos/a.jpg") }.exceptionOrNull()
@@ -118,7 +115,7 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aPathThatWalksOutOfTheTreeIsRefused() = runTest {
+    fun `a path that walks out of the tree is refused`() = runTest {
         val failure = runCatching { fs.createFile("../evil.txt") }.exceptionOrNull()
 
         assertTrue(failure is FileSystemException.InvalidPath)
@@ -126,25 +123,25 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun anEmptyPathIsRefused() = runTest {
+    fun `an empty path is refused`() = runTest {
         assertTrue(
             runCatching { fs.createFile("") }.exceptionOrNull() is FileSystemException.InvalidPath,
         )
     }
 
     @Test
-    fun writesLandAtTheOffsetTheyWereGivenAndReadBackWhole() = runTest {
+    fun `writes land at the offset they were given and read back whole`() = runTest {
         val locator = fs.createFile("a.txt")
 
         // Out of order on purpose: chunks arrive the way the link delivers them.
-        assertTrue(fs.writeFile(locator, offset = 6, bytes = "world".toByteArray()))
-        assertTrue(fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray()))
+        fs.writeFile(locator, offset = 6, bytes = "world".toByteArray())
+        fs.writeFile(locator, offset = 0, bytes = "hello ".toByteArray())
 
         assertEquals("hello world", fs.openFile(locator).use { String(it.readBytes()) })
     }
 
     @Test
-    fun onlyTheRequestedLengthOfAChunkIsWritten() = runTest {
+    fun `only the requested length of a chunk is written`() = runTest {
         val locator = fs.createFile("a.txt")
 
         fs.writeFile(locator, offset = 0, bytes = "abcdef".toByteArray(), length = 3)
@@ -153,10 +150,11 @@ class TreeFileSystemTest {
     }
 
     @Test
-    fun aFileIsDeleted() = runTest {
+    fun `a file is deleted and deleting it again is not an error`() = runTest {
         val locator = fs.createFile("a.txt")
 
         assertTrue(fs.deleteFile(locator))
         assertFalse(File(root, "a.txt").exists())
+        assertTrue(fs.deleteFile(locator))
     }
 }

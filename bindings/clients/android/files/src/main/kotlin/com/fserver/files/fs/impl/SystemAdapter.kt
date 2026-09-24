@@ -1,5 +1,6 @@
 package com.fserver.files.fs.impl
 
+import android.webkit.MimeTypeMap
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.progressTask
@@ -44,6 +45,19 @@ internal fun segmentsOf(path: String): List<String> {
 /** [name] as a single path segment, for [FileSystem.renameFile]. Throws if it is anything more. */
 internal fun nameOf(name: String): String =
     segmentsOf(name).singleOrNull() ?: throw FileSystemException.InvalidPath(name)
+
+/** Mime type guessed from [name]'s extension, so a provider keeps the name it was given. */
+internal fun mimeTypeOf(name: String): String =
+    MimeTypeMap.getSingleton()
+        .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+        ?: "application/octet-stream"
+
+/**
+ * True when [name] is an image, video or audio file - all a media source scans for. A media backend
+ * refuses anything else, since a file its own scan never reports would be sent to it forever.
+ */
+internal fun isMediaName(name: String): Boolean =
+    mimeTypeOf(name).substringBefore('/') in setOf("image", "video", "audio")
 
 /** Helper to collect files and report progress. Thread-safe. */
 private class ScanCollector(

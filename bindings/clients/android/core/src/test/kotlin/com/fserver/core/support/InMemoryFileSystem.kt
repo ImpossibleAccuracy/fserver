@@ -70,15 +70,13 @@ internal class InMemoryFileSystem : FileSystem {
         offset: Long,
         bytes: ByteArray,
         length: Int,
-    ): Boolean {
+    ) {
         val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
         val end = (offset + length).toInt()
 
         val grown = if (current.size < end) current.copyOf(end) else current
         bytes.copyInto(grown, destinationOffset = offset.toInt(), startIndex = 0, endIndex = length)
         files[locator] = grown
-
-        return true
     }
 
     override suspend fun deleteFile(locator: String): Boolean {

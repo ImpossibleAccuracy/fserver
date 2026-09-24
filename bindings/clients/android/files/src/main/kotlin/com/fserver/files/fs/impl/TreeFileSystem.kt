@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.FileNotFoundException
 import kotlin.time.Instant
 
 internal class TreeFileSystem(
@@ -247,13 +248,31 @@ internal class TreeFileSystem(
         return null
     }
 
-    override suspend fun deleteFile(locator: String): Boolean {
+    /**
+     * API 29+ throws where older releases returned false. Only "not found" counts as deleted: an
+     * unreadable document is not known to be gone.
+     */
+    override suspend fun deleteFile(locator: String): Boolean = withContext(Dispatchers.IO) {
         val uri = locator.toUri()
 
-        return withContext(Dispatchers.IO) {
-            DocumentsContract.deleteDocument(context.contentResolver, uri)
+        try {
+            DocumentsContract.deleteDocument(context.contentResolver, uri) || !exists(uri)
+        } catch (e: FileNotFoundException) {
+            true
+        } catch (e: Exception) {
+            // Unsupported by the provider, or the grant is gone.
+            false
         }
     }
+
+    private fun exists(uri: Uri): Boolean =
+        try {
+            displayName(uri) != null
+        } catch (e: FileNotFoundException) {
+            false
+        } catch (e: Exception) {
+            true
+        }
 
     /** A provider owns its documents' mtime, so this only reads back what a scan will see. */
     override suspend fun settleLastModified(locator: String, time: Instant): Instant =
