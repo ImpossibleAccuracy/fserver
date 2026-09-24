@@ -1,6 +1,7 @@
 package com.fserver.net.connection.impl
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.net.config.ConfigAware
 import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.NetworkConfigHolder
@@ -15,7 +16,6 @@ import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.DiscoveredEndpoint
 import com.fserver.net.spi.SpiId
 import com.fserver.net.spi.Transport
-import com.fserver.common.utils.runCatchingCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -23,11 +23,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -44,8 +41,7 @@ internal class IncomingConnectionsManagerImpl<M : Any>(
     private val throttle = HandshakeThrottle(configHolder.current.policy)
 
     override val sessions: StateFlow<List<PeerSession<M>>> = connectionsHolder.sessions
-        .map { it.values.toList() }
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+        .derived { it.values.toList() }
 
     // A SharedFlow drops emissions made while nobody is collecting - a handshake landing right
     // before the host subscribes would vanish with no signal. A channel queues instead.

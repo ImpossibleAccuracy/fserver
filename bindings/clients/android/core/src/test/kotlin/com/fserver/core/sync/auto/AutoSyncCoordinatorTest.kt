@@ -13,23 +13,20 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.runner.SyncRunner
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import org.junit.After
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * What turns a device appearing into a pass, and - more importantly - what does not: a device that
@@ -37,10 +34,13 @@ import kotlin.time.Duration.Companion.seconds
  *
  * `SyncRunner` is mocked rather than built: it is final and pulls in the whole engine, while all
  * this class does with it is name a device to sync.
+ *
+ * Runs on the test scheduler and drains after every emission: `combine` conflates, so two lists
+ * sent back to back could reach the coordinator as one.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AutoSyncCoordinatorTest {
 
-    private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
     private val online = FakeOnlineDevices()
@@ -56,86 +56,93 @@ class AutoSyncCoordinatorTest {
         }
     }
 
-    private val coordinator = AutoSyncCoordinator(
-        devicesRepository = mockk<DevicesRepository> { every { devices } returns online },
-        networkInfoRepository = mockk<NetworkInfoRepository> { every { networkInfo } returns network },
-        storage = storage,
-        syncRunner = syncRunner,
-        backgroundScope = background,
-    )
-
-    @After
-    fun tearDown() {
-        background.cancel()
+    private fun TestScope.startCoordinator() {
+        AutoSyncCoordinator(
+            devicesRepository = mockk<DevicesRepository> { every { devices } returns online },
+            networkInfoRepository = mockk<NetworkInfoRepository> { every { networkInfo } returns network },
+            storage = storage,
+            syncRunner = syncRunner,
+            backgroundScope = backgroundScope,
+        ).start()
+        runCurrent()
     }
 
     @Test
-    fun `paired device appearing syncs its sources`() = runBlocking {
+    fun `paired device appearing syncs its sources`() = runTest {
         storage.sources.upsert(sourceEntry(id = "source-1", deviceId = Peer))
-        coordinator.start()
+        startCoordinator()
 
-        online.emit(Peer)
+        show(Peer)
 
         assertEquals(Peer, nextRun())
     }
 
     @Test
-    fun `device already visible is not synced again`() = runBlocking {
+    fun `device already visible is not synced again`() = runTest {
         storage.sources.upsert(sourceEntry(id = "source-1", deviceId = Peer))
         storage.sources.upsert(sourceEntry(id = "source-2", deviceId = Other))
-        coordinator.start()
+        startCoordinator()
 
-        online.emit(Peer)
+        show(Peer)
         assertEquals(Peer, nextRun())
 
         // Peer is still on the list here: if staying visible re-triggered, this would report it.
-        online.emit(Peer, Other)
+        show(Peer, Other)
         assertEquals(Other, nextRun())
+        assertNull(nextRun())
     }
 
     @Test
-    fun `device with no active source is ignored`() = runBlocking {
+    fun `device with no active source is ignored`() = runTest {
         storage.sources.upsert(
             sourceEntry(id = "source-1", deviceId = Pending, status = SourceEntry.Status.Pending),
         )
         storage.sources.upsert(sourceEntry(id = "source-2", deviceId = Peer))
-        coordinator.start()
+        startCoordinator()
 
-        online.emit(Pending, Stranger)
-        online.emit(Pending, Stranger, Peer)
+        show(Pending, Stranger)
+        show(Pending, Stranger, Peer)
 
         // The paired device is the first thing to arrive, so neither of the others triggered.
         assertEquals(Peer, nextRun())
+        assertNull(nextRun())
     }
 
     @Test
-    fun `device seen again after it left syncs again`() = runBlocking {
+    fun `device seen again after it left syncs again`() = runTest {
         storage.sources.upsert(sourceEntry(id = "source-1", deviceId = Peer))
-        coordinator.start()
+        startCoordinator()
 
-        online.emit(Peer)
+        show(Peer)
         assertEquals(Peer, nextRun())
 
-        online.emit()
-        online.emit(Peer)
+        show()
+        show(Peer)
 
         assertEquals(Peer, nextRun())
     }
 
     @Test
-    fun `network change makes a device that stayed visible a new arrival`() = runBlocking {
+    fun `network change makes a device that stayed visible a new arrival`() = runTest {
         storage.sources.upsert(sourceEntry(id = "source-1", deviceId = Peer))
-        coordinator.start()
+        startCoordinator()
 
-        online.emit(Peer)
+        show(Peer)
         assertEquals(Peer, nextRun())
 
         network.value = NetworkInfo.WiFi("office", "cc:dd")
+        runCurrent()
 
         assertEquals(Peer, nextRun())
     }
 
-    private suspend fun nextRun(): String = withTimeout(Timeout) { runs.receive() }
+    private suspend fun TestScope.show(vararg deviceIds: String) {
+        online.emit(*deviceIds)
+        runCurrent()
+    }
+
+    /** The oldest pass asked for and not yet checked, or null. */
+    private fun nextRun(): String? = runs.tryReceive().getOrNull()
 
     private class FakeOnlineDevices : OnlineDevices {
         private val devices = MutableSharedFlow<List<ForeignDevice>>(replay = 1, extraBufferCapacity = 1)
@@ -170,7 +177,5 @@ class AutoSyncCoordinatorTest {
         const val Other = "device-other"
         const val Pending = "device-pending"
         const val Stranger = "device-stranger"
-
-        val Timeout = 5.seconds
     }
 }
