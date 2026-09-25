@@ -19,6 +19,7 @@ import com.fserver.app.presentation.screens.source.request.details.SyncRequestDe
 import com.fserver.app.presentation.screens.source.list.SyncRequestListViewModel
 import com.fserver.app.presentation.screens.source.request.location.SyncRequestLocationViewModel
 import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupViewModel
+import com.fserver.app.presentation.screens.source.details.SourceDetailsViewModel
 import com.fserver.app.presentation.screens.source.shared.done.SourceDoneViewModel
 import com.fserver.app.presentation.screens.source.shared.progress.SourceProgressViewModel
 import com.fserver.app.presentation.screens.device.details.DeviceDetailsViewModel
@@ -61,6 +62,7 @@ val presentationModule = module {
     viewModelOf(::SyncRequestLocationViewModel)
     viewModelOf(::SourceProgressViewModel)
     viewModelOf(::SourceDoneViewModel)
+    viewModelOf(::SourceDetailsViewModel)
 
     viewModelOf(::ActivityViewModel)
     viewModelOf(::DiagnosticsViewModel)

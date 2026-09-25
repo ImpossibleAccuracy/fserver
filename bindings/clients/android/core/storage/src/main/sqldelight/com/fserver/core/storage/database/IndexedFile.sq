@@ -79,3 +79,32 @@ WHERE sourceId = ? AND fileId = ?;
 deleteBySource:
 DELETE FROM indexedFile
 WHERE sourceId = ?;
+
+-- One source's files by where they stand, for its details screen. Pending is what was indexed after
+-- the last completed pass - the pass that would have sent it has not finished since.
+sourceTotals:
+SELECT
+    (SELECT count(*) FROM indexedFile
+        WHERE sourceId = :sourceId AND state = 'Present') AS hereFiles,
+    (SELECT coalesce(sum(size), 0) FROM indexedFile
+        WHERE sourceId = :sourceId AND state = 'Present') AS hereBytes,
+    (SELECT count(*) FROM indexedFile l JOIN source s ON s.id = l.sourceId
+        WHERE l.sourceId = :sourceId AND l.state = 'Present'
+            AND l.processedAtEpochMs > coalesce(s.lastSyncedAtEpochMs, -1)) AS pendingFiles,
+    (SELECT coalesce(sum(l.size), 0) FROM indexedFile l JOIN source s ON s.id = l.sourceId
+        WHERE l.sourceId = :sourceId AND l.state = 'Present'
+            AND l.processedAtEpochMs > coalesce(s.lastSyncedAtEpochMs, -1)) AS pendingBytes,
+    (SELECT count(*) FROM indexedFile
+        WHERE sourceId = :sourceId AND state = 'Evicted') AS evictedFiles,
+    (SELECT coalesce(sum(size), 0) FROM indexedFile
+        WHERE sourceId = :sourceId AND state = 'Evicted') AS evictedBytes,
+    (SELECT count(*) FROM remoteIndexedFile
+        WHERE sourceId = :sourceId AND state = 'Present') AS peerFiles,
+    (SELECT coalesce(sum(size), 0) FROM remoteIndexedFile
+        WHERE sourceId = :sourceId AND state = 'Present') AS peerBytes,
+    (SELECT count(*) FROM indexedFile l JOIN remoteIndexedFile r
+            ON r.sourceId = l.sourceId AND r.fileId = l.fileId
+        WHERE l.sourceId = :sourceId AND l.state = 'Present' AND r.state = 'Present') AS matchedFiles,
+    (SELECT coalesce(sum(l.size), 0) FROM indexedFile l JOIN remoteIndexedFile r
+            ON r.sourceId = l.sourceId AND r.fileId = l.fileId
+        WHERE l.sourceId = :sourceId AND l.state = 'Present' AND r.state = 'Present') AS matchedBytes;

@@ -28,6 +28,9 @@ interface RegisteredSourcesRepository {
      */
     fun observeProcessedCount(id: String): Flow<Int>
 
+    /** Where the source's files stand, counted in the database. */
+    fun observeTotals(id: String): Flow<SourceFilesTotals>
+
     /** Display name only; what the source points at and may do are not the UI's to change. */
     suspend fun rename(id: String, label: String)
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -32,9 +33,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Every synced file as one tree, narrowed by device and by where the bytes are. */
+/** Every synced file as one tree, narrowed by source and by where the bytes are. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FilesViewModel(
+    key: Destination.Files,
     private val sourcesController: SourcesController,
     private val trustedDevicesRepository: TrustedDevicesRepository,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
@@ -55,20 +57,15 @@ class FilesViewModel(
         }
     )
 
-    private val editable = MutableStateFlow(Editable())
+    private val editable = MutableStateFlow(
+        Editable(selectedSourceId = key.sourceId, filter = key.filter)
+    )
     private val refreshing = MutableStateFlow(false)
 
-    private val entries: StateFlow<FilesState.FeedUi?> = combine(
-        editable.map { Query(it.filter, it.selectedDeviceId, it.sort, it.sortAscending) }
-            .distinctUntilChanged(),
-        registeredSourcesRepository.sources,
-    ) { query, sources ->
-        query to query.deviceId?.let { id ->
-            sources.filter { it.deviceId == id }.map { it.id }.toSet()
-        }
-    }
+    private val entries: StateFlow<FilesState.FeedUi?> = editable
+        .map { Query(it.filter, it.selectedSourceId, it.sort, it.sortAscending) }
         .distinctUntilChanged()
-        .flatMapLatest { (query, sourceIds) ->
+        .flatMapLatest { query ->
             filesProviderHandler
                 .loadEntries(
                     requiredLocation = when (query.filter) {
@@ -76,13 +73,13 @@ class FilesViewModel(
                         FilesState.FilterUi.Local -> FileBrowserUi.File.Location.Local
                         FilesState.FilterUi.Cloud -> FileBrowserUi.File.Location.Remote
                     },
-                    sourceIds = sourceIds,
+                    sourceIds = query.sourceId?.let(::setOf),
                 )
                 .map { files ->
                     FilesState.FeedUi(
                         preview = files.toTree(query.sort, query.sortAscending),
                         filter = query.filter,
-                        deviceId = query.deviceId,
+                        sourceId = query.sourceId,
                         sort = query.sort,
                         sortAscending = query.sortAscending,
                     )
@@ -94,26 +91,26 @@ class FilesViewModel(
             initialValue = null,
         )
 
-    private val devices: Flow<List<FilesState.DeviceUi>> = combine(
+    private val sources: Flow<List<FilesState.SourceUi>> = combine(
         trustedDevicesRepository.devices,
         devicesRepository.devices.connected,
         registeredSourcesRepository.sources,
     ) { trusted, connected, sources ->
         val online = connected.associateBy { it.deviceId }
 
-        sources.map { it.deviceId }
-            .distinct()
-            .map { deviceId ->
-                val record = trusted.latest(deviceId)
-                val session = online[deviceId]
+        sources
+            .map { source ->
+                val record = trusted.latest(source.deviceId)
+                val session = online[source.deviceId]
 
-                FilesState.DeviceUi(
-                    id = deviceId,
-                    name = session?.displayName ?: record?.displayName ?: deviceId,
-                    kind = session?.kind ?: record?.metadata?.kind,
+                FilesState.SourceUi(
+                    id = source.id,
+                    label = source.label,
+                    deviceName = session?.displayName ?: record?.displayName ?: source.deviceId,
+                    deviceKind = session?.kind ?: record?.metadata?.kind,
                 )
             }
-            .sortedBy { it.name }
+            .sortedBy { it.label }
     }
 
     private val isSyncing: Flow<Boolean> = combine(
@@ -126,12 +123,12 @@ class FilesViewModel(
     val state: StateFlow<FilesState> = combine(
         editable,
         entries,
-        devices,
+        sources,
         isSyncing,
-    ) { edit, files, devices, syncing ->
+    ) { edit, files, sources, syncing ->
         FilesState(
-            devices = devices,
-            selectedDeviceId = edit.selectedDeviceId.takeIf { id -> devices.any { it.id == id } },
+            sources = sources,
+            selectedSourceId = edit.selectedSourceId.takeIf { id -> sources.any { it.id == id } },
             filter = edit.filter,
             entries = files,
             openedPath = edit.openedPath,
@@ -148,7 +145,7 @@ class FilesViewModel(
     fun onIntent(intent: FilesIntent) {
         when (intent) {
             is FilesIntent.FiltersApplied -> editable.update {
-                it.copy(selectedDeviceId = intent.deviceId, filter = intent.filter)
+                it.copy(selectedSourceId = intent.sourceId, filter = intent.filter)
             }
 
             FilesIntent.RefreshRequested -> runSync()
@@ -198,15 +195,15 @@ class FilesViewModel(
 
     private data class Query(
         val filter: FilesState.FilterUi,
-        val deviceId: String?,
+        val sourceId: String?,
         val sort: FileSortUi,
         val sortAscending: Boolean,
     )
 
     private data class Editable(
-        val selectedDeviceId: String? = null,
+        val selectedSourceId: String? = null,
         val filter: FilesState.FilterUi = FilesState.FilterUi.All,
-        /** The folder being browsed; the device and filter stay as they were when opened. */
+        /** The folder being browsed; the source and filter stay as they were when opened. */
         val openedPath: String? = null,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,

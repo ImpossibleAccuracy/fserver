@@ -9,8 +9,11 @@ fun EntryProviderScope<Destination>.filesSourceDetailsEntry(
 ) {
     entry<Destination.Files.SourceDetails> { key ->
         SourceDetailsScreen(
-            sourceId = key.sourceId,
-            navigateUp = { navigator.navigateUp() },
+            key = key,
+            navigateToActivity = { navigator.navigate(Destination.Activity) },
+            navigateToFiles = { navigator.navigate(Destination.Files(sourceId = key.sourceId)) },
+            navigateToDevice = { navigator.navigate(Destination.Settings.DeviceDetails(it)) },
+            navigateUp = navigator::navigateUp,
         )
     }
 }

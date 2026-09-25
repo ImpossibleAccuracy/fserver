@@ -1,607 +1,392 @@
 package com.fserver.app.presentation.screens.source.details
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.fserver.app.R
-import com.fserver.app.presentation.designkit.DkCaption
-import com.fserver.app.presentation.designkit.DkMonoCaption
-import com.fserver.app.presentation.designkit.DkPlaceholderBox
-import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.theme.FServerTheme
-
-@Composable
-fun SourceDetailsScreen(
-    modifier: Modifier = Modifier,
-    sourceId: String,
-    navigateUp: () -> Unit,
-) {
-    DkScaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            DkTopBar(
-                title = stringResource(R.string.files_source_details_title),
-                onBack = navigateUp,
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = DkSpacing.screenPadding),
-            verticalArrangement = Arrangement.spacedBy(DkSpacing.md, Alignment.CenterVertically),
-        ) {
-            DkPlaceholderBox(
-                modifier = Modifier.height(160.dp),
-                label = stringResource(R.string.files_source_details_stub),
-            )
-            DkCaption(text = stringResource(R.string.files_source_details_body))
-            DkMonoCaption(text = sourceId)
-        }
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
-@Composable
-private fun SourceDetailsScreenPreview() {
-    FServerTheme {
-        SourceDetailsScreen(
-            sourceId = "4c81-camera",
-            navigateUp = {},
-        )
-    }
-}
-
-/*
- * Kept for later: the device card the dashboard used to open in a dialog, and the view-model code
- * that fed it. Not compiled.
-
-// ---- DashboardViewModel: the device-details flow ----
-    private val expandedDevice: Flow<DashboardState.DeviceDetailsUi?> = editable
-        .map { it.expandedDeviceId }
-        .distinctUntilChanged()
-        .flatMapLatest { deviceId ->
-            if (deviceId == null) flowOf(null) else deviceDetails(deviceId)
-        }
-
-    private fun deviceDetails(deviceId: String): Flow<DashboardState.DeviceDetailsUi> = combineMany(
-        trustedDevicesRepository.devices,
-        devicesRepository.devices.device(deviceId),
-        trustedDevicesRepository.observeKnownRoute(deviceId),
-        registeredSourcesRepository.sources,
-        sourcesController.progress.passes,
-        filesController.overallContent,
-        reachability(deviceId),
-    ) { trusted, device, knownRoute, sources, passes, content, reach ->
-        val record = trusted.latest(deviceId)
-        val bySource = content.groupBy { it.sourceId }
-
-        DashboardState.DeviceDetailsUi(
-            id = deviceId,
-            name = device?.displayName ?: record?.displayName ?: deviceId,
-            kind = device?.kind ?: record?.metadata?.kind,
-            online = device?.hasSession == true,
-            addressLabel = device?.routes?.firstOrNull()?.address ?: knownRoute?.address,
-            fingerprintLabel = device?.handshake?.fingerprint ?: record?.fingerprint?.value,
-            foundBy = device?.foundBy ?: knownRoute?.transport,
-            lastSeenLabel = record?.metadata?.lastSeen?.relative(),
-            unreachable = reach
-                ?.takeIf { device?.hasSession != true && it.failure.isWarning }
-                ?.toUi(lastNetworkId = record?.metadata?.lastNetworkId),
-            folders = sources
-                .filter { it.deviceId == deviceId }
-                .map { source ->
-                    source.toFolderUi(
-                        pass = passes.firstOrNull { it.sourceId == source.id },
-                        entries = bySource[source.id].orEmpty(),
-                    )
-                },
-        )
-    }
-
-    private fun reachability(deviceId: String): Flow<Reach?> = combine(
-        deviceReachability.device(deviceId),
-        networkInfoRepository.networkInfo,
-    ) { failure, network ->
-        failure?.let { Reach(failure = it, network = network) }
-    }
-
-    private data class Reach(
-        val failure: ReachabilityFailure,
-        val network: NetworkInfo?,
-    ) {
-        fun toUi(lastNetworkId: String?) = DashboardState.UnreachableUi(
-            reason = failure.reason.toUi(),
-            triedLabel = failure.failedAt.relative(),
-            transport = failure.transport,
-            onOtherNetwork = lastNetworkId != null && network?.id != null &&
-                    lastNetworkId != network.id,
-        )
-    }
-
-private fun SourceEntry.toFolderUi(
-    pass: SourcePass?,
-    entries: List<SyncFileEntry>,
-): DashboardState.FolderUi {
-    val running = pass?.isFinished == false
-
-    return DashboardState.FolderUi(
-        id = id,
-        name = label,
-        path = commonDirectoryOf(entries.map { it.path }),
-        mode = syncMode.toUi(),
-        status = when {
-            running -> DashboardState.FolderStatusUi.Syncing
-            status is SourceEntry.Status.Pending -> DashboardState.FolderStatusUi.Pending
-            status is SourceEntry.Status.Disabled -> DashboardState.FolderStatusUi.Disabled
-            else -> DashboardState.FolderStatusUi.Active
-        },
-        statusDetail = when {
-            running -> null
-            status is SourceEntry.Status.Disabled -> (status as SourceEntry.Status.Disabled).reason
-            else -> lastSyncedAt?.relative()
-        },
-        itemCount = entries.size,
-        progress = (pass as? SourcePass.Local)?.progress,
-    )
-}
-
-private fun commonDirectoryOf(paths: List<String>): String? {
-    val directories = paths
-        .map { path -> path.substringBeforeLast('/', missingDelimiterValue = "") }
-        .map { directory -> directory.split('/').filter { it.isNotEmpty() } }
-        .takeIf { it.isNotEmpty() }
-        ?: return null
-
-    val shared = directories.reduce { common, segments ->
-        common.zip(segments).takeWhile { (a, b) -> a == b }.map { it.first }
-    }
-
-    return shared.takeIf { it.isNotEmpty() }?.joinToString(separator = "/", prefix = "/")
-}
-
-private fun FailedContact.Reason.toUi(): DashboardState.ReasonUi = when (this) {
-    FailedContact.Reason.NoRoute -> DashboardState.ReasonUi.NoRoute
-    FailedContact.Reason.Unreachable -> DashboardState.ReasonUi.Unreachable
-    FailedContact.Reason.Refused -> DashboardState.ReasonUi.Refused
-    FailedContact.Reason.NotAllowed -> DashboardState.ReasonUi.NotAllowed
-    FailedContact.Reason.Failed -> DashboardState.ReasonUi.Failed
-}
-
-
-// ---- DashboardState: the device-details models ----
-    @Immutable
-    data class DeviceDetailsUi(
-        val id: String,
-        val name: String,
-        val kind: DeviceKind?,
-        val online: Boolean,
-        val addressLabel: String?,
-        val fingerprintLabel: String?,
-        val foundBy: TransportKind?,
-        val lastSeenLabel: String?,
-        val folders: List<FolderUi>,
-        val unreachable: UnreachableUi? = null,
-    )
-
-    @Immutable
-    data class UnreachableUi(
-        val reason: ReasonUi,
-        val triedLabel: String?,
-        val transport: TransportKind?,
-        val onOtherNetwork: Boolean,
-    )
-
-    enum class ReasonUi { NoRoute, Unreachable, Refused, NotAllowed, Failed }
-
-    @Immutable
-    data class FolderUi(
-        val id: String,
-        val name: String,
-        val path: String?,
-        val mode: SourceModeUi,
-        val status: FolderStatusUi,
-        val statusDetail: String? = null,
-        val itemCount: Int = 0,
-        val progress: Float? = null,
-    ) {
-        val accented: Boolean
-            get() = status == FolderStatusUi.Syncing
-    }
-
-    enum class FolderStatusUi { Pending, Active, Syncing, Disabled }
-
-        val SampleFolders = listOf(
-            FolderUi(
-                id = "camera",
-                name = "Camera",
-                path = "/Camera",
-                mode = SourceModeUi.Offload,
-                status = FolderStatusUi.Syncing,
-                itemCount = 240,
-                progress = 0.4f,
-            ),
-            FolderUi(
-                id = "documents",
-                name = "Documents",
-                path = "/Documents",
-                mode = SourceModeUi.Sync,
-                status = FolderStatusUi.Active,
-                statusDetail = "yesterday",
-                itemCount = 62,
-            ),
-            FolderUi(
-                id = "movies",
-                name = "Movies",
-                path = null,
-                mode = SourceModeUi.AutoUpload,
-                status = FolderStatusUi.Disabled,
-                statusDetail = "declined by the peer",
-            ),
-        )
-
-        fun sampleDetailsOf(device: DeviceUi): DeviceDetailsUi = DeviceDetailsUi(
-            id = device.id,
-            name = device.name,
-            kind = device.kind,
-            online = device.online,
-            addressLabel = "192.168.1.40".takeIf { device.online },
-            fingerprintLabel = "9f2c 4a01 b7d3 e820",
-            foundBy = TransportKind.MulticastDns,
-            lastSeenLabel = "yesterday",
-            folders = SampleFolders,
-            unreachable = UnreachableUi(
-                reason = ReasonUi.Unreachable,
-                triedLabel = "5 minutes ago",
-                transport = TransportKind.MulticastDns,
-                onOtherNetwork = true,
-            ).takeIf { device.unreachable },
-        )
-
-// ---- composable/DeviceDetailsCard.kt ----
-package com.fserver.app.presentation.screens.dashboard.composable
-
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.icon
-import com.fserver.app.presentation.composable.model.localizedName
+import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkInfoTone
-import com.fserver.app.presentation.designkit.DkListRow
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkProgressBar
-import com.fserver.app.presentation.designkit.DkSecondaryButton
+import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.dashboard.model.DashboardState
-import com.fserver.app.presentation.screens.source.shared.model.titleRes
+import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.screens.source.details.composable.AttentionCard
+import com.fserver.app.presentation.screens.source.details.composable.FileTrail
+import com.fserver.app.presentation.screens.source.details.composable.SourceHeader
+import com.fserver.app.presentation.screens.source.details.composable.SourceHistory
+import com.fserver.app.presentation.screens.source.details.model.SourceDetailsIntent
+import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.common.model.FileSize
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
-private val StatusDot = 5.dp
-
-/**
- * A device opened where its card sits, over the dimmed feed.
- *
- * Everything the user can decide about one device is here — its folders, their modes, its key —
- * so managing a device never costs a trip to a settings screen.
- */
 @Composable
-fun DeviceDetailsCard(
+fun SourceDetailsScreen(
     modifier: Modifier = Modifier,
-    device: DashboardState.DeviceDetailsUi,
-    onClose: () -> Unit,
-    onFolderClick: (DashboardState.FolderUi) -> Unit,
-    onAddFolder: () -> Unit,
-    onConfigure: () -> Unit,
-    onReconnectByAddress: () -> Unit,
-    onReconnectByQr: () -> Unit,
+    key: Destination.Files.SourceDetails,
+    viewModel: SourceDetailsViewModel = koinViewModel { parametersOf(key) },
+    navigateToActivity: () -> Unit,
+    navigateToFiles: (deviceId: String) -> Unit,
+    navigateToDevice: (deviceId: String) -> Unit,
+    navigateUp: () -> Unit,
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    SourceDetailsScreenContent(
+        modifier = modifier,
+        state = state,
+        onIntent = viewModel::onIntent,
+        navigateToActivity = navigateToActivity,
+        navigateToFiles = navigateToFiles,
+        navigateToDevice = navigateToDevice,
+        navigateUp = navigateUp,
+    )
+}
+
+@Composable
+private fun SourceDetailsScreenContent(
+    modifier: Modifier = Modifier,
+    state: SourceDetailsState,
+    onIntent: (SourceDetailsIntent) -> Unit,
+    navigateToActivity: () -> Unit,
+    navigateToFiles: (deviceId: String) -> Unit,
+    navigateToDevice: (deviceId: String) -> Unit,
+    navigateUp: () -> Unit,
+) {
+    DkScaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            DkTopBar(
+                title = state.label,
+                onBack = navigateUp,
+                actions = { SourceMenu(onEdit = {}, onDelete = {}) },
+            )
+        },
+    ) { innerPadding ->
+        val gutter = Modifier.padding(horizontal = DkSpacing.screenPadding)
+
+        PullToRefreshBox(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            isRefreshing = false,
+            onRefresh = { onIntent(SourceDetailsIntent.RefreshRequested) },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                if (state.isLoading) return@Column
+
+                SourceHeader(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navigateToFiles(state.peer.id) }
+                        .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.sm),
+                    state = state,
+                )
+
+                StatusNote(modifier = gutter.padding(top = DkSpacing.lg), state = state)
+
+                DkSectionLabel(
+                    modifier = gutter.padding(top = DkSpacing.md),
+                    text = stringResource(R.string.source_details_section_trail),
+                )
+                FileTrail(modifier = gutter, state = state)
+
+                PeerLine(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navigateToDevice(state.peer.id) }
+                        .padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.sm),
+                    state = state,
+                )
+
+                state.sendNow?.let { sendNow ->
+                    SendNowOffer(
+                        modifier = gutter.padding(top = DkSpacing.lg),
+                        count = sendNow.count,
+                        bytes = sendNow.bytes,
+                        onSend = { onIntent(SourceDetailsIntent.SendNowClicked) },
+                    )
+                }
+
+                if (state.attention.isNotEmpty()) {
+                    DkSectionLabel(
+                        modifier = gutter.padding(top = DkSpacing.md),
+                        text = stringResource(R.string.source_details_section_attention),
+                    )
+                    Column(
+                        modifier = gutter,
+                        verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
+                    ) {
+                        state.attention.forEach { attention ->
+                            AttentionCard(
+                                attention = attention,
+                                peerName = state.peer.name,
+                                onResolveConflicts = navigateToActivity,
+                            )
+                        }
+                    }
+                }
+
+                if (state.history.isNotEmpty()) {
+                    DkSectionLabel(
+                        modifier = gutter.padding(top = DkSpacing.md),
+                        text = stringResource(R.string.source_details_section_history),
+                    )
+                    SourceHistory(
+                        history = state.history,
+                        onEntryClick = navigateToActivity,
+                        onFullHistoryClick = navigateToActivity,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(DkSpacing.xl))
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                modifier = Modifier.align(Alignment.TopCenter),
+                visible = state.isSyncing,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                DkProgressBar(progress = null)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceMenu(
+    modifier: Modifier = Modifier,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        DkIconButton(onClick = { expanded = true }, icon = Icons.Default.MoreVert)
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.action_edit)) },
+                leadingIcon = { DkIcon(icon = Icons.Default.Edit) },
+                onClick = {
+                    expanded = false
+                    onEdit()
+                },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusNote(
+    modifier: Modifier = Modifier,
+    state: SourceDetailsState,
+) {
+    when (val status = state.status) {
+        SourceDetailsState.StatusUi.Active -> Unit
+
+        SourceDetailsState.StatusUi.Pending -> DkInfoBox(
+            modifier = modifier,
+            text = stringResource(R.string.source_details_status_pending, state.peer.name),
+        )
+
+        is SourceDetailsState.StatusUi.Disabled -> DkInfoBox(
+            modifier = modifier,
+            title = stringResource(R.string.source_details_status_disabled),
+            text = status.reason,
+            tone = DkInfoTone.Alert,
+        )
+    }
+}
+
+@Composable
+private fun PeerLine(
+    modifier: Modifier = Modifier,
+    state: SourceDetailsState,
 ) {
     val colors = MaterialTheme.colorScheme
-    val shape = MaterialTheme.shapes.medium
 
-    Column(
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(
+                    color = if (state.peer.online) colors.primary else colors.outline,
+                    shape = CircleShape,
+                ),
+        )
+        DkCaption(
+            modifier = Modifier.weight(1f),
+            text = stringResource(
+                if (state.peer.online) R.string.source_details_peer_online
+                else R.string.source_details_peer_offline,
+                state.peer.name,
+            ),
+        )
+        DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
+    }
+}
+
+@Composable
+private fun SendNowOffer(
+    modifier: Modifier = Modifier,
+    count: Int,
+    bytes: Long,
+    onSend: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surfaceContainer)
-            .padding(DkSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.md)) {
-            Icon(
-                modifier = Modifier
-                    .padding(top = DkSpacing.xxs)
-                    .size(18.dp),
-                imageVector = device.kind.icon,
-                contentDescription = null,
-                tint = colors.primary,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
-                ) {
-                    Text(
-                        text = device.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.onSurface,
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .size(StatusDot)
-                            .clip(CircleShape)
-                            .background(
-                                if (device.online) colors.primary else colors.outline,
-                            )
-                    )
-                }
-                Row(
-                    modifier = Modifier.padding(top = DkSpacing.xxs),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
-                ) {
-                    DkCaption(
-                        text = listOfNotNull(
-                            stringResource(
-                                if (device.online) R.string.device_state_online
-                                else R.string.device_state_offline
-                            ),
-                            device.addressLabel,
-                        ).joinToString(" · "),
-                    )
-                }
-                val reach = listOfNotNull(
-                    device.foundBy?.let {
-                        stringResource(
-                            R.string.files_device_found_by,
-                            stringResource(it.localizedName)
-                        )
-                    },
-                    device.lastSeenLabel?.let { stringResource(R.string.files_device_seen, it) },
-                )
-                if (reach.isNotEmpty()) {
-                    DkCaption(
-                        modifier = Modifier.padding(top = DkSpacing.xxs),
-                        text = reach.joinToString(" · "),
-                    )
-                }
-            }
-            DkIconButton(onClick = onClose, icon = Icons.Default.Close)
-        }
-
-        device.unreachable?.let { unreachable ->
-            DkInfoBox(
-                title = stringResource(R.string.files_device_unreachable_title),
-                text = unreachable.explanation(),
-                tone = DkInfoTone.Alert,
-            )
-
-            // The ways round a dead end, as buttons rather than a sentence describing them.
-            Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-                DkSecondaryButton(
-                    modifier = Modifier.weight(1f),
-                    text = stringResource(R.string.files_device_reconnect_address),
-                    onClick = {
-                        onReconnectByAddress()
-                        onClose()
-                    },
-                )
-                DkSecondaryButton(
-                    modifier = Modifier.weight(1f),
-                    text = stringResource(R.string.files_device_reconnect_qr),
-                    onClick = {
-                        onReconnectByQr()
-                        onClose()
-                    },
-                )
-            }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-            DkSectionLabel(text = stringResource(R.string.files_device_folders))
-
-            device.folders.forEach { folder ->
-                FolderRow(
-                    folder = folder,
-                    onClick = {
-                        onFolderClick(folder)
-                        onClose()
-                    },
-                )
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-            DkSecondaryButton(
-                modifier = Modifier.weight(1f),
-                text = stringResource(R.string.files_device_add_folder),
-                onClick = {
-                    onAddFolder()
-                    onClose()
-                },
-            )
-            DkGhostButton(
-                text = stringResource(R.string.files_device_configure),
-                onClick = {
-                    onConfigure()
-                    onClose()
-                },
-            )
-        }
-
-        device.fingerprintLabel?.let { fingerprint ->
-            DkMonoCaption(text = stringResource(R.string.files_device_fingerprint, fingerprint))
-        }
-    }
-}
-
-/**
- * Why it could not be reached, when that was, and the ways left to reach it.
- *
- * Spelled out rather than reduced to "offline": the cases differ in what the user can do next, and
- * the point of the block is the next step, not the diagnosis.
- */
-@Composable
-private fun DashboardState.UnreachableUi.explanation(): String = listOfNotNull(
-    when (reason) {
-        DashboardState.ReasonUi.NoRoute -> stringResource(R.string.files_device_unreachable_no_route)
-
-        DashboardState.ReasonUi.Unreachable -> transport
-            ?.let {
-                stringResource(
-                    R.string.files_device_unreachable_offline,
-                    stringResource(it.localizedName),
-                )
-            }
-            ?: stringResource(R.string.files_device_unreachable_offline_plain)
-
-        DashboardState.ReasonUi.Refused -> stringResource(R.string.files_device_unreachable_refused)
-
-        DashboardState.ReasonUi.NotAllowed ->
-            stringResource(R.string.files_device_unreachable_not_allowed)
-
-        DashboardState.ReasonUi.Failed -> stringResource(R.string.files_device_unreachable_failed)
-    },
-    triedLabel?.let { stringResource(R.string.files_device_unreachable_tried, it) },
-    stringResource(R.string.files_device_unreachable_other_network).takeIf { onOtherNetwork },
-).joinToString(" ")
-
-@Composable
-private fun FolderRow(
-    modifier: Modifier = Modifier,
-    folder: DashboardState.FolderUi,
-    onClick: () -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    val shape = MaterialTheme.shapes.small
-
-    // Filled and chevroned like a card you press, not a line of text: a tap opens the folder.
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(colors.surfaceContainerHigh)
-            .border(
-                width = 1.dp,
-                color = if (folder.accented) colors.primary else colors.outlineVariant,
-                shape = shape,
+            .border(1.dp, colors.outlineVariant, MaterialTheme.shapes.medium)
+            .padding(
+                start = DkSpacing.lg,
+                end = DkSpacing.sm,
+                top = DkSpacing.md,
+                bottom = DkSpacing.md
             ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
     ) {
-        DkListRow(
-            title = folder.name,
-            subtitle = listOfNotNull(
-                stringResource(folder.mode.titleRes),
-                folder.statusText(),
-                pluralStringResource(
-                    R.plurals.files_folder_items,
-                    folder.itemCount,
-                    folder.itemCount,
-                ).takeIf { folder.itemCount > 0 },
-            ).joinToString(" · "),
-            subtitleMaxLines = 2,
-            onClick = onClick,
-            trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
-            contentPaddings = PaddingValues(horizontal = DkSpacing.md, vertical = DkSpacing.md),
+        Text(
+            modifier = Modifier.weight(1f),
+            text = pluralStringResource(
+                R.plurals.source_details_send_now_question,
+                count,
+                count,
+                FileSize(bytes).formatted(),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurface,
         )
-
-        if (folder.status == DashboardState.FolderStatusUi.Syncing) {
-            DkProgressBar(
-                modifier = Modifier.padding(
-                    start = DkSpacing.md,
-                    end = DkSpacing.md,
-                    bottom = DkSpacing.md,
-                ),
-                progress = folder.progress,
-            )
-        }
+        DkGhostButton(
+            text = stringResource(R.string.action_send),
+            onClick = onSend,
+        )
     }
 }
 
+@Preview(showBackground = true, widthDp = 360, heightDp = 1100)
 @Composable
-private fun DashboardState.FolderUi.statusText(): String = when (status) {
-    DashboardState.FolderStatusUi.Pending -> stringResource(R.string.files_folder_status_pending)
-    DashboardState.FolderStatusUi.Syncing -> stringResource(R.string.files_folder_status_syncing)
-
-    DashboardState.FolderStatusUi.Disabled -> stringResource(
-        R.string.files_folder_status_disabled,
-        statusDetail.orEmpty(),
-    )
-
-    DashboardState.FolderStatusUi.Active -> statusDetail
-        ?.let { stringResource(R.string.files_folder_status_synced, it) }
-        ?: stringResource(R.string.files_folder_status_never)
-}
-
-@Preview(name = "Unreachable", showBackground = true, widthDp = 360)
-@Composable
-private fun DeviceDetailsCardUnreachablePreview() {
+private fun SourceDetailsScreenAutoUploadPreview() {
     FServerTheme {
-        DeviceDetailsCard(
-            modifier = Modifier.padding(DkSpacing.lg),
-            device = DashboardState.sampleDetailsOf(DashboardState.SampleDevices[2]),
-            onClose = {},
-            onFolderClick = {},
-            onAddFolder = {},
-            onConfigure = {},
-            onReconnectByAddress = {},
-            onReconnectByQr = {},
+        SourceDetailsScreenContent(
+            state = SourceDetailsState.SampleAutoUpload,
+            onIntent = {},
+            navigateToActivity = {},
+            navigateToFiles = {},
+            navigateToDevice = {},
+            navigateUp = {},
         )
     }
 }
 
-@Preview(showBackground = true, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360, heightDp = 1100)
 @Composable
-private fun DeviceDetailsCardPreview() {
+private fun SourceDetailsScreenSyncPreview() {
     FServerTheme {
-        DeviceDetailsCard(
-            modifier = Modifier.padding(DkSpacing.lg),
-            device = DashboardState.sampleDetailsOf(DashboardState.SampleDevices[1]),
-            onClose = {},
-            onFolderClick = {},
-            onAddFolder = {},
-            onConfigure = {},
-            onReconnectByAddress = {},
-            onReconnectByQr = {},
+        SourceDetailsScreenContent(
+            state = SourceDetailsState.SampleSync,
+            onIntent = {},
+            navigateToActivity = {},
+            navigateToFiles = {},
+            navigateToDevice = {},
+            navigateUp = {},
         )
     }
 }
-*/
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 1100)
+@Composable
+private fun SourceDetailsScreenOffloadPreview() {
+    FServerTheme {
+        SourceDetailsScreenContent(
+            state = SourceDetailsState.SampleOffload,
+            onIntent = {},
+            navigateToActivity = {},
+            navigateToFiles = {},
+            navigateToDevice = {},
+            navigateUp = {},
+        )
+    }
+}

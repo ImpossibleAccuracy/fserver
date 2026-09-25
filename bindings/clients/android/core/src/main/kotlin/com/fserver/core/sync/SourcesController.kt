@@ -61,6 +61,13 @@ class SourcesController internal constructor(
     suspend fun runSync() = syncRunner.runOnce()
 
     /**
+     * Run a single sync pass over [sourceId] only. [force] ignores the device constraints (Wi-Fi,
+     * charging), for a pass the user started by hand.
+     */
+    suspend fun runSync(sourceId: String, force: Boolean = false) =
+        syncRunner.runSource(sourceId, force)
+
+    /**
      * Registers a new [location] + [syncMode] pair, persists it, and asks [deviceId] to register
      * the other half - a source neither side can sync until both hold a record under the same id.
      */

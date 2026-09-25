@@ -2,6 +2,7 @@ package com.fserver.core.storage.internal
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.storage.RegisteredSourcesRepository
@@ -12,6 +13,7 @@ import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.util.TimeProvider
 import com.fserver.core.storage.FilesTotal
+import com.fserver.core.storage.SourceFilesTotals
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -206,6 +208,20 @@ internal class SourcesStoreImpl(
         sources.map { current -> current.find { it.id == id } }
 
     override fun observeProcessedCount(id: String): Flow<Int> = index.observeProcessedCount(id)
+
+    override fun observeTotals(id: String): Flow<SourceFilesTotals> = database.indexedFileQueries
+        .sourceTotals(id)
+        .asFlow()
+        .mapToOne(Dispatchers.IO)
+        .map {
+            SourceFilesTotals(
+                here = FilesTotal(it.hereFiles.toInt(), FileSize(it.hereBytes)),
+                pending = FilesTotal(it.pendingFiles.toInt(), FileSize(it.pendingBytes)),
+                evicted = FilesTotal(it.evictedFiles.toInt(), FileSize(it.evictedBytes)),
+                peer = FilesTotal(it.peerFiles.toInt(), FileSize(it.peerBytes)),
+                matched = FilesTotal(it.matchedFiles.toInt(), FileSize(it.matchedBytes)),
+            )
+        }
 
     override val indexedSize: Flow<FileSize> = index.observePresentSize()
         .map { FileSize(it) }

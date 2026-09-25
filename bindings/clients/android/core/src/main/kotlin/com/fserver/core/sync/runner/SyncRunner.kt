@@ -50,6 +50,14 @@ internal class SyncRunner(
     suspend fun runOnce() = mutex.withLock { runPass(storage.sources.all()) }
 
     /**
+     * One pass over [sourceId] alone. Waits for a pass already running. [force] skips the device
+     * constraints - the user asked for this pass explicitly.
+     */
+    suspend fun runSource(sourceId: String, force: Boolean) = mutex.withLock {
+        runPass(listOfNotNull(storage.sources.findById(sourceId)), force)
+    }
+
+    /**
      * One pass over every registered source, launched on the engine's background scope.
      * Skips if a pass is already running.
      */
@@ -81,10 +89,10 @@ internal class SyncRunner(
             }
         }
 
-    private suspend fun runPass(sources: List<SourceEntry>) {
+    private suspend fun runPass(sources: List<SourceEntry>, force: Boolean = false) {
         for (source in sources) {
             try {
-                process(source)
+                process(source, force)
 
                 Timber.i("Source ${source.id} pass completed successfully")
             } catch (e: Exception) {
@@ -98,7 +106,7 @@ internal class SyncRunner(
     }
 
     /** One source, under a lease the peer agreed to. */
-    private suspend fun process(source: SourceEntry) {
+    private suspend fun process(source: SourceEntry, force: Boolean) {
         // Allow sync only active sources
         if (source.status != SourceEntry.Status.Active) {
             localIndexer.refresh(source) // refresh local index anyway
@@ -106,7 +114,7 @@ internal class SyncRunner(
             return
         }
 
-        val constraintsMet = constraintChecker(
+        val constraintsMet = force || constraintChecker(
             constraints = storage.preferences.getSourceRules().deviceConstraints,
         )
 

@@ -6,12 +6,12 @@ import com.fserver.app.presentation.shared.browser.model.FileSortUi
 import com.fserver.app.presentation.shared.browser.model.SampleFiles
 import com.fserver.common.model.FileSize
 import com.fserver.core.network.device.model.DeviceKind
+import kotlinx.serialization.Serializable
 
 @Immutable
 data class FilesState(
-    /** Devices with at least one folder, for the filter sheet. */
-    val devices: List<DeviceUi> = emptyList(),
-    val selectedDeviceId: String? = null,
+    val sources: List<SourceUi> = emptyList(),
+    val selectedSourceId: String? = null,
     val filter: FilterUi = FilterUi.All,
     val entries: FeedUi? = null,
     val openedPath: String? = null,
@@ -19,11 +19,11 @@ data class FilesState(
     val sortAscending: Boolean = true,
     val isSyncing: Boolean = false,
 ) {
-    val selectedDevice: DeviceUi?
-        get() = devices.firstOrNull { it.id == selectedDeviceId }
+    val selectedSource: SourceUi?
+        get() = sources.firstOrNull { it.id == selectedSourceId }
 
     val isFiltered: Boolean
-        get() = filter != FilterUi.All || selectedDevice != null
+        get() = filter != FilterUi.All || selectedSource != null
 
     /** Directories from the top of the tree to the opened folder; empty at the top. */
     val openedTrail: List<FileBrowserUi.Directory>
@@ -37,7 +37,7 @@ data class FilesState(
 
     val emptyReason: EmptyReasonUi
         get() = when {
-            entries?.deviceId != null -> EmptyReasonUi.NoDeviceFiles
+            entries?.sourceId != null -> EmptyReasonUi.NoSourceFiles
             entries?.filter == FilterUi.Local -> EmptyReasonUi.NoLocalFiles
             entries?.filter == FilterUi.Cloud -> EmptyReasonUi.NoCloudFiles
             else -> EmptyReasonUi.NoFiles
@@ -47,21 +47,23 @@ data class FilesState(
     data class FeedUi(
         val preview: FileBrowserUi.Tree,
         val filter: FilterUi,
-        val deviceId: String?,
+        val sourceId: String?,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,
     )
 
     @Immutable
-    data class DeviceUi(
+    data class SourceUi(
         val id: String,
-        val name: String,
-        val kind: DeviceKind?,
+        val label: String,
+        val deviceName: String,
+        val deviceKind: DeviceKind?,
     )
 
+    @Serializable
     enum class FilterUi { All, Local, Cloud }
 
-    enum class EmptyReasonUi { NoFiles, NoLocalFiles, NoCloudFiles, NoDeviceFiles }
+    enum class EmptyReasonUi { NoFiles, NoLocalFiles, NoCloudFiles, NoSourceFiles }
 
     companion object {
         val SampleEntries = FeedUi(
@@ -77,12 +79,12 @@ data class FilesState(
                 ),
             ),
             filter = FilterUi.All,
-            deviceId = null,
+            sourceId = null,
         )
 
-        val SampleDevices = listOf(
-            DeviceUi("laptop", "Laptop", DeviceKind.Laptop),
-            DeviceUi("server", "Server", DeviceKind.Nas),
+        val SampleSources = listOf(
+            SourceUi("camera", "Camera", "Server", DeviceKind.Nas),
+            SourceUi("documents", "Documents", "Laptop", DeviceKind.Laptop),
         )
     }
 }

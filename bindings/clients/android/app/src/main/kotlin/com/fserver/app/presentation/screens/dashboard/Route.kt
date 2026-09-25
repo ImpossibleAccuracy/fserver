@@ -9,7 +9,7 @@ fun EntryProviderScope<Destination>.dashboardEntry(
 ) {
     entry<Destination.Dashboard> {
         DashboardScreen(
-            navigateToFiles = { navigator.navigate(Destination.Files) },
+            navigateToFiles = { navigator.navigate(Destination.Files()) },
             navigateToConnect = { navigator.navigate(Destination.Connect) },
             navigateToSourcePick = { navigator.navigate(Destination.Source.Setup.Pick()) },
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },

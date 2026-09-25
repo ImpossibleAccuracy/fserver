@@ -3,9 +3,9 @@ package com.fserver.app.presentation.screens.files.model
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
 
 sealed interface FilesIntent {
-    /** Both filters at once, as the sheet closes. A null device clears that filter. */
+    /** Both filters at once, as the sheet closes. A null source clears that filter. */
     data class FiltersApplied(
-        val deviceId: String?,
+        val sourceId: String?,
         val filter: FilesState.FilterUi,
     ) : FilesIntent
     data class EntryClicked(val entryId: String) : FilesIntent

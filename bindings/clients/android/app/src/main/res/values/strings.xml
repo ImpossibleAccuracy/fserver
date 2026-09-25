@@ -20,6 +20,8 @@
     <string name="action_retry">Retry</string>
     <string name="action_later">Later</string>
     <string name="action_undo">Undo</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
 
     <!-- Onboarding -->
     <string name="onboarding_illustration_devices">illustration: two devices</string>
@@ -243,9 +245,9 @@
     <string name="dashboard_empty_title">No devices yet</string>
     <string name="dashboard_empty_body">Connect a computer or a server, then choose what this phone syncs with it.</string>
     <string name="files_filter_title">Filters</string>
-    <string name="files_filter_device">Device</string>
+    <string name="files_filter_source">Source</string>
     <string name="files_filter_status">Status</string>
-    <string name="files_filter_any_device">All devices</string>
+    <string name="files_filter_any_source">All sources</string>
     <string name="tab_activity">Activity</string>
     <string name="tab_settings">Settings</string>
 
@@ -296,9 +298,6 @@
     <string name="files_network_unnamed">Without location access this network cannot be named, so there is no telling whether your devices are on it.</string>
     <string name="files_empty_no_files_title">No files yet</string>
     <string name="files_empty_no_files_body">Nothing has been synced from these devices so far. Add a folder to start.</string>
-    <string name="files_source_details_title">Folder</string>
-    <string name="files_source_details_stub">folder details</string>
-    <string name="files_source_details_body">Renaming a folder and stopping its sync will live here.</string>
     <string name="files_folder_cloud_notice">Cloud items open once the target device is reachable.</string>
     <string name="device_state_online">online</string>
     <string name="device_state_offline">offline</string>
@@ -309,8 +308,8 @@
     <string name="files_empty_local_body">No synced file is stored locally right now. Clear the filter to see what the other devices hold.</string>
     <string name="files_empty_cloud_title">Nothing on other devices</string>
     <string name="files_empty_cloud_body">Every synced file is already on this phone. Clear the filter to see them.</string>
-    <string name="files_empty_device_title">Nothing from %1$s</string>
-    <string name="files_empty_device_body">This device has no synced files yet. Clear the filter, or add a folder to sync with it.</string>
+    <string name="files_empty_source_title">Nothing in %1$s</string>
+    <string name="files_empty_source_body">This source has no synced files yet. Clear the filter to see the rest.</string>
     <string name="files_sort">Sort</string>
     <string name="files_sort_name">Name</string>
     <string name="files_sort_date">Date</string>
@@ -776,6 +775,54 @@
     <string name="pairing_probe_failed">Could not read what the device offers.</string>
     <string name="source_create_incomplete">The setup was left without a source, a target or a mode.</string>
     <string name="source_prepare_detail_offload">%1$d found · %2$.2f GB</string>
+
+    <!-- Source details -->
+    <string name="source_details_condition_wifi_only">Wi-Fi only</string>
+    <string name="source_details_condition_any_network">Any network</string>
+    <string name="source_details_condition_charging">While charging</string>
+    <string name="source_details_condition_since">Since %1$s</string>
+    <string name="source_details_condition_copies_stay">Copies stay</string>
+    <string name="source_details_condition_evict_older">Free after %1$d days</string>
+    <string name="source_details_condition_evict_larger">Free files over %1$s</string>
+    <string name="source_details_condition_keep_pinned">Pinned stay</string>
+    <string name="source_details_condition_conflict_keep_both">On conflict — keep both</string>
+    <string name="source_details_condition_conflict_newest">On conflict — newest wins</string>
+    <string name="source_details_section_trail">Where the files are</string>
+    <string name="source_details_section_attention">Needs attention</string>
+    <string name="source_details_section_history">History</string>
+    <string name="source_details_stage_here">On this phone</string>
+    <string name="source_details_stage_outgoing">Waiting to send</string>
+    <string name="source_details_stage_outgoing_to">Waiting to send to %1$s</string>
+    <string name="source_details_stage_matched">In sync</string>
+    <string name="source_details_stage_peer">On %1$s</string>
+    <string name="source_details_stage_evicted">Removed from phone</string>
+    <string name="source_details_stage_changed_here">Changed here</string>
+    <string name="source_details_stage_same_both">Same on both sides</string>
+    <string name="source_details_stage_no_wifi">No Wi-Fi</string>
+    <string name="source_details_stage_only_on">Only on %1$s</string>
+    <string name="source_details_badge_local">local</string>
+    <string name="source_details_badge_waiting">waiting</string>
+    <string name="source_details_badge_matched">matched</string>
+    <string name="source_details_badge_remote">remote</string>
+    <string name="source_details_badge_freed">freed</string>
+    <string name="source_details_peer_online">%1$s online</string>
+    <string name="source_details_peer_offline">%1$s offline</string>
+    <plurals name="source_details_send_now_question">
+        <item quantity="one">Send %1$d file (%2$s) over mobile data?</item>
+        <item quantity="other">Send %1$d files (%2$s) over mobile data?</item>
+    </plurals>
+    <string name="source_details_status_pending">Waiting for %1$s to accept this source. Nothing moves until then.</string>
+    <string name="source_details_status_disabled">Stopped</string>
+    <string name="source_details_conflicts_title">Conflicts · %1$d</string>
+    <string name="source_details_conflicts_body">These files changed on both sides. They stay out of sync until you pick which version to keep.</string>
+    <string name="source_details_conflicts_resolve">Resolve</string>
+    <string name="source_details_peer_full_title">%1$s is almost full</string>
+    <string name="source_details_peer_full_free">%1$s free of %2$s.</string>
+    <plurals name="source_details_peer_full_days">
+        <item quantity="one">At the current pace that lasts about %1$d day — then the source stops and files stay on the phone.</item>
+        <item quantity="other">At the current pace that lasts about %1$d days — then the source stops and files stay on the phone.</item>
+    </plurals>
+    <string name="source_details_full_history">Full history in Activity ›</string>
 
     <!-- "IMG_2210.jpg · 4.2 MB" — a value and what qualifies it, on one line -->
     <string name="value_with_detail">%1$s · %2$s</string>

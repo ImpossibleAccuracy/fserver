@@ -7,8 +7,9 @@ import com.fserver.app.presentation.navigation.AppNavigator
 fun EntryProviderScope<Destination>.filesEntry(
     navigator: AppNavigator,
 ) {
-    entry<Destination.Files> {
+    entry<Destination.Files> { key ->
         FilesScreen(
+            key = key,
             navigateToSourcePick = {
                 navigator.navigate(Destination.Source.Setup.Pick())
             },

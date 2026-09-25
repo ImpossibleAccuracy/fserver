@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.model
 
 import androidx.navigation3.runtime.NavKey
+import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
@@ -34,11 +35,14 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Dashboard : Destination
 
-    /** Every synced file as one tree, filtered by device and by where the bytes are. */
+    /** Every synced file as one tree, opened with [sourceId] and [filter] preselected. */
     @Serializable
-    data object Files : Destination {
+    data class Files(
+        val sourceId: String? = null,
+        val filter: FilesState.FilterUi = FilesState.FilterUi.All,
+    ) : Destination {
 
-        /** One registered source, in full. A stub today — the real screen is still to be built. */
+        /** One registered source: where its files are along the way, and what happened to it lately. */
         @Serializable
         data class SourceDetails(val sourceId: String) : Destination
     }

@@ -49,6 +49,7 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.files.composable.Breadcrumbs
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.composable.FilesFilterSheet
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
@@ -60,11 +61,13 @@ import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun FilesScreen(
     modifier: Modifier = Modifier,
-    viewModel: FilesViewModel = koinViewModel(),
+    key: Destination.Files,
+    viewModel: FilesViewModel = koinViewModel { parametersOf(key) },
     navigateToSourcePick: () -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -143,10 +146,10 @@ private fun FilesScreenContent(
 
     if (showFilters) {
         FilesFilterSheet(
-            devices = state.devices,
-            selectedDeviceId = state.selectedDeviceId,
+            sources = state.sources,
+            selectedSourceId = state.selectedSourceId,
             filter = state.filter,
-            onApply = { deviceId, filter -> onIntent(FilesIntent.FiltersApplied(deviceId, filter)) },
+            onApply = { sourceId, filter -> onIntent(FilesIntent.FiltersApplied(sourceId, filter)) },
             onDismiss = { showFilters = false },
         )
     }
@@ -208,7 +211,7 @@ private fun FilesContent(
                     .weight(1f)
                     .padding(contentPadding),
                 reason = state.emptyReason,
-                deviceName = state.selectedDevice?.name,
+                sourceLabel = state.selectedSource?.label,
                 navigateToSourcePick = navigateToSourcePick,
             )
 
@@ -225,7 +228,7 @@ private fun FilesContent(
                 val entries = state.entries
                 // Keyed by what the tree was built with, so a re-sorted or re-filtered list opens
                 // at the top instead of chasing its old first item to wherever it moved.
-                key(entries.filter, entries.deviceId, entries.sort, entries.sortAscending) {
+                key(entries.filter, entries.sourceId, entries.sort, entries.sortAscending) {
                     FileBrowser(
                         modifier = Modifier.fillMaxSize(),
                         preview = entries.preview,
@@ -267,7 +270,7 @@ private fun FilesContent(
 private fun FilesEmptyState(
     modifier: Modifier = Modifier,
     reason: FilesState.EmptyReasonUi,
-    deviceName: String?,
+    sourceLabel: String?,
     navigateToSourcePick: () -> Unit,
 ) {
     Column(
@@ -284,9 +287,9 @@ private fun FilesEmptyState(
         Text(
             modifier = Modifier.padding(top = DkSpacing.xl),
             text = when (reason) {
-                FilesState.EmptyReasonUi.NoDeviceFiles -> stringResource(
-                    R.string.files_empty_device_title,
-                    deviceName.orEmpty(),
+                FilesState.EmptyReasonUi.NoSourceFiles -> stringResource(
+                    R.string.files_empty_source_title,
+                    sourceLabel.orEmpty(),
                 )
 
                 else -> stringResource(reason.titleRes)
@@ -315,10 +318,10 @@ private fun FilesEmptyState(
     }
 }
 
-/** The device and filter the feed is seen through, or null when neither narrows it. */
+/** The source and filter the feed is seen through, or null when neither narrows it. */
 @Composable
 private fun FilesState.filterSummary(): String? = listOfNotNull(
-    selectedDevice?.name,
+    selectedSource?.label,
     when (filter) {
         FilesState.FilterUi.All -> null
         FilesState.FilterUi.Local -> stringResource(R.string.files_filter_local)
@@ -344,7 +347,7 @@ private val FilesState.EmptyReasonUi.titleRes: Int
         FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_title
         FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_title
         FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_title
-        FilesState.EmptyReasonUi.NoDeviceFiles -> R.string.files_empty_device_title
+        FilesState.EmptyReasonUi.NoSourceFiles -> R.string.files_empty_source_title
     }
 
 @get:StringRes
@@ -353,7 +356,7 @@ private val FilesState.EmptyReasonUi.bodyRes: Int
         FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_body
         FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_body
         FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_body
-        FilesState.EmptyReasonUi.NoDeviceFiles -> R.string.files_empty_device_body
+        FilesState.EmptyReasonUi.NoSourceFiles -> R.string.files_empty_source_body
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
@@ -362,7 +365,7 @@ private fun FilesScreenPreview() {
     FServerTheme {
         FilesScreenContent(
             state = FilesState(
-                devices = FilesState.SampleDevices,
+                sources = FilesState.SampleSources,
                 entries = FilesState.SampleEntries,
             ),
             onIntent = {},
@@ -378,8 +381,8 @@ private fun FilesScreenFolderPreview() {
     FServerTheme {
         FilesScreenContent(
             state = FilesState(
-                devices = FilesState.SampleDevices,
-                selectedDeviceId = "server",
+                sources = FilesState.SampleSources,
+                selectedSourceId = "camera",
                 filter = FilesState.FilterUi.Local,
                 entries = FilesState.SampleEntries,
                 openedPath = "/DCIM",
@@ -401,7 +404,7 @@ private fun FilesScreenEmptyPreview() {
                 entries = FilesState.FeedUi(
                     preview = FileBrowserUi.Tree(),
                     filter = FilesState.FilterUi.Cloud,
-                    deviceId = null,
+                    sourceId = null,
                 ),
             ),
             onIntent = {},
