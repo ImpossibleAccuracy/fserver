@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -104,6 +108,30 @@ fun StorageSection(
                 text = stringResource(R.string.dashboard_storage_free, size(storage.freeBytes)),
                 color = freeColor,
             )
+        }
+
+        if (storage.remoteOnlyFiles > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
+            ) {
+                Icon(
+                    modifier = Modifier.size(14.dp),
+                    imageVector = Icons.Outlined.Cloud,
+                    contentDescription = null,
+                    tint = colors.onSurfaceVariant,
+                )
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.dashboard_storage_remote_only,
+                        storage.remoteOnlyFiles,
+                        storage.remoteOnlyFiles,
+                        size(storage.remoteOnlyBytes),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
         }
     }
 }

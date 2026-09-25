@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +31,7 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.settings.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
+import com.fserver.app.presentation.screens.settings.security.model.SecurityUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -37,9 +39,18 @@ import org.koin.androidx.compose.koinViewModel
 fun SecurityScreen(
     viewModel: SecurityViewModel = koinViewModel(),
     navigateToPinChange: () -> Unit,
+    navigateToPinSetup: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                SecurityUiEffect.NavigateToPinSetup -> navigateToPinSetup()
+            }
+        }
+    }
 
     SecurityScreen(
         state = state,

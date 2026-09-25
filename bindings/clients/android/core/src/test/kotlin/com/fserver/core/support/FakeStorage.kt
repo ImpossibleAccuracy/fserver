@@ -215,6 +215,10 @@ internal class FakeSourcesStore(
         entries[source.id] = source
     }
 
+    override suspend fun markSynced(id: String, at: Instant) {
+        entries[id]?.let { entries[id] = it.copy(lastSyncedAt = at) }
+    }
+
     override suspend fun updateStatus(id: String, status: SourceEntry.Status) {
         entries[id]?.let { entries[id] = it.copy(status = status) }
     }

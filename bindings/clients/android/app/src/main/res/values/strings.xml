@@ -215,12 +215,22 @@
     <string name="dashboard_storage_app">App · %1$s</string>
     <string name="dashboard_storage_other">Other · %1$s</string>
     <string name="dashboard_storage_free">Free · %1$s</string>
+    <plurals name="dashboard_storage_remote_only">
+        <item quantity="one">%1$d file (%2$s) only on other devices</item>
+        <item quantity="other">%1$d files (%2$s) only on other devices</item>
+    </plurals>
     <string name="dashboard_links">Links</string>
     <string name="dashboard_link_pending">waiting for approval</string>
     <string name="dashboard_link_syncing">syncing</string>
-    <string name="dashboard_link_syncing_progress">syncing · %1$d%%</string>
     <string name="dashboard_link_synced">synced %1$s</string>
-    <string name="dashboard_link_never">not synced yet</string>
+    <string name="dashboard_link_files">%1$d of %2$d files</string>
+    <string name="dashboard_link_error_no_route">device not found on the network</string>
+    <string name="dashboard_link_error_unreachable">device is not answering</string>
+    <string name="dashboard_link_error_refused">device refused the connection</string>
+    <string name="dashboard_link_error_not_allowed">a permission or radio is off</string>
+    <string name="dashboard_link_error_failed">could not connect to the device</string>
+    <string name="dashboard_fab_send_file">Send file</string>
+    <string name="dashboard_fab_link_files">Link files</string>
     <string name="dashboard_network">Network</string>
     <string name="dashboard_network_online">%1$d of %2$d online</string>
     <string name="dashboard_network_connect">Connect</string>
@@ -395,6 +405,8 @@
     <string name="settings_devices_desc">Connections and trusted computers</string>
     <string name="settings_security">Security</string>
     <string name="settings_security_desc">Connection confirmation and visibility</string>
+    <string name="settings_storage">Phone storage</string>
+    <string name="settings_storage_desc">What the app keeps on this phone</string>
     <string name="settings_diagnostics">Connection diagnostics</string>
     <string name="settings_diagnostics_desc">Network, permission and protocol checks</string>
     <string name="settings_about">About</string>
@@ -414,6 +426,8 @@
     <string name="devices_qr_hint">Scan this from the other device. The code carries this device\'s address and the fingerprint of its key, so the other side can tell it apart from an impostor.</string>
     <string name="devices_qr_address_label">Reachable at</string>
     <string name="devices_qr_fingerprint_label">This device\'s key fingerprint</string>
+    <string name="devices_qr_share">Share code</string>
+    <string name="devices_qr_share_chooser">Share connection code</string>
     <string name="devices_qr_loading">Preparing the code…</string>
     <string name="devices_qr_unavailable">Nothing is listening or on the air yet, so there is nothing to hand out. Start serving and open this again.</string>
 
@@ -469,6 +483,8 @@
 
     <!-- About — a static page; every row below is a placeholder -->
     <string name="about_title">About</string>
+    <string name="storage_title">Phone storage</string>
+    <string name="storage_placeholder">Storage breakdown</string>
     <string name="about_logo">logo</string>
     <string name="about_version">%1$s (%2$d) · protocol v1</string>
     <string name="about_check_updates">Check for updates</string>
@@ -707,6 +723,7 @@
     <string name="source_progress_incoming_waiting_body">This device holds its half of the source. %1$s starts sending as soon as both are online.</string>
     <string name="source_progress_incoming_syncing_title">Receiving files…</string>
     <string name="source_progress_detail">%1$d of %2$d</string>
+    <string name="source_progress_files_count">%1$d of %2$d files</string>
     <string name="source_progress_files_detail">%1$d files so far</string>
     <string name="source_progress_scanning_detail">Reading the folder…</string>
     <string name="source_progress_refused_title">%1$s refused the source</string>

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.pairing
+package com.fserver.app.presentation.screens.device.pairing
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,9 +7,9 @@ import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.permission.forLocator
-import com.fserver.app.presentation.screens.pairing.model.PairingIntent
-import com.fserver.app.presentation.screens.pairing.model.PairingState
-import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
+import com.fserver.app.presentation.screens.device.pairing.model.PairingIntent
+import com.fserver.app.presentation.screens.device.pairing.model.PairingState
+import com.fserver.app.presentation.screens.device.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.shared.error.toAppError

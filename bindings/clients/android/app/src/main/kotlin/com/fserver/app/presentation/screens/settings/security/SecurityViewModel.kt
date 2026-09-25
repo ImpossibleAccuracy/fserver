@@ -5,13 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
+import com.fserver.app.presentation.screens.settings.security.model.SecurityUiEffect
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.storage.AuthSettingsRepository
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,6 +32,9 @@ class SecurityViewModel(
 ) : ViewModel() {
 
     private val lastMethodWarning = MutableStateFlow(false)
+
+    private val effects = Channel<SecurityUiEffect>(Channel.BUFFERED)
+    val uiEffects = effects.receiveAsFlow()
 
     val state: StateFlow<SecurityState> = combine(
         authSettings.offeredMethods,
@@ -64,8 +71,7 @@ class SecurityViewModel(
             is SecurityIntent.ServerPasswordChanged ->
                 setMethod(AuthMethod.Password, intent.enabled)
 
-            is SecurityIntent.PinChanged ->
-                launchUpdate { appSettings.setPinEnabled(intent.enabled) }
+            is SecurityIntent.PinChanged -> launchUpdate { setPinEnabled(intent.enabled) }
 
             is SecurityIntent.BiometricChanged ->
                 launchUpdate { appSettings.setBiometricUnlock(intent.enabled) }
@@ -92,6 +98,14 @@ class SecurityViewModel(
         }
 
         launchUpdate { authSettings.setEnabled(method, enabled) }
+    }
+
+    private suspend fun setPinEnabled(enabled: Boolean) {
+        if (enabled && !appSettings.pinSet.first()) {
+            effects.send(SecurityUiEffect.NavigateToPinSetup)
+        } else {
+            appSettings.setPinEnabled(enabled)
+        }
     }
 
     private fun launchUpdate(block: suspend () -> Unit) {

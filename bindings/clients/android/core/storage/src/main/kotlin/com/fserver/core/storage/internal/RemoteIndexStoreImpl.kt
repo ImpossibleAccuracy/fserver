@@ -2,8 +2,10 @@ package com.fserver.core.storage.internal
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
+import com.fserver.core.storage.FilesTotal
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.sync.index.RemoteIndexedFile
@@ -22,6 +24,11 @@ internal class RemoteIndexStoreImpl(
         .asFlow()
         .mapToList(Dispatchers.IO)
         .map { rows -> rows.map { it.toDomainModel() } }
+
+    fun observeRemoteOnly(): Flow<FilesTotal> = dao.remoteOnlyTotals()
+        .asFlow()
+        .mapToOne(Dispatchers.IO)
+        .map { FilesTotal(count = it.files.toInt(), size = FileSize(it.bytes)) }
 
     override suspend fun files(sourceId: String): List<RemoteIndexedFile> =
         dao.selectBySource(sourceId).executeAsList().map { it.toDomainModel() }

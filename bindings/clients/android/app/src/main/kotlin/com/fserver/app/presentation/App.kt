@@ -42,13 +42,14 @@ import com.fserver.app.presentation.screens.dashboard.dashboardEntry
 import com.fserver.app.presentation.screens.files.filesEntry
 import com.fserver.app.presentation.screens.source.details.filesSourceDetailsEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
-import com.fserver.app.presentation.screens.pairing.pairingEntry
+import com.fserver.app.presentation.screens.device.pairing.pairingEntry
 import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
-import com.fserver.app.presentation.screens.settings.details.settingsDeviceDetailsEntry
+import com.fserver.app.presentation.screens.device.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.mydevice.settingsMyDeviceEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
+import com.fserver.app.presentation.screens.settings.storage.settingsStorageEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
 import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
@@ -236,6 +237,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             settingsDeviceDetailsEntry(navigator)
             settingsSecurityEntry(navigator)
             settingsPinChangeEntry(navigator)
+            settingsStorageEntry(navigator)
             settingsAboutEntry(navigator)
             diagnosticEntry(navigator)
 

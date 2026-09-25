@@ -12,6 +12,7 @@ fun EntryProviderScope<Destination>.settingsEntry(
             navigateToMyDevice = { navigator.navigate(Destination.Settings.MyDevice) },
             navigateToDevices = { navigator.navigate(Destination.Settings.Devices) },
             navigateToSecurity = { navigator.navigate(Destination.Settings.Security) },
+            navigateToStorage = { navigator.navigate(Destination.Settings.Storage) },
             navigateToDiagnostics = { navigator.navigate(Destination.Diagnostics) },
             navigateToAbout = { navigator.navigate(Destination.Settings.About) },
         )

@@ -19,6 +19,7 @@ fun EntryProviderScope<Destination>.dashboardEntry(
             navigateToDeviceSettings = {
                 navigator.navigate(Destination.Settings.DeviceDetails(it))
             },
+            navigateToStorage = { navigator.navigate(Destination.Settings.Storage) },
         )
     }
 }

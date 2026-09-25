@@ -17,6 +17,7 @@ import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
+import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -41,6 +42,7 @@ internal class SyncRunner(
     private val progress: SyncProgressReporter,
     private val garbageCollector: GarbageCollector,
     private val backgroundScope: BackgroundScope,
+    private val timeProvider: TimeProvider,
 ) {
     private val mutex = Mutex()
 
@@ -130,6 +132,7 @@ internal class SyncRunner(
                 }
 
                 progress.localPassFinished(source.id, null)
+                storage.sources.markSynced(source.id, timeProvider.now())
             }
         } catch (e: CancellationException) {
             throw e

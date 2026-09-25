@@ -29,7 +29,6 @@ import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
 import kotlin.math.roundToInt
 
@@ -105,14 +104,15 @@ private fun LinkRow(
                 )
             }
 
-            val disabled = link.status == DashboardState.LinkStatusUi.Disabled
-            Text(
-                text = link.subtitle(),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (disabled) colors.error else colors.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            link.subtitle()?.let { subtitle ->
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (link.isFailing) colors.error else colors.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
     }
@@ -125,24 +125,27 @@ private val DashboardState.LinkUi.directionIcon
         else -> Icons.AutoMirrored.Filled.ArrowBack
     }
 
-/** "Auto-upload · synced 5 min. ago": the mode, then whatever is true of it right now. */
+private val DashboardState.LinkUi.isFailing: Boolean
+    get() = status != DashboardState.LinkStatusUi.Syncing &&
+            (status == DashboardState.LinkStatusUi.Disabled || error != null)
+
+/** "syncing · 40% · 12 of 30 files", or the one thing wrong with the link right now. */
 @Composable
-private fun DashboardState.LinkUi.subtitle(): String {
-    val state = when (status) {
-        DashboardState.LinkStatusUi.Pending -> stringResource(R.string.dashboard_link_pending)
+private fun DashboardState.LinkUi.subtitle(): String? = when {
+    status == DashboardState.LinkStatusUi.Syncing -> listOfNotNull(
+        stringResource(R.string.dashboard_link_syncing),
+        progress?.let { "${(it * 100).roundToInt()}%" },
+        filesTotal.takeIf { it > 0 }
+            ?.let { stringResource(R.string.dashboard_link_files, filesDone, it) },
+    ).joinToString(" · ")
 
-        DashboardState.LinkStatusUi.Syncing -> progress
-            ?.let { stringResource(R.string.dashboard_link_syncing_progress, (it * 100).roundToInt()) }
-            ?: stringResource(R.string.dashboard_link_syncing)
+    status == DashboardState.LinkStatusUi.Disabled -> statusDetail
 
-        DashboardState.LinkStatusUi.Disabled -> statusDetail
+    error != null -> error.asString()
 
-        DashboardState.LinkStatusUi.Active -> statusDetail
-            ?.let { stringResource(R.string.dashboard_link_synced, it) }
-            ?: stringResource(R.string.dashboard_link_never)
-    }
+    status == DashboardState.LinkStatusUi.Pending -> stringResource(R.string.dashboard_link_pending)
 
-    return listOfNotNull(stringResource(mode.titleRes), state).joinToString(" · ")
+    else -> statusDetail?.let { stringResource(R.string.dashboard_link_synced, it) }
 }
 
 @Preview(showBackground = true, widthDp = 360)

@@ -8,7 +8,6 @@ import com.fserver.app.domain.AuthManager
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.composable.toUi
 import com.fserver.app.presentation.shared.error.ErrorBus
-import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
@@ -18,8 +17,6 @@ import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
-import com.fserver.core.sync.SourcesController
-import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +40,6 @@ import timber.log.Timber
  * handshake is parked on the answer whatever the user happens to be looking at.
  */
 class AppViewModel(
-    private val sourcesController: SourcesController,
     private val devicesRepository: DevicesRepository,
     private val authManager: AuthManager,
     private val appSettings: AppSettingsStore,
@@ -58,8 +54,6 @@ class AppViewModel(
      * [com.fserver.app.presentation.error.ErrorHandler].
      */
     val errors = errorBus.errors
-
-    private val reportedFailures = mutableSetOf<String>()
 
     /** True while the app is in front of an authenticated user — advertising's other precondition. */
     private val isAppVisible = MutableStateFlow(false)
@@ -151,10 +145,6 @@ class AppViewModel(
                 )
             }
         }
-
-        viewModelScope.launch {
-            sourcesController.progress.passes.collect(::reportFailedPasses)
-        }
     }
 
     fun onIntent(intent: AppRootIntent) {
@@ -208,32 +198,6 @@ class AppViewModel(
         // Permissions changed/system toggle enabled, recheck
         lifecycleController.presence.recheck()
     }
-
-    /**
-     * The catch-all for a pass that gave up. Why a *device* could not be reached is answered on
-     * the files screen, off `DeviceReachability`; this is what is left over - a pass that broke
-     * for some other reason, over whatever screen the user is on.
-     *
-     * One report per source per run of failures: the same pass sits in the list until the next one
-     * replaces it, and re-reporting it on every emission would bury the screen in snackbars.
-     */
-    private fun reportFailedPasses(passes: List<SourcePass>) {
-        val failed = passes.filter { it.hasFailed }
-
-        reportedFailures.retainAll(failed.mapTo(mutableSetOf()) { it.sourceId })
-
-        failed.filterNot { it.sourceId in reportedFailures }.forEach { pass ->
-            reportedFailures.add(pass.sourceId)
-            errorBus.report(pass.toAppError())
-        }
-    }
-
-    /** A pass the peer drove counts too - it is the same folder not syncing either way. */
-    private val SourcePass.hasFailed: Boolean
-        get() = when (this) {
-            is SourcePass.Local -> stage == SourcePass.Local.Stage.Failed
-            is SourcePass.Remote -> stage == SourcePass.Remote.Stage.Failed
-        }
 
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
         when (profile) {

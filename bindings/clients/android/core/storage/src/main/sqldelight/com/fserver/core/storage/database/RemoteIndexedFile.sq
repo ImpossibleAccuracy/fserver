@@ -48,3 +48,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 deleteBySource:
 DELETE FROM remoteIndexedFile
 WHERE sourceId = ?;
+
+-- Files a peer holds that this device does not: never fetched, or evicted here.
+remoteOnlyTotals:
+SELECT count(*) AS files, coalesce(sum(r.size), 0) AS bytes
+FROM remoteIndexedFile r
+LEFT JOIN indexedFile l
+    ON l.sourceId = r.sourceId AND l.fileId = r.fileId AND l.state = 'Present'
+WHERE r.state = 'Present' AND l.fileId IS NULL;

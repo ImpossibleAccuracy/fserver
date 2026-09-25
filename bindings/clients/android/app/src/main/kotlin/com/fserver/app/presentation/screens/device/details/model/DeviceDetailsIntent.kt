@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.details.model
+package com.fserver.app.presentation.screens.device.details.model
 
 sealed interface DeviceDetailsIntent {
     data object DisconnectClicked : DeviceDetailsIntent

@@ -118,14 +118,14 @@ internal class SyncLeaseRegistry(
 
     /**
      * Drops a lease the peer gave back, [failure] being whatever it said about how its pass went.
-     * Ignores a lease that is no longer theirs.
+     * Ignores a lease that is no longer theirs. Returns whether one was released.
      */
     suspend fun releaseFromPeer(
         sourceId: String,
         peerDeviceId: String,
         leaseId: String,
         failure: SyncFailureReason? = null,
-    ) {
+    ): Boolean =
         lock.withLock {
             val current = leases[sourceId]
 
@@ -143,9 +143,11 @@ internal class SyncLeaseRegistry(
                     },
                     failure = failure,
                 )
+                true
+            } else {
+                false
             }
         }
-    }
 
     /** Drops everything [peerDeviceId] holds. Called when its session ends, however it ended. */
     suspend fun releaseAllFrom(peerDeviceId: String) = lock.withLock {

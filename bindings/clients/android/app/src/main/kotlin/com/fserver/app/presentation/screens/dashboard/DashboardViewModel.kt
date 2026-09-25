@@ -3,16 +3,20 @@ package com.fserver.app.presentation.screens.dashboard
 import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.R
 import com.fserver.app.data.PhoneStorage
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
+import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.app.util.combineMany
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.device.model.FailedContact
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.ReachabilityFailure
 import com.fserver.core.network.device.model.TrustedDevice
@@ -26,6 +30,7 @@ import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,20 +58,28 @@ class DashboardViewModel(
      */
     private val networkRequirements = MutableStateFlow(RequirementReport.Satisfied)
 
-    private val links: Flow<List<DashboardState.LinkUi>> = combine(
+    private val links: Flow<List<DashboardState.LinkUi>> = combineMany(
         registeredSourcesRepository.sources,
         sourcesController.progress.passes,
+        sourcesController.progress.transfers,
         trustedDevicesRepository.devices,
         devicesRepository.devices.connected,
-    ) { sources, passes, trusted, connected ->
+        deviceReachability.failures,
+    ) { sources, passes, transfers, trusted, connected, failures ->
         sources
             .sortedBy { it.createdAt }
             .map { source ->
                 val session = connected.firstOrNull { it.deviceId == source.deviceId }
                 val record = trusted.latest(source.deviceId)
+                val pass = passes.firstOrNull { it.sourceId == source.id }
+                val failure = failures
+                    .firstOrNull { it.deviceId == source.deviceId && it.isWarning }
+                    .takeIf { session == null }
 
                 source.toLinkUi(
-                    pass = passes.firstOrNull { it.sourceId == source.id },
+                    pass = pass,
+                    files = transfers.filter { it.belongsTo(pass, source.id) },
+                    failure = failure,
                     deviceName = session?.displayName ?: record?.displayName ?: source.deviceId,
                     deviceKind = session?.kind ?: record?.metadata?.kind,
                 )
@@ -86,11 +99,14 @@ class DashboardViewModel(
     private val storage: Flow<DashboardState.StorageUi> = combine(
         phoneStorage.usage,
         registeredSourcesRepository.indexedSize,
-    ) { usage, indexed ->
+        registeredSourcesRepository.remoteOnly,
+    ) { usage, indexed, remoteOnly ->
         DashboardState.StorageUi(
             totalBytes = usage.totalBytes,
             freeBytes = usage.freeBytes,
             appBytes = (usage.apkBytes ?: 0) + indexed.bytes,
+            remoteOnlyFiles = remoteOnly.count,
+            remoteOnlyBytes = remoteOnly.size.bytes,
         )
     }
 
@@ -108,6 +124,7 @@ class DashboardViewModel(
         networkWarning(),
     ) { storage, links, (network, discovering), devices, requests, warning ->
         DashboardState(
+            isLoading = false,
             storage = storage,
             links = links,
             network = network,
@@ -197,8 +214,13 @@ class DashboardViewModel(
     }
 }
 
+private fun FileTransfer.belongsTo(pass: SourcePass?, sourceId: String): Boolean =
+    pass?.isFinished == false && key.sourceId == sourceId && startedAt >= pass.startedAt
+
 private fun SourceEntry.toLinkUi(
     pass: SourcePass?,
+    files: List<FileTransfer>,
+    failure: ReachabilityFailure?,
     deviceName: String,
     deviceKind: DeviceKind?,
 ): DashboardState.LinkUi {
@@ -224,8 +246,28 @@ private fun SourceEntry.toLinkUi(
             else -> lastSyncedAt?.relative()
         },
         progress = (pass as? SourcePass.Local)?.progress,
+        filesDone = files.count { it.state == FileTransfer.State.Completed },
+        filesTotal = files.size,
+        error = failure?.reason?.toUiText() ?: pass?.takeIf { it.isFailed }?.toAppError()?.message,
     )
 }
+
+private val SourcePass.isFailed: Boolean
+    get() = when (this) {
+        is SourcePass.Local -> stage == SourcePass.Local.Stage.Failed
+        is SourcePass.Remote -> stage == SourcePass.Remote.Stage.Failed ||
+                stage == SourcePass.Remote.Stage.Abandoned
+    }
+
+private fun FailedContact.Reason.toUiText(): UiText = UiText.of(
+    when (this) {
+        FailedContact.Reason.NoRoute -> R.string.dashboard_link_error_no_route
+        FailedContact.Reason.Unreachable -> R.string.dashboard_link_error_unreachable
+        FailedContact.Reason.Refused -> R.string.dashboard_link_error_refused
+        FailedContact.Reason.NotAllowed -> R.string.dashboard_link_error_not_allowed
+        FailedContact.Reason.Failed -> R.string.dashboard_link_error_failed
+    }
+)
 
 private fun NetworkInfo.toUi() = DashboardState.NetworkUi(
     kind = when (this) {

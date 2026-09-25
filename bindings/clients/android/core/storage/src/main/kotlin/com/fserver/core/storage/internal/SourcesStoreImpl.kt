@@ -11,6 +11,8 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.util.TimeProvider
+import com.fserver.core.storage.FilesTotal
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -98,6 +100,10 @@ internal class SourcesStoreImpl(
                 )
             }
         }
+    }
+
+    override suspend fun markSynced(id: String, at: Instant) {
+        dao.updateLastSynced(lastSyncedAtEpochMs = at.toEpochMilliseconds(), id = id)
     }
 
     /** The status' own fields move with it: Disabled carries a reason that Active does not. */
@@ -203,6 +209,8 @@ internal class SourcesStoreImpl(
 
     override val indexedSize: Flow<FileSize> = index.observePresentSize()
         .map { FileSize(it) }
+
+    override val remoteOnly: Flow<FilesTotal> = remoteIndex.observeRemoteOnly()
 
     override suspend fun rename(id: String, label: String) {
         dao.updateLabel(label = label, id = id)

@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Icon
@@ -42,6 +43,7 @@ import com.fserver.app.presentation.composable.DkFabMenuItem
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInfoBox
+import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
@@ -65,6 +67,7 @@ fun DashboardScreen(
     navigateToSyncRequests: () -> Unit,
     navigateToSourceDetails: (String) -> Unit,
     navigateToDeviceSettings: (String) -> Unit,
+    navigateToStorage: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -78,6 +81,7 @@ fun DashboardScreen(
         navigateToSyncRequests = navigateToSyncRequests,
         navigateToSourceDetails = navigateToSourceDetails,
         navigateToDeviceSettings = navigateToDeviceSettings,
+        navigateToStorage = navigateToStorage,
     )
 }
 
@@ -93,6 +97,7 @@ private fun DashboardScreenContent(
     navigateToSyncRequests: () -> Unit,
     navigateToSourceDetails: (String) -> Unit = {},
     navigateToDeviceSettings: (String) -> Unit = {},
+    navigateToStorage: () -> Unit = {},
 ) {
     DkScaffold(
         modifier = modifier.fillMaxSize(),
@@ -100,13 +105,15 @@ private fun DashboardScreenContent(
             DkTopBar(
                 title = stringResource(R.string.dashboard_title),
                 actions = {
-                    TextButton(onClick = navigateToFiles) {
-                        Text(text = stringResource(R.string.dashboard_all_files))
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                        )
+                    if (state.hasLinks) {
+                        TextButton(onClick = navigateToFiles) {
+                            Text(text = stringResource(R.string.dashboard_all_files))
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                            )
+                        }
                     }
                 },
             )
@@ -115,13 +122,13 @@ private fun DashboardScreenContent(
             DkFabMenu(
                 items = listOf(
                     DkFabMenuItem(
-                        icon = Icons.Default.SwapHoriz,
-                        label = stringResource(R.string.fork_connect_title),
-                        onClick = navigateToConnect,
+                        icon = Icons.Default.Upload,
+                        label = stringResource(R.string.dashboard_fab_send_file),
+                        onClick = {},
                     ),
                     DkFabMenuItem(
-                        icon = Icons.Default.Upload,
-                        label = stringResource(R.string.fork_send_title),
+                        icon = Icons.Default.Link,
+                        label = stringResource(R.string.dashboard_fab_link_files),
                         onClick = navigateToSourcePick,
                     ),
                 ),
@@ -129,6 +136,18 @@ private fun DashboardScreenContent(
             )
         },
     ) { innerPadding ->
+        if (state.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                DkInlineSpinner(modifier = Modifier.size(32.dp))
+            }
+            return@DkScaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,12 +164,19 @@ private fun DashboardScreenContent(
             val section = Modifier.padding(horizontal = DkSpacing.screenPadding)
 
             AnimatedVisibility(visible = state.hasLinks && state.storage != null) {
-                Column {
-                    DkSectionLabel(
-                        modifier = section,
-                        text = stringResource(R.string.dashboard_storage),
-                    )
-                    state.storage?.let { StorageSection(modifier = section, storage = it) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = null,
+                            indication = null,
+                            onClick = navigateToStorage,
+                        )
+                        .padding(horizontal = DkSpacing.screenPadding)
+                        .padding(bottom = DkSpacing.sm),
+                ) {
+                    DkSectionLabel(text = stringResource(R.string.dashboard_storage))
+                    state.storage?.let { StorageSection(storage = it) }
                 }
             }
 
@@ -167,11 +193,11 @@ private fun DashboardScreenContent(
                 }
             }
 
-            DkSectionLabel(
-                modifier = section.padding(top = DkSpacing.sm),
-                text = stringResource(R.string.dashboard_network),
-            )
             if (state.hasLinks) {
+                DkSectionLabel(
+                    modifier = section.padding(top = DkSpacing.sm),
+                    text = stringResource(R.string.dashboard_network),
+                )
                 NetworkSection(
                     network = state.network,
                     discovering = state.discovering,
@@ -181,7 +207,7 @@ private fun DashboardScreenContent(
                     onDeviceClick = navigateToDeviceSettings,
                 )
             } else {
-                NetworkEmptyState(modifier = section, onConnect = navigateToConnect)
+                NetworkEmptyState(modifier = section, onConnect = navigateToSourcePick)
             }
 
             // Room for the FAB, so the last row can scroll out from under it.
@@ -305,6 +331,7 @@ private fun DashboardScreenEmptyPreview() {
     FServerTheme {
         DashboardScreenContent(
             state = DashboardState(
+                isLoading = false,
                 storage = DashboardState.Sample.storage,
                 network = DashboardState.Sample.network,
             ),

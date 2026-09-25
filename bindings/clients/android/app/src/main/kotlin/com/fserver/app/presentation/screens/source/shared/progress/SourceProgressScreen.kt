@@ -95,7 +95,7 @@ private fun SourceProgressContent(
                 modifier = bodyModifier,
                 title = stringResource(state.syncingTitleRes),
                 body = stringResource(R.string.source_progress_syncing_body, state.peerName),
-                progress = state.progress,
+                progress = state.displayedProgress,
                 detail = state.syncingDetail(),
             )
 
@@ -128,10 +128,12 @@ private val SourceProgressState.syncingTitleRes: Int
 
 @Composable
 private fun SourceProgressState.syncingDetail(): String = when {
-    isCounted && isPlanned ->
+    showsPassDetail && isPlanned ->
         stringResource(R.string.source_progress_detail, actionsDone, actionsPlanned)
 
-    isCounted -> stringResource(R.string.source_progress_scanning_detail)
+    showsPassDetail -> stringResource(R.string.source_progress_scanning_detail)
+
+    filesTotal > 0 -> stringResource(R.string.source_progress_files_count, filesDone, filesTotal)
 
     else -> stringResource(R.string.source_progress_files_detail, filesDone)
 }
@@ -165,6 +167,8 @@ private fun SourceProgressSyncingPreview() {
                 actionsDone = 294,
                 isCounted = true,
                 isPlanned = true,
+                filesDone = 120,
+                filesTotal = 310,
             ),
             closeFlow = {},
         )
@@ -182,6 +186,7 @@ private fun SourceProgressReceivingPreview() {
                 peerName = "Pixel 8",
                 sourceLabel = "/DCIM/Projects",
                 filesDone = 72,
+                filesTotal = 80,
             ),
             closeFlow = {},
         )

@@ -7,6 +7,7 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.server.ResolvedIncomingSource
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.util.TimeProvider
 import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
@@ -17,6 +18,7 @@ internal class SyncLeaseHandler(
     private val storage: FServerStorage,
     private val leaseRegistry: SyncLeaseRegistry,
     private val garbageCollector: GarbageCollector,
+    private val timeProvider: TimeProvider,
 ) {
     suspend fun answer(
         event: PeerSession.Inbound<FileServerMessages>,
@@ -87,12 +89,16 @@ internal class SyncLeaseHandler(
         message: FileServerMessages.AcquireSyncLease.ReleaseLease,
         peer: PeerIdentity,
     ) {
-        leaseRegistry.releaseFromPeer(
+        val released = leaseRegistry.releaseFromPeer(
             sourceId = message.sourceId,
             peerDeviceId = peer.deviceId,
             leaseId = message.leaseId,
             failure = message.failure,
         )
+
+        if (released && message.failure == null) {
+            storage.sources.markSynced(message.sourceId, timeProvider.now())
+        }
 
         garbageCollector.collectGarbageAsync()
     }

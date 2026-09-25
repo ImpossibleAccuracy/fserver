@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.details
+package com.fserver.app.presentation.screens.device.details
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -37,9 +37,9 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkValueRow
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsIntent
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsState
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.info.model.PeerLocator
 import org.koin.androidx.compose.koinViewModel

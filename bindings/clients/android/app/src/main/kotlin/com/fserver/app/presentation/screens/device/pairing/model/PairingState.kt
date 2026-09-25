@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.pairing.model
+package com.fserver.app.presentation.screens.device.pairing.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R

@@ -50,6 +50,11 @@ UPDATE source
 SET status = ?
 WHERE id = ?;
 
+updateLastSynced:
+UPDATE source
+SET lastSyncedAtEpochMs = ?
+WHERE id = ?;
+
 updateLabel:
 UPDATE source
 SET label = ?

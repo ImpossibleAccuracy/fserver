@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.details
+package com.fserver.app.presentation.screens.device.details
 
 import androidx.navigation3.runtime.EntryProviderScope
 import com.fserver.app.presentation.model.Destination

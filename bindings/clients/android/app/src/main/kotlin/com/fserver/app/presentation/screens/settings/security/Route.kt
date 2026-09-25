@@ -9,7 +9,10 @@ fun EntryProviderScope<Destination>.settingsSecurityEntry(
 ) {
     entry<Destination.Settings.Security> {
         SecurityScreen(
-            navigateToPinChange = { navigator.navigate(Destination.Settings.PinChange) },
+            navigateToPinChange = { navigator.navigate(Destination.Settings.PinChange()) },
+            navigateToPinSetup = {
+                navigator.navigate(Destination.Settings.PinChange(enableOnSave = true))
+            },
             navigateUp = navigator::navigateUp,
         )
     }

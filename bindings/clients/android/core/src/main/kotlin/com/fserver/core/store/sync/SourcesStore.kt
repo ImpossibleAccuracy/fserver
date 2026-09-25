@@ -6,6 +6,7 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.index.LocalIndexedFile
+import kotlin.time.Instant
 
 /**
  * The registered sources, as the engine needs them: enumerate them to work through, stamp what a
@@ -25,6 +26,9 @@ interface SourcesStore {
 
     /** Inserts, or replaces the record carrying the same [SourceEntry.id]. */
     suspend fun upsert(source: SourceEntry)
+
+    /** Stamps [id] as having finished a clean pass [at], leaving the rest of the record alone. */
+    suspend fun markSynced(id: String, at: Instant)
 
     /** Moves [id] to [status], leaving the rest of the record alone. */
     suspend fun updateStatus(id: String, status: SourceEntry.Status)

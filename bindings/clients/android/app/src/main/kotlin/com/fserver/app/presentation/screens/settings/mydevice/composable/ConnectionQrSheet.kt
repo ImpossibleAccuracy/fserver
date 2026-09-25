@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.settings.mydevice.composable
 
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,31 +11,35 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.FileProvider
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.localizedName
 import com.fserver.app.presentation.designkit.DkCaption
-import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkInlineSpinner
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkQrCode
-import com.fserver.app.presentation.designkit.DkSectionLabel
+import com.fserver.app.presentation.designkit.DkSecondaryButton
+import com.fserver.app.presentation.designkit.dkQrBitmap
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkTag
-import com.fserver.app.presentation.designkit.DkTagStyle
 import com.fserver.app.presentation.screens.settings.mydevice.model.MyDeviceState
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.core.network.TransportKind
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,9 +108,13 @@ private fun PendingCode(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ReadyCode(
-    invitation: MyDeviceState.InvitationUi.Ready,
     modifier: Modifier = Modifier,
+    invitation: MyDeviceState.InvitationUi.Ready,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val chooserTitle = stringResource(R.string.devices_qr_share_chooser)
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
@@ -112,39 +123,31 @@ private fun ReadyCode(
 
         DkCaption(text = stringResource(R.string.devices_qr_hint))
 
-        if (invitation.addresses.isNotEmpty()) {
-            DkSectionLabel(text = stringResource(R.string.devices_qr_address_label))
-
-            invitation.addresses.forEach { AddressRow(address = it) }
-        }
-
-        DkSectionLabel(text = stringResource(R.string.devices_qr_fingerprint_label))
-
-        DkFingerprintBlock(groups = invitation.fingerprintGroups)
+        DkSecondaryButton(
+            modifier = Modifier.fillMaxWidth(),
+            text = stringResource(R.string.devices_qr_share),
+            icon = Icons.Default.Share,
+            onClick = {
+                scope.launch { context.shareQrCode(invitation.payload, chooserTitle) }
+            },
+        )
     }
 }
 
-/** One address the device answers on, with the method that owns it named next to it. */
-@Composable
-private fun AddressRow(
-    modifier: Modifier = Modifier,
-    address: MyDeviceState.AddressUi,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = DkSpacing.md, vertical = DkSpacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        DkMonoCaption(modifier = Modifier.weight(1f), text = address.address)
+private suspend fun Context.shareQrCode(payload: String, chooserTitle: String) {
+    val uri = withContext(Dispatchers.IO) {
+        val bitmap = dkQrBitmap(payload) ?: return@withContext null
+        val file = File(cacheDir, "shared/connection-code.png").apply { parentFile?.mkdirs() }
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        FileProvider.getUriForFile(this@shareQrCode, "$packageName.fileprovider", file)
+    } ?: return
 
-        address.transport?.let {
-            DkTag(text = stringResource(it.localizedName), style = DkTagStyle.Outline)
-        }
-    }
+    val send = Intent(Intent.ACTION_SEND)
+        .setType("image/png")
+        .putExtra(Intent.EXTRA_STREAM, uri)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+    startActivity(Intent.createChooser(send, chooserTitle))
 }
 
 @Preview(showBackground = true)
@@ -154,10 +157,8 @@ private fun ConnectionQrSheetPreview() {
         ConnectionQrSheet(
             invitation = MyDeviceState.InvitationUi.Ready(
                 payload = """{"ip":"192.168.1.42","port":29470,"deviceId":"a1","nearby":true}""",
-                addresses = listOf(
-                    MyDeviceState.AddressUi("192.168.1.42:29470", TransportKind.MulticastDns),
-                ),
-                fingerprintGroups = listOf("9f2c", "4a01", "b7d3", "e820"),
+                addresses = MyDeviceState.SampleInvitation.addresses,
+                fingerprintGroups = MyDeviceState.SampleInvitation.fingerprintGroups,
             ),
             onDismiss = {},
         )

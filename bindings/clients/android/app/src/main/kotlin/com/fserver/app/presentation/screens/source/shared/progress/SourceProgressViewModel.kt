@@ -52,7 +52,9 @@ class SourceProgressViewModel(
 
         val local = pass as? SourcePass.Local
         val refusal = (source.status as? SourceEntry.Status.Disabled)?.reason
-        val moving = transfers.filter { it.key.sourceId == key.sourceId }
+        val moving = transfers.filter {
+            it.key.sourceId == key.sourceId && pass != null && it.startedAt >= pass.startedAt
+        }
 
         SourceProgressState(
             role = source.role.toUi(),
@@ -69,6 +71,7 @@ class SourceProgressViewModel(
             isCounted = local != null,
             isPlanned = local != null && local.stage != SourcePass.Local.Stage.Scanning,
             filesDone = moving.count { it.state == FileTransfer.State.Completed },
+            filesTotal = moving.size,
             reason = refusal,
         )
     }.stateIn(

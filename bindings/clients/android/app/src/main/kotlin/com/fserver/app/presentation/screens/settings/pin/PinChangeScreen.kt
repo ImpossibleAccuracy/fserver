@@ -32,16 +32,19 @@ import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.pin.model.PIN_LENGTH
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeIntent
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeState
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun PinChangeScreen(
-    viewModel: PinChangeViewModel = koinViewModel(),
+    key: Destination.Settings.PinChange,
+    viewModel: PinChangeViewModel = koinViewModel { parametersOf(key) },
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()

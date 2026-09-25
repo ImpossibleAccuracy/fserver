@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.pairing
+package com.fserver.app.presentation.screens.device.pairing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,9 +43,9 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.screens.pairing.model.PairingIntent
-import com.fserver.app.presentation.screens.pairing.model.PairingState
-import com.fserver.app.presentation.screens.pairing.model.PairingUiEffect
+import com.fserver.app.presentation.screens.device.pairing.model.PairingIntent
+import com.fserver.app.presentation.screens.device.pairing.model.PairingState
+import com.fserver.app.presentation.screens.device.pairing.model.PairingUiEffect
 import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.core.network.auth.AuthMethod

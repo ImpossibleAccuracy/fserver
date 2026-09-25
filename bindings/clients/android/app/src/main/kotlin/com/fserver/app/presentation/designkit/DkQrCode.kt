@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.designkit
 
+import android.graphics.Bitmap
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.aspectRatio
@@ -15,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.graphics.createBitmap
 import com.fserver.app.presentation.theme.FServerTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -61,6 +64,32 @@ fun DkQrCode(
     }
 }
 
+/**
+ * [payload] as a dark-on-white bitmap with a quiet zone, for handing the code outside the app.
+ * Null when it cannot be encoded. Blocking: call off the main thread.
+ */
+fun dkQrBitmap(payload: String, modulePx: Int = 12): Bitmap? {
+    val matrix = encode(payload) ?: return null
+    val quiet = QUIET_ZONE_MODULES * modulePx
+    val side = matrix.width * modulePx + quiet * 2
+
+    val bitmap = createBitmap(side, side)
+    val canvas = android.graphics.Canvas(bitmap)
+    canvas.drawColor(android.graphics.Color.WHITE)
+
+    val paint = Paint().apply { color = android.graphics.Color.BLACK }
+    for (x in 0 until matrix.width) {
+        for (y in 0 until matrix.height) {
+            if (!matrix.get(x, y)) continue
+
+            val left = (quiet + x * modulePx).toFloat()
+            val top = (quiet + y * modulePx).toFloat()
+            canvas.drawRect(left, top, left + modulePx, top + modulePx, paint)
+        }
+    }
+    return bitmap
+}
+
 /** Null when the payload cannot be encoded at all - too long for the format, in practice. */
 private fun encode(payload: String): BitMatrix? = try {
     QRCodeWriter().encode(
@@ -82,6 +111,9 @@ private fun encode(payload: String): BitMatrix? = try {
 
 /** Requested matrix size in modules; the encoder rounds it up to the version it needs. */
 private const val SIZE = 256
+
+/** The format's required margin, in modules. */
+private const val QUIET_ZONE_MODULES = 4
 
 @Preview(showBackground = true)
 @Composable

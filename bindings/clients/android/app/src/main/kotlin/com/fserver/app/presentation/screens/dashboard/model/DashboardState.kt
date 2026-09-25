@@ -1,11 +1,13 @@
 package com.fserver.app.presentation.screens.dashboard.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
 data class DashboardState(
+    val isLoading: Boolean = true,
     val storage: StorageUi? = null,
     val links: List<LinkUi> = emptyList(),
     val network: NetworkUi? = null,
@@ -27,6 +29,8 @@ data class DashboardState(
         val totalBytes: Long,
         val freeBytes: Long,
         val appBytes: Long,
+        val remoteOnlyFiles: Int = 0,
+        val remoteOnlyBytes: Long = 0,
     ) {
         val usedBytes: Long
             get() = (totalBytes - freeBytes).coerceAtLeast(0)
@@ -49,6 +53,10 @@ data class DashboardState(
         /** When it last synced, or why it is disabled. */
         val statusDetail: String? = null,
         val progress: Float? = null,
+        val filesDone: Int = 0,
+        val filesTotal: Int = 0,
+        /** Why the device cannot be reached, or why the last pass failed. */
+        val error: UiText? = null,
     )
 
     enum class LinkStatusUi { Pending, Active, Syncing, Disabled }
@@ -88,10 +96,13 @@ data class DashboardState(
 
     companion object {
         val Sample = DashboardState(
+            isLoading = false,
             storage = StorageUi(
                 totalBytes = 128_000_000_000,
                 freeBytes = 20_000_000_000,
                 appBytes = 23_000_000_000,
+                remoteOnlyFiles = 1240,
+                remoteOnlyBytes = 4_200_000_000,
             ),
             links = listOf(
                 LinkUi(
@@ -103,6 +114,8 @@ data class DashboardState(
                     outgoing = true,
                     status = LinkStatusUi.Syncing,
                     progress = 0.4f,
+                    filesDone = 12,
+                    filesTotal = 30,
                 ),
                 LinkUi(
                     id = "documents",
@@ -131,7 +144,8 @@ data class DashboardState(
                     deviceKind = DeviceKind.Desktop,
                     mode = SourceModeUi.AutoUpload,
                     outgoing = false,
-                    status = LinkStatusUi.Pending,
+                    status = LinkStatusUi.Active,
+                    error = UiText.Text("device is not answering"),
                 ),
             ),
             network = NetworkUi(NetworkKindUi.WiFi, "Home_5G"),

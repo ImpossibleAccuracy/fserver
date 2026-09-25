@@ -28,6 +28,9 @@ class AppSettingsStore(
      */
     val pinEnabled: Flow<Boolean> = flag(PIN_ENABLED, default = false)
 
+    /** Whether a PIN was ever chosen. TODO: replace with the PIN store once one exists. */
+    val pinSet: Flow<Boolean> = flag(PIN_SET, default = false)
+
     /** TODO: needs `androidx.biometric`; today it is remembered and never checked. */
     val biometricUnlock: Flow<Boolean> = flag(BIOMETRIC, default = false)
 
@@ -36,6 +39,8 @@ class AppSettingsStore(
     suspend fun setDiscoveryEnabled(enabled: Boolean) = set(DISCOVERY, enabled)
 
     suspend fun setPinEnabled(enabled: Boolean) = set(PIN_ENABLED, enabled)
+
+    suspend fun setPinSet(set: Boolean) = set(PIN_SET, set)
 
     /** Turning the PIN off takes biometric unlock with it: it has nothing left to stand in for. */
     suspend fun setBiometricUnlock(enabled: Boolean) = set(BIOMETRIC, enabled)
@@ -54,6 +59,7 @@ class AppSettingsStore(
         val DISCOVERABLE = booleanPreferencesKey("net_discoverable")
         val DISCOVERY = booleanPreferencesKey("net_discovery")
         val PIN_ENABLED = booleanPreferencesKey("lock_pin_enabled")
+        val PIN_SET = booleanPreferencesKey("lock_pin_set")
         val BIOMETRIC = booleanPreferencesKey("lock_biometric")
     }
 }

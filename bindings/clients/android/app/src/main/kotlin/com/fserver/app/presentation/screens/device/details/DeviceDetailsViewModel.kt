@@ -1,12 +1,12 @@
-package com.fserver.app.presentation.screens.settings.details
+package com.fserver.app.presentation.screens.device.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.labelRes
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsIntent
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsState
-import com.fserver.app.presentation.screens.settings.details.model.DeviceDetailsUiEffect
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsIntent
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsState
+import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.network.device.DevicesRepository

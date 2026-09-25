@@ -31,7 +31,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, mockk(relaxed = true))
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, mockk(relaxed = true), clock)
 
     @Before
     fun setUp() = runBlocking {

@@ -21,7 +21,7 @@ import com.fserver.app.presentation.theme.FServerTheme
 /**
  * Settings root.
  *
- * Five rows, no state: every line either leads further in or does not belong here. The supporting
+ * Six rows, no state: every line either leads further in or does not belong here. The supporting
  * line describes what the screen behind it covers — never a count or a value, because a root that
  * reports state is a root the user has to come back to for it.
  */
@@ -30,6 +30,7 @@ fun SettingsScreen(
     navigateToMyDevice: () -> Unit,
     navigateToDevices: () -> Unit,
     navigateToSecurity: () -> Unit,
+    navigateToStorage: () -> Unit,
     navigateToDiagnostics: () -> Unit,
     navigateToAbout: () -> Unit,
 ) {
@@ -50,6 +51,13 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_my_device),
                 supportingText = stringResource(R.string.settings_my_device_desc),
                 onClick = navigateToMyDevice,
+            )
+            DkFadingDivider()
+
+            DkNavigationRow(
+                title = stringResource(R.string.settings_storage),
+                supportingText = stringResource(R.string.settings_storage_desc),
+                onClick = navigateToStorage,
             )
 
             DkSectionLabel(
@@ -99,6 +107,7 @@ private fun SettingsScreenPreview() {
             navigateToMyDevice = {},
             navigateToDevices = {},
             navigateToSecurity = {},
+            navigateToStorage = {},
             navigateToDiagnostics = {},
             navigateToAbout = {},
         )

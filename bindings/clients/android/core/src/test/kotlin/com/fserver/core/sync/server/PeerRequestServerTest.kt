@@ -234,7 +234,7 @@ class PeerRequestServerTest {
             sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock),
             fetchFiles = fetchFiles,
             publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
-            leases = SyncLeaseHandler(authorizer(), storage, registry, garbageCollector),
+            leases = SyncLeaseHandler(authorizer(), storage, registry, garbageCollector, clock),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),
                 storage = storage,

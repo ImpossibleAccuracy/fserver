@@ -15,8 +15,22 @@ data class SourceProgressState(
     val isCounted: Boolean = false,
     val isPlanned: Boolean = false,
     val filesDone: Int = 0,
+    val filesTotal: Int = 0,
     val reason: String? = null,
 ) {
+    val isTransferring: Boolean
+        get() = filesTotal > 0 && filesDone < filesTotal
+
+    val showsPassDetail: Boolean
+        get() = isCounted && !isTransferring
+
+    val displayedProgress: Float?
+        get() = when {
+            showsPassDetail -> progress
+            filesTotal > 0 -> filesDone.toFloat() / filesTotal
+            else -> null
+        }
+
     enum class Phase {
         Waiting,
 

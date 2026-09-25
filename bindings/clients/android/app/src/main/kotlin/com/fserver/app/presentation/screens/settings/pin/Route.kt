@@ -7,8 +7,9 @@ import com.fserver.app.presentation.navigation.AppNavigator
 fun EntryProviderScope<Destination>.settingsPinChangeEntry(
     navigator: AppNavigator,
 ) {
-    entry<Destination.Settings.PinChange> {
+    entry<Destination.Settings.PinChange> { key ->
         PinChangeScreen(
+            key = key,
             navigateUp = navigator::navigateUp,
         )
     }

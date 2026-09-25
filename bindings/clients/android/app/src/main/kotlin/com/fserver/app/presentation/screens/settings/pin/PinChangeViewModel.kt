@@ -2,6 +2,8 @@ package com.fserver.app.presentation.screens.settings.pin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.data.AppSettingsStore
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.pin.model.PIN_LENGTH
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeIntent
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeState
@@ -20,7 +22,10 @@ import kotlinx.coroutines.launch
  *  entry is compared and then dropped — the flow is real, the outcome is not. The store call goes
  *  where [onPinChosen] is.
  */
-class PinChangeViewModel : ViewModel() {
+class PinChangeViewModel(
+    private val key: Destination.Settings.PinChange,
+    private val appSettings: AppSettingsStore,
+) : ViewModel() {
 
     private var firstEntry: String? = null
     private var entry: String = ""
@@ -80,6 +85,10 @@ class PinChangeViewModel : ViewModel() {
         //  preferences — hash it with a per-install salt, next to the identity key pair.
         firstEntry = null
         entry = ""
-        viewModelScope.launch { effects.send(PinChangeUiEffect.NavigateBack) }
+        viewModelScope.launch {
+            appSettings.setPinSet(true)
+            if (key.enableOnSave) appSettings.setPinEnabled(true)
+            effects.send(PinChangeUiEffect.NavigateBack)
+        }
     }
 }

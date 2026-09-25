@@ -17,6 +17,9 @@ interface RegisteredSourcesRepository {
     /** Total size of the indexed files still present on this device, across every source. */
     val indexedSize: Flow<FileSize>
 
+    /** Files a peer holds that are not on this device: never fetched, or evicted. */
+    val remoteOnly: Flow<FilesTotal>
+
     fun observeById(id: String): Flow<SourceEntry?>
 
     /**
