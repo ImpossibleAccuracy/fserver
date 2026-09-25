@@ -1,5 +1,6 @@
 package com.fserver.core.storage.internal
 
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -64,6 +65,30 @@ class SourceRecordsTest {
         )
 
         assertEquals(source, roundTrip(source))
+    }
+
+    @Test
+    fun `preferences survive a round trip, limits set or not`() {
+        val preferences = listOf(
+            SourceEntry.Preferences.Default,
+            SourceEntry.Preferences(
+                deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
+                    wifiRequired = true,
+                    chargingRequired = true,
+                ),
+                conflictResolution = SourceEntry.Preferences.ConflictResolution.KeepBoth,
+                fileLimits = SourceEntry.Preferences.FileLimits(
+                    maxFiles = 1000,
+                    maxTotalSize = FileSize(4L * 1024 * 1024 * 1024),
+                ),
+            ),
+        )
+
+        for (prefs in preferences) {
+            val source = source(preferences = prefs)
+
+            assertEquals(source, roundTrip(source))
+        }
     }
 
     @Test
@@ -149,12 +174,14 @@ class SourceRecordsTest {
         role: SourceEntry.Role = SourceEntry.Role.Initiator,
         createdAt: Instant = Instant.fromEpochMilliseconds(1_600_000_000_000),
         lastSyncedAt: Instant? = null,
+        preferences: SourceEntry.Preferences = SourceEntry.Preferences.Default,
     ) = SourceEntry(
         id = "source-1",
         deviceId = "device-1",
         location = location,
         originPath = "/Camera",
         syncMode = syncMode,
+        preferences = preferences,
         role = role,
         status = status,
         label = "Camera",

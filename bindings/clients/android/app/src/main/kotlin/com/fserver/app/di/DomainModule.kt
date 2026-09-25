@@ -6,5 +6,5 @@ import org.koin.dsl.module
 
 internal val domainModule = module {
     // `:core` keeps no timer of its own, so the periodic pass is the host's to schedule.
-    single { SyncScheduler(context = androidContext(), syncPreferences = get()) }
+    single { SyncScheduler(context = androidContext(), sources = get()) }
 }

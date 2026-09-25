@@ -33,6 +33,9 @@ interface SourcesStore {
     /** Moves [id] to [status], leaving the rest of the record alone. */
     suspend fun updateStatus(id: String, status: SourceEntry.Status)
 
+    /** Replaces [id]'s preferences, leaving the rest of the record alone. */
+    suspend fun updatePreferences(id: String, preferences: SourceEntry.Preferences)
+
     /**
      * Drops the source and every [LocalIndexedFile] recorded against it, leaving a [SourceTombstone]
      * behind.

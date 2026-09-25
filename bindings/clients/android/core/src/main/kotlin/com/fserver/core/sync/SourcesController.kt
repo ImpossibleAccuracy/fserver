@@ -12,7 +12,6 @@ import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.progress.SyncProgressRepository
 import com.fserver.core.sync.runner.SyncRunner
@@ -76,6 +75,7 @@ class SourcesController internal constructor(
         syncMode: SyncMode,
         deviceId: String,
         label: String,
+        preferences: SourceEntry.Preferences = SourceEntry.Preferences.Default,
     ): Result<SourceEntry> = runBackgroundJob {
         requirementsChecker.ensureSourceReachable(location)
 
@@ -100,6 +100,7 @@ class SourcesController internal constructor(
             location = location,
             originPath = location.toOriginPath(StorageVolumes.fromContext(context).volumes),
             syncMode = syncMode,
+            preferences = preferences,
             // Asking is what makes this side the initiator, and one-way modes travel from here.
             role = SourceEntry.Role.Initiator,
             status = SourceEntry.Status.Pending,
@@ -117,11 +118,6 @@ class SourcesController internal constructor(
             ?.let { Timber.w(it, "Could not ask $deviceId to host source ${source.id}") }
 
         source
-    }
-
-    /** Replaces the settings every source runs under. Takes effect on the next pass. */
-    suspend fun updatePreferences(preferences: SyncPreferences) {
-        storage.preferences.saveSourceRules(preferences)
     }
 
     /**

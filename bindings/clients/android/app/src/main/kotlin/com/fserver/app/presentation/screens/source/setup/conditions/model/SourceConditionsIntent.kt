@@ -10,6 +10,12 @@ sealed interface SourceConditionsIntent {
     data class UploadScopeSelected(val scope: UploadScopeUi) : SourceConditionsIntent
     data class WifiOnlyToggled(val enabled: Boolean) : SourceConditionsIntent
     data class ChargingOnlyToggled(val enabled: Boolean) : SourceConditionsIntent
+    data class KeepBothToggled(val enabled: Boolean) : SourceConditionsIntent
+
+    data class LimitFilesToggled(val enabled: Boolean) : SourceConditionsIntent
+    data class MaxFilesStepped(val steps: Int) : SourceConditionsIntent
+    data class LimitSizeToggled(val enabled: Boolean) : SourceConditionsIntent
+    data class MaxSizeStepped(val steps: Int) : SourceConditionsIntent
 
     data class CriterionSelected(val criterion: EvictCriterionUi) : SourceConditionsIntent
     data class DaysStepped(val steps: Int) : SourceConditionsIntent

@@ -62,6 +62,8 @@ data class SourceDetailsState(
         data class EvictLargerThan(val bytes: Long) : ConditionUi
         data object KeepPinned : ConditionUi
         data class OnConflict(val keepBoth: Boolean) : ConditionUi
+        data class MaxFiles(val count: Int) : ConditionUi
+        data class MaxSize(val bytes: Long) : ConditionUi
     }
 
     @Immutable
@@ -147,6 +149,7 @@ data class SourceDetailsState(
             conditions = listOf(
                 ConditionUi.Network(wifiOnly = true),
                 ConditionUi.OnConflict(keepBoth = true),
+                ConditionUi.MaxFiles(1000),
             ),
             stages = listOf(
                 StageUi(StageKindUi.Here, 1208, 2_400_000_000, "Documents"),

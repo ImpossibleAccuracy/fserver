@@ -23,12 +23,10 @@ import com.fserver.core.storage.DeviceIdentityRepository
 import com.fserver.core.storage.FilesTotal
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.SourceFilesTotals
-import com.fserver.core.storage.SyncPreferencesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.model.SyncPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,7 +43,6 @@ class SourceDetailsViewModel(
     private val key: Destination.Files.SourceDetails,
     private val sourcesController: SourcesController,
     registeredSources: RegisteredSourcesRepository,
-    syncPreferences: SyncPreferencesRepository,
     identity: DeviceIdentityRepository,
     trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
@@ -62,11 +59,10 @@ class SourceDetailsViewModel(
     ) { refreshing, pass -> refreshing || pass?.isFinished == false }
 
     private val environment = combine(
-        syncPreferences.preferences,
         networkInfoRepository.networkInfo,
         identity.localDevice,
-    ) { preferences, network, self ->
-        Environment(preferences, onMobile = network is NetworkInfo.Mobile, self = self)
+    ) { network, self ->
+        Environment(onMobile = network is NetworkInfo.Mobile, self = self)
     }
 
     val state: StateFlow<SourceDetailsState> = combineMany(
@@ -120,7 +116,6 @@ class SourceDetailsViewModel(
 }
 
 private data class Environment(
-    val preferences: SyncPreferences,
     val onMobile: Boolean,
     val self: LocalDevice,
 )
@@ -130,7 +125,6 @@ private fun SourceEntry.toState(
     environment: Environment,
     peer: SourceDetailsState.PeerUi,
 ): SourceDetailsState {
-    val preferences = environment.preferences
     val mode = syncMode.toUi()
     val outgoing = syncMode is SyncMode.Mirror || role == SourceEntry.Role.Initiator
     val initiator = role == SourceEntry.Role.Initiator
@@ -218,7 +212,7 @@ private fun FilesTotal.stage(kind: StageKindUi, detail: String? = null) = StageU
     detail = detail,
 )
 
-private fun conditionsOf(mode: SyncMode, preferences: SyncPreferences): List<ConditionUi> =
+private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): List<ConditionUi> =
     buildList {
         add(ConditionUi.Network(wifiOnly = preferences.deviceConstraints.wifiRequired))
         if (preferences.deviceConstraints.chargingRequired) add(ConditionUi.WhileCharging)
@@ -227,7 +221,7 @@ private fun conditionsOf(mode: SyncMode, preferences: SyncPreferences): List<Con
             SyncMode.Mirror -> add(
                 ConditionUi.OnConflict(
                     keepBoth = preferences.conflictResolution ==
-                            SyncPreferences.ConflictResolution.KeepBoth,
+                            SourceEntry.Preferences.ConflictResolution.KeepBoth,
                 )
             )
 
@@ -249,6 +243,9 @@ private fun conditionsOf(mode: SyncMode, preferences: SyncPreferences): List<Con
                 if (mode.keepPinned) add(ConditionUi.KeepPinned)
             }
         }
+
+        preferences.fileLimits.maxFiles?.let { add(ConditionUi.MaxFiles(it)) }
+        preferences.fileLimits.maxTotalSize?.let { add(ConditionUi.MaxSize(it.bytes)) }
     }
 
 private val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)

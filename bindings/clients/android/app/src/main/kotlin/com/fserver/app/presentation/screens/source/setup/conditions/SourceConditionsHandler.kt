@@ -14,6 +14,7 @@ import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupIncom
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.shared.error.toAppError
+import com.fserver.common.model.FileSize
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -38,7 +39,7 @@ import kotlin.time.Clock
 @OptIn(ExperimentalCoroutinesApi::class)
 class SourceConditionsHandler(
     private val devicesRepository: DevicesRepository,
-    private val register: suspend (SyncMode) -> Result<SourceEntry>,
+    private val register: suspend (SyncMode, SourceEntry.Preferences) -> Result<SourceEntry>,
 
     private val flow: MutableStateFlow<SourceSetupState>,
     private val scope: CoroutineScope,
@@ -81,6 +82,11 @@ class SourceConditionsHandler(
                 },
                 wifiOnly = local.wifiOnly,
                 chargingOnly = local.chargingOnly,
+                keepBoth = local.keepBoth,
+                limitFiles = local.limitFiles,
+                maxFiles = local.maxFiles,
+                limitSize = local.limitSize,
+                maxSizeGb = local.maxSizeGb,
                 criterion = local.criterion,
                 olderThanDays = local.olderThanDays,
                 keepPinned = local.keepPinned,
@@ -104,6 +110,35 @@ class SourceConditionsHandler(
 
             is SourceConditionsIntent.ChargingOnlyToggled ->
                 editable.update { it.copy(chargingOnly = intent.enabled) }
+
+            is SourceConditionsIntent.KeepBothToggled ->
+                editable.update { it.copy(keepBoth = intent.enabled) }
+
+            is SourceConditionsIntent.LimitFilesToggled ->
+                editable.update { it.copy(limitFiles = intent.enabled) }
+
+            is SourceConditionsIntent.MaxFilesStepped -> editable.update {
+                val stepped = it.maxFiles + intent.steps * SourceConditionsState.MaxFilesStep
+                it.copy(
+                    maxFiles = stepped.coerceIn(
+                        SourceConditionsState.MinMaxFiles,
+                        SourceConditionsState.MaxMaxFiles,
+                    )
+                )
+            }
+
+            is SourceConditionsIntent.LimitSizeToggled ->
+                editable.update { it.copy(limitSize = intent.enabled) }
+
+            is SourceConditionsIntent.MaxSizeStepped -> editable.update {
+                val stepped = it.maxSizeGb + intent.steps * SourceConditionsState.MaxSizeStepGb
+                it.copy(
+                    maxSizeGb = stepped.coerceIn(
+                        SourceConditionsState.MinMaxSizeGb,
+                        SourceConditionsState.MaxMaxSizeGb,
+                    )
+                )
+            }
 
             is SourceConditionsIntent.CriterionSelected ->
                 editable.update { it.copy(criterion = intent.criterion) }
@@ -192,7 +227,7 @@ class SourceConditionsHandler(
             return
         }
 
-        register(syncMode).fold(
+        register(syncMode, toPreferences()).fold(
             onSuccess = { entry ->
                 editable.update { it.copy(preparing = false) }
                 effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
@@ -234,11 +269,37 @@ class SourceConditionsHandler(
         SourceModeUi.Host -> null
     }
 
+    private fun toPreferences(): SourceEntry.Preferences {
+        val form = editable.value
+
+        return SourceEntry.Preferences(
+            deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
+                wifiRequired = form.wifiOnly,
+                chargingRequired = form.chargingOnly,
+            ),
+            conflictResolution = if (form.keepBoth) {
+                SourceEntry.Preferences.ConflictResolution.KeepBoth
+            } else {
+                SourceEntry.Preferences.ConflictResolution.LastWriteWins
+            },
+            fileLimits = SourceEntry.Preferences.FileLimits(
+                maxFiles = form.maxFiles.takeIf { form.limitFiles },
+                maxTotalSize = FileSize(form.maxSizeGb.toLong() * BytesInGb)
+                    .takeIf { form.limitSize },
+            ),
+        )
+    }
+
     private data class Editable(
         val explainerAccepted: Boolean = false,
         val uploadScope: UploadScopeUi = UploadScopeUi.New,
         val wifiOnly: Boolean = true,
         val chargingOnly: Boolean = false,
+        val keepBoth: Boolean = false,
+        val limitFiles: Boolean = false,
+        val maxFiles: Int = SourceConditionsState.DefaultMaxFiles,
+        val limitSize: Boolean = false,
+        val maxSizeGb: Int = SourceConditionsState.DefaultMaxSizeGb,
         val criterion: EvictCriterionUi = EvictCriterionUi.OlderThanDays,
         val olderThanDays: Int = SourceConditionsState.DefaultDays,
         val keepPinned: Boolean = true,
@@ -248,4 +309,8 @@ class SourceConditionsHandler(
         val progressDetail: UiText? = null,
         val error: UiText? = null,
     )
+
+    private companion object {
+        const val BytesInGb = 1024L * 1024 * 1024
+    }
 }

@@ -244,6 +244,8 @@ private fun AutoUploadFields(
             onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
         )
     }
+
+    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -259,8 +261,12 @@ private fun OffloadFields(
             onIntent(SourceConditionsIntent.CriterionSelected(EvictCriterionUi.OlderThanDays))
         },
     ) {
-        DaysStepper(
-            days = state.olderThanDays,
+        ValueStepper(
+            label = pluralStringResource(
+                R.plurals.conditions_criterion_age_value,
+                state.olderThanDays,
+                state.olderThanDays,
+            ),
             enabled = state.criterion == EvictCriterionUi.OlderThanDays,
             onStep = { onIntent(SourceConditionsIntent.DaysStepped(it)) },
         )
@@ -290,6 +296,8 @@ private fun OffloadFields(
             onCheckedChange = { onIntent(SourceConditionsIntent.KeepPinnedToggled(it)) },
         )
     }
+
+    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -314,10 +322,8 @@ private fun SyncFields(
         DkSwitchRow(
             title = stringResource(R.string.conditions_sync_losers_title),
             supportingText = stringResource(R.string.conditions_sync_losers_hint),
-            checked = false,
-            onCheckedChange = {
-                // TODO
-            }
+            checked = state.keepBoth,
+            onCheckedChange = { onIntent(SourceConditionsIntent.KeepBothToggled(it)) },
         )
     }
 
@@ -331,6 +337,8 @@ private fun SyncFields(
             onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
         )
     }
+
+    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -371,9 +379,51 @@ private fun WifiOnlyRow(
 }
 
 @Composable
-private fun DaysStepper(
+private fun LimitsFields(
+    state: SourceConditionsState,
+    onIntent: (SourceConditionsIntent) -> Unit,
+) {
+    DkSectionLabel(text = stringResource(R.string.conditions_limits_label))
+    Column {
+        DkSwitchRow(
+            title = stringResource(R.string.conditions_limit_files),
+            supportingText = stringResource(R.string.conditions_limit_files_hint),
+            checked = state.limitFiles,
+            onCheckedChange = { onIntent(SourceConditionsIntent.LimitFilesToggled(it)) },
+        )
+        if (state.limitFiles) {
+            ValueStepper(
+                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                label = pluralStringResource(
+                    R.plurals.conditions_limit_files_value,
+                    state.maxFiles,
+                    state.maxFiles,
+                ),
+                enabled = true,
+                onStep = { onIntent(SourceConditionsIntent.MaxFilesStepped(it)) },
+            )
+        }
+        DkSwitchRow(
+            title = stringResource(R.string.conditions_limit_size),
+            supportingText = stringResource(R.string.conditions_limit_size_hint),
+            checked = state.limitSize,
+            onCheckedChange = { onIntent(SourceConditionsIntent.LimitSizeToggled(it)) },
+        )
+        if (state.limitSize) {
+            ValueStepper(
+                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                label = stringResource(R.string.conditions_limit_size_value, state.maxSizeGb),
+                enabled = true,
+                onStep = { onIntent(SourceConditionsIntent.MaxSizeStepped(it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ValueStepper(
     modifier: Modifier = Modifier,
-    days: Int,
+    label: String,
     enabled: Boolean,
     onStep: (Int) -> Unit,
 ) {
@@ -388,7 +438,7 @@ private fun DaysStepper(
         )
         Text(
             modifier = Modifier.widthIn(min = 84.dp),
-            text = pluralStringResource(R.plurals.conditions_criterion_age_value, days, days),
+            text = label,
             style = DkType.monoLarge,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
@@ -548,6 +598,8 @@ private fun ConditionsSyncPreview() {
                 mode = SourceModeUi.Sync,
                 targetName = "HOME-NAS",
                 sourceLabel = "DCIM/Projects",
+                keepBoth = true,
+                limitFiles = true,
             ),
             onIntent = {},
             navigateUp = {},

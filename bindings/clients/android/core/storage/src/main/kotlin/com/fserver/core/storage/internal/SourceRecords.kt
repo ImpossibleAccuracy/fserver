@@ -1,5 +1,6 @@
 package com.fserver.core.storage.internal
 
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
@@ -30,6 +31,7 @@ internal object SourceRecords {
     const val Location = "location"
     const val Mode = "mode"
     const val Status = "status"
+    const val Preferences = "preferences"
 
     // Location discriminators. Root is absent: it is not SourceLocation.Persistable.
     private const val Tree = "Tree"
@@ -60,6 +62,15 @@ internal object SourceRecords {
     private const val PolicyDays = "policy.days"
     private const val PolicyBytes = "policy.bytes"
     private const val Reason = "reason"
+    private const val WifiRequired = "wifiRequired"
+    private const val ChargingRequired = "chargingRequired"
+    private const val ConflictResolution = "conflictResolution"
+    private const val MaxFiles = "maxFiles"
+    private const val MaxTotalBytes = "maxTotalBytes"
+
+    // Conflict resolution discriminators.
+    private const val LastWriteWins = "LastWriteWins"
+    private const val KeepBoth = "KeepBoth"
 
     // ---------------- discriminators, for the row's own columns ----------------
 
@@ -90,12 +101,18 @@ internal object SourceRecords {
             writeLocation(source.location)
             writeMode(source.syncMode)
             writeStatus(source.status)
+            writePreferences(source.preferences)
         }
         .rows
 
     /** The `status` attributes alone, for a status change that leaves the rest of the record alone. */
     fun statusAttributesOf(status: SourceEntry.Status): List<Attribute> = Writer()
         .apply { writeStatus(status) }
+        .rows
+
+    /** The `preferences` attributes alone, for a settings change that leaves the rest alone. */
+    fun preferencesAttributesOf(preferences: SourceEntry.Preferences): List<Attribute> = Writer()
+        .apply { writePreferences(preferences) }
         .rows
 
     /** The `location` attributes alone, for a tombstone, which carries nothing else variant. */
@@ -136,6 +153,7 @@ internal object SourceRecords {
             location = locationOf(id, location, attributes) ?: return null,
             originPath = originPath,
             syncMode = readMode(id, mode, attributes) ?: return null,
+            preferences = readPreferences(id, attributes) ?: return null,
             role = readRole,
             status = readStatus(id, status, attributes) ?: return null,
             label = label,
@@ -208,6 +226,21 @@ internal object SourceRecords {
         when (status) {
             SourceEntry.Status.Pending, SourceEntry.Status.Active -> Unit
             is SourceEntry.Status.Disabled -> put(Status, Reason, status.reason)
+        }
+    }
+
+    private fun Writer.writePreferences(preferences: SourceEntry.Preferences) {
+        put(Preferences, WifiRequired, preferences.deviceConstraints.wifiRequired)
+        put(Preferences, ChargingRequired, preferences.deviceConstraints.chargingRequired)
+        put(
+            Preferences, ConflictResolution, when (preferences.conflictResolution) {
+                SourceEntry.Preferences.ConflictResolution.LastWriteWins -> LastWriteWins
+                SourceEntry.Preferences.ConflictResolution.KeepBoth -> KeepBoth
+            }
+        )
+        preferences.fileLimits.maxFiles?.let { put(Preferences, MaxFiles, it.toString()) }
+        preferences.fileLimits.maxTotalSize?.let {
+            put(Preferences, MaxTotalBytes, it.bytes.toString())
         }
     }
 
@@ -285,6 +318,41 @@ internal object SourceRecords {
             ?: missing(id, "status '$Disabled' has no '$Reason'")
 
         else -> missing(id, "status '$discriminator' is not one this build knows")
+    }
+
+    private fun readPreferences(id: String, attributes: Reader): SourceEntry.Preferences? {
+        val wifiRequired = attributes.boolean(Preferences, WifiRequired)
+            ?: return missing(id, "preferences have no '$WifiRequired'")
+        val chargingRequired = attributes.boolean(Preferences, ChargingRequired)
+            ?: return missing(id, "preferences have no '$ChargingRequired'")
+        val conflictResolution = when (val stored = attributes.string(Preferences, ConflictResolution)) {
+            LastWriteWins -> SourceEntry.Preferences.ConflictResolution.LastWriteWins
+            KeepBoth -> SourceEntry.Preferences.ConflictResolution.KeepBoth
+            null -> return missing(id, "preferences have no '$ConflictResolution'")
+            else -> return missing(id, "conflict resolution '$stored' is not one this build knows")
+        }
+
+        // Limits are optional: absent means "no cap". A present value that will not parse is not.
+        val maxFiles = attributes.string(Preferences, MaxFiles)?.let {
+            it.toIntOrNull()?.takeIf { v -> v >= 0 }
+                ?: return missing(id, "preferences have unreadable '$MaxFiles'")
+        }
+        val maxTotalSize = attributes.string(Preferences, MaxTotalBytes)?.let {
+            it.toLongOrNull()?.takeIf { v -> v >= 0 }?.let(::FileSize)
+                ?: return missing(id, "preferences have unreadable '$MaxTotalBytes'")
+        }
+
+        return SourceEntry.Preferences(
+            deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
+                wifiRequired = wifiRequired,
+                chargingRequired = chargingRequired,
+            ),
+            conflictResolution = conflictResolution,
+            fileLimits = SourceEntry.Preferences.FileLimits(
+                maxFiles = maxFiles,
+                maxTotalSize = maxTotalSize,
+            ),
+        )
     }
 
     private fun <T> missing(id: String, what: String): T? {

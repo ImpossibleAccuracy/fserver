@@ -85,8 +85,6 @@ class FServerStorageProvider private constructor(
 
     val fileSources: RegisteredSourcesRepository get() = sourcesStore
 
-    val syncPreferences: SyncPreferencesRepository get() = syncStore
-
     fun asStorage(): FServerStorage = Storage()
 
     private inner class Storage : FServerStorage {

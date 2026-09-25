@@ -662,6 +662,16 @@
     <string name="conditions_sync_conflicts_hint">If a file was changed on both sides, the one saved later survives.</string>
     <string name="conditions_sync_losers_title">Losing versions go to the .conflicts folder</string>
     <string name="conditions_sync_losers_hint">Nothing is deleted silently: the second version sits next to the original.</string>
+    <string name="conditions_limits_label">Limits</string>
+    <string name="conditions_limit_files">Limit number of files</string>
+    <string name="conditions_limit_files_hint">Files above the limit are not synced</string>
+    <plurals name="conditions_limit_files_value">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="conditions_limit_size">Limit total size</string>
+    <string name="conditions_limit_size_hint">Stops taking new files once the source reaches it</string>
+    <string name="conditions_limit_size_value">%1$d GB</string>
     <string name="conditions_host_body">Files stay on the phone. Trusted devices can open this folder while the app is running.</string>
     <string name="conditions_host_rights_label">Rights</string>
     <string name="conditions_host_read_title">Read only</string>
@@ -787,6 +797,11 @@
     <string name="source_details_condition_keep_pinned">Pinned stay</string>
     <string name="source_details_condition_conflict_keep_both">On conflict — keep both</string>
     <string name="source_details_condition_conflict_newest">On conflict — newest wins</string>
+    <plurals name="source_details_condition_max_files">
+        <item quantity="one">Up to %1$d file</item>
+        <item quantity="other">Up to %1$d files</item>
+    </plurals>
+    <string name="source_details_condition_max_size">Up to %1$s</string>
     <string name="source_details_section_trail">Where the files are</string>
     <string name="source_details_section_attention">Needs attention</string>
     <string name="source_details_section_history">History</string>

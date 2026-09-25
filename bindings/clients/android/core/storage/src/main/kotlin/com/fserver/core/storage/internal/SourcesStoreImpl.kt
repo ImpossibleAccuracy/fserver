@@ -131,6 +131,26 @@ internal class SourcesStoreImpl(
         }
     }
 
+    override suspend fun updatePreferences(id: String, preferences: SourceEntry.Preferences) {
+        database.transaction {
+            attributeDao.deleteByType(
+                owner = SourceRecords.OwnerSource,
+                ownerId = id,
+                type = SourceRecords.Preferences,
+            )
+
+            for (attribute in SourceRecords.preferencesAttributesOf(preferences)) {
+                attributeDao.insert(
+                    owner = SourceRecords.OwnerSource,
+                    ownerId = id,
+                    type = attribute.type,
+                    fieldName = attribute.field,
+                    fieldValue = attribute.value,
+                )
+            }
+        }
+    }
+
     override suspend fun delete(id: String) {
         val removed = findById(id)
 

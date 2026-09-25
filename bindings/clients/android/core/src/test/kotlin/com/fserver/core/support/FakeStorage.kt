@@ -25,7 +25,6 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.StagedUpload
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.model.SyncPreferences
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -223,6 +222,10 @@ internal class FakeSourcesStore(
         entries[id]?.let { entries[id] = it.copy(status = status) }
     }
 
+    override suspend fun updatePreferences(id: String, preferences: SourceEntry.Preferences) {
+        entries[id]?.let { entries[id] = it.copy(preferences = preferences) }
+    }
+
     override suspend fun delete(id: String) {
         val removed = entries.remove(id) ?: return
         index.clearProcessed(id)
@@ -272,14 +275,6 @@ internal class FakeSourceRequestsStore : SourceRequestsStore {
 
 @OptIn(FServerStorageApi::class)
 internal class FakeSyncStore : SyncStore {
-    private var rules: SyncPreferences = SyncPreferences.Default
-
-    override suspend fun getSourceRules(): SyncPreferences = rules
-
-    override suspend fun saveSourceRules(rules: SyncPreferences) {
-        this.rules = rules
-    }
-
     var clock: HlcTimestamp? = null
 
     override suspend fun loadClock(): HlcTimestamp? = clock

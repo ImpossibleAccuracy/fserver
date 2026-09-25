@@ -86,7 +86,10 @@ class SourceSetupViewModel(
         editable.update { it.copy(targetDeviceId = deviceId) }
     }
 
-    private suspend fun register(syncMode: SyncMode): Result<SourceEntry> {
+    private suspend fun register(
+        syncMode: SyncMode,
+        preferences: SourceEntry.Preferences,
+    ): Result<SourceEntry> {
         val shared = editable.value
         val source = shared.source ?: return Result.failure(SourceSetupIncompleteException())
         val deviceId = shared.targetDeviceId ?: return Result.failure(SourceSetupIncompleteException())
@@ -96,6 +99,7 @@ class SourceSetupViewModel(
             syncMode = syncMode,
             deviceId = deviceId,
             label = source.label.ifEmpty { shared.kind?.name.orEmpty() },
+            preferences = preferences,
         )
     }
 

@@ -6,7 +6,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
-import com.fserver.core.sync.model.SyncPreferences
+import com.fserver.core.sync.model.SourceEntry
 import kotlinx.coroutines.flow.first
 
 
@@ -15,7 +15,7 @@ class DeviceConstraintChecker(
     private val context: Context,
     private val networkInfoRepository: NetworkInfoRepository,
 ) {
-    suspend operator fun invoke(constraints: SyncPreferences.DeviceConstraints): Boolean {
+    suspend operator fun invoke(constraints: SourceEntry.Preferences.DeviceConstraints): Boolean {
         if (constraints.wifiRequired) {
             val network = networkInfoRepository.networkInfo.first()
             val isNetworkAllowed = network is NetworkInfo.WiFi || network is NetworkInfo.Wired

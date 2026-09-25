@@ -22,6 +22,11 @@ data class SourceConditionsState(
     val backlogLabel: String? = null,
     val wifiOnly: Boolean = true,
     val chargingOnly: Boolean = false,
+    val keepBoth: Boolean = false,
+    val limitFiles: Boolean = false,
+    val maxFiles: Int = DefaultMaxFiles,
+    val limitSize: Boolean = false,
+    val maxSizeGb: Int = DefaultMaxSizeGb,
     /** Offload: which files leave first, and what is exempt whatever the rule says. */
     val criterion: EvictCriterionUi = EvictCriterionUi.OlderThanDays,
     val olderThanDays: Int = DefaultDays,
@@ -54,5 +59,15 @@ data class SourceConditionsState(
         const val DaysStep = 15
         const val MinDays = 15
         const val MaxDays = 365
+
+        const val DefaultMaxFiles = 1000
+        const val MaxFilesStep = 100
+        const val MinMaxFiles = 100
+        const val MaxMaxFiles = 100_000
+
+        const val DefaultMaxSizeGb = 10
+        const val MaxSizeStepGb = 1
+        const val MinMaxSizeGb = 1
+        const val MaxMaxSizeGb = 1024
     }
 }

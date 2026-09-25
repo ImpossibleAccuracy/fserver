@@ -1,5 +1,6 @@
 package com.fserver.core.sync.model
 
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import kotlin.time.Instant
 
@@ -22,6 +23,8 @@ data class SourceEntry(
     val originPath: String,
     /** What to do with the files found there. */
     val syncMode: SyncMode,
+    /** How and when a pass runs. [syncMode] says what it does. */
+    val preferences: Preferences = Preferences.Default,
     val role: Role,
     val status: Status,
     /** Display name, supplied by whoever registered the source. */
@@ -30,6 +33,46 @@ data class SourceEntry(
     /** null until a sync pass has processed this source once. */
     val lastSyncedAt: Instant? = null,
 ) {
+    data class Preferences(
+        val deviceConstraints: DeviceConstraints,
+        val conflictResolution: ConflictResolution,
+        val fileLimits: FileLimits,
+    ) {
+        enum class ConflictResolution {
+            /** Keep only the last modified file. */
+            LastWriteWins,
+
+            /** Keep both files in `.conflicts` folder. */
+            KeepBoth,
+        }
+
+        data class DeviceConstraints(
+            val wifiRequired: Boolean,
+            val chargingRequired: Boolean,
+        )
+
+        /** Per-source caps: by count and by total size, since 1000 notes are not 1000 videos. Null = no cap. */
+        data class FileLimits(
+            val maxFiles: Int?,
+            val maxTotalSize: FileSize?,
+        ) {
+            companion object {
+                val None = FileLimits(maxFiles = null, maxTotalSize = null)
+            }
+        }
+
+        companion object {
+            val Default = Preferences(
+                deviceConstraints = DeviceConstraints(
+                    wifiRequired = false,
+                    chargingRequired = false,
+                ),
+                conflictResolution = ConflictResolution.LastWriteWins,
+                fileLimits = FileLimits.None,
+            )
+        }
+    }
+
     /** Which end of the source this device is. */
     enum class Role {
         /** Registered the source and asked the peer to host it. Files originate on this side. */

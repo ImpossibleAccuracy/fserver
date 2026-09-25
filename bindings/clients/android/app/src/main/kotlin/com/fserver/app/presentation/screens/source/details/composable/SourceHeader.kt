@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -152,6 +153,17 @@ private fun ConditionUi.label(): String = when (this) {
     is ConditionUi.OnConflict -> stringResource(
         if (keepBoth) R.string.source_details_condition_conflict_keep_both
         else R.string.source_details_condition_conflict_newest
+    )
+
+    is ConditionUi.MaxFiles -> pluralStringResource(
+        R.plurals.source_details_condition_max_files,
+        count,
+        count,
+    )
+
+    is ConditionUi.MaxSize -> stringResource(
+        R.string.source_details_condition_max_size,
+        FileSize(bytes).formatted(),
     )
 }
 

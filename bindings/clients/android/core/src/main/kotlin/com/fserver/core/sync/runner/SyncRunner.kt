@@ -115,7 +115,7 @@ internal class SyncRunner(
         }
 
         val constraintsMet = force || constraintChecker(
-            constraints = storage.preferences.getSourceRules().deviceConstraints,
+            constraints = source.preferences.deviceConstraints,
         )
 
         if (!constraintsMet) {
