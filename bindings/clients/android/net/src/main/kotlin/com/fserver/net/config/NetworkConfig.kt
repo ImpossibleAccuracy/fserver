@@ -5,6 +5,7 @@ import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.dictionary.MessageDictionary
 import com.fserver.net.security.PeerAuthenticator
 import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.IdentityStore
@@ -34,7 +35,10 @@ data class NetworkConfig<T : Any>(
     val authenticator: PeerAuthenticator? = null,
     /** Peers pinned by earlier handshakes. Absent means nothing is remembered between them. */
     val trustStore: PeerTrustStore? = null,
+    /** Every method this node can run, whether dialling or answering. */
     val authMethods: List<AuthMethod> = emptyList(),
+    /** Which of [authMethods] peers may use to reach this node; null offers all of them. */
+    val offeredMethodIds: Set<AuthMethodId>? = null,
     val crypto: CryptoProvider = PassthroughCryptoProvider,
 
     // everything else

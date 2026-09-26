@@ -48,7 +48,7 @@ internal class ConnectionsHolder<M : Any>(
      */
     override suspend fun onConfigChanged(old: NetworkConfig<*>, new: NetworkConfig<*>) {
         val barred = registry.value.values.filterNot {
-            new.permits(it.route.transport, it.authMethodId)
+            new.permits(it.route.transport, it.authMethodId, it.dialled)
         }
 
         // At once, not one after another: each close flushes a CLOSE frame on its own deadline,
@@ -71,7 +71,7 @@ internal class ConnectionsHolder<M : Any>(
 
         // Double-check that the config still permits this session
         val method = link.negotiated.authMethodId
-        if (!config.permits(route.transport, method)) {
+        if (!config.permits(route.transport, method, dialled = relink != null)) {
             link.secure.close()
             throw NetworkException.Transport(
                 "$method over ${route.transport.value} is no longer permitted by config"

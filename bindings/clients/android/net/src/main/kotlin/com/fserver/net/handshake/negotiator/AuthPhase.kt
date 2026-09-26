@@ -12,6 +12,7 @@ import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.auth.IdentityExchange
 import com.fserver.net.security.auth.KnownPeerExchange
 import com.fserver.net.security.auth.offeredMethods
+import com.fserver.net.security.auth.runnableMethods
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.identity.LocalIdentity
 import com.fserver.net.security.identity.PeerIdentity
@@ -44,13 +45,15 @@ internal class AuthPhase(
         capabilities: TransportCapabilities,
         requested: AuthMethodId?,
     ): AuthMethod {
-        val local = offered(capabilities)
         if (requested != null) {
-            return local.firstOrNull { it.id == requested && requested in remote }
+            // Whether this side offers the method is beside the point: the peer is the one answering.
+            return config.runnableMethods(capabilities)
+                .firstOrNull { it.id == requested && requested in remote }
                 ?: throw NetworkException.Handshake(
                     "auth method $requested was asked for but is not on offer: peer offers $remote"
                 )
         }
+        val local = offered(capabilities)
         return remote.firstNotNullOfOrNull { id -> local.firstOrNull { it.id == id } }
             ?: throw NetworkException.Handshake(
                 "no common auth method: peer offers $remote, this side offers ${local.map { it.id }}"

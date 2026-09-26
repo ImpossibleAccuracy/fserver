@@ -1,5 +1,6 @@
 package com.fserver.core.network
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.core.FServerConfig
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.auth.OfferedAuthMethod
@@ -18,6 +19,8 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.networkConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.AuthMethod
+import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.pake.OneTimeCodeAuthMethod
 import com.fserver.net.security.auth.pake.PakeAuthMethod
 import com.fserver.net.security.auth.pake.PinAuthMethod
@@ -65,7 +68,7 @@ internal class NetworkController(
     init {
         val offered = storage.auth.offeredMethods.value
         lastOfferedMethods = offered
-        node = NetworkNode.create(baseConfig.copy(authMethods = netAuthMethods(offered)))
+        node = NetworkNode.create(configFor(offered))
 
         settingsWatcherJob = coroutineScope.launch { watchAuthSettings() }
     }
@@ -83,9 +86,7 @@ internal class NetworkController(
                 lastOfferedMethods = offered
 
                 try {
-                    node.reloadConfig(
-                        baseConfig.copy(authMethods = netAuthMethods(offered))
-                    )
+                    node.reloadConfig(configFor(offered))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -98,32 +99,36 @@ internal class NetworkController(
         }
     }
 
-    private fun netAuthMethods(offered: List<OfferedAuthMethod>) = offered.map { method ->
-        when (method) {
-            OfferedAuthMethod.ConfirmFingerprint -> SasAuthMethod(
-                crypto = crypto,
-                confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
-            )
-
-            is OfferedAuthMethod.Password -> PakeAuthMethod(
-                crypto = crypto,
-                loadSavedPassword = { method.password },
-            )
-
-            is OfferedAuthMethod.Pin -> PinAuthMethod(
-                crypto = crypto,
-                loadSavedPin = { method.pin },
-            )
-        }
-    }.plus(
-        listOf(
+    private fun configFor(offered: List<OfferedAuthMethod>) = baseConfig.copy(
+        authMethods = netAuthMethods(offered),
+        offeredMethodIds = offered.mapTo(mutableSetOf()) { it.method.authMethodId } +
             // Inert until the user shows a code, so there is nothing to switch off.
-            OneTimeCodeAuthMethod(crypto, pairingCodes),
+            OneTimeCodeAuthMethod.ID +
             // Transport-gated: transport that keys its own link admits nothing else, and no
             // other transport will offer it, so it needs no entry in [OfferedAuthMethod].
+            AuthMethodId.TransportConfirmation,
+    )
+
+    /** Every method the node can run, offered or not: dialling a peer never depends on what this side offers. */
+    private fun netAuthMethods(offered: List<OfferedAuthMethod>): List<AuthMethod> {
+        val password = offered.firstNotNullOfOrNull { it as? OfferedAuthMethod.Password }?.password
+        val pin = offered.firstNotNullOfOrNull { it as? OfferedAuthMethod.Pin }?.pin
+
+        return listOf(
+            SasAuthMethod(
+                crypto = crypto,
+                confirmationCodeLength = InteractivePeerAuthenticator.GroupSize * 2,
+            ),
+            // A method that is not offered never answers a peer, so these loaders never see null.
+            PakeAuthMethod(crypto = crypto, loadSavedPassword = { password ?: notOffered() }),
+            PinAuthMethod(crypto = crypto, loadSavedPin = { pin ?: notOffered() }),
+            OneTimeCodeAuthMethod(crypto, pairingCodes),
             TransportConfirmationAuthMethod(crypto),
         )
-    )
+    }
+
+    private fun notOffered(): Nothing =
+        throw NetworkException.AuthenticationRejected("method is not offered by this device")
 
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
         networkConfig(dictionary = FileServerDictionary()) {

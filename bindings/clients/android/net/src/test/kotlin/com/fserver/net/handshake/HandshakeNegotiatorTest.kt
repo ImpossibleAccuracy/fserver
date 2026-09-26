@@ -7,6 +7,7 @@ import com.fserver.net.security.auth.AuthContext
 import com.fserver.net.security.auth.AuthMethod
 import com.fserver.net.security.auth.AuthMethodId
 import com.fserver.net.security.auth.AuthOutcome
+import com.fserver.net.security.auth.AuthRequest
 import com.fserver.net.security.auth.HandshakeIo
 import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.trust.AuthStrength
@@ -15,6 +16,7 @@ import com.fserver.net.spi.Transport
 import com.fserver.net.spi.TransportCapabilities
 import com.fserver.net.support.TEST_POLICY
 import com.fserver.net.support.TestDictionary
+import com.fserver.net.support.TestingAuthMethod
 import com.fserver.net.support.XorCryptoProvider
 import com.fserver.net.support.channelPair
 import com.fserver.net.support.handshake
@@ -227,6 +229,42 @@ class HandshakeNegotiatorTest {
         val error = withTimeout(TIMEOUT) { responder.await() }.exceptionOrNull()
         assertTrue(error is NetworkException.Handshake)
         assertTrue(error!!.message!!.contains("not offered on this transport"))
+    }
+
+    @Test
+    fun `a method this side does not offer can still be dialled with`() = runBlocking {
+        val secret = AuthMethodId("secret")
+        val (initiator, responder) = scope.handshake(
+            initiator = negotiator(
+                "alice",
+                authMethods = listOf(TestingAuthMethod(id = secret)),
+                offeredMethodIds = setOf(TestingAuthMethod.ID),
+            ),
+            responder = negotiator("bob", authMethods = listOf(TestingAuthMethod(id = secret))),
+            request = AuthRequest(method = secret),
+        )
+
+        assertEquals(secret, initiator.getOrThrow().negotiated.authMethodId)
+        assertTrue(responder.isSuccess)
+    }
+
+    @Test
+    fun `a method the peer installs but does not offer is not on offer`() = runBlocking {
+        val secret = AuthMethodId("secret")
+        val (initiator, responder) = scope.handshake(
+            initiator = negotiator("alice", authMethods = listOf(TestingAuthMethod(id = secret))),
+            responder = negotiator(
+                "bob",
+                authMethods = listOf(TestingAuthMethod(id = secret)),
+                offeredMethodIds = setOf(TestingAuthMethod.ID),
+            ),
+            request = AuthRequest(method = secret),
+        )
+
+        val refused = initiator.exceptionOrNull()
+        assertTrue(refused is NetworkException.Handshake)
+        assertTrue(refused!!.message!!.contains("not on offer"))
+        assertTrue(responder.isFailure)
     }
 
     // ------------------------------------------------------------------ deadlines and limits
