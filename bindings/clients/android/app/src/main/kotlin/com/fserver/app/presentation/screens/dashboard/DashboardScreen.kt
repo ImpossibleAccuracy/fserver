@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.DkFabMenu
 import com.fserver.app.presentation.composable.DkFabMenuItem
+import com.fserver.app.presentation.composable.StorageUsage
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInfoBox
@@ -51,7 +52,6 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.dashboard.composable.LinksSection
 import com.fserver.app.presentation.screens.dashboard.composable.NetworkEmptyState
 import com.fserver.app.presentation.screens.dashboard.composable.NetworkSection
-import com.fserver.app.presentation.screens.dashboard.composable.StorageSection
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -176,7 +176,7 @@ private fun DashboardScreenContent(
                         .padding(bottom = DkSpacing.sm),
                 ) {
                     DkSectionLabel(text = stringResource(R.string.dashboard_storage))
-                    state.storage?.let { StorageSection(storage = it) }
+                    state.storage?.let { StorageUsage(storage = it) }
                 }
             }
 

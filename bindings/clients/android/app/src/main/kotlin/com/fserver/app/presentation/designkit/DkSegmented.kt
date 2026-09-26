@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,9 +21,12 @@ data class DkSegmentedOption<T>(
     val icon: ImageVector? = null,
 )
 
+private val CompactHeight = 30.dp
+private val CompactPadding = PaddingValues(horizontal = DkSpacing.md)
+
 /**
  * Nocturne segmented control: hairline box, the selected option marked by an accent
- * inset outline rather than a fill.
+ * inset outline rather than a fill. [compact] shrinks it to sit beside a list's own controls.
  */
 @Composable
 fun <T> DkSegmentedControl(
@@ -30,11 +35,14 @@ fun <T> DkSegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     labelsVisible: Boolean = true,
+    compact: Boolean = false,
 ) {
     SingleChoiceSegmentedButtonRow(modifier = modifier) {
         options.forEachIndexed { index, option ->
             val isSelected = option.value == selected
             SegmentedButton(
+                modifier = if (compact) Modifier.height(CompactHeight) else Modifier,
+                contentPadding = if (compact) CompactPadding else SegmentedButtonDefaults.ContentPadding,
                 selected = isSelected,
                 onClick = { onSelect(option.value) },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
@@ -57,7 +65,14 @@ fun <T> DkSegmentedControl(
                 },
             ) {
                 if (labelsVisible) {
-                    Text(text = option.label, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        text = option.label,
+                        style = if (compact) {
+                            MaterialTheme.typography.labelSmall
+                        } else {
+                            MaterialTheme.typography.labelMedium
+                        },
+                    )
                 }
             }
         }

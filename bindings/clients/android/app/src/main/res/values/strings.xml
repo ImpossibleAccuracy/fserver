@@ -498,7 +498,67 @@
     <!-- About — a static page; every row below is a placeholder -->
     <string name="about_title">About</string>
     <string name="storage_title">Phone storage</string>
-    <string name="storage_placeholder">Storage breakdown</string>
+    <string name="storage_links">Links</string>
+    <string name="storage_links_empty">No links yet. Files a link keeps on this phone will show up here.</string>
+    <string name="storage_link_subtitle">%1$s · %2$s</string>
+    <plurals name="storage_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="storage_app_data">App data</string>
+    <string name="storage_app_downloaded">Downloaded from devices</string>
+    <string name="storage_app_downloaded_desc">Files opened from other devices</string>
+    <string name="storage_app_received">Received files</string>
+    <string name="storage_app_received_desc">One-off transfers</string>
+    <string name="storage_app_cache">Previews and cache</string>
+    <string name="storage_app_cache_desc">Rebuilt on their own</string>
+    <string name="storage_app_incomplete">Incomplete</string>
+    <string name="storage_app_incomplete_desc">Interrupted transfers</string>
+    <string name="storage_app_conflicts">Conflict copies</string>
+    <string name="storage_app_conflicts_desc">The .conflicts folder</string>
+    <string name="storage_free_up_to">You can free up to %1$s</string>
+    <string name="storage_free_hint">All of it is on other devices or downloads again</string>
+    <string name="storage_free_action">Free up</string>
+    <string name="storage_free_title">Free up %1$s</string>
+    <string name="storage_free_body">Removed from this phone. Everything stays on your other devices.</string>
+    <string name="storage_free_now">Now</string>
+    <string name="storage_free_after">After</string>
+    <string name="storage_free_free">free</string>
+    <string name="storage_free_downloaded_hint">Stay listed, download again on tap</string>
+    <string name="storage_free_cache_hint">Rebuilt when viewed</string>
+    <string name="storage_free_incomplete_hint">Transfers start over</string>
+    <string name="storage_free_copies_title">%1$s on %2$s</string>
+    <plurals name="storage_free_copies_hint">
+        <item quantity="one">%1$d file, copy verified</item>
+        <item quantity="other">%1$d files, copies verified</item>
+    </plurals>
+    <string name="storage_free_more">+%1$d</string>
+        <string name="storage_sort_size">By size</string>
+    <string name="storage_sort_date">By date</string>
+    <string name="storage_sort_name">By name</string>
+    <string name="storage_view_files">Files</string>
+    <string name="storage_view_folders">Folders</string>
+    <string name="storage_file_on_peer">on %1$s</string>
+    <string name="storage_file_waiting">waiting to send</string>
+    <string name="storage_file_sending">sending</string>
+    <string name="storage_file_in_folder">%1$s · %2$s</string>
+    <string name="storage_selected">%1$d selected</string>
+    <string name="storage_select_all">Select all</string>
+    <string name="storage_deselect_all">Deselect all</string>
+    <plurals name="storage_delete_title">
+        <item quantity="one">Delete %1$d file?</item>
+        <item quantity="other">Delete %1$d files?</item>
+    </plurals>
+    <plurals name="storage_delete_uncopied">
+        <item quantity="one">%1$d of them has no copy on %2$s yet and will be lost for good.</item>
+        <item quantity="other">%1$d of them have no copy on %2$s yet and will be lost for good.</item>
+    </plurals>
+    <string name="storage_source_missing">This link no longer exists.</string>
+    <string name="storage_source_empty">No files yet. They show up here after the first sync.</string>
+    <plurals name="storage_source_off_phone">
+        <item quantity="one">Nothing takes space here: its %1$d file is on %2$s.</item>
+        <item quantity="other">Nothing takes space here: its %1$d files are on %2$s.</item>
+    </plurals>
     <string name="about_logo">logo</string>
     <string name="about_version">%1$s (%2$d) · protocol v1</string>
     <string name="about_check_updates">Check for updates</string>

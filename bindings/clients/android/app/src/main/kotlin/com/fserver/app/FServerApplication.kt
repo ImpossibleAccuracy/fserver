@@ -4,6 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
 import coil3.video.VideoFrameDecoder
 import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
 import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
@@ -15,6 +16,7 @@ import com.fserver.app.work.SyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -55,9 +57,21 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
+            // Under the cache directory by name, so the storage screen counts it as cache.
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.cacheDir.resolve(ImageCacheDirectory).toOkioPath())
+                    .maxSizePercent(ImageCacheShare)
+                    .build()
+            }
             .components {
                 add(VideoFrameDecoder.Factory())
                 add(AudioArtworkFetcher.Factory(), AudioArtwork::class)
             }
             .build()
+
+    private companion object {
+        const val ImageCacheDirectory = "image_cache"
+        const val ImageCacheShare = 0.02
+    }
 }

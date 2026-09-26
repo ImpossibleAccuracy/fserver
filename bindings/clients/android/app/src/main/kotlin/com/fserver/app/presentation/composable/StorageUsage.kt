@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.dashboard.composable
+package com.fserver.app.presentation.composable
 
 import android.text.format.Formatter
 import androidx.compose.foundation.background
@@ -34,15 +34,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.dashboard.model.DashboardState
+import com.fserver.app.presentation.composable.model.StorageUsageUi
 import com.fserver.app.presentation.theme.FServerTheme
 
 /** How full the phone is, split into what this app holds, everything else, and what is left. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun StorageSection(
+fun StorageUsage(
     modifier: Modifier = Modifier,
-    storage: DashboardState.StorageUi,
+    storage: StorageUsageUi,
 ) {
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
@@ -158,11 +158,11 @@ private fun LegendItem(text: String, color: Color) {
 
 @Preview(showBackground = true, widthDp = 360)
 @Composable
-private fun StorageSectionPreview() {
+private fun StorageUsagePreview() {
     FServerTheme {
-        StorageSection(
+        StorageUsage(
             modifier = Modifier.padding(DkSpacing.screenPadding),
-            storage = DashboardState.Sample.storage!!,
+            storage = StorageUsageUi.Sample,
         )
     }
 }

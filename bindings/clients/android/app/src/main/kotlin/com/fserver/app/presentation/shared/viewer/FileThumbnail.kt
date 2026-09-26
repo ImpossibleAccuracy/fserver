@@ -47,7 +47,7 @@ fun FileThumbnail(
 
 /** What Coil loads for [this]: the file itself, or for audio the picture in its tags. */
 internal fun FileBrowserUi.File.imageModel(): Any? = localUri()?.let {
-    if (kind == FileKindUi.Audio) AudioArtwork(it) else it
+    if (kind == FileKindUi.Audio) AudioArtwork(it, version = "${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}") else it
 }
 
 /** Whatever [FileViewerHost] shows now; thumbnails of it step aside for the full-screen copy. */

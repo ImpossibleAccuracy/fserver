@@ -4,7 +4,9 @@ import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.R
-import com.fserver.app.data.PhoneStorage
+import com.fserver.app.presentation.composable.model.StorageUsageUi
+import com.fserver.app.presentation.composable.model.direction
+import com.fserver.app.presentation.composable.model.toUi
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
@@ -13,6 +15,7 @@ import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.app.util.combineMany
+import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.DeviceKind
@@ -29,7 +32,6 @@ import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +49,7 @@ class DashboardViewModel(
     private val devicesRepository: DevicesRepository,
     private val deviceReachability: DeviceReachability,
     private val networkInfoRepository: NetworkInfoRepository,
-    private val phoneStorage: PhoneStorage,
+    private val diskUsage: DiskUsageRepository,
     private val requirementsChecker: RequirementsChecker,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
@@ -95,16 +97,13 @@ class DashboardViewModel(
         deviceList(trusted, connected, sources, failures)
     }
 
-    /** "App" is what installing and syncing cost: the APK, plus every indexed file still here. */
-    private val storage: Flow<DashboardState.StorageUi> = combine(
-        phoneStorage.usage,
+    private val storage: Flow<StorageUsageUi> = combine(
+        diskUsage.usage,
         registeredSourcesRepository.indexedSize,
         registeredSourcesRepository.remoteOnly,
     ) { usage, indexed, remoteOnly ->
-        DashboardState.StorageUi(
-            totalBytes = usage.totalBytes,
-            freeBytes = usage.freeBytes,
-            appBytes = (usage.apkBytes ?: 0) + indexed.bytes,
+        usage.toUi(
+            indexedBytes = indexed.bytes,
             remoteOnlyFiles = remoteOnly.count,
             remoteOnlyBytes = remoteOnly.size.bytes,
         )
@@ -232,8 +231,7 @@ private fun SourceEntry.toLinkUi(
         deviceName = deviceName,
         deviceKind = deviceKind,
         mode = syncMode.toUi(),
-        // A mirror goes both ways; for the one-way modes the initiator is the side files leave.
-        outgoing = syncMode is SyncMode.Mirror || role == SourceEntry.Role.Initiator,
+        direction = direction(),
         status = when {
             running -> DashboardState.LinkStatusUi.Syncing
             status is SourceEntry.Status.Pending -> DashboardState.LinkStatusUi.Pending

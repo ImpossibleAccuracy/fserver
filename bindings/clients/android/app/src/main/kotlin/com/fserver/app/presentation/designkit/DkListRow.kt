@@ -77,7 +77,8 @@ fun DkIcon(
  * trailing slot. Devices, folders and files all reduce to this shape in the deck.
  *
  * [onLongClick] is the row's secondary gesture - what a row *is about* stays on [onClick], and
- * what can be *done to it* hangs off the long press.
+ * what can be *done to it* hangs off the long press. [subtitleLeading] sits before the subtitle,
+ * for a status dot or a small icon.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -89,6 +90,7 @@ fun DkListRow(
     subtitleStyle: TextStyle? = null,
     subtitleColor: Color? = null,
     subtitleMaxLines: Int = 1,
+    subtitleLeading: @Composable (() -> Unit)? = null,
     dimmed: Boolean = false,
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
@@ -130,14 +132,20 @@ fun DkListRow(
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = subtitleStyle ?: MaterialTheme.typography.labelSmall,
-                    color = (subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
-                        .copy(alpha = alpha),
-                    maxLines = subtitleMaxLines,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
+                ) {
+                    subtitleLeading?.invoke()
+                    Text(
+                        text = subtitle,
+                        style = subtitleStyle ?: MaterialTheme.typography.labelSmall,
+                        color = (subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+                            .copy(alpha = alpha),
+                        maxLines = subtitleMaxLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         if (trailing != null) {

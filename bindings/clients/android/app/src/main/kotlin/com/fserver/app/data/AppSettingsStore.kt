@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -22,6 +23,17 @@ class AppSettingsStore(
     /** Whether the phone looks for trusted devices on its own, so sync can start without a tap. */
     val discoveryEnabled: Flow<Boolean> = flag(DISCOVERY, default = true)
 
+    /** Whether the storage screen groups this source's files by folder rather than listing them flat. */
+    fun storageGroupedByFolder(sourceId: String): Flow<Boolean> =
+        dataStore.data.map { sourceId in it[STORAGE_GROUPED].orEmpty() }
+
+    suspend fun setStorageGroupedByFolder(sourceId: String, grouped: Boolean) {
+        dataStore.edit { prefs ->
+            val current = prefs[STORAGE_GROUPED].orEmpty()
+            prefs[STORAGE_GROUPED] = if (grouped) current + sourceId else current - sourceId
+        }
+    }
+
     suspend fun setDiscoverable(enabled: Boolean) = set(DISCOVERABLE, enabled)
 
     suspend fun setDiscoveryEnabled(enabled: Boolean) = set(DISCOVERY, enabled)
@@ -36,5 +48,6 @@ class AppSettingsStore(
     private companion object {
         val DISCOVERABLE = booleanPreferencesKey("net_discoverable")
         val DISCOVERY = booleanPreferencesKey("net_discovery")
+        val STORAGE_GROUPED = stringSetPreferencesKey("storage_grouped_sources")
     }
 }

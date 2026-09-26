@@ -28,6 +28,8 @@ import com.fserver.app.presentation.screens.settings.mydevice.MyDeviceViewModel
 import com.fserver.app.presentation.screens.settings.onetimecode.OneTimeCodeViewModel
 import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
 import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
+import com.fserver.app.presentation.screens.settings.storage.main.StorageViewModel
+import com.fserver.app.presentation.screens.settings.storage.source.StorageSourceViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -75,4 +77,6 @@ val presentationModule = module {
     viewModelOf(::SecurityViewModel)
     viewModelOf(::PinChangeViewModel)
     viewModelOf(::OneTimeCodeViewModel)
+    viewModelOf(::StorageViewModel)
+    viewModelOf(::StorageSourceViewModel)
 }

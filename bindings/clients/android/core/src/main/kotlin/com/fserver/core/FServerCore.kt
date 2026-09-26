@@ -1,6 +1,7 @@
 package com.fserver.core
 
 import com.fserver.core.di.coreModule
+import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.lifecycle.LifecycleController
@@ -79,6 +80,9 @@ class FServerCore private constructor(
 
     /** Walking a directory the user picked, before it is registered as a source. */
     val files: FilesController by lazy { koin.get() }
+
+    /** How full the device is, and what the app keeps on it besides synced files. */
+    val diskUsage: DiskUsageRepository by lazy { koin.get() }
 
     /**
      * The registry of synced sources: register, re-configure, drop, and kick off a pass.

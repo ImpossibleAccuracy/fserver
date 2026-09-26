@@ -7,15 +7,24 @@ import android.net.Uri
 import coil3.ImageLoader
 import coil3.asImage
 import coil3.decode.DataSource
+import coil3.decode.ImageSource
+import coil3.disk.DiskCache
 import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
+import coil3.fetch.SourceFetchResult
 import coil3.request.Options
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Coil model for the picture embedded in an audio file's tags. */
-internal data class AudioArtwork(val uri: Uri)
+/**
+ * Coil model for the picture embedded in an audio file's tags. [version] changes whenever the file
+ * does, so a retagged file does not keep its old cached artwork.
+ */
+internal data class AudioArtwork(val uri: Uri, val version: String? = null) {
+    val diskCacheKey: String
+        get() = "audio-artwork:$uri#${version.orEmpty()}"
+}
 
 /**
  * Reads [AudioArtwork] out of the file's tags. A file without one fails the request, which is what
@@ -27,9 +36,31 @@ internal data class AudioArtwork(val uri: Uri)
 internal class AudioArtworkFetcher(
     private val data: AudioArtwork,
     private val options: Options,
+    private val diskCache: DiskCache?,
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult = withContext(Dispatchers.IO) {
+        val key = options.diskCacheKey ?: data.diskCacheKey
+        val cache = diskCache
+
+        if (cache != null && options.diskCachePolicy.readEnabled) {
+            cache.openSnapshot(key)?.let { return@withContext it.toResult(cache, key) }
+        }
+
+        val (artwork, sampled) = readArtwork()
+
+        if (cache != null && options.diskCachePolicy.writeEnabled) {
+            cache.write(key, artwork)?.let { return@withContext it.toResult(cache, key) }
+        }
+
+        ImageFetchResult(
+            image = artwork.asImage(),
+            isSampled = sampled,
+            dataSource = DataSource.DISK,
+        )
+    }
+
+    private fun readArtwork(): Pair<Bitmap, Boolean> {
         val retriever = MediaMetadataRetriever()
         val picture = try {
             retriever.setDataSource(options.context, data.uri)
@@ -48,18 +79,38 @@ internal class AudioArtworkFetcher(
         )
         checkNotNull(decoded) { "Undecodable artwork in ${data.uri}" }
 
-        ImageFetchResult(
-            image = decoded.withoutLetterbox().asImage(),
-            isSampled = sample > 1,
-            dataSource = DataSource.DISK,
-        )
+        return decoded.withoutLetterbox() to (sample > 1)
     }
 
     class Factory : Fetcher.Factory<AudioArtwork> {
         override fun create(data: AudioArtwork, options: Options, imageLoader: ImageLoader): Fetcher =
-            AudioArtworkFetcher(data, options)
+            AudioArtworkFetcher(data, options, imageLoader.diskCache)
     }
 }
+
+/**
+ * Stores the artwork already cropped and downsampled, so a hit skips reading the tags as well as
+ * the decode. Null when the entry is being written elsewhere or the write fails.
+ */
+private fun DiskCache.write(key: String, artwork: Bitmap): DiskCache.Snapshot? {
+    val editor = openEditor(key) ?: return null
+
+    return try {
+        fileSystem.write(editor.data) {
+            artwork.compress(Bitmap.CompressFormat.JPEG, CachedQuality, outputStream())
+        }
+        editor.commitAndOpenSnapshot()
+    } catch (e: Exception) {
+        editor.abort()
+        null
+    }
+}
+
+private fun DiskCache.Snapshot.toResult(cache: DiskCache, key: String) = SourceFetchResult(
+    source = ImageSource(file = data, fileSystem = cache.fileSystem, diskCacheKey = key, closeable = this),
+    mimeType = "image/jpeg",
+    dataSource = DataSource.DISK,
+)
 
 /** Artwork is shown at tile or screen size at most, and some files embed a print-sized scan. */
 private fun sampleSize(picture: ByteArray): Int {
@@ -108,6 +159,8 @@ private fun Bitmap.darkRun(fromStart: Boolean, rows: Boolean): Int {
 }
 
 private const val MaxArtworkSide = 1024
+
+private const val CachedQuality = 90
 
 /** Channel value up to which JPEG noise on a black bar still counts as black. */
 private const val DarkChannel = 24

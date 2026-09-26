@@ -165,6 +165,10 @@ sealed interface Destination : NavKey {
         @Serializable
         data object Storage : Destination
 
+        /** What one source keeps on this phone, file by file. */
+        @Serializable
+        data class StorageSource(val sourceId: String) : Destination
+
         @Serializable
         data object About : Destination
     }

@@ -75,7 +75,7 @@ fun BrowserGalleryTile(
     modifier: Modifier = Modifier,
     file: FileBrowserUi.File,
     selection: FileBrowserSelection?,
-    onFileClick: (FileBrowserUi.File) -> Unit,
+    onFileClick: ((FileBrowserUi.File) -> Unit)?,
 ) {
     val hasThumbnail = file.kind.isMedia
     var isThumbnailLoaded by remember(file.locator) { mutableStateOf(false) }
@@ -95,7 +95,7 @@ fun BrowserGalleryTile(
                 null
             },
             label = file.name.takeUnless { file.kind == FileKindUi.Image },
-            onClick = { onFileClick(file) },
+            onClick = onFileClick?.let { { it(file) } },
         )
 
         if (file.isRemoteOnly) {

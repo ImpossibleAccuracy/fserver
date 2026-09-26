@@ -107,17 +107,20 @@ internal class DirectoryFileSystem(
     companion object {
         private const val SourcesDirectory = "sources"
 
+        /** Scratch space: every file is transient, so nothing keeps the directories it leaves. */
+        fun staging(root: File): DirectoryFileSystem =
+            DirectoryFileSystem(root, pruneEmptyDirs = true)
+
         /**
          * App-private storage, one directory per bucket.
          *
          * Nothing outside the app can reach what lands here, no runtime permission gates it, and
          * it goes with an uninstall.
          */
-        /** Scratch space: every file is transient, so nothing keeps the directories it leaves. */
-        fun staging(root: File): DirectoryFileSystem =
-            DirectoryFileSystem(root, pruneEmptyDirs = true)
-
         fun internal(context: Context, bucket: String): DirectoryFileSystem =
-            DirectoryFileSystem(File(File(context.filesDir, SourcesDirectory), bucket))
+            DirectoryFileSystem(File(internalRoot(context), bucket))
+
+        /** The directory every [internal] bucket sits in. */
+        fun internalRoot(context: Context): File = File(context.filesDir, SourcesDirectory)
     }
 }

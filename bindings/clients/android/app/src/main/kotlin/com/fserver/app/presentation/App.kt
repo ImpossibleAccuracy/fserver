@@ -50,7 +50,8 @@ import com.fserver.app.presentation.screens.settings.mydevice.settingsMyDeviceEn
 import com.fserver.app.presentation.screens.settings.onetimecode.settingsOneTimeCodeEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
-import com.fserver.app.presentation.screens.settings.storage.settingsStorageEntry
+import com.fserver.app.presentation.screens.settings.storage.main.settingsStorageEntry
+import com.fserver.app.presentation.screens.settings.storage.source.settingsStorageSourceEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
 import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
@@ -240,6 +241,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             settingsPinChangeEntry(navigator)
             settingsOneTimeCodeEntry(navigator)
             settingsStorageEntry(navigator)
+            settingsStorageSourceEntry(navigator)
             settingsAboutEntry(navigator)
             diagnosticEntry(navigator)
 

@@ -1,6 +1,8 @@
 package com.fserver.app.presentation.screens.dashboard.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.composable.model.LinkDirectionUi
+import com.fserver.app.presentation.composable.model.StorageUsageUi
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.device.model.DeviceKind
@@ -8,7 +10,7 @@ import com.fserver.core.network.device.model.DeviceKind
 @Immutable
 data class DashboardState(
     val isLoading: Boolean = true,
-    val storage: StorageUi? = null,
+    val storage: StorageUsageUi? = null,
     val links: List<LinkUi> = emptyList(),
     val network: NetworkUi? = null,
     /** Some discovery method is scanning right now. */
@@ -24,21 +26,6 @@ data class DashboardState(
     val onlineDevices: Int
         get() = devices.count { it.online }
 
-    @Immutable
-    data class StorageUi(
-        val totalBytes: Long,
-        val freeBytes: Long,
-        val appBytes: Long,
-        val remoteOnlyFiles: Int = 0,
-        val remoteOnlyBytes: Long = 0,
-    ) {
-        val usedBytes: Long
-            get() = (totalBytes - freeBytes).coerceAtLeast(0)
-
-        val otherBytes: Long
-            get() = (usedBytes - appBytes).coerceAtLeast(0)
-    }
-
     /** One source, read as "what goes where". */
     @Immutable
     data class LinkUi(
@@ -47,8 +34,7 @@ data class DashboardState(
         val deviceName: String,
         val deviceKind: DeviceKind?,
         val mode: SourceModeUi,
-        /** Files leave this phone; false when the peer is the one sending. */
-        val outgoing: Boolean,
+        val direction: LinkDirectionUi,
         val status: LinkStatusUi,
         /** When it last synced, or why it is disabled. */
         val statusDetail: String? = null,
@@ -97,13 +83,7 @@ data class DashboardState(
     companion object {
         val Sample = DashboardState(
             isLoading = false,
-            storage = StorageUi(
-                totalBytes = 128_000_000_000,
-                freeBytes = 20_000_000_000,
-                appBytes = 23_000_000_000,
-                remoteOnlyFiles = 1240,
-                remoteOnlyBytes = 4_200_000_000,
-            ),
+            storage = StorageUsageUi.Sample,
             links = listOf(
                 LinkUi(
                     id = "camera",
@@ -111,7 +91,7 @@ data class DashboardState(
                     deviceName = "Server",
                     deviceKind = DeviceKind.Nas,
                     mode = SourceModeUi.AutoUpload,
-                    outgoing = true,
+                    direction = LinkDirectionUi.Outgoing,
                     status = LinkStatusUi.Syncing,
                     progress = 0.4f,
                     filesDone = 12,
@@ -123,7 +103,7 @@ data class DashboardState(
                     deviceName = "Laptop",
                     deviceKind = DeviceKind.Laptop,
                     mode = SourceModeUi.Sync,
-                    outgoing = true,
+                    direction = LinkDirectionUi.Mirror,
                     status = LinkStatusUi.Active,
                     statusDetail = "5 min. ago",
                 ),
@@ -133,7 +113,7 @@ data class DashboardState(
                     deviceName = "Server",
                     deviceKind = DeviceKind.Nas,
                     mode = SourceModeUi.Offload,
-                    outgoing = true,
+                    direction = LinkDirectionUi.Outgoing,
                     status = LinkStatusUi.Disabled,
                     statusDetail = "declined by the peer",
                 ),
@@ -143,7 +123,7 @@ data class DashboardState(
                     deviceName = "Home PC",
                     deviceKind = DeviceKind.Desktop,
                     mode = SourceModeUi.AutoUpload,
-                    outgoing = false,
+                    direction = LinkDirectionUi.Incoming,
                     status = LinkStatusUi.Active,
                     error = UiText.Text("device is not answering"),
                 ),

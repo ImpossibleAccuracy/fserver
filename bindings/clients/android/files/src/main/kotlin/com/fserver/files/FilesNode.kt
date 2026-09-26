@@ -21,9 +21,15 @@ class FilesNode private constructor(
 ) {
     private val fileSystem: FileSystemEntryPoint by lazy { FileSystemEntryPoint(context) }
 
-    private val staging: FileSystem by lazy {
-        DirectoryFileSystem.staging(stagingDir ?: File(context.cacheDir, StagingDirectory))
-    }
+    private val staging: FileSystem by lazy { DirectoryFileSystem.staging(stagingRoot) }
+
+    /** Where [openStaging] keeps its bytes. For measuring; write through [openStaging]. */
+    val stagingRoot: File
+        get() = stagingDir ?: File(context.cacheDir, StagingDirectory)
+
+    /** Where every [FileSystemSource.Internal] bucket lives. For measuring; write through a source. */
+    val internalRoot: File
+        get() = DirectoryFileSystem.internalRoot(context)
 
     fun openSource(source: FileSystemSource): FileSystem = fileSystem.open(source)
 

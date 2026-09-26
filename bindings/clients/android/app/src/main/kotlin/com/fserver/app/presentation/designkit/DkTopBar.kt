@@ -17,6 +17,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.fserver.app.R
@@ -43,7 +44,8 @@ val DKTransparentTopBarColors: TopAppBarColors
 
 /**
  * Flat top bar on the screen ground — Nocturne draws no bar fill and no bottom rule,
- * the title simply sits at the top of the content column.
+ * the title simply sits at the top of the content column. [backIcon] and [backLabel] swap the
+ * arrow for another way out, such as the cross that ends a selection.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +54,8 @@ fun DkTopBar(
     title: String,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
+    backIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
+    backLabel: String = stringResource(R.string.action_back),
     colors: TopAppBarColors = DKTopBarColors,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -88,8 +92,8 @@ fun DkTopBar(
                 if (onClick != null) {
                     IconButton(onClick = onClick) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
+                            imageVector = backIcon,
+                            contentDescription = backLabel,
                         )
                     }
                 }
