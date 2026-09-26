@@ -104,10 +104,10 @@ class AuthOutcome(
     /**
      * Whether the user still has to be asked about the peer's key. By default, they do.
      *
-     * False only where the method was pointed at this device out of band - a scanned code - and
-     * [verifyPeer] has checked the proven identity against it. That check is the user's own verdict
-     * on this device, so asking would be asking them to confirm what they carried over by hand.
-     * Anything a peer merely stated over the link leaves this true.
+     * False only where the user already vouched for this peer off the link: a scanned code that
+     * [verifyPeer] checked the proven identity against, or a secret the user gave both ends. Asking
+     * would be asking them to confirm what they carried over by hand. Anything a peer merely stated
+     * over the link leaves this true.
      */
     val needVerifyKey: Boolean = true,
 

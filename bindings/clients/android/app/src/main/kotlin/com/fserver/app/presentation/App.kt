@@ -47,6 +47,7 @@ import com.fserver.app.presentation.screens.settings.about.settingsAboutEntry
 import com.fserver.app.presentation.screens.device.details.settingsDeviceDetailsEntry
 import com.fserver.app.presentation.screens.settings.devices.settingsDevicesEntry
 import com.fserver.app.presentation.screens.settings.mydevice.settingsMyDeviceEntry
+import com.fserver.app.presentation.screens.settings.onetimecode.settingsOneTimeCodeEntry
 import com.fserver.app.presentation.screens.settings.pin.settingsPinChangeEntry
 import com.fserver.app.presentation.screens.settings.security.settingsSecurityEntry
 import com.fserver.app.presentation.screens.settings.storage.settingsStorageEntry
@@ -237,6 +238,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             settingsDeviceDetailsEntry(navigator)
             settingsSecurityEntry(navigator)
             settingsPinChangeEntry(navigator)
+            settingsOneTimeCodeEntry(navigator)
             settingsStorageEntry(navigator)
             settingsAboutEntry(navigator)
             diagnosticEntry(navigator)

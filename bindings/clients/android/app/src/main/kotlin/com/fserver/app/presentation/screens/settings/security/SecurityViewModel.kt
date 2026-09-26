@@ -5,17 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
-import com.fserver.app.presentation.screens.settings.security.model.SecurityUiEffect
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.storage.AuthSettingsRepository
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,22 +29,18 @@ class SecurityViewModel(
 
     private val lastMethodWarning = MutableStateFlow(false)
 
-    private val effects = Channel<SecurityUiEffect>(Channel.BUFFERED)
-    val uiEffects = effects.receiveAsFlow()
-
     val state: StateFlow<SecurityState> = combine(
         authSettings.offeredMethods,
-        combine(appSettings.discoverable, appSettings.discoveryEnabled, ::Pair),
-        combine(appSettings.pinEnabled, appSettings.biometricUnlock, ::Pair),
+        appSettings.discoverable,
+        appSettings.discoveryEnabled,
         lastMethodWarning,
-    ) { offered, (discoverable, discovery), (pin, biometric), warning ->
+    ) { offered, discoverable, discovery, warning ->
         SecurityState(
             isDiscoverable = discoverable,
             isDiscoveryEnabled = discovery,
             isCodeComparison = offered.any { it is OfferedAuthMethod.ConfirmFingerprint },
             isServerPassword = offered.any { it is OfferedAuthMethod.Password },
-            isPinEnabled = pin,
-            isBiometricUnlock = biometric,
+            isServerPin = offered.any { it is OfferedAuthMethod.Pin },
             showLastMethodWarning = warning,
         )
     }.stateIn(
@@ -71,10 +63,7 @@ class SecurityViewModel(
             is SecurityIntent.ServerPasswordChanged ->
                 setMethod(AuthMethod.Password, intent.enabled)
 
-            is SecurityIntent.PinChanged -> launchUpdate { setPinEnabled(intent.enabled) }
-
-            is SecurityIntent.BiometricChanged ->
-                launchUpdate { appSettings.setBiometricUnlock(intent.enabled) }
+            is SecurityIntent.ServerPinChanged -> setMethod(AuthMethod.Pin, intent.enabled)
 
             is SecurityIntent.ServerPasswordSet -> launchUpdate {
                 // Setting a password is an explicit act, so it also opens the method: storing a
@@ -98,14 +87,6 @@ class SecurityViewModel(
         }
 
         launchUpdate { authSettings.setEnabled(method, enabled) }
-    }
-
-    private suspend fun setPinEnabled(enabled: Boolean) {
-        if (enabled && !appSettings.pinSet.first()) {
-            effects.send(SecurityUiEffect.NavigateToPinSetup)
-        } else {
-            appSettings.setPinEnabled(enabled)
-        }
     }
 
     private fun launchUpdate(block: suspend () -> Unit) {

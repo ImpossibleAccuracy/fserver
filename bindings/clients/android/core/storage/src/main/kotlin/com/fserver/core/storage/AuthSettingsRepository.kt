@@ -22,4 +22,10 @@ interface AuthSettingsRepository {
      * not [AuthMethod.Password] is currently offered.
      */
     suspend fun setServerPassword(password: String)
+
+    /**
+     * Replaces this device's server PIN. Stored whether or not [AuthMethod.Pin] is offered;
+     * [AuthMethod.Pin] is never offered before one is set, whatever [setEnabled] said.
+     */
+    suspend fun setServerPin(pin: String)
 }

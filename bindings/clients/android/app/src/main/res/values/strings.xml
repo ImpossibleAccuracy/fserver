@@ -172,10 +172,16 @@
     <string name="pairing_method_confirm_fingerprint">Compare fingerprints</string>
     <string name="pairing_method_nearby_sas">Compare on-screen code</string>
     <string name="pairing_method_password">Enter password</string>
+    <string name="pairing_method_pin">Enter PIN</string>
+    <string name="pairing_method_one_time_code">One-time code</string>
+    <string name="pairing_secret_password">Server password</string>
+    <string name="pairing_secret_pin">Server PIN</string>
+    <string name="pairing_secret_one_time_code">Code shown on the device</string>
+    <string name="pairing_secret_one_time_code_hint">On the other device, open Settings → Security → Show a one-time code.</string>
+    <string name="pairing_connect">Connect</string>
     <string name="pairing_fingerprint_label">Server key fingerprint</string>
     <string name="pairing_fingerprint_hint">Compare these characters with the ones shown on your computer screen. If they match, the connection really goes to it.</string>
     <string name="pairing_fingerprint_pending">Shown once connected — a greeting alone proves nothing.</string>
-    <string name="pairing_remember_device">Remember the device and do not ask again</string>
     <string name="pairing_confirm">Fingerprints match — connect</string>
     <string name="pairing_confirm_sas">Codes match — connect</string>
 
@@ -447,6 +453,8 @@
     <string name="auth_method_confirm_fingerprint">Code comparison</string>
     <string name="auth_method_password">Server password</string>
     <string name="auth_method_nearby_sas">Nearby confirmation</string>
+    <string name="auth_method_pin">Server PIN</string>
+    <string name="auth_method_one_time_code">One-time code</string>
 
     <!-- Security -->
     <string name="security_title">Security</string>
@@ -460,21 +468,28 @@
     <string name="security_device_name_desc">The name this phone is seen under</string>
     <string name="security_method_sas_desc">The fingerprint on both screens</string>
     <string name="security_method_password_desc">Asked for by this phone</string>
-    <string name="security_method_pin">App PIN</string>
-    <string name="security_method_pin_desc">Asked for at launch</string>
-    <string name="security_method_biometric">Fingerprint</string>
-    <string name="security_method_biometric_desc">Instead of the PIN</string>
     <string name="security_action_change">Change</string>
     <string name="security_last_method_warning">One confirmation method has to stay on, or no device could ever connect.</string>
     <string name="security_rename_title">Name on the network</string>
     <string name="security_password_title">Server password</string>
     <string name="security_password_hint">Peers prove they know this. Changing it disconnects nothing, but every device has to be given the new one.</string>
+    <string name="security_method_server_pin_desc">Digits asked for by this phone</string>
+    <string name="security_one_time_code">Show a one-time code</string>
+    <string name="security_one_time_code_desc">For a device to type in once</string>
+    <string name="one_time_code_title">One-time code</string>
+    <string name="one_time_code_hint">On the other device, pick this phone, choose One-time code and type these digits. The code works once — a wrong attempt spends it too.</string>
+    <string name="one_time_code_expires_in">Expires in %1$s</string>
+    <string name="one_time_code_idle">No code on offer.</string>
+    <string name="one_time_code_expired">The code expired before anyone used it.</string>
+    <string name="one_time_code_spent">A device tried the code. If pairing did not go through, show a new one.</string>
+    <string name="one_time_code_used">A device paired with this code.</string>
+    <string name="one_time_code_new">New code</string>
     <string name="action_save">Save</string>
 
     <!-- App PIN — its own keypad, so the digits never reach the Android clipboard or suggestions -->
-    <string name="pin_title">App PIN</string>
+    <string name="pin_title">Server PIN</string>
     <string name="pin_step_new">Choose a new PIN</string>
-    <string name="pin_step_new_desc">Six digits. The old PIN was confirmed on the previous step.</string>
+    <string name="pin_step_new_desc">Six digits. Peers prove they know this; every device has to be given the new one.</string>
     <string name="pin_step_repeat">Repeat the PIN</string>
     <string name="pin_step_repeat_desc">Enter the same six digits once more.</string>
     <string name="pin_mismatch">Those did not match. Start again.</string>

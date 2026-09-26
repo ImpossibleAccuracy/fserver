@@ -154,9 +154,13 @@ sealed interface Destination : NavKey {
         @Serializable
         data object Security : Destination
 
-        /** [enableOnSave]: switch the PIN lock on once a PIN is chosen. */
+        /** Choosing the server PIN. [enableOnSave]: offer the PIN method once one is chosen. */
         @Serializable
         data class PinChange(val enableOnSave: Boolean = false) : Destination
+
+        /** A one-time code on screen, for a peer to type in. Withdrawn once the screen closes. */
+        @Serializable
+        data object OneTimeCode : Destination
 
         @Serializable
         data object Storage : Destination

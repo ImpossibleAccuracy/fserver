@@ -13,6 +13,7 @@ fun EntryProviderScope<Destination>.settingsSecurityEntry(
             navigateToPinSetup = {
                 navigator.navigate(Destination.Settings.PinChange(enableOnSave = true))
             },
+            navigateToOneTimeCode = { navigator.navigate(Destination.Settings.OneTimeCode) },
             navigateUp = navigator::navigateUp,
         )
     }

@@ -24,4 +24,18 @@ sealed interface AuthCredentials {
         /** Never let a credential print itself: these reach logs and crash dumps. */
         override fun toString(): String = "Password(password=***)"
     }
+
+    /** [pin] is what the user typed for *that* peer. */
+    data class Pin(val pin: String) : AuthCredentials {
+        override val method: AuthMethod = AuthMethod.Pin
+
+        override fun toString(): String = "Pin(pin=***)"
+    }
+
+    /** [code] is what the peer is showing on its screen right now. */
+    data class OneTimeCode(val code: String) : AuthCredentials {
+        override val method: AuthMethod = AuthMethod.OneTimeCode
+
+        override fun toString(): String = "OneTimeCode(code=***)"
+    }
 }

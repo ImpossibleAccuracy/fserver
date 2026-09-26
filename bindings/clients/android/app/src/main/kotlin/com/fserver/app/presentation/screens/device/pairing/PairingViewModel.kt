@@ -73,9 +73,8 @@ class PairingViewModel(
     ) { device, greeting, selectedMethod, editable ->
         PairingState(
             device = deviceUi(device, greeting, selectedMethod),
-            rememberDevice = editable.rememberDevice,
             isConnecting = editable.isConnecting,
-            password = editable.password,
+            secret = editable.secret,
             error = editable.error,
         )
     }.stateIn(
@@ -100,8 +99,7 @@ class PairingViewModel(
 
     fun onIntent(intent: PairingIntent) {
         when (intent) {
-            is PairingIntent.RememberDeviceChanged -> editable.update { it.copy(rememberDevice = intent.remember) }
-            is PairingIntent.MethodSelected -> selectedMethod.update { intent.method }
+            is PairingIntent.MethodSelected -> selectMethod(intent.method)
 
             PairingIntent.Connect -> viewModelScope.launch {
                 editable.update { it.copy(isConnecting = true) }
@@ -114,9 +112,21 @@ class PairingViewModel(
                 }
             }
 
-            is PairingIntent.UpdatePassword -> editable.update {
-                it.copy(password = intent.password)
-            }
+            is PairingIntent.UpdateSecret -> editable.update { it.copy(secret = intent.secret) }
+            is PairingIntent.SecretDigitPressed -> appendDigit(intent.digit)
+            PairingIntent.SecretBackspacePressed -> editable.update { it.copy(secret = it.secret.dropLast(1)) }
+        }
+    }
+
+    private fun selectMethod(method: AuthMethod) {
+        selectedMethod.value = method
+        editable.update { it.copy(secret = "") }
+    }
+
+    private fun appendDigit(digit: Char) {
+        editable.update {
+            if (it.secret.length >= PairingState.SECRET_MAX_DIGITS) it
+            else it.copy(secret = it.secret + digit)
         }
     }
 
@@ -142,11 +152,16 @@ class PairingViewModel(
         return false
     }
 
-    private fun credentials(): AuthCredentials? = when (selectedMethod.value) {
-        AuthMethod.ConfirmFingerprint -> AuthCredentials.ConfirmFingerprint
-        AuthMethod.NearbySas -> AuthCredentials.NearbySas
-        AuthMethod.Password -> AuthCredentials.Password(editable.value.password.orEmpty())
-        null -> null
+    private fun credentials(): AuthCredentials? {
+        val secret = editable.value.secret.trim()
+        return when (selectedMethod.value) {
+            AuthMethod.ConfirmFingerprint -> AuthCredentials.ConfirmFingerprint
+            AuthMethod.NearbySas -> AuthCredentials.NearbySas
+            AuthMethod.Password -> AuthCredentials.Password(secret)
+            AuthMethod.Pin -> AuthCredentials.Pin(secret)
+            AuthMethod.OneTimeCode -> AuthCredentials.OneTimeCode(secret)
+            null -> null
+        }
     }
 
     private suspend fun ensureLoggedIn() {
@@ -223,8 +238,7 @@ class PairingViewModel(
 }
 
 private data class Editable(
-    val rememberDevice: Boolean = false,
     val isConnecting: Boolean = false,
-    val password: String? = null,
+    val secret: String = "",
     val error: AppError? = null,
 )

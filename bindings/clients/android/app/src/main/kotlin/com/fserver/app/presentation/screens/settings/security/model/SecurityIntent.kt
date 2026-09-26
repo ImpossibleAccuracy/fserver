@@ -5,8 +5,7 @@ sealed interface SecurityIntent {
     data class DiscoveryChanged(val enabled: Boolean) : SecurityIntent
     data class CodeComparisonChanged(val enabled: Boolean) : SecurityIntent
     data class ServerPasswordChanged(val enabled: Boolean) : SecurityIntent
-    data class PinChanged(val enabled: Boolean) : SecurityIntent
-    data class BiometricChanged(val enabled: Boolean) : SecurityIntent
+    data class ServerPinChanged(val enabled: Boolean) : SecurityIntent
 
     data class ServerPasswordSet(val password: String) : SecurityIntent
 

@@ -2,12 +2,13 @@ package com.fserver.app.presentation.screens.settings.pin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.pin.model.PIN_LENGTH
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeIntent
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeState
 import com.fserver.app.presentation.screens.settings.pin.model.PinChangeUiEffect
+import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.storage.AuthSettingsRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,16 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-/**
- * Entering a new PIN twice.
- *
- * TODO: nothing is stored. There is no PIN store and no launch-time lock screen yet, so the second
- *  entry is compared and then dropped — the flow is real, the outcome is not. The store call goes
- *  where [onPinChosen] is.
- */
 class PinChangeViewModel(
     private val key: Destination.Settings.PinChange,
-    private val appSettings: AppSettingsStore,
+    private val authSettings: AuthSettingsRepository,
 ) : ViewModel() {
 
     private var firstEntry: String? = null
@@ -61,15 +55,12 @@ class PinChangeViewModel(
         val first = firstEntry
 
         when {
-            // First pass: hold it and ask again. Nothing is decided yet.
             first == null -> {
                 firstEntry = entry
                 entry = ""
                 _state.value = PinChangeState(step = PinChangeState.Step.Repeat)
             }
 
-            // A mismatch restarts the whole thing rather than just the repeat: the user may have
-            // mistyped the first entry, and there is no way to tell which one was wrong.
             first != entry -> {
                 firstEntry = null
                 entry = ""
@@ -81,13 +72,11 @@ class PinChangeViewModel(
     }
 
     private fun onPinChosen(pin: String) {
-        // TODO: persist `pin` once an app-lock store exists. It must not be stored in plain
-        //  preferences — hash it with a per-install salt, next to the identity key pair.
         firstEntry = null
         entry = ""
         viewModelScope.launch {
-            appSettings.setPinSet(true)
-            if (key.enableOnSave) appSettings.setPinEnabled(true)
+            authSettings.setServerPin(pin)
+            if (key.enableOnSave) authSettings.setEnabled(AuthMethod.Pin, enabled = true)
             effects.send(PinChangeUiEffect.NavigateBack)
         }
     }

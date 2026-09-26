@@ -41,8 +41,8 @@ internal class TrustGate(
          * @param confirmationCode the string the two ends compare, when the method derived one.
          * @param peerKnowsUs what the peer said about its own side of the pairing. A claim, not a
          * proof, and only ever a reason to ask more - never a reason to ask less.
-         * @param keyVerifiedOutOfBand true when the method proved the very key the user handed it,
-         * off the link, for this connection.
+         * @param keyVerifiedOutOfBand true when the user vouched for this peer off the link, for this
+         * connection - handed the method its key, or gave both ends the secret it proved.
          *
          * @throws NetworkException.AuthenticationRejected when the peer is not to be talked to.
          */
@@ -80,11 +80,11 @@ internal class TrustGate(
                             reason = TrustPrompt.Reason.KeyChanged(conflicting),
                         )
 
-                        // Asking now would be asking the user to confirm the key they themselves
-                        // just carried over - the prompt exists for keys that arrived over the
-                        // link, and this one did not.
+                        // Asking now would be asking the user to confirm what they themselves just
+                        // carried over - the prompt exists for peers that arrived over the link
+                        // alone, and this one did not.
                         keyVerifiedOutOfBand -> configHolder.current.logger.debug(
-                            "peer ${peer.fingerprint.value} proved the key it was reached by; not asking"
+                            "peer ${peer.fingerprint.value} was vouched for out of band; not asking"
                         )
 
                         else -> ask(

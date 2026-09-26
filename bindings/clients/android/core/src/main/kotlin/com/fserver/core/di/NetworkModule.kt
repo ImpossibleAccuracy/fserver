@@ -3,7 +3,9 @@ package com.fserver.core.di
 import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.auth.PairingCodes
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
+import com.fserver.core.network.auth.impl.PairingCodesImpl
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
@@ -26,6 +28,9 @@ internal val networkModule = module {
     // Bound under both types: `:net` takes the interface, the devices repository drives the
     // concrete one to answer whoever is waiting on a confirmation.
     singleOf(::InteractivePeerAuthenticator) bind PeerAuthenticator::class
+
+    // Bound under both types: the UI issues codes, the auth method spends them.
+    single { PairingCodesImpl(timeProvider = get(), scope = get()) } bind PairingCodes::class
 
     factoryOf(::JsonQrCodeParser)
     factoryOf(::JsonQrCodeWriter)

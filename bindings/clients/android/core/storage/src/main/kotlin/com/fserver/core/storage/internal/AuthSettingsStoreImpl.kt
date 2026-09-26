@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
  * first `DataStore` read lands - so the node starts on [DEFAULT_METHODS] and hot-swaps to the
  * stored set on the first emission. That swap is the same one a settings toggle triggers.
  *
- * TODO: the server password is this device's long-lived secret and sits in plain preferences.
+ * TODO: the server password and PIN are this device's long-lived secrets and sit in plain preferences.
  *  It belongs behind the keystore, next to the identity key pair.
  */
 internal class AuthSettingsStoreImpl(
@@ -45,12 +45,20 @@ internal class AuthSettingsStoreImpl(
         dataStore.edit { prefs -> prefs[PASSWORD] = password }
     }
 
+    override suspend fun setServerPin(pin: String) {
+        dataStore.edit { prefs -> prefs[PIN] = pin }
+    }
+
     private fun Preferences.toOfferedMethods(): List<OfferedAuthMethod> =
-        (this[ENABLED] ?: DEFAULT_METHODS).toOfferedMethods(this[PASSWORD] ?: DEFAULT_PASSWORD)
+        (this[ENABLED] ?: DEFAULT_METHODS).toOfferedMethods(
+            password = this[PASSWORD] ?: DEFAULT_PASSWORD,
+            pin = this[PIN],
+        )
 
     private companion object {
         val ENABLED = stringSetPreferencesKey("auth_offered_methods")
         val PASSWORD = stringPreferencesKey("auth_server_password")
+        val PIN = stringPreferencesKey("auth_server_pin")
 
         // TODO: development only - a first run should ask for a password rather than ship one.
         const val DEFAULT_PASSWORD = "ABCD"
@@ -59,8 +67,9 @@ internal class AuthSettingsStoreImpl(
 }
 
 /** Unknown names are dropped: a downgrade must not fail the whole set. */
-private fun Set<String>.toOfferedMethods(password: String): List<OfferedAuthMethod> =
+private fun Set<String>.toOfferedMethods(password: String, pin: String? = null): List<OfferedAuthMethod> =
     listOfNotNull(
         OfferedAuthMethod.ConfirmFingerprint.takeIf { AuthMethod.ConfirmFingerprint.name in this },
         OfferedAuthMethod.Password(password).takeIf { AuthMethod.Password.name in this },
+        pin?.let(OfferedAuthMethod::Pin)?.takeIf { AuthMethod.Pin.name in this },
     )

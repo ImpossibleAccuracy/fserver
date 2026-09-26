@@ -9,12 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,14 +28,16 @@ import com.fserver.app.presentation.designkit.DkCard
 import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkCardMeta
 import com.fserver.app.presentation.designkit.DkCardTitle
+import com.fserver.app.presentation.designkit.DkFilterChip
 import com.fserver.app.presentation.designkit.DkFingerprintBlock
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInlineSpinner
+import com.fserver.app.presentation.designkit.DkKeypad
+import com.fserver.app.presentation.designkit.DkPinDots
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSegmentedControl
-import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.designkit.DkTextField
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
@@ -124,14 +124,14 @@ private fun PairingScreenContent(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-                    Text(
-                        text = stringResource(R.string.pairing_fingerprint_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    when (device.selectedMethod) {
+                    when (val method = device.selectedMethod) {
                         AuthMethod.NearbySas,
                         AuthMethod.ConfirmFingerprint -> {
+                            Text(
+                                text = stringResource(R.string.pairing_fingerprint_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             if (device.fingerprintGroups.isNotEmpty()) {
                                 DkFingerprintBlock(groups = device.fingerprintGroups)
                                 Text(
@@ -148,39 +148,16 @@ private fun PairingScreenContent(
                             }
                         }
 
-                        AuthMethod.Password -> {
-                            OutlinedTextField(
-                                modifier = Modifier.fillMaxWidth(),
-                                value = state.password ?: "",
-                                onValueChange = {
-                                    onIntent(PairingIntent.UpdatePassword(it))
-                                }
-                            )
-                        }
+                        AuthMethod.Password,
+                        AuthMethod.Pin,
+                        AuthMethod.OneTimeCode -> SecretField(
+                            method = method,
+                            state = state,
+                            onIntent = onIntent,
+                        )
 
                         null -> {}
                     }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-                ) {
-                    Checkbox(
-                        checked = state.rememberDevice,
-                        onCheckedChange = { onIntent(PairingIntent.RememberDeviceChanged(it)) },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = MaterialTheme.colorScheme.primary,
-                            checkmarkColor = MaterialTheme.colorScheme.onPrimary,
-                            uncheckedColor = MaterialTheme.colorScheme.outline,
-                        ),
-                    )
-                    Text(
-                        text = stringResource(R.string.pairing_remember_device),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
                 }
 
                 if (state.error != null) {
@@ -205,10 +182,12 @@ private fun PairingScreenContent(
                 DkPrimaryButton(
                     modifier = Modifier.fillMaxWidth(),
                     text = stringResource(
-                        if (device.selectedMethod == AuthMethod.NearbySas) {
-                            R.string.pairing_confirm_sas
-                        } else {
-                            R.string.pairing_confirm
+                        when (device.selectedMethod) {
+                            AuthMethod.NearbySas -> R.string.pairing_confirm_sas
+                            AuthMethod.Password,
+                            AuthMethod.Pin,
+                            AuthMethod.OneTimeCode -> R.string.pairing_connect
+                            AuthMethod.ConfirmFingerprint, null -> R.string.pairing_confirm
                         }
                     ),
                     onClick = {
@@ -259,6 +238,53 @@ private fun DeviceCard(device: PairingState.DeviceUi) {
     }
 }
 
+@Composable
+private fun SecretField(
+    modifier: Modifier = Modifier,
+    method: AuthMethod,
+    state: PairingState,
+    onIntent: (PairingIntent) -> Unit,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+    ) {
+        if (method == AuthMethod.Password) {
+            DkTextField(
+                label = stringResource(R.string.pairing_secret_password),
+                value = state.secret,
+                onValueChange = { onIntent(PairingIntent.UpdateSecret(it)) },
+                isPassword = true,
+            )
+            return@Column
+        }
+
+        Text(
+            modifier = Modifier.fillMaxWidth(),
+            text = stringResource(
+                if (method == AuthMethod.Pin) R.string.pairing_secret_pin
+                else R.string.pairing_secret_one_time_code
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        DkPinDots(filled = state.secret.length, length = state.secretDots)
+        DkKeypad(
+            onDigit = { onIntent(PairingIntent.SecretDigitPressed(it)) },
+            onBackspace = { onIntent(PairingIntent.SecretBackspacePressed) },
+        )
+        if (method == AuthMethod.OneTimeCode) {
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.pairing_secret_one_time_code_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /** Lets the user pick which of the device's offered methods to authenticate with. */
 @Composable
 private fun AuthMethodPicker(
@@ -273,11 +299,19 @@ private fun AuthMethodPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (offeredMethods.size > 1) {
-            DkSegmentedControl(
-                options = offeredMethods.map { DkSegmentedOption(value = it, label = it.label) },
-                selected = selectedMethod ?: offeredMethods.first(),
-                onSelect = onSelect,
-            )
+            val selected = selectedMethod ?: offeredMethods.first()
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
+            ) {
+                offeredMethods.forEach { method ->
+                    DkFilterChip(
+                        text = method.label,
+                        selected = method == selected,
+                        onClick = { onSelect(method) },
+                    )
+                }
+            }
         } else {
             CardFact((selectedMethod ?: offeredMethods.first()).label)
         }
@@ -290,6 +324,8 @@ private val AuthMethod.label: String
         AuthMethod.ConfirmFingerprint -> stringResource(R.string.pairing_method_confirm_fingerprint)
         AuthMethod.NearbySas -> stringResource(R.string.pairing_method_nearby_sas)
         AuthMethod.Password -> stringResource(R.string.pairing_method_password)
+        AuthMethod.Pin -> stringResource(R.string.pairing_method_pin)
+        AuthMethod.OneTimeCode -> stringResource(R.string.pairing_method_one_time_code)
     }
 
 @Composable
@@ -368,6 +404,25 @@ private fun PairingScreenMultiMethodPreview() {
                     selectedMethod = AuthMethod.NearbySas,
                     fingerprintGroups = emptyList(),
                 ),
+            ),
+            onIntent = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "One-time code", showBackground = true)
+@Composable
+private fun PairingScreenOneTimeCodePreview() {
+    FServerTheme {
+        PairingScreenContent(
+            state = PairingState(
+                device = PairingState.SampleDevice.copy(
+                    offeredMethods = listOf(AuthMethod.ConfirmFingerprint, AuthMethod.OneTimeCode),
+                    selectedMethod = AuthMethod.OneTimeCode,
+                    fingerprintGroups = emptyList(),
+                ),
+                secret = "4821",
             ),
             onIntent = {},
             navigateUp = {},

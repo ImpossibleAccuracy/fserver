@@ -34,6 +34,8 @@ val AuthMethod.labelRes: Int
         AuthMethod.ConfirmFingerprint -> R.string.auth_method_confirm_fingerprint
         AuthMethod.NearbySas -> R.string.auth_method_nearby_sas
         AuthMethod.Password -> R.string.auth_method_password
+        AuthMethod.Pin -> R.string.auth_method_pin
+        AuthMethod.OneTimeCode -> R.string.auth_method_one_time_code
     }
 
 val DeviceKind?.icon: ImageVector

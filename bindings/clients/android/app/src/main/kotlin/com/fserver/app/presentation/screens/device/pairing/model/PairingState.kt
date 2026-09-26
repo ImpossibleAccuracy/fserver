@@ -11,9 +11,8 @@ import com.fserver.core.network.device.model.DeviceKind
 data class PairingState(
     /** Null while the greeting is still in flight, or once it has failed. */
     val device: DeviceUi? = null,
-    val rememberDevice: Boolean = true,
     val isConnecting: Boolean = false,
-    val password: String? = null,
+    val secret: String = "",
     /** Why the device could not be reached, or why the connection attempt failed. */
     val error: AppError? = null,
 ) {
@@ -46,10 +45,17 @@ data class PairingState(
      * picked. The fingerprint comparison is not in here: it happens in the user's head, and the
      * button must not imply the app verified it.
      */
+    val secretDots: Int
+        get() = maxOf(SECRET_DIGITS, secret.length)
+
     val canConnect: Boolean
-        get() = device != null && !isConnecting
+        get() = device != null && !isConnecting &&
+            (device.selectedMethod?.takesSecret != true || secret.isNotBlank())
 
     companion object {
+        const val SECRET_DIGITS = 6
+        const val SECRET_MAX_DIGITS = 12
+
         val SampleDevice = DeviceUi(
             identity = DeviceUi.IdentityUi(
                 name = "MacBook-Pro.local",
@@ -63,3 +69,9 @@ data class PairingState(
         )
     }
 }
+
+val AuthMethod.takesSecret: Boolean
+    get() = when (this) {
+        AuthMethod.Password, AuthMethod.Pin, AuthMethod.OneTimeCode -> true
+        AuthMethod.ConfirmFingerprint, AuthMethod.NearbySas -> false
+    }

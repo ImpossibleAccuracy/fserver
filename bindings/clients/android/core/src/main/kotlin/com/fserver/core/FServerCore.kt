@@ -5,6 +5,7 @@ import com.fserver.core.files.FilesController
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.auth.PairingCodes
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
@@ -60,6 +61,9 @@ class FServerCore private constructor(
 
     /** Why devices this process tried to reach did not answer, until they answer again. */
     val reachability: DeviceReachability by lazy { koin.get() }
+
+    /** One-time codes this device shows so a peer can pair by typing one in. */
+    val pairingCodes: PairingCodes by lazy { koin.get() }
 
     /** The network this device is on, as far as detection is concerned. */
     val networkInfo: NetworkInfoRepository by lazy { koin.get() }

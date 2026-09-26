@@ -33,7 +33,9 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.net.connection.PeerRef
 import com.fserver.net.connection.ProbeResult
 import com.fserver.net.security.auth.AuthRequest
+import com.fserver.net.security.auth.pake.OneTimeCodeAuthMethod
 import com.fserver.net.security.auth.pake.PakeAuthMethod
+import com.fserver.net.security.auth.pake.PinAuthMethod
 import com.fserver.net.session.CloseReason
 import com.fserver.net.session.PeerSession
 import com.fserver.net.spi.SpiId
@@ -122,6 +124,9 @@ internal class DevicesRepositoryImpl(
             method = credentials?.method?.authMethodId,
             params = when (credentials) {
                 is AuthCredentials.Password -> PakeAuthMethod.PakeAuthParams(credentials.password)
+                is AuthCredentials.Pin -> PinAuthMethod.PinAuthParams(credentials.pin)
+                is AuthCredentials.OneTimeCode ->
+                    OneTimeCodeAuthMethod.OneTimeCodeParams(credentials.code)
                 else -> null
             }
         )

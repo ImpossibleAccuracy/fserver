@@ -19,4 +19,11 @@ sealed interface OfferedAuthMethod {
         /** Never let the local secret print itself: these reach logs and crash dumps. */
         override fun toString(): String = "Password(password=***)"
     }
+
+    /** [pin] is *this* device's PIN - peers prove they know it. */
+    data class Pin(val pin: String) : OfferedAuthMethod {
+        override val method: AuthMethod = AuthMethod.Pin
+
+        override fun toString(): String = "Pin(pin=***)"
+    }
 }

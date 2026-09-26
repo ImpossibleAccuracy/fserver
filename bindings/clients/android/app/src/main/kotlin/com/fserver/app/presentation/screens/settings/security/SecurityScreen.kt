@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +20,7 @@ import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkInfoBox
+import com.fserver.app.presentation.designkit.DkNavigationRow
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSettingsRow
@@ -31,7 +31,6 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.settings.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
-import com.fserver.app.presentation.screens.settings.security.model.SecurityUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -40,22 +39,17 @@ fun SecurityScreen(
     viewModel: SecurityViewModel = koinViewModel(),
     navigateToPinChange: () -> Unit,
     navigateToPinSetup: () -> Unit,
+    navigateToOneTimeCode: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SecurityUiEffect.NavigateToPinSetup -> navigateToPinSetup()
-            }
-        }
-    }
 
     SecurityScreen(
         state = state,
         onIntent = viewModel::onIntent,
         navigateToPinChange = navigateToPinChange,
+        navigateToPinSetup = navigateToPinSetup,
+        navigateToOneTimeCode = navigateToOneTimeCode,
         navigateUp = navigateUp,
     )
 }
@@ -74,6 +68,8 @@ private fun SecurityScreen(
     state: SecurityState,
     onIntent: (SecurityIntent) -> Unit,
     navigateToPinChange: () -> Unit,
+    navigateToPinSetup: () -> Unit,
+    navigateToOneTimeCode: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     var editor by remember { mutableStateOf(SecurityEditor.None) }
@@ -153,30 +149,33 @@ private fun SecurityScreen(
             DkFadingDivider()
 
             DkSettingsRow(
-                title = stringResource(R.string.security_method_pin),
-                supportingText = stringResource(R.string.security_method_pin_desc),
+                title = stringResource(R.string.auth_method_pin),
+                supportingText = stringResource(R.string.security_method_server_pin_desc),
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ChangeButton(onClick = navigateToPinChange)
+                        if (state.isServerPin) {
+                            ChangeButton(onClick = navigateToPinChange)
+                        }
                         DkSwitch(
-                            checked = state.isPinEnabled,
-                            onCheckedChange = { onIntent(SecurityIntent.PinChanged(it)) },
+                            checked = state.isServerPin,
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    navigateToPinSetup()
+                                } else {
+                                    onIntent(SecurityIntent.ServerPinChanged(false))
+                                }
+                            },
                         )
                     }
                 },
             )
+            DkFadingDivider()
 
-            // Nothing to stand in for while there is no PIN, so the row is not offered at all.
-            if (state.isPinEnabled) {
-                DkFadingDivider()
-
-                DkSwitchRow(
-                    title = stringResource(R.string.security_method_biometric),
-                    supportingText = stringResource(R.string.security_method_biometric_desc),
-                    checked = state.isBiometricUnlock,
-                    onCheckedChange = { onIntent(SecurityIntent.BiometricChanged(it)) },
-                )
-            }
+            DkNavigationRow(
+                title = stringResource(R.string.security_one_time_code),
+                supportingText = stringResource(R.string.security_one_time_code_desc),
+                onClick = navigateToOneTimeCode,
+            )
         }
     }
 
@@ -218,11 +217,12 @@ private fun SecurityScreenPreview() {
                 isDiscoveryEnabled = true,
                 isCodeComparison = true,
                 isServerPassword = true,
-                isPinEnabled = true,
-                isBiometricUnlock = false,
+                isServerPin = true,
             ),
             onIntent = {},
             navigateToPinChange = {},
+            navigateToPinSetup = {},
+            navigateToOneTimeCode = {},
             navigateUp = {},
         )
     }

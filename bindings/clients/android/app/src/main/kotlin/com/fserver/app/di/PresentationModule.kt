@@ -25,6 +25,7 @@ import com.fserver.app.presentation.screens.source.shared.progress.SourceProgres
 import com.fserver.app.presentation.screens.device.details.DeviceDetailsViewModel
 import com.fserver.app.presentation.screens.settings.devices.DevicesViewModel
 import com.fserver.app.presentation.screens.settings.mydevice.MyDeviceViewModel
+import com.fserver.app.presentation.screens.settings.onetimecode.OneTimeCodeViewModel
 import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
 import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
 import org.koin.android.ext.koin.androidContext
@@ -73,4 +74,5 @@ val presentationModule = module {
     viewModelOf(::DeviceDetailsViewModel)
     viewModelOf(::SecurityViewModel)
     viewModelOf(::PinChangeViewModel)
+    viewModelOf(::OneTimeCodeViewModel)
 }

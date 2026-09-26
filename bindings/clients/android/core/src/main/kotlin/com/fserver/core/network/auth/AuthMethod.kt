@@ -1,7 +1,9 @@
 package com.fserver.core.network.auth
 
 import com.fserver.net.security.auth.AuthMethodId
+import com.fserver.net.security.auth.pake.OneTimeCodeAuthMethod
 import com.fserver.net.security.auth.pake.PakeAuthMethod
+import com.fserver.net.security.auth.pake.PinAuthMethod
 import com.fserver.net.security.auth.sas.SasAuthMethod
 
 /**
@@ -18,7 +20,13 @@ enum class AuthMethod(
     NearbySas(AuthMethodId.TransportConfirmation),
 
     /** Password-authenticated key exchange. */
-    Password(PakeAuthMethod.ID);
+    Password(PakeAuthMethod.ID),
+
+    /** This device's long-lived numeric PIN, over the same exchange as [Password]. */
+    Pin(PinAuthMethod.ID),
+
+    /** A short code this device shows on screen, spent by the first attempt. See [PairingCodes]. */
+    OneTimeCode(OneTimeCodeAuthMethod.ID);
 
     companion object {
         internal fun fromId(methodId: AuthMethodId): AuthMethod? =

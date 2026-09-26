@@ -63,6 +63,11 @@ object DkType {
             fontSize = 14.sp,
             lineHeight = 18.sp,
         )
+
+    /** A short code typed in on another device — read from arm's length, so it runs display-size. */
+    val monoCode: TextStyle
+        @Composable @ReadOnlyComposable
+        get() = MaterialTheme.typography.displaySmall.copy(fontFamily = FontFamily.Monospace)
 }
 
 /**

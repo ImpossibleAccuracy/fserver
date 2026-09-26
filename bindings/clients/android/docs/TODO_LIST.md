@@ -43,6 +43,10 @@ Idea:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.
 
+Major:
+- add QR connection via OutOfBandKeyAuthMethod
+- impl network scanner SPI
+
 ## Net
 
 Major:

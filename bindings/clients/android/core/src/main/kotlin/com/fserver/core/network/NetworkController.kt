@@ -4,6 +4,7 @@ import com.fserver.core.FServerConfig
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
+import com.fserver.core.network.auth.impl.PairingCodesImpl
 import com.fserver.core.network.dictionary.FileServerDictionary
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.impl.IdentityStoreAdapter
@@ -17,7 +18,9 @@ import com.fserver.net.config.NetworkConfig
 import com.fserver.net.config.networkConfig
 import com.fserver.net.connection.ConnectionPolicy
 import com.fserver.net.security.PeerAuthenticator
+import com.fserver.net.security.auth.pake.OneTimeCodeAuthMethod
 import com.fserver.net.security.auth.pake.PakeAuthMethod
+import com.fserver.net.security.auth.pake.PinAuthMethod
 import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.auth.transport.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.X25519CryptoProvider
@@ -40,6 +43,7 @@ internal class NetworkController(
     private val config: FServerConfig,
     private val storage: FServerStorage,
     private val authenticator: PeerAuthenticator,
+    private val pairingCodes: PairingCodesImpl,
     private val networkInfoRepository: NetworkInfoRepository,
     private val coroutineScope: BackgroundScope,
 ) {
@@ -105,11 +109,20 @@ internal class NetworkController(
                 crypto = crypto,
                 loadSavedPassword = { method.password },
             )
+
+            is OfferedAuthMethod.Pin -> PinAuthMethod(
+                crypto = crypto,
+                loadSavedPin = { method.pin },
+            )
         }
     }.plus(
-        // Transport-gated: a transport that keys its own link admits nothing else, and no other
-        // transport will offer it, so it needs no entry in [OfferedAuthMethod].
-        TransportConfirmationAuthMethod(crypto)
+        listOf(
+            // Inert until the user shows a code, so there is nothing to switch off.
+            OneTimeCodeAuthMethod(crypto, pairingCodes),
+            // Transport-gated: transport that keys its own link admits nothing else, and no
+            // other transport will offer it, so it needs no entry in [OfferedAuthMethod].
+            TransportConfirmationAuthMethod(crypto),
+        )
     )
 
     private fun buildBaseConfig(): NetworkConfig<FileServerMessages> =
