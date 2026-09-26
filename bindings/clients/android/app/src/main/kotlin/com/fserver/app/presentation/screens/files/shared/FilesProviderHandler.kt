@@ -15,12 +15,17 @@ import kotlin.time.Duration.Companion.milliseconds
 class FilesProviderHandler(
     private val filesController: FilesController,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
-    private val openFile: (SyncFileEntry) -> Unit,
+    private val openFile: suspend (SyncFileEntry) -> Unit,
 ) {
-    /** Indexed entries matching the filters, with paths rooted at their source's origin. */
+    /**
+     * Indexed entries matching the filters, with paths rooted at their source's origin.
+     *
+     * @param rooted Whether to root the paths at their source's origin, or leave them relative to it.
+     */
     fun loadEntries(
         requiredLocation: FileBrowserUi.File.Location? = null,
         sourceIds: Set<String>? = null,
+        rooted: Boolean = true,
     ): Flow<List<SyncFileEntry>> = combine(
         filesController.overallContent.debounce(50.milliseconds),
         registeredSourcesRepository.sources,
@@ -40,6 +45,8 @@ class FilesProviderHandler(
             .filter { sourceIds == null || it.sourceId in sourceIds }
             .filter { requiredLocation == null || requiredLocation in it.locations }
             .map {
+                if (!rooted) return@map it
+
                 val source = sourcesByIds[it.sourceId]!!
                 val root = when (source.id) {
                     in sharedOrigins -> "${source.originPath}/${source.label}"

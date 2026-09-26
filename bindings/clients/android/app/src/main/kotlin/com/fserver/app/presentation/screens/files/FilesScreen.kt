@@ -55,8 +55,8 @@ import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
 import com.fserver.app.presentation.shared.browser.FileBrowser
-import com.fserver.app.presentation.shared.browser.FileBrowserSelection
-import com.fserver.app.presentation.shared.browser.FileSortAction
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
+import com.fserver.app.presentation.shared.browser.composable.FileSortAction
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
@@ -234,10 +234,10 @@ private fun FilesContent(
                         preview = entries.preview,
                         // The notice below takes the inset instead when it is showing.
                         contentPadding = if (state.showsCloudNotice) PaddingValues() else contentPadding,
-                        selection = FileBrowserSelection(
-                            selected = opened,
-                            onSelectDirectory = { onIntent(FilesIntent.FolderOpened(it.path)) },
-                            walkUp = { onIntent(FilesIntent.FolderUp) },
+                        navigation = FileBrowserNavigation(
+                            opened = opened,
+                            onOpen = { onIntent(FilesIntent.FolderOpened(it.path)) },
+                            onUp = { onIntent(FilesIntent.FolderUp) },
                         ),
                         onFileClick = { onIntent(FilesIntent.EntryClicked(it.id)) },
                     )

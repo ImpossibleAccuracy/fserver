@@ -2,10 +2,10 @@ package com.fserver.app.presentation.screens.files
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -51,9 +51,7 @@ class FilesViewModel(
         filesController = filesController,
         registeredSourcesRepository = registeredSourcesRepository,
         openFile = {
-            viewModelScope.launch {
-                effects.send(FilesUiEffect.OpenFile(it.asPreviewFile()))
-            }
+            effects.send(FilesUiEffect.OpenFile(it.asPreviewFile()))
         }
     )
 

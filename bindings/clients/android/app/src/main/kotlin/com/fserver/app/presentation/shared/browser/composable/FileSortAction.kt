@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.shared.browser
+package com.fserver.app.presentation.shared.browser.composable
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box

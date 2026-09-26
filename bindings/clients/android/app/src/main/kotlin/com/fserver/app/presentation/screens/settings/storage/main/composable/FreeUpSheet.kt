@@ -45,7 +45,7 @@ import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.dkHatch
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState
-import com.fserver.app.presentation.shared.browser.layouts.BrowserGalleryTile
+import com.fserver.app.presentation.shared.browser.composable.BrowserGalleryTile
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize

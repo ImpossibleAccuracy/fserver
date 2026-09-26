@@ -43,7 +43,7 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.shared.browser.FileBrowser
 import com.fserver.app.presentation.shared.browser.FileBrowserHeader
-import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
 import com.fserver.app.presentation.shared.browser.layouts.displayLabel
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
@@ -106,48 +106,40 @@ private fun SourceAccessScreenContent(
     DkScaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            val selected = state.selection?.selected
+            val opened = state.navigation?.opened
 
             DkTopBar(
-                title = when (selected) {
-                    null -> stringResource(state.kind.titleRes)
-                    is FileBrowserUi.Directory -> selected.displayLabel()
-                    else -> selected.name
-                },
-                subtitle = when (selected) {
-                    is FileBrowserUi.Directory -> stringResource(
+                title = opened?.displayLabel() ?: stringResource(state.kind.titleRes),
+                subtitle = opened?.let {
+                    stringResource(
                         R.string.file_browser_directory_count,
-                        selected.files,
-                        selected.size.formatted(),
+                        it.files,
+                        it.size.formatted(),
                     )
-
-                    is FileBrowserUi.File -> selected.size?.formatted()
-
-                    else -> null
                 },
                 onBack = {
+                    val navigation = state.navigation
                     if (state.phase == SourceAccessState.Phase.Scanned &&
-                        state.selection?.selected != null &&
-                        state.selection.walkUp != null
+                        navigation?.opened != null
                     ) {
-                        state.selection.walkUp.invoke()
+                        navigation.onUp()
                     } else {
                         navigateUp()
                     }
                 },
                 actions = {
-                    if (state.selection != null) {
+                    if (state.navigation != null) {
                         DkIconButton(
                             icon = Icons.Default.Check,
                             onClick = onContinue,
-                            enabled = state.selection.selected != null,
+                            enabled = state.navigation.opened != null,
                         )
                     }
                 }
             )
         },
         bottomBar = {
-            if (state.selection != null) return@DkScaffold
+            if (state.navigation != null) return@DkScaffold
 
             DkActionBar {
                 when (state.phase) {
@@ -223,7 +215,7 @@ private fun SourceAccessScreenContent(
             SourceAccessState.Phase.Scanned -> ScannedBody(
                 modifier = bodyModifier,
                 state = state,
-                selection = state.selection,
+                navigation = state.navigation,
                 onFileClick = onFileClick,
             )
 
@@ -255,7 +247,7 @@ private fun SourceAccessScreenContent(
 private fun ScannedBody(
     modifier: Modifier = Modifier,
     state: SourceAccessState,
-    selection: FileBrowserSelection?,
+    navigation: FileBrowserNavigation?,
     onFileClick: (FileBrowserUi.File) -> Unit,
 ) {
     val preview = state.preview
@@ -283,7 +275,7 @@ private fun ScannedBody(
         modifier = modifier,
         preview = preview,
         onFileClick = onFileClick,
-        selection = selection,
+        navigation = navigation,
         header = {
             if (!state.isPickingDirectory) {
                 FileBrowserHeader(

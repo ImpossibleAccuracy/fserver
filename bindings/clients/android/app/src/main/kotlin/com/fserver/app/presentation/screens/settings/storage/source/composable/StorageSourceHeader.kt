@@ -88,15 +88,17 @@ fun StorageSourceHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 SortMenu(sort = state.sort, onSelect = onSortChange)
-                DkSegmentedControl(
-                    options = listOf(
-                        DkSegmentedOption(false, stringResource(R.string.storage_view_files)),
-                        DkSegmentedOption(true, stringResource(R.string.storage_view_folders)),
-                    ),
-                    selected = state.grouped,
-                    onSelect = onGroupedChange,
-                    compact = true,
-                )
+                if (state.hasFolders) {
+                    DkSegmentedControl(
+                        options = listOf(
+                            DkSegmentedOption(false, stringResource(R.string.storage_view_files)),
+                            DkSegmentedOption(true, stringResource(R.string.storage_view_folders)),
+                        ),
+                        selected = state.grouped,
+                        onSelect = onGroupedChange,
+                        compact = true,
+                    )
+                }
             }
         }
     }

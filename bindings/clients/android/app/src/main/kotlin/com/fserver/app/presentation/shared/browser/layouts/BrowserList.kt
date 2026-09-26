@@ -1,30 +1,38 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkFadingDivider
+import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkListRow
+import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkThumbnail
-import com.fserver.app.presentation.shared.browser.FileBrowser
 import com.fserver.app.presentation.shared.browser.FileBrowserHeader
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
-import com.fserver.app.presentation.shared.browser.RemoteOnlyBadge
-import com.fserver.app.presentation.shared.browser.FileRadio
-import com.fserver.app.presentation.shared.browser.icon
+import com.fserver.app.presentation.shared.browser.composable.BrowserFileRow
+import com.fserver.app.presentation.shared.browser.composable.EntryThumbnailSize
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
 private const val HeaderKey = "header"
+
+internal val BrowserListPadding = PaddingValues(vertical = DkSpacing.xs)
 
 /** Rows: name, size, and what kind of file it is. The row is the touch target that opens it. */
 @Composable
@@ -35,31 +43,79 @@ fun BrowserList(
     contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
+    onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
 ) {
-    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+    val actions = BrowserActions(
+        selection = selection,
+        onOpenDirectory = null,
+        onFileClick = onFileClick,
+        onFileLongClick = onFileLongClick,
+    )
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = BrowserListPadding + contentPadding,
+    ) {
         if (header != null) {
             item(key = HeaderKey) { header() }
         }
 
-        items(preview.files, key = { it.path }) { file ->
-            DkListRow(
-                title = file.name,
-                subtitle = file.size?.formatted(),
-                onClick = { onFileClick(file) },
-                leading = { DkThumbnail(icon = file.kind.icon()) },
-                trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RemoteOnlyBadge(file = file)
-                        FileRadio(
-                            file = file,
-                            selection = selection
-                        )
-                    }
-                },
-            )
-            DkFadingDivider()
-        }
+        entryRows(preview.files, actions)
     }
+}
+
+/** Rows, one per entry, divided the way every list in the app is. */
+internal fun LazyListScope.entryRows(
+    entries: List<FileBrowserUi.PreviewContentEntry>,
+    actions: BrowserActions,
+) {
+    itemsIndexed(entries, key = { _, entry -> entry.path }) { index, entry ->
+        BrowserEntryRow(entry = entry, actions = actions)
+        if (index != entries.lastIndex) DkFadingDivider()
+    }
+}
+
+@Composable
+internal fun BrowserEntryRow(
+    modifier: Modifier = Modifier,
+    entry: FileBrowserUi.PreviewContentEntry,
+    actions: BrowserActions,
+) {
+    when (entry) {
+        is FileBrowserUi.Directory -> BrowserDirectoryRow(
+            modifier = modifier,
+            directory = entry,
+            onOpen = actions.onOpenDirectory,
+        )
+
+        is FileBrowserUi.File -> BrowserFileRow(
+            modifier = modifier,
+            file = entry,
+            selection = actions.selection,
+            onFileClick = actions.onFileClick,
+            onFileLongClick = actions.onFileLongClick,
+        )
+    }
+}
+
+@Composable
+internal fun BrowserDirectoryRow(
+    modifier: Modifier = Modifier,
+    directory: FileBrowserUi.Directory,
+    onOpen: ((FileBrowserUi.Directory) -> Unit)?,
+) {
+    DkListRow(
+        modifier = modifier,
+        title = directory.displayLabel(),
+        subtitle = stringResource(
+            R.string.file_browser_directory_count,
+            directory.files,
+            directory.size.formatted(),
+        ),
+        leading = { DkThumbnail(icon = Icons.Default.FolderOpen, size = EntryThumbnailSize) },
+        trailing = { DkIcon(icon = Icons.Default.ChevronRight, size = 16.dp) },
+        onClick = onOpen?.let { { it(directory) } },
+    )
 }
 
 @Preview(name = "List", showBackground = true)
@@ -91,8 +147,8 @@ private fun FileBrowserSelectableListPreview() {
             ),
             onFileClick = {},
             selection = FileBrowserSelection(
-                selected = SampleImage,
-                onSelectFile = {},
+                selected = setOf(SampleImage.id),
+                onToggle = {},
             ),
         )
     }
@@ -106,6 +162,7 @@ private val SampleImage = FileBrowserUi.File(
     locator = "/storage/emulated/0/DCIM/Camera/IMG_0001.jpg",
     size = FileSize(4_210_000),
     extensionLabel = null,
+    sync = FileBrowserUi.File.Sync.Waiting,
 )
 
 private val SampleDocument = FileBrowserUi.File(

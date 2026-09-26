@@ -1,40 +1,31 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.fserver.app.presentation.composable.model.FileKindUi
-import com.fserver.app.presentation.designkit.DkMediaTile
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.FileBrowserHeader
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
-import com.fserver.app.presentation.shared.browser.RemoteOnlyBadge
-import com.fserver.app.presentation.shared.browser.FileRadio
+import com.fserver.app.presentation.shared.browser.composable.BrowserGalleryTile
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-import com.fserver.app.presentation.shared.viewer.FileThumbnail
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
-private val GridItemSpanMax = GridItemSpan(3)
 private const val HeaderKey = "header"
+
+private val GridSpacing = 3.dp
+private const val GridColumns = 3
 
 /** Tiles: a gallery is judged by what it looks like, so nothing but the files is on screen. */
 @Composable
@@ -45,80 +36,57 @@ fun BrowserGallery(
     contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
+    onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
+) {
+    val actions = BrowserActions(
+        selection = selection,
+        onOpenDirectory = null,
+        onFileClick = onFileClick,
+        onFileLongClick = onFileLongClick,
+    )
+
+    BrowserGrid(modifier = modifier, contentPadding = contentPadding) {
+        if (header != null) {
+            item(key = HeaderKey, span = { GridItemSpan(maxLineSpan) }) { header() }
+        }
+
+        entryTiles(preview.files, actions)
+    }
+}
+
+
+/** The grid every tiled layout sits in; [content] fills it with [entryTiles]. */
+@Composable
+internal fun BrowserGrid(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues,
+    content: LazyGridScope.() -> Unit,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(GridColumns),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             horizontal = DkSpacing.screenPadding,
             vertical = DkSpacing.sm,
         ) + contentPadding,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        if (header != null) {
-            item(key = HeaderKey, span = { GridItemSpanMax }) { header() }
-        }
-
-        items(items = preview.files, key = { it.path }) { file ->
-            BrowserGalleryTile(
-                file = file,
-                selection = selection,
-                onFileClick = onFileClick,
-            )
-        }
-    }
+        horizontalArrangement = Arrangement.spacedBy(GridSpacing),
+        verticalArrangement = Arrangement.spacedBy(GridSpacing),
+        content = content,
+    )
 }
 
-@Composable
-fun BrowserGalleryTile(
-    modifier: Modifier = Modifier,
-    file: FileBrowserUi.File,
-    selection: FileBrowserSelection?,
-    onFileClick: ((FileBrowserUi.File) -> Unit)?,
+/** Files as tiles. */
+internal fun LazyGridScope.entryTiles(
+    files: List<FileBrowserUi.File>,
+    actions: BrowserActions,
 ) {
-    val hasThumbnail = file.kind.isMedia
-    var isThumbnailLoaded by remember(file.locator) { mutableStateOf(false) }
-
-    Box(modifier = modifier) {
-        DkMediaTile(
-            extensionLabel = file.extensionLabel.takeUnless { isThumbnailLoaded },
-            thumbnail = if (hasThumbnail) {
-                {
-                    FileThumbnail(
-                        modifier = Modifier.matchParentSize(),
-                        file = file,
-                        onLoaded = { isThumbnailLoaded = true },
-                    )
-                }
-            } else {
-                null
-            },
-            label = file.name.takeUnless { file.kind == FileKindUi.Image },
-            onClick = onFileClick?.let { { it(file) } },
+    items(files, key = { it.path }, contentType = { "tile" }) { file ->
+        BrowserGalleryTile(
+            file = file,
+            selection = actions.selection,
+            onFileClick = actions.onFileClick,
+            onFileLongClick = actions.onFileLongClick,
         )
-
-        if (file.isRemoteOnly) {
-            RemoteOnlyBadge(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(DkSpacing.xs)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = MaterialTheme.shapes.small,
-                    )
-                    .padding(DkSpacing.xxs),
-                file = file,
-            )
-        }
-
-        // On the tile rather than beside it: a grid has no gutter to put a control in.
-        Box(modifier = Modifier.align(Alignment.TopStart)) {
-            FileRadio(
-                file = file,
-                selection = selection
-            )
-        }
     }
 }
 

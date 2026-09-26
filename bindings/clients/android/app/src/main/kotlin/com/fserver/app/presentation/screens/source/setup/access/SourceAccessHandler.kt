@@ -7,7 +7,7 @@ import com.fserver.app.presentation.screens.source.setup.access.model.SourceAcce
 import com.fserver.app.presentation.screens.source.setup.shared.model.PickedSourceUi
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
-import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.toPreview
 import com.fserver.app.presentation.shared.error.ErrorReporter
@@ -46,15 +46,10 @@ class SourceAccessHandler(
     private var scanJob: Job? = null
 
     val state: StateFlow<SourceAccessState?> = combine(flow, editable) { shared, local ->
-        val previewSelection = if (local.selectable) FileBrowserSelection(
-            selected = local.selection,
-            onSelectFile = null,
-            onSelectDirectory = { entry ->
-                editable.update { it.copy(selection = entry) }
-            },
-            walkUp = {
-                editable.update { it.copy(selection = it.parentOfSelection()) }
-            }
+        val navigation = if (local.selectable) FileBrowserNavigation(
+            opened = local.opened,
+            onOpen = { entry -> editable.update { it.copy(opened = entry) } },
+            onUp = { editable.update { it.copy(opened = it.parentOfOpened()) } },
         ) else null
 
         SourceAccessState(
@@ -66,7 +61,7 @@ class SourceAccessHandler(
             bytes = local.bytes,
             preview = local.preview,
             progress = local.progress,
-            selection = previewSelection
+            navigation = navigation,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -124,11 +119,7 @@ class SourceAccessHandler(
      * the first rather than filtering it: nothing outside the folder is a source anymore.
      */
     private fun confirmDirectory() {
-        val entry = editable.value.selection ?: return
-
-        if (entry !is FileBrowserUi.Directory) {
-            throw IllegalStateException("Expected a directory, got $entry")
-        }
+        val entry = editable.value.opened ?: return
 
         runScan(
             target = SourceLocation.Directory(entry.path),
@@ -231,8 +222,8 @@ class SourceAccessHandler(
     }
 
     /** Where a back gesture inside the preview lands: one folder up, or the top of the tree. */
-    private fun Editable.parentOfSelection(): FileBrowserUi.Directory? =
-        (preview as? FileBrowserUi.Tree)?.parentOf(selection)
+    private fun Editable.parentOfOpened(): FileBrowserUi.Directory? =
+        (preview as? FileBrowserUi.Tree)?.parentOf(opened)
 
     private fun SourceAccessGrant.directory(): SourceLocation? = when (this) {
         SourceAccessGrant.Denied -> null
@@ -252,6 +243,7 @@ class SourceAccessHandler(
         val preview: FileBrowserUi? = null,
         val progress: DirectoryScanProgress? = null,
         val selectable: Boolean = false,
-        val selection: FileBrowserUi.PreviewContentEntry? = null
+        /** The folder the preview is in, which is also the one confirming picks. */
+        val opened: FileBrowserUi.Directory? = null,
     )
 }

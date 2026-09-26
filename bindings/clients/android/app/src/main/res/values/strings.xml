@@ -538,10 +538,6 @@
     <string name="storage_sort_name">By name</string>
     <string name="storage_view_files">Files</string>
     <string name="storage_view_folders">Folders</string>
-    <string name="storage_file_on_peer">on %1$s</string>
-    <string name="storage_file_waiting">waiting to send</string>
-    <string name="storage_file_sending">sending</string>
-    <string name="storage_file_in_folder">%1$s · %2$s</string>
     <string name="storage_selected">%1$d selected</string>
     <string name="storage_select_all">Select all</string>
     <string name="storage_deselect_all">Deselect all</string>
@@ -674,6 +670,8 @@
 
     <!-- Send flow: what the scan found, before anything is done with it -->
     <string name="source_preview_truncated">Showing %1$d of %2$d files</string>
+    <string name="file_sync_waiting">waiting to send</string>
+    <string name="file_sync_sending">sending</string>
     <string name="file_browser_empty">The scan found nothing here.</string>
     <string name="file_viewer_enable_notifications">Allow notifications to keep playing in the background</string>
     <string name="file_viewer_open_failed">No app on this phone opens that file.</string>

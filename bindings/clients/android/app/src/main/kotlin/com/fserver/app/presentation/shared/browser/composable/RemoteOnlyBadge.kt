@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.shared.browser
+package com.fserver.app.presentation.shared.browser.composable
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud

@@ -9,15 +9,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,28 +30,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkCaption
-import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkInlineSpinner
-import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.settings.storage.source.composable.DeleteUncopiedDialog
 import com.fserver.app.presentation.screens.settings.storage.source.composable.SelectionBar
-import com.fserver.app.presentation.screens.settings.storage.source.composable.StorageFileRow
 import com.fserver.app.presentation.screens.settings.storage.source.composable.StorageSourceHeader
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceIntent
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState
+import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceUiEffect
+import com.fserver.app.presentation.shared.browser.FileBrowser
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
-import com.fserver.common.model.FileSize
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -65,13 +63,22 @@ fun StorageSourceScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fileOpener = LocalFileOpener.current
 
-    StorageSourceScreenContent(
-        modifier = modifier,
-        state = state,
-        onIntent = viewModel::onIntent,
-        openFile = fileOpener::open,
-        navigateUp = navigateUp,
-    )
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                is StorageSourceUiEffect.OpenFile -> fileOpener.open(effect.file)
+            }
+        }
+    }
+
+    state?.let { state ->
+        StorageSourceScreenContent(
+            modifier = modifier,
+            state = state,
+            onIntent = viewModel::onIntent,
+            navigateUp = navigateUp,
+        )
+    }
 }
 
 @Composable
@@ -79,7 +86,6 @@ private fun StorageSourceScreenContent(
     modifier: Modifier = Modifier,
     state: StorageSourceState,
     onIntent: (StorageSourceIntent) -> Unit,
-    openFile: (FileBrowserUi.File) -> Unit,
     navigateUp: () -> Unit,
 ) {
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
@@ -142,25 +148,28 @@ private fun StorageSourceScreenContent(
                 )
             }
 
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = innerPadding,
-            ) {
-                item(key = "header") {
-                    StorageSourceHeader(
-                        modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                        state = state,
-                        onSortChange = { onIntent(StorageSourceIntent.SortChanged(it)) },
-                        onGroupedChange = { onIntent(StorageSourceIntent.GroupingChanged(it)) },
-                    )
-                }
-
-                if (state.isEmpty) {
-                    item(key = "empty") { EmptyFiles(state = state) }
-                } else {
-                    files(state = state, onIntent = onIntent, openFile = openFile)
-                }
+            state.isEmpty -> Column(modifier = Modifier.padding(innerPadding)) {
+                SourceHeader(state = state, onIntent = onIntent)
+                EmptyFiles(state = state)
             }
+
+            else -> FileBrowser(
+                modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+                preview = state.preview,
+                navigation = rememberFolderNavigation(state.tree),
+                selection = if (state.editing) {
+                    FileBrowserSelection(
+                        selected = state.selected,
+                        onToggle = { onIntent(StorageSourceIntent.FileToggled(it.id)) },
+                    )
+                } else {
+                    null
+                },
+                contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
+                header = { SourceHeader(state = state, onIntent = onIntent) },
+                onFileClick = { onIntent(StorageSourceIntent.FileClicked(it.id)) },
+                onFileLongClick = { onIntent(StorageSourceIntent.FileLongPressed(it.id)) },
+            )
         }
     }
 
@@ -198,36 +207,34 @@ private fun SelectionTopBar(
     )
 }
 
-private fun LazyListScope.files(
+@Composable
+private fun SourceHeader(
+    modifier: Modifier = Modifier,
     state: StorageSourceState,
     onIntent: (StorageSourceIntent) -> Unit,
-    openFile: (FileBrowserUi.File) -> Unit,
 ) {
-    state.groups.forEach { group ->
-        val folder = group.folder
-        if (folder != null) {
-            item(key = "folder:$folder") {
-                DkSectionLabel(
-                    modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                    text = folder,
-                    trailing = { DkMonoCaption(text = FileSize(group.bytes).formatted()) },
-                )
-            }
-        }
+    StorageSourceHeader(
+        modifier = modifier.padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.sm),
+        state = state,
+        onSortChange = { onIntent(StorageSourceIntent.SortChanged(it)) },
+        onGroupedChange = { onIntent(StorageSourceIntent.GroupingChanged(it)) },
+    )
+}
 
-        itemsIndexed(group.files, key = { _, file -> file.id }) { index, file ->
-            StorageFileRow(
-                file = file,
-                deviceName = state.peer.name,
-                editing = state.editing,
-                selected = file.id in state.selected,
-                onOpen = { openFile(file.preview) },
-                onToggle = { onIntent(StorageSourceIntent.FileToggled(file.id)) },
-                onLongPress = { onIntent(StorageSourceIntent.FileLongPressed(file.id)) },
-            )
-            if (index != group.files.lastIndex) DkFadingDivider()
-        }
-    }
+/**
+ * The open folder, kept by path: the tree is rebuilt on every transfer update, and a folder held
+ * by value would close each time.
+ */
+@Composable
+private fun rememberFolderNavigation(tree: FileBrowserUi.Tree): FileBrowserNavigation {
+    var openedPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val opened = openedPath?.let { tree.trailTo(it).lastOrNull() }
+
+    return FileBrowserNavigation(
+        opened = opened,
+        onOpen = { openedPath = it.path },
+        onUp = { openedPath = tree.parentOf(opened)?.path },
+    )
 }
 
 @Composable
@@ -272,7 +279,6 @@ private fun StorageSourceScreenPreview() {
         StorageSourceScreenContent(
             state = StorageSourceState.Sample,
             onIntent = {},
-            openFile = {},
             navigateUp = {},
         )
     }
@@ -285,7 +291,6 @@ private fun StorageSourceScreenEditingPreview() {
         StorageSourceScreenContent(
             state = StorageSourceState.SampleEditing,
             onIntent = {},
-            openFile = {},
             navigateUp = {},
         )
     }
@@ -298,7 +303,6 @@ private fun StorageSourceScreenEmptyPreview() {
         StorageSourceScreenContent(
             state = StorageSourceState.SampleOffPhone,
             onIntent = {},
-            openFile = {},
             navigateUp = {},
         )
     }

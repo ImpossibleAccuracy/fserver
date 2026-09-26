@@ -2,75 +2,56 @@ package com.fserver.app.presentation.shared.browser.layouts
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.FileKindUi
-import com.fserver.app.presentation.composable.model.formatted
-import com.fserver.app.presentation.designkit.DkIcon
-import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkThumbnail
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
-import com.fserver.app.presentation.shared.browser.RemoteOnlyBadge
-import com.fserver.app.presentation.shared.browser.FileRadio
-import com.fserver.app.presentation.shared.browser.icon
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
 
 
+/**
+ * Folders, opened one at a time. Walking them is [navigation]'s job and ticking files is
+ * [selection]'s; the two are independent, so a selection survives walking in and out of folders.
+ */
 @Composable
 fun BrowserTree(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi.Tree,
-    selection: FileBrowserSelection?,
+    navigation: FileBrowserNavigation? = null,
+    selection: FileBrowserSelection? = null,
     contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
+    onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
 ) {
-    // Walking the folders is what a tree is for, picking one out of it is not: a caller that owns
-    // no selection still gets the walk, kept here instead.
-    val walk = selection ?: rememberTreeWalk(preview)
+    // A caller that does not show where the walk is still gets one, kept here instead.
+    val walk = navigation ?: rememberTreeNavigation(preview)
+    val opened = walk.opened
 
-    val visibleDirectory = remember(walk.selected) {
-        walk.selected as? FileBrowserUi.Directory
-    }
-
-    BackHandler(
-        enabled = visibleDirectory != null && walk.walkUp != null,
-        onBack = { walk.walkUp?.invoke() },
-    )
+    BackHandler(enabled = opened != null, onBack = walk.onUp)
 
     Column(modifier = modifier.fillMaxSize()) {
         if (header != null) {
@@ -81,171 +62,76 @@ fun BrowserTree(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            targetState = visibleDirectory,
+            targetState = opened,
             contentKey = { it?.path },
         ) { directory ->
+            val actions = BrowserActions(
+                selection = selection,
+                onOpenDirectory = walk.onOpen,
+                onFileClick = onFileClick,
+                onFileLongClick = onFileLongClick,
+            )
+
             if (directory?.isMediaDirectory == true) {
-                EntriesGrid(
-                    modifier = Modifier.fillMaxSize(),
-                    visibleContent = directory.contents,
-                    selection = walk,
-                    contentPadding = contentPadding,
-                    onFileClick = onFileClick,
-                )
+                val (media, rest) = directory.contents.partition { it is FileBrowserUi.File && it.kind.isMedia }
+
+                BrowserGrid(contentPadding = contentPadding) {
+                    entryRows(rest, actions)
+                    entryTiles(media.filterIsInstance<FileBrowserUi.File>(), actions)
+                }
             } else {
-                EntriesList(
+                LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    visibleContent = directory?.contents ?: preview.rootContents,
-                    selection = walk,
-                    contentPadding = contentPadding,
-                    onFileClick = onFileClick,
-                )
+                    contentPadding = BrowserListPadding + contentPadding,
+                ) {
+                    entryRows(directory?.contents ?: preview.rootContents, actions)
+                }
             }
         }
     }
 }
 
-private val FileBrowserUi.Directory?.depth: Int
-    get() = this?.path?.count { it == '/' } ?: -1
-
-/** The walk a read-only tree does on its own: open a folder, back out of it, nothing selected. */
-@Composable
-private fun rememberTreeWalk(preview: FileBrowserUi.Tree): FileBrowserSelection {
-    var opened by remember(preview) { mutableStateOf<FileBrowserUi.Directory?>(null) }
-
-    return remember(preview, opened) {
-        FileBrowserSelection(
-            selected = opened,
-            onSelectDirectory = { opened = it },
-            walkUp = { opened = preview.parentOf(opened) },
+/** Entries as full-width rows inside a grid, measuring exactly as they do in a list. */
+internal fun LazyGridScope.entryRows(
+    entries: List<FileBrowserUi.PreviewContentEntry>,
+    actions: BrowserActions,
+) {
+    items(
+        items = entries,
+        key = { it.path },
+        contentType = { "row" },
+        span = { GridItemSpan(maxLineSpan) },
+    ) { entry ->
+        BrowserEntryRow(
+            modifier = Modifier.bleed(DkSpacing.screenPadding),
+            entry = entry,
+            actions = actions,
         )
     }
 }
 
-@Composable
-private fun EntriesGrid(
-    modifier: Modifier = Modifier,
-    visibleContent: List<FileBrowserUi.PreviewContentEntry>,
-    selection: FileBrowserSelection?,
-    contentPadding: PaddingValues,
-    onFileClick: (FileBrowserUi.File) -> Unit,
-) {
-    val (mediaItems, regularItems) = visibleContent.partition {
-        when (it) {
-            is FileBrowserUi.Directory -> false
-            is FileBrowserUi.File -> it.kind.isMedia
-        }
-    }
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            horizontal = DkSpacing.screenPadding,
-            vertical = DkSpacing.sm,
-        ) + contentPadding,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        items(
-            items = regularItems,
-            key = { it.path },
-            contentType = { if (it is FileBrowserUi.Directory) "directory" else "file" },
-            span = { GridItemSpan(maxLineSpan) }
-        ) {
-            EntryListItem(
-                row = it,
-                selection = selection,
-                onFileClick = onFileClick,
-            )
-        }
-
-        items(
-            items = mediaItems,
-            key = { it.path },
-            contentType = { if (it is FileBrowserUi.Directory) "directory" else "file" },
-        ) {
-            if (it !is FileBrowserUi.File) return@items // GridItemSpan is only for files, directories are always full-width
-
-            BrowserGalleryTile(
-                file = it,
-                selection = selection,
-                onFileClick = onFileClick,
-            )
-        }
-    }
+/** Widens a row past the grid's gutter, so it is as full-bleed as in a list. */
+private fun Modifier.bleed(gutter: Dp): Modifier = layout { measurable, constraints ->
+    val extra = gutter.roundToPx()
+    val placeable = measurable.measure(
+        constraints.copy(
+            minWidth = constraints.minWidth + extra * 2,
+            maxWidth = constraints.maxWidth + extra * 2,
+        )
+    )
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-extra, 0) }
 }
 
+/** The walk a tree does on its own: open a folder, back out of it. */
 @Composable
-private fun EntriesList(
-    modifier: Modifier = Modifier,
-    visibleContent: List<FileBrowserUi.PreviewContentEntry>,
-    selection: FileBrowserSelection?,
-    contentPadding: PaddingValues,
-    onFileClick: (FileBrowserUi.File) -> Unit,
-) {
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(vertical = DkSpacing.xs) + contentPadding,
-    ) {
-        items(items = visibleContent, key = { it.path }) { row ->
-            EntryListItem(
-                row = row,
-                selection = selection,
-                onFileClick = onFileClick,
-            )
-        }
-    }
-}
+private fun rememberTreeNavigation(preview: FileBrowserUi.Tree): FileBrowserNavigation {
+    var opened by remember(preview) { mutableStateOf<FileBrowserUi.Directory?>(null) }
 
-@Composable
-private fun EntryListItem(
-    selection: FileBrowserSelection?,
-    row: FileBrowserUi.PreviewContentEntry,
-    onFileClick: (FileBrowserUi.File) -> Unit,
-) {
-    when (row) {
-        is FileBrowserUi.Directory -> {
-            DkListRow(
-                title = row.displayLabel(),
-                subtitle = stringResource(
-                    R.string.file_browser_directory_count,
-                    row.files,
-                    row.size.formatted(),
-                ),
-                leading = {
-                    DkThumbnail(
-                        icon = Icons.Default.FolderOpen,
-                        size = 48.dp,
-                    )
-                },
-                trailing = {
-                    DkIcon(
-                        icon = Icons.Default.ChevronRight,
-                        size = 16.dp,
-                    )
-                },
-                onClick = { selection?.onSelectDirectory?.invoke(row) },
-            )
-        }
-
-        is FileBrowserUi.File -> DkListRow(
-            title = row.name,
-            titleMaxLines = 2,
-            subtitle = row.size?.formatted(),
-            onClick = { onFileClick(row) },
-            leading = {
-                DkThumbnail(
-                    icon = row.kind.icon(),
-                    size = 48.dp,
-                )
-            },
-            trailing = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RemoteOnlyBadge(file = row)
-                    FileRadio(file = row, selection = selection)
-                }
-            },
+    return remember(preview, opened) {
+        FileBrowserNavigation(
+            opened = opened,
+            onOpen = { opened = it },
+            onUp = { opened = preview.parentOf(opened) },
         )
     }
 }
@@ -267,10 +153,6 @@ private fun FileBrowserTreePreview() {
                 directories = SampleVolumes,
             ),
             onFileClick = {},
-            selection = FileBrowserSelection(
-                selected = null,
-                onSelectDirectory = {},
-            ),
         )
     }
 }

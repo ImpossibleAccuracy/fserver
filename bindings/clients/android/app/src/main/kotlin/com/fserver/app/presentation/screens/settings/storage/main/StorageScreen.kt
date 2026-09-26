@@ -14,8 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.LinkDirectionIcons
 import com.fserver.app.presentation.composable.StorageUsage
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkCaption
@@ -38,7 +39,6 @@ import com.fserver.app.presentation.designkit.DkSkeletonBlock
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.settings.storage.main.composable.FreeUpCard
-import com.fserver.app.presentation.composable.LinkDirectionIcons
 import com.fserver.app.presentation.screens.settings.storage.main.composable.FreeUpSheet
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageIntent
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState
@@ -55,13 +55,15 @@ fun StorageScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    StorageScreenContent(
-        modifier = modifier,
-        state = state,
-        onIntent = viewModel::onIntent,
-        navigateToSource = navigateToSource,
-        navigateUp = navigateUp,
-    )
+    state?.let { state ->
+        StorageScreenContent(
+            modifier = modifier,
+            state = state,
+            onIntent = viewModel::onIntent,
+            navigateToSource = navigateToSource,
+            navigateUp = navigateUp,
+        )
+    }
 }
 
 @Composable
@@ -173,7 +175,12 @@ private fun LazyListScope.linksSection(
                 link.peer.name,
                 pluralStringResource(R.plurals.storage_files, link.files, link.files),
             ),
-            subtitleLeading = { LinkDirectionIcons(direction = link.direction, deviceKind = link.peer.kind) },
+            subtitleLeading = {
+                LinkDirectionIcons(
+                    direction = link.direction,
+                    deviceKind = link.peer.kind
+                )
+            },
             trailing = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

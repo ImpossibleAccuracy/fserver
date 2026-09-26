@@ -23,23 +23,28 @@ import com.fserver.app.presentation.shared.browser.layouts.BrowserTree
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 
 /**
- * What turns a preview into a picker. Left out, the preview is read-only.
- *
- * A layout offers a radio for whichever kind has a callback and none for the other, so a screen
- * that narrows a scan to one folder passes only [onSelectDirectory] and the files stay taps that
- * open them.
- *
- * [selected] is matched against a directory's `path` or a file's `locator` — the device-local
- * address in both cases, which is what a caller does something with afterward.
+ * Which folder of a tree is open, and the way in and out of one. Hoisted by a caller that shows
+ * where the walk is (a title, breadcrumbs) or acts on the open folder; left out, the tree keeps
+ * its own walk.
+ */
+@Immutable
+class FileBrowserNavigation(
+    val opened: FileBrowserUi.Directory?,
+    val onOpen: (FileBrowserUi.Directory) -> Unit,
+    val onUp: () -> Unit,
+)
+
+/**
+ * Files ticked for an action, by [FileBrowserUi.File.id]. While there is one, a tap ticks and a
+ * long press opens; without one, a tap opens.
  */
 @Immutable
 class FileBrowserSelection(
-    val selected: FileBrowserUi.PreviewContentEntry?,
-    val onSelectFile: ((FileBrowserUi.File) -> Unit)? = null,
-    val onSelectDirectory: ((FileBrowserUi.Directory) -> Unit)? = null,
-    /** Open parent directory of the selected entry, if any */
-    val walkUp: (() -> Unit)? = null,
-)
+    val selected: Set<String>,
+    val onToggle: (FileBrowserUi.File) -> Unit,
+) {
+    fun isSelected(file: FileBrowserUi.File): Boolean = file.id in selected
+}
 
 /**
  * What the scan found, in the shape the source reads best: tiles for a gallery, rows for a folder,
@@ -47,17 +52,19 @@ class FileBrowserSelection(
  *
  * The counts are on the header rather than the rows because the question this answers is "is this
  * the right pile of files", not "what is in each of them". Tapping a file opens it whatever the
- * layout; picking one is a separate gesture, and only when [selection] says so.
+ * layout; [onFileLongClick] is the way into a [selection], which the caller owns.
  */
 @Composable
 fun FileBrowser(
     modifier: Modifier = Modifier,
     preview: FileBrowserUi,
+    navigation: FileBrowserNavigation? = null,
     selection: FileBrowserSelection? = null,
     /** Added to each layout's own padding; for insets the list should scroll under. */
     contentPadding: PaddingValues = PaddingValues(),
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
+    onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
 ) {
     if (preview.isEmpty) {
         FileBrowserEmpty(modifier = modifier, header = header)
@@ -71,6 +78,7 @@ fun FileBrowser(
             selection = selection,
             contentPadding = contentPadding,
             onFileClick = onFileClick,
+            onFileLongClick = onFileLongClick,
             header = header,
         )
 
@@ -80,15 +88,18 @@ fun FileBrowser(
             selection = selection,
             contentPadding = contentPadding,
             onFileClick = onFileClick,
+            onFileLongClick = onFileLongClick,
             header = header,
         )
 
         is FileBrowserUi.Tree -> BrowserTree(
             modifier = modifier,
             preview = preview,
-            onFileClick = onFileClick,
+            navigation = navigation,
             selection = selection,
             contentPadding = contentPadding,
+            onFileClick = onFileClick,
+            onFileLongClick = onFileLongClick,
             header = header,
         )
     }

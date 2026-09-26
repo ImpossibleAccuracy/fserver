@@ -2,15 +2,15 @@ package com.fserver.app.presentation.screens.settings.storage.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fserver.app.presentation.composable.model.toUi
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
+import com.fserver.app.presentation.composable.model.direction
+import com.fserver.app.presentation.composable.model.toUi
+import com.fserver.app.presentation.screens.settings.storage.main.model.PeerUi
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageIntent
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState
-import com.fserver.app.presentation.screens.settings.storage.main.model.PeerUi
+import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState.FreeableUi
 import com.fserver.app.presentation.screens.settings.storage.main.model.peerOf
 import com.fserver.app.presentation.screens.settings.storage.main.model.peers
-import com.fserver.app.presentation.composable.model.direction
-import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState.FreeableUi
 import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.core.disk.AppFootprint
 import com.fserver.core.disk.DiskUsageRepository
@@ -33,7 +33,7 @@ class StorageViewModel(
     trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
 ) : ViewModel() {
-    val state: StateFlow<StorageState> = combine(
+    val state: StateFlow<StorageState?> = combine(
         diskUsage.usage,
         registeredSources.indexedSize,
         registeredSources.sources,
@@ -52,18 +52,21 @@ class StorageViewModel(
                 .map { it.toLinkUi(here[it.id].orEmpty(), peers.peerOf(it.deviceId)) }
                 .sortedByDescending { it.bytes },
             appData = appData,
-            freeable = appData.filter { it.kind.isFreeable }.map(FreeableUi::AppData) +
+            freeable = appData.filter { it.kind.isFreeable }
+                .map(FreeableUi::AppData)
+                .plus(
                     sources.mapNotNull {
                         it.copiesUi(
                             here[it.id].orEmpty(),
                             peers.peerOf(it.deviceId).name
                         )
-                    },
+                    }
+                ),
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = StorageState(),
+        initialValue = null,
     )
 
     fun onIntent(intent: StorageIntent) {
@@ -93,7 +96,10 @@ private fun SourceEntry.toLinkUi(here: List<SyncFileEntry>, peer: PeerUi) =
         bytes = here.sumOf { it.size.bytes },
     )
 
-private fun SourceEntry.copiesUi(here: List<SyncFileEntry>, deviceName: String): StorageState.FreeableUi? {
+private fun SourceEntry.copiesUi(
+    here: List<SyncFileEntry>,
+    deviceName: String
+): StorageState.FreeableUi? {
     if (direction() != LinkDirectionUi.Outgoing) return null
 
     val copied = here.filter { it.remoteState is LocalIndexedFile.State.Present }

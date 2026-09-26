@@ -9,4 +9,5 @@ sealed interface StorageSourceIntent {
     data class FileToggled(val id: String) : StorageSourceIntent
     data object AllToggled : StorageSourceIntent
     data object DeleteConfirmed : StorageSourceIntent
+    data class FileClicked(val id: String) : StorageSourceIntent
 }

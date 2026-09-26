@@ -3,7 +3,7 @@ package com.fserver.app.presentation.screens.source.setup.access.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
-import com.fserver.app.presentation.shared.browser.FileBrowserSelection
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.scan.DirectoryScanProgress
@@ -18,7 +18,7 @@ data class SourceAccessState(
     val bytes: FileSize = FileSize(0),
     val progress: DirectoryScanProgress? = null,
     val preview: FileBrowserUi? = null,
-    val selection: FileBrowserSelection? = null,
+    val navigation: FileBrowserNavigation? = null,
 ) {
     /**
      * The whole-device branch narrows to one folder before it may go on. The second walk over

@@ -1,6 +1,5 @@
 package com.fserver.app.presentation.shared.browser.model
 
-import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SyncFileEntry
@@ -26,6 +25,7 @@ fun isMediaCollection(files: List<FileBrowserUi.PreviewContentEntry>): Boolean {
 fun List<SyncFileEntry>.toTree(
     sort: FileSortUi = FileSortUi.Name,
     ascending: Boolean = true,
+    fileOf: (SyncFileEntry) -> FileBrowserUi.File = { it.asPreviewFile() },
 ): FileBrowserUi.Tree {
     val root = EntryNode(path = "")
     for (entry in this) {
@@ -35,7 +35,7 @@ fun List<SyncFileEntry>.toTree(
     }
 
     return FileBrowserUi.Tree(
-        directories = root.contentsUi(sort, ascending),
+        directories = root.contentsUi(sort, ascending, fileOf),
     )
 }
 
@@ -56,19 +56,23 @@ private class EntryNode(val path: String) {
         children.getOrPut(head) { EntryNode("$path/$head") }.add(segments.drop(1), entry)
     }
 
-    fun contentsUi(sort: FileSortUi, ascending: Boolean): List<FileBrowserUi.PreviewContentEntry> {
+    fun contentsUi(
+        sort: FileSortUi,
+        ascending: Boolean,
+        fileOf: (SyncFileEntry) -> FileBrowserUi.File,
+    ): List<FileBrowserUi.PreviewContentEntry> {
         val directories = children.map { (name, node) ->
             FileBrowserUi.Directory(
                 path = node.path,
                 name = name,
                 files = node.children.size + node.files.size,
                 size = FileSize(node.bytes),
-                contents = node.contentsUi(sort, ascending),
+                contents = node.contentsUi(sort, ascending, fileOf),
             )
         }
 
         return directories.sortedWith(directoryComparator(sort, ascending)) +
-            files.map { it.asPreviewFile() }.sortedWith(fileComparator(sort, ascending))
+                files.map(fileOf).sortedWith(fileComparator(sort, ascending))
     }
 }
 

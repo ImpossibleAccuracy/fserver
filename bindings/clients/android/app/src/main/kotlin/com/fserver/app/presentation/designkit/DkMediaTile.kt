@@ -1,7 +1,9 @@
 package com.fserver.app.presentation.designkit
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.aspectRatio
@@ -33,7 +35,9 @@ import androidx.compose.ui.unit.dp
  * something the tile is the same empty square, so a grid never reflows as previews arrive.
  *
  * [label] is one small line along the bottom, over a scrim so it reads on any thumbnail.
+ * [onLongClick] is the tile's secondary gesture, as on [DkListRow].
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DkMediaTile(
     modifier: Modifier = Modifier,
@@ -43,6 +47,7 @@ fun DkMediaTile(
     thumbnail: (@Composable BoxScope.() -> Unit)? = null,
     badge: @Composable (BoxScope.() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val isMedia = extensionLabel == null
 
@@ -57,7 +62,17 @@ fun DkMediaTile(
                 },
                 RoundedCornerShape(6.dp),
             )
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(
+                when {
+                    onLongClick != null -> Modifier.combinedClickable(
+                        onClick = onClick ?: {},
+                        onLongClick = onLongClick,
+                    )
+
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    else -> Modifier
+                }
+            ),
     ) {
         if (thumbnail != null) {
             Box(
