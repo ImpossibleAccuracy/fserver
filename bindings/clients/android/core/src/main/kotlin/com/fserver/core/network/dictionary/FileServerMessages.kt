@@ -158,6 +158,10 @@ internal sealed interface FileServerMessages {
         @Serializable
         data class Completed(override val key: IndexedFileKey) : Upload, Response
 
+        /** Answers [Init]: the receiver's own file limits have no room for this new file. Skip it, do not retry. */
+        @Serializable
+        data class OverLimit(override val key: IndexedFileKey) : Upload, Response
+
         @Serializable
         data class Failed(
             override val key: IndexedFileKey,

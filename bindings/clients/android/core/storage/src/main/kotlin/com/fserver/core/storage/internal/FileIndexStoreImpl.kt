@@ -10,6 +10,7 @@ import com.fserver.core.storage.database.IndexedFileVersion
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.limits.SourceUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -50,6 +51,11 @@ internal class FileIndexStoreImpl(
         database.transactionWithResult {
             dao.selectBySource(sourceId).executeAsList()
                 .withVectors(versions.selectBySource(sourceId).executeAsList())
+        }
+
+    override suspend fun presentUsage(sourceId: String): SourceUsage =
+        dao.presentUsageBySource(sourceId).executeAsOne().let {
+            SourceUsage(files = it.files.toInt(), bytes = it.bytes)
         }
 
     /** One transaction: a pass that died halfway through must not leave half its files marked done. */

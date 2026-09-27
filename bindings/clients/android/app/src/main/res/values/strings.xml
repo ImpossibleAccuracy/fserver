@@ -232,6 +232,7 @@
     <string name="dashboard_link_syncing">syncing</string>
     <string name="dashboard_link_synced">synced %1$s</string>
     <string name="dashboard_link_files">%1$d of %2$d files</string>
+    <string name="dashboard_link_skipped">%1$d skipped by limits</string>
     <string name="dashboard_link_error_no_route">device not found on the network</string>
     <string name="dashboard_link_error_unreachable">device is not answering</string>
     <string name="dashboard_link_error_refused">device refused the connection</string>
@@ -736,14 +737,15 @@
     <string name="conditions_sync_losers_title">Losing versions go to the .conflicts folder</string>
     <string name="conditions_sync_losers_hint">Nothing is deleted silently: the second version sits next to the original.</string>
     <string name="conditions_limits_label">Limits</string>
+    <string name="conditions_limits_hint">Only cap what this phone receives. %1$s keeps its own limits and may turn files down.</string>
     <string name="conditions_limit_files">Limit number of files</string>
-    <string name="conditions_limit_files_hint">Files above the limit are not synced</string>
+    <string name="conditions_limit_files_hint">New files past the limit are not taken, newest ones first</string>
     <plurals name="conditions_limit_files_value">
         <item quantity="one">%1$d file</item>
         <item quantity="other">%1$d files</item>
     </plurals>
     <string name="conditions_limit_size">Limit total size</string>
-    <string name="conditions_limit_size_hint">Stops taking new files once the source reaches it</string>
+    <string name="conditions_limit_size_hint">Stops taking new files, and edits that grow a file, once the source reaches it</string>
     <string name="conditions_limit_size_value">%1$d GB</string>
     <string name="conditions_host_body">Files stay on the phone. Trusted devices can open this folder while the app is running.</string>
     <string name="conditions_host_rights_label">Rights</string>
@@ -807,6 +809,7 @@
     <string name="source_progress_detail">%1$d of %2$d</string>
     <string name="source_progress_files_count">%1$d of %2$d files</string>
     <string name="source_progress_files_detail">%1$d files so far</string>
+    <string name="source_progress_skipped">%1$d skipped by limits</string>
     <string name="source_progress_scanning_detail">Reading the folder…</string>
     <string name="source_progress_refused_title">%1$s refused the source</string>
     <string name="source_progress_background_note">You can close this — the setup and the transfer carry on without the screen.</string>
@@ -836,6 +839,7 @@
     <string name="error_protocol">The other device sent something this version does not understand.</string>
     <string name="error_source_duplicate">That folder is already synced with this device.</string>
     <string name="error_source_rejected">The other device turned the source down.</string>
+    <string name="error_source_over_limit">The other device has no room for this file under its limits.</string>
     <string name="error_sync_failed">The sync pass did not finish.</string>
     <string name="error_sync_unreachable">The device could not be reached, so the folder did not sync.</string>
     <string name="error_sync_refused">The other device turned the sync down.</string>

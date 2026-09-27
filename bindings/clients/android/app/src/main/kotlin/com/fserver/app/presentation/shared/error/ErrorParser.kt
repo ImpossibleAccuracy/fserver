@@ -152,6 +152,9 @@ private fun SyncException.toAppError(): AppError = when (this) {
         detail = message?.let(UiText::Text),
     )
 
+    is SyncException.OverLimitException ->
+        AppError(UiText.of(R.string.error_source_over_limit))
+
     is SyncException.MaxRetriesExceededException,
     is SyncException.ActionFailedException,
         -> AppError(UiText.of(R.string.error_sync_failed))

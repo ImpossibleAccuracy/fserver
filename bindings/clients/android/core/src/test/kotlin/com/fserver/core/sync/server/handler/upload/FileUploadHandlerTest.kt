@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server.handler.upload
 
 import android.content.ContextWrapper
+import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
@@ -9,9 +10,11 @@ import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.fileDto
+import com.fserver.core.support.indexedFile
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
@@ -360,6 +363,59 @@ class FileUploadHandlerTest {
         //  (SourcePaths.fileId), but the receiver takes the peer's word for both. That lets one
         //  file's bytes be indexed under another file's identity. Either derive the id here or
         //  refuse a mismatch - then assert it.
+    }
+
+    @Test
+    fun `a new file past our file count is declined before anything is staged`() = runTest {
+        limitSource(SourceEntry.Preferences.FileLimits(maxFiles = 1, maxTotalSize = null))
+        storage.index.markProcessed(listOf(indexedFile(fileId = "other", sourceId = SourceId)))
+
+        assertTrue(init(owner) is Upload.OverLimit)
+        assertTrue(context.uploads.isEmpty())
+        assertNull(storage.uploads.find(key))
+    }
+
+    @Test
+    fun `a new file past our total size is declined`() = runTest {
+        limitSource(SourceEntry.Preferences.FileLimits(maxFiles = null, maxTotalSize = FileSize(10)))
+
+        assertTrue(init(owner, size = 15) is Upload.OverLimit)
+    }
+
+    @Test
+    fun `an update to a file we hold is taken at the file count limit`() = runTest {
+        limitSource(SourceEntry.Preferences.FileLimits(maxFiles = 1, maxTotalSize = FileSize(20)))
+        storage.index.markProcessed(listOf(indexedFile(fileId = FileIdValue, sourceId = SourceId, size = 1)))
+
+        assertTrue(init(owner, size = 15) is Upload.Received)
+    }
+
+    @Test
+    fun `a file sent small cannot grow past our total size`() = runTest {
+        limitSource(SourceEntry.Preferences.FileLimits(maxFiles = null, maxTotalSize = FileSize(20)))
+        storage.index.markProcessed(listOf(indexedFile(fileId = FileIdValue, sourceId = SourceId, size = 10)))
+
+        assertTrue(init(owner, size = 21) is Upload.OverLimit)
+    }
+
+    @Test
+    fun `an upload still open on the session holds its room`() = runTest {
+        limitSource(SourceEntry.Preferences.FileLimits(maxFiles = 1, maxTotalSize = null))
+        assertTrue(init(owner) is Upload.Received)
+
+        val second = Upload.Init(
+            sourceId = SourceId,
+            file = fileDto(id = "file-2", sourceId = SourceId, path = "other.jpg", size = 1),
+        )
+
+        assertTrue(ask(owner, second) is Upload.OverLimit)
+    }
+
+    private suspend fun limitSource(limits: SourceEntry.Preferences.FileLimits) {
+        val source = storage.sources.findById(SourceId)!!
+        storage.sources.upsert(
+            source.copy(preferences = SourceEntry.Preferences.Default.copy(fileLimits = limits))
+        )
     }
 
     private suspend fun push(bytes: ByteArray): Upload {

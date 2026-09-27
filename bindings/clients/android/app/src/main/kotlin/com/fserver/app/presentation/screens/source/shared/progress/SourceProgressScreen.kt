@@ -127,7 +127,13 @@ private val SourceProgressState.syncingTitleRes: Int
     }
 
 @Composable
-private fun SourceProgressState.syncingDetail(): String = when {
+private fun SourceProgressState.syncingDetail(): String = listOfNotNull(
+    progressDetail(),
+    filesSkipped.takeIf { it > 0 }?.let { stringResource(R.string.source_progress_skipped, it) },
+).joinToString(" · ")
+
+@Composable
+private fun SourceProgressState.progressDetail(): String = when {
     showsPassDetail && isPlanned ->
         stringResource(R.string.source_progress_detail, actionsDone, actionsPlanned)
 
@@ -169,6 +175,7 @@ private fun SourceProgressSyncingPreview() {
                 isPlanned = true,
                 filesDone = 120,
                 filesTotal = 310,
+                filesSkipped = 4,
             ),
             closeFlow = {},
         )

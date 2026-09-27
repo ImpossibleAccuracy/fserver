@@ -21,6 +21,9 @@ sealed class SyncException(message: String, cause: Throwable? = null) :
     class RemoteRejectedException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)
 
+    /** The receiver's own file limits had no room for the file. A skip, not a failure. */
+    class OverLimitException(message: String) : SyncException(message)
+
     /** The pass kept re-planning without converging and was cut off. */
     class MaxRetriesExceededException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)

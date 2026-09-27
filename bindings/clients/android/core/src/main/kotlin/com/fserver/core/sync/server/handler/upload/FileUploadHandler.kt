@@ -9,14 +9,18 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.limits.FileBudget
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
+import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -118,6 +122,12 @@ internal class FileUploadHandler(
         context.pruneStaleUploads(now, staging)
 
         val file = message.file.toFileRecord()
+
+        if (!fitsLimits(source, file, context)) {
+            Timber.i("Upload of ${file.id} into source ${source.id} declined: over this device's file limits")
+            return Upload.OverLimit(key = message.key)
+        }
+
         val fs = node.openSource(source.location.toFiles())
 
         // Refused before anything is staged, not once it all arrived.
@@ -145,6 +155,38 @@ internal class FileUploadHandler(
 
         return Upload.Received(key = upload.key, offset = upload.prefix)
     }
+
+    /**
+     * Our own limits, never the sender's. A file we hold is capped by its growth, a new one by
+     * count and size; uploads still open on this session count as booked.
+     */
+    private suspend fun fitsLimits(
+        source: SourceEntry,
+        file: FileRecord,
+        context: SessionContext,
+    ): Boolean {
+        val limits = source.preferences.fileLimits
+        if (limits == SourceEntry.Preferences.FileLimits.None) return true
+
+        val key = IndexedFileKey(fileId = file.id.value, sourceId = source.id)
+        val budget = FileBudget(limits, storage.index.presentUsage(source.id))
+
+        // At most MaxConcurrentUploads of them, so a lookup each is cheap.
+        context.uploads.values
+            .filter { it.key.sourceId == source.id && it.key != key }
+            .forEach { budget.admit(it.key, it.file.metadata.size) }
+
+        return budget.admit(key, file.metadata.size)
+    }
+
+    private suspend fun FileBudget.admit(key: IndexedFileKey, size: Long): Boolean {
+        val held = storage.index.presentSize(key)
+        return if (held != null) admitUpdate(from = held, to = size) else admitNew(size)
+    }
+
+    /** Size of the file we hold under [key], or null when we hold none. */
+    private suspend fun FileIndexStore.presentSize(key: IndexedFileKey): Long? =
+        findFile(key)?.takeIf { it.state is LocalIndexedFile.State.Present }?.size?.bytes
 
     /** A checkpoint: the answer is what survives a crash from here on. */
     private suspend fun status(

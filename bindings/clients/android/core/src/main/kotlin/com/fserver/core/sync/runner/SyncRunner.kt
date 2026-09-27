@@ -8,16 +8,16 @@ import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
+import com.fserver.core.sync.limits.limit
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
-import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -163,6 +163,7 @@ internal class SyncRunner(
     private suspend fun syncSource(source: SourceEntry) {
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
+        val skipped = mutableSetOf<FileId>()
 
         // Disk is scanned once: hashing writes to the index only, so later rounds re-read it.
         progress.localPassStage(source.id, SourcePass.Local.Stage.Scanning)
@@ -186,7 +187,11 @@ internal class SyncRunner(
             val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()
                 .mapTo(mutableSetOf(), FileAction.ComputeHash::id)
 
-            val runnable = decisions.actions.filter { action ->
+            val limited = source.preferences.fileLimits.limit(snapshot, decisions.actions)
+            limited.runnable.forEach { skipped -= it.id }
+            limited.overLimit.mapTo(skipped, FileAction::id)
+
+            val runnable = limited.runnable.filter { action ->
                 if (action is FileAction.ComputeHash) return@filter true
 
                 // Planned from unknown content - re-plan it once the hash lands.
@@ -198,9 +203,18 @@ internal class SyncRunner(
             }
 
             progress.localPassPlanned(source.id, runnable)
+            progress.localPassSkipped(source.id, skipped.size)
 
             for (action in runnable) {
                 val failure = actionRunner.execute(source, action).exceptionOrNull()
+
+                // The peer's limits turned it down: skipped like our own, not failed.
+                if (failure is SyncException.OverLimitException) {
+                    skipped += action.id
+                    progress.localPassSkipped(source.id, skipped.size)
+                    progress.localPassAdvanced(source.id, action, null)
+                    continue
+                }
 
                 progress.localPassAdvanced(source.id, action, failure)
                 failure?.let(errors::add)

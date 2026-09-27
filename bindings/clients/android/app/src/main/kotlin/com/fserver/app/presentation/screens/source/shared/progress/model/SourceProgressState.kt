@@ -16,6 +16,7 @@ data class SourceProgressState(
     val isPlanned: Boolean = false,
     val filesDone: Int = 0,
     val filesTotal: Int = 0,
+    val filesSkipped: Int = 0,
     val reason: String? = null,
 ) {
     val isTransferring: Boolean

@@ -58,6 +58,12 @@ SELECT coalesce(sum(size), 0)
 FROM indexedFile
 WHERE state = 'Present';
 
+-- One source's files still on this device, for the file limits an incoming upload is checked against.
+presentUsageBySource:
+SELECT count(*) AS files, coalesce(sum(size), 0) AS bytes
+FROM indexedFile
+WHERE sourceId = ? AND state = 'Present';
+
 findByKey:
 SELECT *
 FROM indexedFile

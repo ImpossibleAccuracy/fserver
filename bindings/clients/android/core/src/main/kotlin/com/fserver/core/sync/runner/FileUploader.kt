@@ -59,6 +59,9 @@ internal class FileUploader(
                 session = session,
                 key = key,
             ).also { progress.transferCompleted(key) }
+        } catch (e: SyncException.OverLimitException) {
+            progress.transferSkipped(key)
+            throw e
         } catch (e: Throwable) {
             progress.transferFailed(key, e)
             throw e
@@ -242,6 +245,10 @@ internal class FileUploader(
         when (val answer = request(message).getOrThrow()) {
             is Upload.Failed -> throw SyncException.RemoteRejectedException(
                 "Peer ${identity.deviceId} refused ${message::class.simpleName} for ${message.key}: ${answer.reason}"
+            )
+
+            is Upload.OverLimit -> throw SyncException.OverLimitException(
+                "Peer ${identity.deviceId} has no room for ${message.key} under its file limits"
             )
 
             is Upload -> answer.also {

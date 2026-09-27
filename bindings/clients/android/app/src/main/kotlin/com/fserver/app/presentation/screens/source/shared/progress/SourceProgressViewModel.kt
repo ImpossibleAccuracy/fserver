@@ -72,6 +72,7 @@ class SourceProgressViewModel(
             isPlanned = local != null && local.stage != SourcePass.Local.Stage.Scanning,
             filesDone = moving.count { it.state == FileTransfer.State.Completed },
             filesTotal = moving.size,
+            filesSkipped = local?.filesSkipped ?: 0,
             reason = refusal,
         )
     }.stateIn(

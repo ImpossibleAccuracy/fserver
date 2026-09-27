@@ -113,6 +113,7 @@ private fun DashboardState.LinkUi.subtitle(): String? = when {
         progress?.let { "${(it * 100).roundToInt()}%" },
         filesTotal.takeIf { it > 0 }
             ?.let { stringResource(R.string.dashboard_link_files, filesDone, it) },
+        skippedText(),
     ).joinToString(" · ")
 
     status == DashboardState.LinkStatusUi.Disabled -> statusDetail
@@ -121,8 +122,15 @@ private fun DashboardState.LinkUi.subtitle(): String? = when {
 
     status == DashboardState.LinkStatusUi.Pending -> stringResource(R.string.dashboard_link_pending)
 
-    else -> statusDetail?.let { stringResource(R.string.dashboard_link_synced, it) }
+    else -> listOfNotNull(
+        statusDetail?.let { stringResource(R.string.dashboard_link_synced, it) },
+        skippedText(),
+    ).joinToString(" · ").ifEmpty { null }
 }
+
+@Composable
+private fun DashboardState.LinkUi.skippedText(): String? =
+    filesSkipped.takeIf { it > 0 }?.let { stringResource(R.string.dashboard_link_skipped, it) }
 
 @Preview(showBackground = true, widthDp = 360)
 @Composable

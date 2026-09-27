@@ -41,6 +41,7 @@ data class DashboardState(
         val progress: Float? = null,
         val filesDone: Int = 0,
         val filesTotal: Int = 0,
+        val filesSkipped: Int = 0,
         /** Why the device cannot be reached, or why the last pass failed. */
         val error: UiText? = null,
     )
@@ -106,6 +107,7 @@ data class DashboardState(
                     direction = LinkDirectionUi.Mirror,
                     status = LinkStatusUi.Active,
                     statusDetail = "5 min. ago",
+                    filesSkipped = 3,
                 ),
                 LinkUi(
                     id = "whatsapp",

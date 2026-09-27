@@ -282,11 +282,15 @@ class SourceConditionsHandler(
             } else {
                 SourceEntry.Preferences.ConflictResolution.LastWriteWins
             },
-            fileLimits = SourceEntry.Preferences.FileLimits(
-                maxFiles = form.maxFiles.takeIf { form.limitFiles },
-                maxTotalSize = FileSize(form.maxSizeGb.toLong() * BytesInGb)
-                    .takeIf { form.limitSize },
-            ),
+            fileLimits = if (flow.value.mode == SourceModeUi.Sync) {
+                SourceEntry.Preferences.FileLimits(
+                    maxFiles = form.maxFiles.takeIf { form.limitFiles },
+                    maxTotalSize = FileSize(form.maxSizeGb.toLong() * BytesInGb)
+                        .takeIf { form.limitSize },
+                )
+            } else {
+                SourceEntry.Preferences.FileLimits.None
+            },
         )
     }
 

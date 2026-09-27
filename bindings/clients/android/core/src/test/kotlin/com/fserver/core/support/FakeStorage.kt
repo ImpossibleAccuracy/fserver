@@ -21,6 +21,7 @@ import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import com.fserver.core.sync.limits.SourceUsage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.StagedUpload
@@ -142,6 +143,10 @@ internal class FakeFileIndexStore : FileIndexStore {
 
     override suspend fun processedFiles(sourceId: String): List<LocalIndexedFile> =
         rows.value.filter { it.sourceId == sourceId }
+
+    override suspend fun presentUsage(sourceId: String): SourceUsage =
+        rows.value.filter { it.sourceId == sourceId && it.state is LocalIndexedFile.State.Present }
+            .let { present -> SourceUsage(files = present.size, bytes = present.sumOf { it.size.bytes }) }
 
     override suspend fun markProcessed(indexed: Collection<LocalIndexedFile>) {
         val ids = indexed.mapTo(mutableSetOf()) { it.id }

@@ -3,6 +3,7 @@ package com.fserver.core.store.sync
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.limits.SourceUsage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -23,6 +24,9 @@ interface FileIndexStore {
      * Read once per pass and compared against the whole scan, so it must tolerate being large.
      */
     suspend fun processedFiles(sourceId: String): List<LocalIndexedFile>
+
+    /** [sourceId]'s present files, counted. Asked once per incoming upload, so an aggregate, not a list. */
+    suspend fun presentUsage(sourceId: String): SourceUsage
 
     /**
      * Records [indexed] as done, replacing any earlier record with the same [LocalIndexedFile.id].

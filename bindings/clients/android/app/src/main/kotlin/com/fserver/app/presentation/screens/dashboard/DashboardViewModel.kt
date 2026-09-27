@@ -246,6 +246,7 @@ private fun SourceEntry.toLinkUi(
         progress = (pass as? SourcePass.Local)?.progress,
         filesDone = files.count { it.state == FileTransfer.State.Completed },
         filesTotal = files.size,
+        filesSkipped = (pass as? SourcePass.Local)?.filesSkipped ?: 0,
         error = failure?.reason?.toUiText() ?: pass?.takeIf { it.isFailed }?.toAppError()?.message,
     )
 }

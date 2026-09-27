@@ -244,8 +244,6 @@ private fun AutoUploadFields(
             onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
         )
     }
-
-    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -296,8 +294,6 @@ private fun OffloadFields(
             onCheckedChange = { onIntent(SourceConditionsIntent.KeepPinnedToggled(it)) },
         )
     }
-
-    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -384,6 +380,7 @@ private fun LimitsFields(
     onIntent: (SourceConditionsIntent) -> Unit,
 ) {
     DkSectionLabel(text = stringResource(R.string.conditions_limits_label))
+    DkCaption(text = stringResource(R.string.conditions_limits_hint, state.targetName))
     Column {
         DkSwitchRow(
             title = stringResource(R.string.conditions_limit_files),

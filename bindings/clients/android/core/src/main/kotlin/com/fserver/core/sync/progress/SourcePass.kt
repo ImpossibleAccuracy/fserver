@@ -31,6 +31,8 @@ sealed interface SourcePass {
         val stage: Stage,
         val actionsPlanned: Int = 0,
         val actionsDone: Int = 0,
+        /** New files left out for a file limit: ours at planning, or the peer's on receipt. */
+        val filesSkipped: Int = 0,
         /** Why the pass gave up, when it did. */
         val failure: SyncFailure? = null,
     ) : SourcePass {

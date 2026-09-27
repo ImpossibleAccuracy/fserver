@@ -97,6 +97,11 @@ internal class SyncProgressReporter(
         }
     }
 
+    /** [count] distinct files this pass has left out for a file limit so far. */
+    fun localPassSkipped(sourceId: String, count: Int) {
+        updateLocalPass(sourceId) { it.copy(filesSkipped = count) }
+    }
+
     fun localPassFinished(sourceId: String, failure: Throwable?) {
         updateLocalPass(sourceId) {
             it.copy(
@@ -231,6 +236,11 @@ internal class SyncProgressReporter(
         updateTransfer(key) { it.copy(state = FileTransfer.State.Failed(failure?.message)) }
 
         pruneFinishedTransfers()
+    }
+
+    /** The receiver declined the file for its limits: no bytes moved, so it is dropped rather than failed. */
+    fun transferSkipped(key: FileTransferKey) {
+        transferState.update { it - key }
     }
 
     private fun queue(key: FileTransferKey, action: FileAction) {
