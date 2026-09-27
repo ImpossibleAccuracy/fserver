@@ -155,35 +155,46 @@ class SourcesController internal constructor(
     }
 
     /**
-     * Changes the settings of the mode [id] already runs under. Switching to a different mode is
-     * refused: what the engine may do with a source is fixed when it is registered, and flipping
-     * it under a live index would re-interpret records written under the old rules.
+     * Changes [id]'s [preferences] and the settings of the mode it already runs under.
+     *
+     * Switching to a different mode type is refused: flipping it under a live index would
+     * re-interpret records written under the old rules. The mode belongs to the initiator, so a
+     * follower may change its preferences only; the peer picks up a new mode at the next lease.
      */
-    suspend fun updateAccessModel(id: String, syncMode: SyncMode): Result<Unit> =
-        runBackgroundJob {
-            val existing = storage.sources.findById(id)
-                ?: throw IllegalArgumentException("No source registered with id: $id")
+    suspend fun updateSource(
+        id: String,
+        syncMode: SyncMode,
+        preferences: SourceEntry.Preferences,
+    ): Result<SourceEntry> = runBackgroundJob {
+        val existing = storage.sources.findById(id)
+            ?: throw IllegalArgumentException("No source registered with id: $id")
 
-            require(existing.syncMode.type == syncMode.type) {
-                "Cannot change sync mode type from ${existing.syncMode.type} to ${syncMode.type}"
+        require(existing.syncMode.type == syncMode.type) {
+            "Cannot change sync mode type from ${existing.syncMode.type} to ${syncMode.type}"
+        }
+
+        require(existing.role == SourceEntry.Role.Initiator || existing.syncMode == syncMode) {
+            "Only the initiator may change the mode of source $id"
+        }
+
+        storage.sources.findByModeAndLocation(mode = syncMode, location = existing.location)
+            ?.takeIf { it.id != id }
+            ?.let {
+                throw SyncException.DuplicateSourceException(
+                    sourceId = it.id,
+                    location = existing.location.toString(),
+                    mode = syncMode.toString()
+                )
             }
 
-            storage.sources.findByModeAndLocation(mode = syncMode, location = existing.location)
-                ?.takeIf { it.id != id }
-                ?.let {
-                    throw SyncException.DuplicateSourceException(
-                        sourceId = it.id,
-                        location = existing.location.toString(),
-                        mode = syncMode.toString()
-                    )
-                }
+        val updated = existing.copy(syncMode = syncMode, preferences = preferences)
+        storage.sources.upsert(updated)
 
-            storage.sources.upsert(existing.copy(syncMode = syncMode))
-
-            // TODO: notify peer about changes
-        }.onSuccess {
-            syncRunner.runOnceAsync()
-        }
+        Timber.i("Updated source $id: $syncMode, $preferences")
+        updated
+    }.onSuccess {
+        syncRunner.runOnceAsync()
+    }
 
     /**
      * Drops [id] from the registry, leaving a tombstone so the peer is told the source is gone the

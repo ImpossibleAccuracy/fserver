@@ -46,6 +46,9 @@ interface SourcesStore {
      */
     suspend fun delete(id: String)
 
-    /** What [delete] left behind, or null for an id this device never dropped. */
+    /** Leaves a location-less [SourceTombstone] for a request from [deviceId] this device refused. */
+    suspend fun recordRefusal(id: String, deviceId: String)
+
+    /** What [delete] or [recordRefusal] left behind, or null for an id this device never dropped. */
     suspend fun findTombstone(id: String): SourceTombstone?
 }

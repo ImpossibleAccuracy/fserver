@@ -1,8 +1,11 @@
 package com.fserver.core.sync.lease
 
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.toDomain
+import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncFailureReason
 import com.fserver.core.sync.progress.toSyncFailure
 import com.fserver.core.sync.progress.toWire
@@ -27,19 +30,21 @@ internal class SyncLeaseNegotiator(
     private val peers: PeerIndexFetcher,
 ) {
     /**
-     * Runs [block] only if both devices agree we hold [source]. Skips - never queues - otherwise.
+     * Runs [block] only if both devices agree we hold [source] and run it under the same mode.
+     * Skips - never queues - otherwise. [block] gets the source as agreed, which is [source] with
+     * the initiator's mode adopted if ours was stale.
      *
      * How [block] went travels back with the lease: the peer sees the lease returned whether the
      * pass worked or not, so without this a failed pass reads there exactly like a clean one.
      * Cancellation is not reported - it is this device being told to stop, not the source failing.
      */
-    suspend fun runWithLease(source: SourceEntry, block: suspend () -> Unit) {
-        val lease = acquire(source) ?: return
+    suspend fun runWithLease(source: SourceEntry, block: suspend (SourceEntry) -> Unit) {
+        val lease = acquire(source, adopt = true) ?: return
 
         var failure: SyncFailureReason? = null
 
         try {
-            block()
+            block(lease.source)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -50,8 +55,11 @@ internal class SyncLeaseNegotiator(
         }
     }
 
-    /** @return the held lease id, or null when the peer or a local pass already has the source. */
-    private suspend fun acquire(source: SourceEntry): Lease? {
+    /**
+     * @return the held lease, or null when the peer or a local pass already has the source. [adopt]
+     * allows one retry after taking over the initiator's mode.
+     */
+    private suspend fun acquire(source: SourceEntry, adopt: Boolean): Lease? {
         val leaseId = registry.beginAcquire(source.id)
         if (leaseId == null) {
             Timber.i("Source ${source.id} skipped: another pass already holds it")
@@ -72,6 +80,7 @@ internal class SyncLeaseNegotiator(
                 FileServerMessages.AcquireSyncLease.Request(
                     sourceId = source.id,
                     leaseId = leaseId,
+                    syncMode = source.syncMode.toDto(),
                 )
             ).getOrThrow()
         } catch (e: CancellationException) {
@@ -86,7 +95,7 @@ internal class SyncLeaseNegotiator(
                 // The peer granted us the source, but a request of its own may have taken it over
                 // here in the meantime - it wins ties on device id, and it is already running.
                 if (registry.confirmLocal(source.id, leaseId)) {
-                    Lease(session, leaseId)
+                    Lease(session, leaseId, source)
                 } else {
                     Timber.i("Source ${source.id} skipped: ${source.deviceId} claimed it first")
                     giveBack(session, source.id, leaseId)
@@ -112,11 +121,29 @@ internal class SyncLeaseNegotiator(
                 null
             }
 
+            is FileServerMessages.AcquireSyncLease.Outdated -> {
+                registry.release(source.id, leaseId)
+                val updated = adoptMode(source, response.syncMode.toDomain())
+                if (adopt) acquire(updated, adopt = false) else null
+            }
+
             else -> {
                 registry.release(source.id, leaseId)
                 throw IllegalStateException("Unexpected answer to AcquireSyncLease from ${source.deviceId}: $response")
             }
         }
+    }
+
+    /** Only the follower takes a mode from the peer, and only settings: never the mode's type. */
+    private suspend fun adoptMode(source: SourceEntry, mode: SyncMode): SourceEntry {
+        check(source.role == SourceEntry.Role.Follower && source.syncMode.type == mode.type) {
+            "Source ${source.id}: cannot adopt $mode from ${source.deviceId} as ${source.role} running ${source.syncMode}"
+        }
+
+        Timber.i("Source ${source.id}: adopting ${source.deviceId}'s mode $mode")
+        val updated = source.copy(syncMode = mode)
+        storage.sources.upsert(updated)
+        return updated
     }
 
     private suspend fun release(
@@ -154,5 +181,6 @@ internal class SyncLeaseNegotiator(
     private class Lease(
         val session: PeerSession<FileServerMessages>,
         val id: String,
+        val source: SourceEntry,
     )
 }

@@ -47,11 +47,12 @@ internal sealed interface FileServerMessages {
     /** Asks the peer to hold the pass over [Request.sourceId] while we run ours. */
     @Serializable
     sealed interface AcquireSyncLease : FileServerMessages {
-        /** Request a lease for [sourceId]. */
+        /** Request a lease for [sourceId]. [syncMode] is the requester's, checked against the peer's before a grant. */
         @Serializable
         data class Request(
             val sourceId: String,
             val leaseId: String,
+            val syncMode: SyncModeDto,
         ) : AcquireSyncLease
 
         /** Gives [leaseId] back. Fire and forget: the holder's TTL and session end cover a lost one. */
@@ -73,6 +74,16 @@ internal sealed interface FileServerMessages {
         data class Denied(
             val sourceId: String,
             val reason: String,
+        ) : AcquireSyncLease, Response
+
+        /**
+         * [Request] refused: the requester's mode is stale. [syncMode] is the initiator's, which the
+         * requester adopts before asking again.
+         */
+        @Serializable
+        data class Outdated(
+            val sourceId: String,
+            val syncMode: SyncModeDto,
         ) : AcquireSyncLease, Response
 
         /** [Request] refused for good: this device dropped or disabled it's half of the source. */

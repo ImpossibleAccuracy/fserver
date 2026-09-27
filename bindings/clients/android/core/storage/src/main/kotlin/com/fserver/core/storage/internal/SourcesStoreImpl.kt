@@ -194,6 +194,18 @@ internal class SourcesStoreImpl(
         remoteIndex.clear(id)
     }
 
+    override suspend fun recordRefusal(id: String, deviceId: String) {
+        database.transaction {
+            tombstoneDao.upsert(
+                sourceId = id,
+                deviceId = deviceId,
+                removedAtEpochMs = timeProvider.now().toEpochMilliseconds(),
+                location = null,
+            )
+            attributeDao.deleteByOwnerId(owner = SourceRecords.OwnerTombstone, ownerId = id)
+        }
+    }
+
     override suspend fun findTombstone(id: String): SourceTombstone? {
         val row = tombstoneDao.selectById(id).executeAsOneOrNull() ?: return null
 
@@ -203,7 +215,9 @@ internal class SourcesStoreImpl(
                 .associate { (it.type to it.fieldName) to it.fieldValue }
         )
 
-        val location = SourceRecords.locationOf(id, row.location, attributes) ?: return null
+        val location = row.location?.let {
+            SourceRecords.locationOf(id, it, attributes) ?: return null
+        }
 
         return SourceRecords.tombstoneOf(
             sourceId = row.sourceId,

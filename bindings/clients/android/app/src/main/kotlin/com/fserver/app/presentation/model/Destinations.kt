@@ -45,6 +45,10 @@ sealed interface Destination : NavKey {
         /** One registered source: where its files are along the way, and what happened to it lately. */
         @Serializable
         data class SourceDetails(val sourceId: String) : Destination
+
+        /** One registered source's settings: this side's preferences, and the mode if this side owns it. */
+        @Serializable
+        data class SourceEdit(val sourceId: String) : Destination
     }
 
     /**

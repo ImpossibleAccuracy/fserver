@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,11 +57,13 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.details.composable.AttentionCard
+import com.fserver.app.presentation.screens.source.details.composable.DeleteSourceDialog
 import com.fserver.app.presentation.screens.source.details.composable.FileTrail
 import com.fserver.app.presentation.screens.source.details.composable.SourceHeader
 import com.fserver.app.presentation.screens.source.details.composable.SourceHistory
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsIntent
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState
+import com.fserver.app.presentation.screens.source.details.model.SourceDetailsUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import org.koin.androidx.compose.koinViewModel
@@ -74,9 +77,18 @@ fun SourceDetailsScreen(
     navigateToActivity: () -> Unit,
     navigateToFiles: (deviceId: String) -> Unit,
     navigateToDevice: (deviceId: String) -> Unit,
+    navigateToEdit: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(viewModel.uiEffects) {
+        viewModel.uiEffects.collect { effect ->
+            when (effect) {
+                SourceDetailsUiEffect.NavigateBack -> navigateUp()
+            }
+        }
+    }
 
     SourceDetailsScreenContent(
         modifier = modifier,
@@ -85,6 +97,7 @@ fun SourceDetailsScreen(
         navigateToActivity = navigateToActivity,
         navigateToFiles = navigateToFiles,
         navigateToDevice = navigateToDevice,
+        navigateToEdit = navigateToEdit,
         navigateUp = navigateUp,
     )
 }
@@ -97,15 +110,27 @@ private fun SourceDetailsScreenContent(
     navigateToActivity: () -> Unit,
     navigateToFiles: (deviceId: String) -> Unit,
     navigateToDevice: (deviceId: String) -> Unit,
+    navigateToEdit: () -> Unit,
     navigateUp: () -> Unit,
 ) {
+    var deleting by remember { mutableStateOf(false) }
+
+    if (deleting) {
+        DeleteSourceDialog(
+            label = state.label,
+            peerName = state.peer.name,
+            onConfirm = { onIntent(SourceDetailsIntent.DeleteConfirmed) },
+            onDismiss = { deleting = false },
+        )
+    }
+
     DkScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             DkTopBar(
                 title = state.label,
                 onBack = navigateUp,
-                actions = { SourceMenu(onEdit = {}, onDelete = {}) },
+                actions = { SourceMenu(onEdit = navigateToEdit, onDelete = { deleting = true }) },
             )
         },
     ) { innerPadding ->
@@ -356,6 +381,7 @@ private fun SourceDetailsScreenAutoUploadPreview() {
             navigateToActivity = {},
             navigateToFiles = {},
             navigateToDevice = {},
+            navigateToEdit = {},
             navigateUp = {},
         )
     }
@@ -371,6 +397,7 @@ private fun SourceDetailsScreenSyncPreview() {
             navigateToActivity = {},
             navigateToFiles = {},
             navigateToDevice = {},
+            navigateToEdit = {},
             navigateUp = {},
         )
     }
@@ -386,6 +413,7 @@ private fun SourceDetailsScreenOffloadPreview() {
             navigateToActivity = {},
             navigateToFiles = {},
             navigateToDevice = {},
+            navigateToEdit = {},
             navigateUp = {},
         )
     }

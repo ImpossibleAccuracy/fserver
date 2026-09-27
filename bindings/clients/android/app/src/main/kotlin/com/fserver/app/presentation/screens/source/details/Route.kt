@@ -13,6 +13,7 @@ fun EntryProviderScope<Destination>.filesSourceDetailsEntry(
             navigateToActivity = { navigator.navigate(Destination.Activity) },
             navigateToFiles = { navigator.navigate(Destination.Files(sourceId = key.sourceId)) },
             navigateToDevice = { navigator.navigate(Destination.Settings.DeviceDetails(it)) },
+            navigateToEdit = { navigator.navigate(Destination.Files.SourceEdit(key.sourceId)) },
             navigateUp = navigator::navigateUp,
         )
     }

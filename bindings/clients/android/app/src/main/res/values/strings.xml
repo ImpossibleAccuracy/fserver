@@ -896,6 +896,10 @@
         <item quantity="other">Up to %1$d files</item>
     </plurals>
     <string name="source_details_condition_max_size">Up to %1$s</string>
+    <string name="source_delete_title">Delete “%1$s”?</string>
+    <string name="source_delete_body">Syncing with %1$s stops for good. Files already copied stay on both devices.</string>
+    <string name="source_edit_title">Source settings</string>
+    <string name="source_edit_follower_note">How this source syncs is set on %1$s. These settings apply to this phone only.</string>
     <string name="source_details_section_trail">Where the files are</string>
     <string name="source_details_section_attention">Needs attention</string>
     <string name="source_details_section_history">History</string>

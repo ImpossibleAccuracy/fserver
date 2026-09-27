@@ -249,6 +249,15 @@ internal class FakeSourcesStore(
         )
     }
 
+    override suspend fun recordRefusal(id: String, deviceId: String) {
+        tombstones[id] = SourceTombstone(
+            sourceId = id,
+            deviceId = deviceId,
+            removedAt = clock.now(),
+            location = null,
+        )
+    }
+
     override suspend fun findTombstone(id: String): SourceTombstone? = tombstones[id]
 
     /** Lets a test plant a tombstone without going through a live source first. */

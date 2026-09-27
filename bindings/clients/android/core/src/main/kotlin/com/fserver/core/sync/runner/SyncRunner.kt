@@ -1,6 +1,7 @@
 package com.fserver.core.sync.runner
 
 import com.fserver.common.exception.SyncException
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.store.FServerStorage
@@ -14,6 +15,7 @@ import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
@@ -41,6 +43,7 @@ internal class SyncRunner(
     private val leaseNegotiator: SyncLeaseNegotiator,
     private val progress: SyncProgressReporter,
     private val garbageCollector: GarbageCollector,
+    private val sourceSetup: SourceSetupExchange,
     private val backgroundScope: BackgroundScope,
     private val timeProvider: TimeProvider,
 ) {
@@ -103,6 +106,30 @@ internal class SyncRunner(
         }
 
         garbageCollector.collectGarbageAsync()
+        askPendingAsync(sources)
+    }
+
+    /**
+     * Re-asks the peer of every source still pending here. It may have accepted while we were
+     * offline, and a peer that already answered answers again instead of asking its user twice.
+     */
+    private fun askPendingAsync(sources: List<SourceEntry>) {
+        val pending = sources.filter {
+            it.role == SourceEntry.Role.Initiator && it.status == SourceEntry.Status.Pending
+        }
+        if (pending.isEmpty()) return
+
+        backgroundScope.launch {
+            for (source in pending) {
+                val current = storage.sources.findById(source.id)
+                    ?.takeIf { it.status == SourceEntry.Status.Pending }
+                    ?: continue
+
+                runCatchingCancellable { sourceSetup.requestRemote(current) }
+                    .exceptionOrNull()
+                    ?.let { Timber.w(it, "Could not re-ask ${current.deviceId} to host source ${current.id}") }
+            }
+        }
     }
 
     /** One source, under a lease the peer agreed to. */
@@ -128,12 +155,12 @@ internal class SyncRunner(
         var passReported = false
 
         try {
-            leaseNegotiator.runWithLease(source) {
+            leaseNegotiator.runWithLease(source) { agreed ->
                 progress.localPassStarted(source.id)
                 passReported = true
 
                 try {
-                    syncSource(source)
+                    syncSource(agreed)
                 } catch (e: Exception) {
                     progress.localPassFinished(source.id, e)
                     throw e

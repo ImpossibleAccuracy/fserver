@@ -2,8 +2,8 @@ CREATE TABLE sourceTombstone (
     sourceId         TEXT    NOT NULL PRIMARY KEY,
     deviceId         TEXT    NOT NULL,
     removedAtEpochMs INTEGER NOT NULL,
-    -- Tree | Media | Directory | Internal
-    location         TEXT    NOT NULL
+    -- Tree | Media | Directory | Internal. NULL for a refused request, which never had one.
+    location         TEXT
 );
 
 CREATE TRIGGER sourceTombstoneAttributeCleanup

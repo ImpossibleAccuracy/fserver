@@ -39,6 +39,7 @@ class PresentationModuleTest {
                 Destination.Pairing::class,
                 Destination.Files::class,
                 Destination.Files.SourceDetails::class,
+                Destination.Files.SourceEdit::class,
                 Destination.Settings.DeviceDetails::class,
                 Destination.Settings.PinChange::class,
                 Destination.Settings.StorageSource::class,

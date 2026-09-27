@@ -1,12 +1,14 @@
 package com.fserver.core.sync.lease
 
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import io.mockk.coEvery
@@ -153,6 +155,41 @@ class SyncLeaseNegotiatorTest {
         negotiator.runWithLease(source) { ran = true }
 
         assertFalse(ran)
+    }
+
+    @Test
+    fun `a stale follower adopts the initiator's mode and asks again`() = runTest {
+        val keepBoth = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth)
+        val session = session { request ->
+            val asked = (request as FileServerMessages.AcquireSyncLease.Request).syncMode
+            if (asked == keepBoth.toDto()) granted(request)
+            else FileServerMessages.AcquireSyncLease.Outdated(SourceId, keepBoth.toDto())
+        }
+        var ranWith: SyncMode? = null
+
+        negotiator.runWithLease(source) { ranWith = it.syncMode }
+
+        assertEquals(keepBoth, ranWith)
+        assertEquals(keepBoth, storage.sources.findById(SourceId)?.syncMode)
+        assertTrue(session.sent.any { it is FileServerMessages.AcquireSyncLease.ReleaseLease })
+    }
+
+    @Test
+    fun `an initiator never takes a mode from its follower`() = runTest {
+        val initiator = source.copy(role = SourceEntry.Role.Initiator)
+        storage.sources.upsert(initiator)
+        session {
+            FileServerMessages.AcquireSyncLease.Outdated(
+                SourceId,
+                SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth).toDto(),
+            )
+        }
+
+        val failure = runCatching { negotiator.runWithLease(initiator) { } }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals(initiator.syncMode, storage.sources.findById(SourceId)?.syncMode)
+        assertNotNull(registry.beginAcquire(SourceId))
     }
 
     private fun granted(request: FileServerMessages): FileServerMessages =

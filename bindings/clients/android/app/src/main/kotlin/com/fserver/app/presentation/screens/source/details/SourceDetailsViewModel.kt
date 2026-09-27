@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsIntent
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState
+import com.fserver.app.presentation.screens.source.details.model.SourceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.ConditionUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageKindUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageUi
@@ -28,10 +29,12 @@ import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.ZoneId
@@ -53,6 +56,8 @@ class SourceDetailsViewModel(
 
     private val refreshing = MutableStateFlow(false)
 
+    private val effects = Channel<SourceDetailsUiEffect>(Channel.BUFFERED)
+    val uiEffects = effects.receiveAsFlow()
 
     private val isSyncing = combine(
         refreshing,
@@ -99,6 +104,16 @@ class SourceDetailsViewModel(
         when (intent) {
             SourceDetailsIntent.RefreshRequested -> sync()
             SourceDetailsIntent.SendNowClicked -> sync()
+            SourceDetailsIntent.DeleteConfirmed -> delete()
+        }
+    }
+
+    private fun delete() {
+        viewModelScope.launch {
+            sourcesController.removeSource(key.sourceId).fold(
+                onSuccess = { effects.send(SourceDetailsUiEffect.NavigateBack) },
+                onFailure = { reporter.report(it, "Could not remove source ${key.sourceId}") },
+            )
         }
     }
 

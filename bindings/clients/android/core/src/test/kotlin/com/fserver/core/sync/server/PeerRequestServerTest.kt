@@ -5,6 +5,7 @@ import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
@@ -219,7 +220,7 @@ class PeerRequestServerTest {
 
         val second = FakePeerSession.Replies()
         session.deliver(
-            FileServerMessages.AcquireSyncLease.Request(SourceId, "lease-1"),
+            FileServerMessages.AcquireSyncLease.Request(SourceId, "lease-1", sourceEntry().syncMode.toDto()),
             second.channel,
         )
 
@@ -266,7 +267,7 @@ class PeerRequestServerTest {
 
         val probe = FakePeerSession.Replies()
         session.deliver(
-            FileServerMessages.AcquireSyncLease.Request("not-a-source", "probe"),
+            FileServerMessages.AcquireSyncLease.Request("not-a-source", "probe", sourceEntry().syncMode.toDto()),
             probe.channel,
         )
         awaitReply(probe)

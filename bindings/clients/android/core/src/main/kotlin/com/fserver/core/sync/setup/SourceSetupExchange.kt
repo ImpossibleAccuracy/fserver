@@ -69,18 +69,23 @@ internal class SourceSetupExchange(
             return
         }
 
-        // Removed here on purpose. Parking it again would ask the user to undo their own decision.
+        // Removed or refused here on purpose. Parking it again would ask the user to undo their own
+        // decision.
         val tombstone = storage.sources.findTombstone(message.sourceId)
         if (tombstone != null && tombstone.deviceId == peer.deviceId) {
-            Timber.i("Device ${peer.deviceId} re-asked for source ${message.sourceId}, removed here")
+            Timber.i("Device ${peer.deviceId} re-asked for source ${message.sourceId}, settled here")
             answer(
                 deviceId = peer.deviceId,
                 sourceId = message.sourceId,
                 accepted = false,
-                reason = RemovedReason,
+                reason = if (tombstone.location == null) RejectedReason else RemovedReason,
             )
             return
         }
+
+        // A re-ask refreshes what is parked, but keeps its place in the queue.
+        val parked = storage.sourceRequests.findById(message.sourceId)
+            ?.takeIf { it.deviceId == peer.deviceId }
 
         storage.sourceRequests.upsert(
             IncomingSourceRequest(
@@ -89,7 +94,7 @@ internal class SourceSetupExchange(
                 label = message.label,
                 originPath = message.originPath,
                 syncMode = message.syncMode.toDomain(),
-                receivedAt = timeProvider.now(),
+                receivedAt = parked?.receivedAt ?: timeProvider.now(),
             )
         )
     }
@@ -144,6 +149,8 @@ internal class SourceSetupExchange(
         val request = storage.sourceRequests.findById(sourceId)
             ?: throw IllegalArgumentException("No source request pending for id: $sourceId")
 
+        // Remembered, so a re-ask from a peer that missed this answer is refused again, not re-parked.
+        storage.sources.recordRefusal(sourceId, request.deviceId)
         storage.sourceRequests.delete(sourceId)
 
         answer(

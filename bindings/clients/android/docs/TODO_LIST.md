@@ -42,10 +42,13 @@ Idea:
 - Short targeted discovery session as the last resort, once every cheaper route has failed:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.
+- one-time files exchange, without creating a source
 
 Major:
 - add QR connection via OutOfBandKeyAuthMethod
 - impl network scanner SPI
+- source's public info exchange (foreign disk usage, storage location, etc.) for UI purposes
+- add request to execute sync (like download request) to the source
 
 ## Net
 

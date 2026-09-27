@@ -19,6 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.time.Duration.Companion.hours
 
 /**
  * Pairing a source across two devices: what a peer may ask for, and who may answer for it.
@@ -49,6 +50,17 @@ class SourceSetupExchangeTest {
         assertEquals("Peer's photos", parked?.label)
         // Parked, not answered: the answer needs this device's user.
         assertTrue(ownerSession.sent.isEmpty())
+    }
+
+    @Test
+    fun `a re-ask for a parked source keeps its place in the queue`() = runTest {
+        exchange.onRequest(peerIdentity(OwnerId), request())
+        val first = storage.sourceRequests.findById(SourceId)?.receivedAt
+
+        clock.advance(1.hours)
+        exchange.onRequest(peerIdentity(OwnerId), request())
+
+        assertEquals(first, storage.sourceRequests.findById(SourceId)?.receivedAt)
     }
 
     @Test
@@ -148,6 +160,19 @@ class SourceSetupExchangeTest {
         assertNull(storage.sourceRequests.findById(SourceId))
         assertNull(storage.sources.findById(SourceId))
         assertFalse(decision().accepted)
+    }
+
+    @Test
+    fun `a re-ask after rejecting is refused again, not parked`() = runTest {
+        exchange.onRequest(peerIdentity(OwnerId), request())
+        exchange.reject(SourceId)
+        ownerSession.sent.clear()
+
+        exchange.onRequest(peerIdentity(OwnerId), request())
+
+        assertNull(storage.sourceRequests.findById(SourceId))
+        assertFalse(decision().accepted)
+        assertEquals("Rejected by user", decision().reason)
     }
 
     @Test

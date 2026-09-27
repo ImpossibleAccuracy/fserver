@@ -178,7 +178,7 @@ internal object SourceRecords {
         sourceId: String,
         deviceId: String,
         removedAtEpochMs: Long,
-        location: SourceLocation.Persistable,
+        location: SourceLocation.Persistable?,
     ) = SourceTombstone(
         sourceId = sourceId,
         deviceId = deviceId,
