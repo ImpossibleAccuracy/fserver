@@ -28,6 +28,7 @@ import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.auth.transport.TransportConfirmationAuthMethod
 import com.fserver.net.security.crypto.X25519CryptoProvider
 import com.fserver.net.transport.android.spi.ip.DirectIpSPI
+import com.fserver.net.transport.android.spi.subnet.SubnetScanSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
 import kotlinx.coroutines.CancellationException
@@ -152,6 +153,7 @@ internal class NetworkController(
 
             install(
                 DirectIpSPI.create(),
+                SubnetScanSPI.create(config.context),
                 MulticastDnsSPI.create(config.context),
                 NearbyConnectionsSPI.create(
                     context = config.context,

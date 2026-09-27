@@ -1,5 +1,6 @@
 package com.fserver.net.transport.android.spi
 
+import android.net.Network
 import com.fserver.net.connection.LanPorts
 import com.fserver.net.transport.android.spi.multicastdns.SocketTuning
 import com.fserver.net.transport.android.spi.multicastdns.closeQuietly
@@ -33,11 +34,14 @@ internal object LanDialer {
      * The sweep goes on only while the host refuses: a refusal means the device is there and is
      * not listening on that port, while a timeout or an unreachable host means it is not on the
      * network at all, and trying the rest would only multiply the wait.
+     *
+     * @param network Pins the socket to it, past whatever VPN would otherwise carry it.
      */
     suspend fun connect(
         host: String,
         ports: List<Int>,
         timeout: Duration,
+        network: Network? = null,
     ): Socket = withContext(Dispatchers.IO) {
         var failure: Throwable? = null
 
@@ -48,6 +52,7 @@ internal object LanDialer {
             SocketTuning.beforeConnect(socket)
 
             try {
+                network?.bindSocket(socket)
                 socket.connect(
                     /* endpoint = */ InetSocketAddress(host, port),
                     /* timeout = */ timeout.inWholeMilliseconds.toInt(),

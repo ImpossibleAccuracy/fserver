@@ -6,6 +6,7 @@ import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DeviceDiscovery
 import com.fserver.core.network.impl.SpiRegistry
+import com.fserver.core.network.impl.asTransportKind
 import com.fserver.core.network.impl.spiId
 import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.flow.Flow
@@ -16,15 +17,9 @@ internal class DeviceDiscoveryImpl(
     private val requirementsChecker: RequirementsChecker,
 ) : DeviceDiscovery {
 
-    // Automatic kinds only: `SubnetScan` and `ManualAddress` share one SPI id, so a running
-    // DirectIp scan cannot be attributed to either - see the TODO on `TransportKind.spiId`.
     override val runningMethods: Flow<Set<TransportKind>> =
         network.peerDiscovery.activeScans.map { ids ->
-            ids.mapNotNullTo(mutableSetOf<TransportKind>()) { id ->
-                TransportKind.entries
-                    .filterIsInstance<TransportKind.Automatic>()
-                    .find { it.spiId == id }
-            }
+            ids.mapNotNullTo(mutableSetOf()) { it.asTransportKind() }
         }
 
     override suspend fun start(request: TransportKind): Result<Unit> = runBackgroundJob {
@@ -34,8 +29,8 @@ internal class DeviceDiscoveryImpl(
             throw RequirementsNotMetException(requirements)
         }
 
-        val scanParams = SpiRegistry.findAutomaticScanParams(request.spiId)
-            ?: throw IllegalArgumentException("Cannot start detection for ${request.spiId}: no scan params found")
+        val scanParams = SpiRegistry.findScanParams(request)
+            ?: throw IllegalArgumentException("Cannot start detection for $request: nothing to scan")
         network.peerDiscovery.scan(scanParams).getOrThrow()
     }
 

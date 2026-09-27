@@ -8,6 +8,8 @@ import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsSPI
 import com.fserver.net.transport.android.spi.multicastdns.MulticastDnsScanParams
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsSPI
 import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsScanParams
+import com.fserver.net.transport.android.spi.subnet.SubnetScanParams
+import com.fserver.net.transport.android.spi.subnet.SubnetScanSPI
 
 /**
  * The only place `:net`'s [SpiId] meets `:core`'s [TransportKind].
@@ -16,10 +18,12 @@ import com.fserver.net.transport.android.spi.nearbyconnection.NearbyConnectionsS
  * put a `:net` type on the host's compile classpath and undo the module boundary.
  */
 internal data object SpiRegistry {
-    fun findAutomaticScanParams(spiId: SpiId): DiscoveryProvider.ScanParams? = when (spiId) {
-        NearbyConnectionsSPI.ID -> NearbyConnectionsScanParams
-        MulticastDnsSPI.ID -> MulticastDnsScanParams
-        else -> null
+    /** Null for a kind that has nothing to scan. */
+    fun findScanParams(kind: TransportKind): DiscoveryProvider.ScanParams? = when (kind) {
+        TransportKind.NearbyConnections -> NearbyConnectionsScanParams
+        TransportKind.MulticastDns -> MulticastDnsScanParams
+        TransportKind.SubnetScan -> SubnetScanParams()
+        TransportKind.ManualAddress -> null
     }
 }
 
@@ -27,13 +31,14 @@ internal val TransportKind.spiId: SpiId
     get() = when (this) {
         TransportKind.NearbyConnections -> NearbyConnectionsSPI.ID
         TransportKind.MulticastDns -> MulticastDnsSPI.ID
-        TransportKind.SubnetScan -> DirectIpSPI.ID // TODO
+        TransportKind.SubnetScan -> SubnetScanSPI.ID
         TransportKind.ManualAddress -> DirectIpSPI.ID
     }
 
 internal fun SpiId?.asTransportKind(): TransportKind? = when (this) {
     NearbyConnectionsSPI.ID -> TransportKind.NearbyConnections
     MulticastDnsSPI.ID -> TransportKind.MulticastDns
+    SubnetScanSPI.ID -> TransportKind.SubnetScan
     DirectIpSPI.ID -> TransportKind.ManualAddress
     else -> null
 }

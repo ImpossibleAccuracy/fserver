@@ -4,6 +4,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Subnet scan: which networks are a LAN rather than a VPN or mobile data. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!--
       Local Network Protection: from API 37 every LAN packet is gated, so this covers the mDNS
       discovery, the direct-IP dialer and Nearby's WIFI_LAN medium alike. Declared here because this

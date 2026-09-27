@@ -9,6 +9,7 @@ import com.fserver.net.security.crypto.CryptoProvider
 import com.fserver.net.security.crypto.PassthroughCryptoProvider
 import com.fserver.net.security.identity.IdentityStore
 import com.fserver.net.security.trust.PeerTrustStore
+import com.fserver.net.spi.SpiId
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -72,10 +73,10 @@ class NetworkConfigBuilder<T : Any>(
         )
         val containers = factories.map { it.create(environment) }
 
-        val duplicates = containers.groupBy { it.transport.id }.filterValues { it.size > 1 }.keys
-        require(duplicates.isEmpty()) {
-            "transport installed more than once: ${duplicates.joinToString { it.value }}"
-        }
+        val transports = containers.mapNotNull { it.transport }
+        val discoveryProviders = containers.mapNotNull { it.discoveryProvider }
+        requireUnique("transport", transports.map { it.id })
+        requireUnique("discovery provider", discoveryProviders.map { it.id })
 
         val authMethods = authMethods.map {
             it.create(environment)
@@ -84,8 +85,8 @@ class NetworkConfigBuilder<T : Any>(
         return NetworkConfig(
             dictionary = dictionary,
             identityStore = identityStore,
-            transports = containers.map { it.transport },
-            discoveryProviders = containers.mapNotNull { it.discoveryProvider },
+            transports = transports,
+            discoveryProviders = discoveryProviders,
             advertisers = containers.mapNotNull { it.advertiser },
             authenticator = authenticator,
             trustStore = trustStore,
@@ -98,6 +99,13 @@ class NetworkConfigBuilder<T : Any>(
             logger = logger,
             scope = scope,
         )
+    }
+
+    private fun requireUnique(role: String, ids: List<SpiId>) {
+        val duplicates = ids.groupBy { it }.filterValues { it.size > 1 }.keys
+        require(duplicates.isEmpty()) {
+            "$role installed more than once: ${duplicates.joinToString { it.value }}"
+        }
     }
 }
 
