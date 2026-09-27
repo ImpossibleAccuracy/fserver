@@ -240,7 +240,7 @@ class PeerRequestServerTest {
                 storage = storage,
                 node = node,
                 localIndexer = indexer,
-                fileUploader = FileUploader(indexer, node, progress),
+                fileUploader = FileUploader(storage, indexer, node, progress, clock),
             ),
             uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress),
             devicesRepository = mockk(relaxed = true),

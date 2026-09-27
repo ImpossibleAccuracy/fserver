@@ -46,22 +46,30 @@ internal class RemoteIndexStoreImpl(
             dao.deleteBySource(sourceId)
 
             for (file in files) {
-                dao.insert(
-                    sourceId = sourceId,
-                    fileId = file.fileId,
-                    deviceId = deviceId,
-                    path = file.path,
-                    state = FileStates.nameOf(file.state),
-                    pinned = FileStates.pinnedOf(file.state),
-                    stateChangedEpochMs = FileStates.changedAtOf(file.state),
-                    size = file.size.bytes,
-                    modifiedAtEpochMs = file.modifiedAt.toEpochMilliseconds(),
-                    hashValue = file.hash?.value,
-                    hashAlgorithm = file.hash?.algorithm,
-                    seenAtEpochMs = file.seenAt.toEpochMilliseconds(),
-                )
+                insert(sourceId, deviceId, file)
             }
         }
+    }
+
+    override suspend fun upsert(deviceId: String, file: RemoteIndexedFile) {
+        insert(file.sourceId, deviceId, file)
+    }
+
+    private fun insert(sourceId: String, deviceId: String, file: RemoteIndexedFile) {
+        dao.insert(
+            sourceId = sourceId,
+            fileId = file.fileId,
+            deviceId = deviceId,
+            path = file.path,
+            state = FileStates.nameOf(file.state),
+            pinned = FileStates.pinnedOf(file.state),
+            stateChangedEpochMs = FileStates.changedAtOf(file.state),
+            size = file.size.bytes,
+            modifiedAtEpochMs = file.modifiedAt.toEpochMilliseconds(),
+            hashValue = file.hash?.value,
+            hashAlgorithm = file.hash?.algorithm,
+            seenAtEpochMs = file.seenAt.toEpochMilliseconds(),
+        )
     }
 
     override suspend fun clear(sourceId: String) {

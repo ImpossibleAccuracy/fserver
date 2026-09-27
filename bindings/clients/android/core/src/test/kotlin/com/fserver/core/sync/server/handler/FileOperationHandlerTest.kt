@@ -68,7 +68,7 @@ class FileOperationHandlerTest {
             storage = storage,
             node = node,
             localIndexer = indexer,
-            fileUploader = FileUploader(indexer, node, progress),
+            fileUploader = FileUploader(storage, indexer, node, progress, clock),
         )
 
         storage.sources.upsert(
@@ -161,6 +161,17 @@ class FileOperationHandlerTest {
         val streamed = chunks.sortedBy { it.offset }.fold(ByteArray(0)) { acc, c -> acc + c.bytes }
 
         assertEquals(Contents, String(streamed))
+    }
+
+    @Test
+    fun `a finished upload records the file in the remote index`() = runTest {
+        handler.handle(owner, RemoteOperation.File.Download(key()))
+
+        val recorded = storage.remoteIndex.files(SourceId).single()
+
+        assertEquals(FileIdValue, recorded.fileId)
+        assertEquals(sha256(Contents.toByteArray()), recorded.hash?.value)
+        assertEquals(OwnerId, storage.remoteIndex.attributedTo[SourceId])
     }
 
     @Test

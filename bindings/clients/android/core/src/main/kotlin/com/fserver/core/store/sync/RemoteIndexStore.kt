@@ -25,6 +25,9 @@ interface RemoteIndexStore {
     /** Replaces everything recorded for [sourceId] with [files], attributed to [deviceId]. */
     suspend fun replace(sourceId: String, deviceId: String, files: Collection<RemoteIndexedFile>)
 
+    /** Records [file] under its source, replacing the earlier row for it. Attributed to [deviceId]. */
+    suspend fun upsert(deviceId: String, file: RemoteIndexedFile)
+
     /** Forgets what [sourceId]'s peer reported. Touches no bytes on either device. */
     suspend fun clear(sourceId: String)
 }

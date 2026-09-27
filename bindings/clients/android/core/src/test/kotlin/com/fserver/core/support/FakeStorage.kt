@@ -193,6 +193,13 @@ internal class FakeRemoteIndexStore : RemoteIndexStore {
         rows.update { current -> current.filterNot { it.sourceId == sourceId } + stored }
     }
 
+    override suspend fun upsert(deviceId: String, file: RemoteIndexedFile) {
+        attributedTo[file.sourceId] = deviceId
+        rows.update { current ->
+            current.filterNot { it.sourceId == file.sourceId && it.fileId == file.fileId } + file
+        }
+    }
+
     override suspend fun clear(sourceId: String) {
         rows.update { current -> current.filterNot { it.sourceId == sourceId } }
     }

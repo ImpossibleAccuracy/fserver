@@ -2,6 +2,7 @@ package com.fserver.core.sync.runner
 
 import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
 import com.fserver.core.files.scan.toFiles
@@ -9,13 +10,17 @@ import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
+import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.toDto
+import com.fserver.core.network.dictionary.dto.toRemoteIndexed
+import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.runner.FileUploader.Companion.MinChunkSize
+import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
@@ -33,9 +38,11 @@ import java.io.InputStream
  * upload resumes from there instead of starting over - within this call, and across passes.
  */
 internal class FileUploader(
+    private val storage: FServerStorage,
     private val localIndexer: LocalChangesIndexer,
     private val node: FilesNode,
     private val progress: SyncProgressReporter,
+    private val timeProvider: TimeProvider,
 ) {
     /**
      * Reported as one transfer whichever way it was asked for: a pass pushing the file, or a peer
@@ -144,6 +151,8 @@ internal class FileUploader(
                     localIndexer.recordHash(source, file, hash)
                 }
 
+                recordRemote(source, init, hash)
+
                 return hash
             }
 
@@ -154,6 +163,22 @@ internal class FileUploader(
         throw SyncException.RemoteRejectedException(
             "Peer ${session.identity.deviceId} did not take ${file.id} in $MaxAttempts attempts"
         )
+    }
+
+    /**
+     * The peer holds what [init] described now; recorded so it shows before its next published
+     * index. A cache write, so a failure is logged rather than failing a finished upload.
+     */
+    private suspend fun recordRemote(source: SourceEntry, init: Upload.Init, hash: ContentHash) {
+        runCatchingCancellable {
+            val file = init.file.copy(
+                content = ContentHashDto(value = hash.value, algorithm = hash.algorithm),
+            )
+            storage.remoteIndex.upsert(
+                deviceId = source.deviceId,
+                file = file.toRemoteIndexed(timeProvider.now()),
+            )
+        }.onFailure { Timber.w(it, "Failed to record upload of ${init.file.id} in remote index") }
     }
 
     /**
