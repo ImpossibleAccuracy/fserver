@@ -35,17 +35,8 @@ data class SourceEntry(
 ) {
     data class Preferences(
         val deviceConstraints: DeviceConstraints,
-        val conflictResolution: ConflictResolution,
         val fileLimits: FileLimits,
     ) {
-        enum class ConflictResolution {
-            /** Keep only the last modified file. */
-            LastWriteWins,
-
-            /** Keep both files in `.conflicts` folder. */
-            KeepBoth,
-        }
-
         data class DeviceConstraints(
             val wifiRequired: Boolean,
             val chargingRequired: Boolean,
@@ -67,7 +58,6 @@ data class SourceEntry(
                     wifiRequired = false,
                     chargingRequired = false,
                 ),
-                conflictResolution = ConflictResolution.LastWriteWins,
                 fileLimits = FileLimits.None,
             )
         }

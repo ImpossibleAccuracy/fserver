@@ -611,7 +611,10 @@
     <string name="sync_request_location_internal_subtitle">Private to the app, needs no permission, and goes with an uninstall.</string>
     <string name="sync_request_location_folder_title">Folder on this device</string>
     <string name="sync_request_location_folder_subtitle">Pick a folder you can reach from any other app.</string>
-    <string name="sync_request_location_note">Accepting tells the other device it can start sending. It can be undone later by removing the source.</string>
+    <string name="sync_request_preferences_title">How to receive</string>
+    <string name="sync_request_preferences_body">These settings belong to this device. %1$s decides what to send; this phone decides when and how much to take in.</string>
+    <string name="sync_request_preferences_when_label">When to sync</string>
+    <string name="sync_request_preferences_note">Accepting tells the other device it can start sending. It can be undone later by removing the source.</string>
 
     <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
     <string name="source_pick_title">What to connect?</string>

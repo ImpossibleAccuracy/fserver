@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkGhostButton
-import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
@@ -34,10 +32,10 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationIntent
 import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationState
-import com.fserver.app.presentation.screens.source.request.location.model.SyncRequestLocationUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.SyncRequestUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
+import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
@@ -48,7 +46,7 @@ fun SyncRequestLocationScreen(
     modifier: Modifier = Modifier,
     key: Destination.Source.Request.Location,
     viewModel: SyncRequestLocationViewModel = koinViewModel { parametersOf(key) },
-    navigateToProgress: () -> Unit,
+    navigateToPreferences: (HostLocationUi) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -70,19 +68,12 @@ fun SyncRequestLocationScreen(
         )
     }
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SyncRequestLocationUiEffect.NavigateToProgress -> navigateToProgress()
-            }
-        }
-    }
-
     SyncRequestLocationContent(
         modifier = modifier,
         state = state,
         onIntent = viewModel::onIntent,
         onPickFolder = { folderLauncher.launch(null) },
+        navigateToPreferences = navigateToPreferences,
         navigateUp = navigateUp,
     )
 }
@@ -93,6 +84,7 @@ private fun SyncRequestLocationContent(
     state: SyncRequestLocationState,
     onIntent: (SyncRequestLocationIntent) -> Unit,
     onPickFolder: () -> Unit,
+    navigateToPreferences: (HostLocationUi) -> Unit,
     navigateUp: () -> Unit,
 ) {
     DkScaffold(
@@ -117,15 +109,14 @@ private fun SyncRequestLocationContent(
 
                 DkPrimaryButton(
                     modifier = Modifier.fillMaxWidth(),
-                    text = stringResource(R.string.action_accept),
-                    onClick = { onIntent(SyncRequestLocationIntent.Accepted) },
-                    enabled = state.canAccept,
+                    text = stringResource(R.string.action_next),
+                    onClick = { navigateToPreferences(state.selected) },
+                    enabled = state.canContinue,
                 )
                 DkGhostButton(
                     modifier = Modifier.fillMaxWidth(),
                     text = stringResource(R.string.action_back),
                     onClick = navigateUp,
-                    enabled = !state.isAccepting,
                 )
             }
         },
@@ -169,8 +160,6 @@ private fun SyncRequestLocationContent(
                 selected = state.isFolderSelected,
                 onSelect = onPickFolder,
             )
-
-            DkInfoBox(text = stringResource(R.string.sync_request_location_note))
         }
     }
 }
@@ -206,6 +195,7 @@ private fun SyncRequestLocationPreview() {
             ),
             onIntent = {},
             onPickFolder = {},
+            navigateToPreferences = {},
             navigateUp = {},
         )
     }

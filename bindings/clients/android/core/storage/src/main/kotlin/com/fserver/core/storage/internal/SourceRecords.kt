@@ -82,7 +82,7 @@ internal object SourceRecords {
     }
 
     fun discriminatorOf(mode: SyncMode): String = when (mode) {
-        SyncMode.Mirror -> Mirror
+        is SyncMode.Mirror -> Mirror
         is SyncMode.AutoUpload -> AutoUpload
         is SyncMode.Offload -> Offload
     }
@@ -199,7 +199,12 @@ internal object SourceRecords {
 
     private fun Writer.writeMode(mode: SyncMode) {
         when (mode) {
-            SyncMode.Mirror -> Unit
+            is SyncMode.Mirror -> put(
+                Mode, ConflictResolution, when (mode.conflictResolution) {
+                    SyncMode.Mirror.ConflictResolution.LastWriteWins -> LastWriteWins
+                    SyncMode.Mirror.ConflictResolution.KeepBoth -> KeepBoth
+                }
+            )
 
             // Absent rather than empty when null: a row that exists must carry a readable value.
             is SyncMode.AutoUpload -> put(Mode, IgnoreFilesBefore, mode.ignoreFilesBefore)
@@ -232,12 +237,6 @@ internal object SourceRecords {
     private fun Writer.writePreferences(preferences: SourceEntry.Preferences) {
         put(Preferences, WifiRequired, preferences.deviceConstraints.wifiRequired)
         put(Preferences, ChargingRequired, preferences.deviceConstraints.chargingRequired)
-        put(
-            Preferences, ConflictResolution, when (preferences.conflictResolution) {
-                SourceEntry.Preferences.ConflictResolution.LastWriteWins -> LastWriteWins
-                SourceEntry.Preferences.ConflictResolution.KeepBoth -> KeepBoth
-            }
-        )
         preferences.fileLimits.maxFiles?.let { put(Preferences, MaxFiles, it.toString()) }
         preferences.fileLimits.maxTotalSize?.let {
             put(Preferences, MaxTotalBytes, it.bytes.toString())
@@ -270,7 +269,12 @@ internal object SourceRecords {
 
     private fun readMode(id: String, discriminator: String, attributes: Reader): SyncMode? =
         when (discriminator) {
-            Mirror -> SyncMode.Mirror
+            Mirror -> when (val stored = attributes.string(Mode, ConflictResolution)) {
+                LastWriteWins -> SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins)
+                KeepBoth -> SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth)
+                null -> missing(id, "mode '$Mirror' has no '$ConflictResolution'")
+                else -> missing(id, "conflict resolution '$stored' is not one this build knows")
+            }
 
             // The only optional field in the whole record: absent means "no cutoff", not "broken".
             AutoUpload -> SyncMode.AutoUpload(
@@ -325,12 +329,6 @@ internal object SourceRecords {
             ?: return missing(id, "preferences have no '$WifiRequired'")
         val chargingRequired = attributes.boolean(Preferences, ChargingRequired)
             ?: return missing(id, "preferences have no '$ChargingRequired'")
-        val conflictResolution = when (val stored = attributes.string(Preferences, ConflictResolution)) {
-            LastWriteWins -> SourceEntry.Preferences.ConflictResolution.LastWriteWins
-            KeepBoth -> SourceEntry.Preferences.ConflictResolution.KeepBoth
-            null -> return missing(id, "preferences have no '$ConflictResolution'")
-            else -> return missing(id, "conflict resolution '$stored' is not one this build knows")
-        }
 
         // Limits are optional: absent means "no cap". A present value that will not parse is not.
         val maxFiles = attributes.string(Preferences, MaxFiles)?.let {
@@ -347,7 +345,6 @@ internal object SourceRecords {
                 wifiRequired = wifiRequired,
                 chargingRequired = chargingRequired,
             ),
-            conflictResolution = conflictResolution,
             fileLimits = SourceEntry.Preferences.FileLimits(
                 maxFiles = maxFiles,
                 maxTotalSize = maxTotalSize,

@@ -218,10 +218,9 @@ private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): 
         if (preferences.deviceConstraints.chargingRequired) add(ConditionUi.WhileCharging)
 
         when (mode) {
-            SyncMode.Mirror -> add(
+            is SyncMode.Mirror -> add(
                 ConditionUi.OnConflict(
-                    keepBoth = preferences.conflictResolution ==
-                            SourceEntry.Preferences.ConflictResolution.KeepBoth,
+                    keepBoth = mode.conflictResolution == SyncMode.Mirror.ConflictResolution.KeepBoth,
                 )
             )
 

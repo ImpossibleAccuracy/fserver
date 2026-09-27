@@ -106,6 +106,7 @@ internal class SourceSetupExchange(
     suspend fun accept(
         sourceId: String,
         location: SourceLocation.Hostable,
+        preferences: SourceEntry.Preferences = SourceEntry.Preferences.Default,
     ): SourceEntry {
         val request = storage.sourceRequests.findById(sourceId)
             ?: throw IllegalArgumentException("No source request pending for id: $sourceId")
@@ -117,6 +118,7 @@ internal class SourceSetupExchange(
             // The asker's path, not ours: it is what the source is, and this side only hosts it.
             originPath = request.originPath,
             syncMode = request.syncMode,
+            preferences = preferences,
             role = SourceEntry.Role.Follower,
             // Accepting is this side's half of the setup: nothing is left to wait for.
             status = SourceEntry.Status.Active,

@@ -13,6 +13,7 @@ import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
@@ -76,8 +77,11 @@ internal class FileActionRunner(
         action: FileAction.Conflict,
         source: SourceEntry,
     ) {
-        when (source.preferences.conflictResolution) {
-            SourceEntry.Preferences.ConflictResolution.LastWriteWins -> {
+        val resolution = (source.syncMode as? SyncMode.Mirror)?.conflictResolution
+            ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
+
+        when (resolution) {
+            SyncMode.Mirror.ConflictResolution.LastWriteWins -> {
                 val local = action.local.metadata.version
                 val remote = action.remote.metadata.version
 
@@ -198,7 +202,7 @@ internal class FileActionRunner(
                 }
             }
 
-            SourceEntry.Preferences.ConflictResolution.KeepBoth -> {
+            SyncMode.Mirror.ConflictResolution.KeepBoth -> {
                 Timber.w("Conflict resolution not implemented yet for ${action.local.path} and ${action.remote.path}")
                 // TODO: save both variants to .conflict folder
             }

@@ -14,6 +14,7 @@ val Destination.isSourceScreen: Boolean
             this is Destination.Source.Setup.Conditions ||
             this is Destination.Source.Request.Details ||
             this is Destination.Source.Request.Location ||
+            this is Destination.Source.Request.Preferences ||
             this is Destination.Source.Progress ||
             this is Destination.Source.Done
 

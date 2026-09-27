@@ -56,6 +56,7 @@ import com.fserver.app.presentation.screens.settings.settingsEntry
 import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
 import com.fserver.app.presentation.screens.source.request.details.syncRequestDetailsEntry
 import com.fserver.app.presentation.screens.source.request.location.syncRequestLocationEntry
+import com.fserver.app.presentation.screens.source.request.preferences.syncRequestPreferencesEntry
 import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
 import com.fserver.app.presentation.screens.source.setup.conditions.sourceConditionsEntry
 import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
@@ -257,6 +258,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             syncRequestListEntry(navigator)
             syncRequestDetailsEntry(navigator)
             syncRequestLocationEntry(navigator)
+            syncRequestPreferencesEntry(navigator)
 
             sourceProgressEntry(navigator)
             sourceDoneEntry(navigator)

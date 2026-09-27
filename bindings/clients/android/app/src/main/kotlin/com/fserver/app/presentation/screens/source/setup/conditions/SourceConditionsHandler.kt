@@ -250,7 +250,13 @@ class SourceConditionsHandler(
      * filter, which is why the backlog answer becomes an instant.
      */
     private fun toSyncMode(mode: SourceModeUi): SyncMode? = when (mode) {
-        SourceModeUi.Sync -> SyncMode.Mirror
+        SourceModeUi.Sync -> SyncMode.Mirror(
+            conflictResolution = if (editable.value.keepBoth) {
+                SyncMode.Mirror.ConflictResolution.KeepBoth
+            } else {
+                SyncMode.Mirror.ConflictResolution.LastWriteWins
+            },
+        )
 
         SourceModeUi.AutoUpload -> SyncMode.AutoUpload(
             ignoreFilesBefore = when (editable.value.uploadScope) {
@@ -277,11 +283,6 @@ class SourceConditionsHandler(
                 wifiRequired = form.wifiOnly,
                 chargingRequired = form.chargingOnly,
             ),
-            conflictResolution = if (form.keepBoth) {
-                SourceEntry.Preferences.ConflictResolution.KeepBoth
-            } else {
-                SourceEntry.Preferences.ConflictResolution.LastWriteWins
-            },
             fileLimits = if (flow.value.mode == SourceModeUi.Sync) {
                 SourceEntry.Preferences.FileLimits(
                     maxFiles = form.maxFiles.takeIf { form.limitFiles },

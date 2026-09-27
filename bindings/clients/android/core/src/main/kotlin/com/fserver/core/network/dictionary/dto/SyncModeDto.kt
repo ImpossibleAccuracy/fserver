@@ -14,7 +14,12 @@ import kotlin.time.Instant
 @Serializable
 internal sealed interface SyncModeDto {
     @Serializable
-    data object Mirror : SyncModeDto
+    data class Mirror(
+        val conflictResolution: ConflictResolution = ConflictResolution.LastWriteWins,
+    ) : SyncModeDto {
+        @Serializable
+        enum class ConflictResolution { LastWriteWins, KeepBoth }
+    }
 
     @Serializable
     data class AutoUpload(val ignoreFilesBefore: Instant?) : SyncModeDto
@@ -36,7 +41,15 @@ internal sealed interface SyncModeDto {
 }
 
 internal fun SyncMode.toDto(): SyncModeDto = when (this) {
-    SyncMode.Mirror -> SyncModeDto.Mirror
+    is SyncMode.Mirror -> SyncModeDto.Mirror(
+        conflictResolution = when (conflictResolution) {
+            SyncMode.Mirror.ConflictResolution.LastWriteWins ->
+                SyncModeDto.Mirror.ConflictResolution.LastWriteWins
+
+            SyncMode.Mirror.ConflictResolution.KeepBoth ->
+                SyncModeDto.Mirror.ConflictResolution.KeepBoth
+        },
+    )
 
     is SyncMode.AutoUpload -> SyncModeDto.AutoUpload(ignoreFilesBefore)
 
@@ -47,7 +60,15 @@ internal fun SyncMode.toDto(): SyncModeDto = when (this) {
 }
 
 internal fun SyncModeDto.toDomain(): SyncMode = when (this) {
-    SyncModeDto.Mirror -> SyncMode.Mirror
+    is SyncModeDto.Mirror -> SyncMode.Mirror(
+        conflictResolution = when (conflictResolution) {
+            SyncModeDto.Mirror.ConflictResolution.LastWriteWins ->
+                SyncMode.Mirror.ConflictResolution.LastWriteWins
+
+            SyncModeDto.Mirror.ConflictResolution.KeepBoth ->
+                SyncMode.Mirror.ConflictResolution.KeepBoth
+        },
+    )
 
     is SyncModeDto.AutoUpload -> SyncMode.AutoUpload(ignoreFilesBefore)
 

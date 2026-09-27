@@ -131,15 +131,19 @@ class SourcesController internal constructor(
      * source alone. A host that wants the files somewhere the user can reach passes a
      * [SourceLocation.Tree] or [SourceLocation.Directory] instead - one directory per source, and
      * whether the app may write there is the host's to have arranged.
+     *
+     * [preferences] are this device's own: the mode comes from the peer, when and how much to
+     * take in does not.
      */
     suspend fun acceptRequest(
         sourceId: String,
         location: SourceLocation.Hostable = SourceLocation.Internal(bucket = sourceId),
+        preferences: SourceEntry.Preferences = SourceEntry.Preferences.Default,
     ): Result<SourceEntry> = runBackgroundJob {
         requirementsChecker.ensureSourceReachable(location)
 
         Timber.i("Accepting source $sourceId at $location")
-        sourceSetup.accept(sourceId, location)
+        sourceSetup.accept(sourceId, location, preferences)
     }.onSuccess {
         syncRunner.runOnceAsync()
     }

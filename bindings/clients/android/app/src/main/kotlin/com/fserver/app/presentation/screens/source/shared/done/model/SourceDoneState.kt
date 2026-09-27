@@ -89,7 +89,7 @@ data class SourceDoneState(
         }
 
         private fun SyncMode.conditionRows(): List<SummaryRow> = when (this) {
-            SyncMode.Mirror -> emptyList()
+            is SyncMode.Mirror -> emptyList()
 
             is SyncMode.AutoUpload -> listOf(
                 SummaryRow(

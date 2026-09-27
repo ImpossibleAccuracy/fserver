@@ -8,21 +8,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,7 +24,6 @@ import com.fserver.app.R
 import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
-import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkPlaceholderBox
 import com.fserver.app.presentation.designkit.DkPrimaryButton
@@ -41,7 +34,6 @@ import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
@@ -50,6 +42,7 @@ import com.fserver.app.presentation.screens.source.setup.conditions.model.Source
 import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
+import com.fserver.app.presentation.screens.source.shared.composable.ValueStepper
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
@@ -414,36 +407,6 @@ private fun LimitsFields(
                 onStep = { onIntent(SourceConditionsIntent.MaxSizeStepped(it)) },
             )
         }
-    }
-}
-
-@Composable
-private fun ValueStepper(
-    modifier: Modifier = Modifier,
-    label: String,
-    enabled: Boolean,
-    onStep: (Int) -> Unit,
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
-    ) {
-        DkIconButton(
-            icon = Icons.Default.Remove,
-            onClick = { if (enabled) onStep(-1) },
-        )
-        Text(
-            modifier = Modifier.widthIn(min = 84.dp),
-            text = label,
-            style = DkType.monoLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
-        DkIconButton(
-            icon = Icons.Default.Add,
-            onClick = { if (enabled) onStep(1) },
-        )
     }
 }
 

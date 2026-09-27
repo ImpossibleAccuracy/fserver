@@ -10,11 +10,10 @@ data class SyncRequestLocationState(
     val isLoaded: Boolean = false,
     val selected: HostLocationUi = HostLocationUi.AppStorage,
     val folder: HostLocationUi.Folder? = null,
-    val isAccepting: Boolean = false,
 ) {
     val isGone: Boolean get() = isLoaded && request == null
 
     val isFolderSelected: Boolean get() = selected is HostLocationUi.Folder
 
-    val canAccept: Boolean get() = request != null && !isAccepting
+    val canContinue: Boolean get() = request != null
 }

@@ -11,8 +11,18 @@ sealed interface SyncMode {
 
     enum class Type { Mirror, AutoUpload, Offload }
 
-    data object Mirror : SyncMode {
+    data class Mirror(
+        val conflictResolution: ConflictResolution,
+    ) : SyncMode {
         override val type: Type get() = Type.Mirror
+
+        enum class ConflictResolution {
+            /** Keep only the last modified file. */
+            LastWriteWins,
+
+            /** Keep both files in `.conflicts` folder. */
+            KeepBoth,
+        }
     }
 
     data class AutoUpload(

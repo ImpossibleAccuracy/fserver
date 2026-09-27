@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.shared.model
 
 import com.fserver.core.files.SourceLocation
+import kotlinx.serialization.Serializable
 
 /**
  * Where the files arriving for an accepted source are written.
@@ -8,9 +9,12 @@ import com.fserver.core.files.SourceLocation
  * App-private storage is the default because it needs no grant and no folder of the user's is
  * touched. A folder is the opt-out, and only one the user picked in the system dialog.
  */
+@Serializable
 sealed interface HostLocationUi {
+    @Serializable
     data object AppStorage : HostLocationUi
 
+    @Serializable
     data class Folder(val uri: String, val label: String) : HostLocationUi
 }
 

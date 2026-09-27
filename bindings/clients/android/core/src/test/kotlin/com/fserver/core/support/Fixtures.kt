@@ -21,7 +21,7 @@ internal fun sourceEntry(
     deviceId: String = "device-peer",
     location: SourceLocation.Persistable = SourceLocation.Internal(bucket = id),
     originPath: String = "/Source",
-    syncMode: SyncMode = SyncMode.Mirror,
+    syncMode: SyncMode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
     role: SourceEntry.Role = SourceEntry.Role.Follower,
     status: SourceEntry.Status = SourceEntry.Status.Active,
     label: String = "Test source",

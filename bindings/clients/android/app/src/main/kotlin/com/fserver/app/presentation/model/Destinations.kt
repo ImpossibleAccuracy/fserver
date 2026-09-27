@@ -3,6 +3,7 @@ package com.fserver.app.presentation.model
 import androidx.navigation3.runtime.NavKey
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
+import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
@@ -111,6 +112,10 @@ sealed interface Destination : NavKey {
             /** Where the files this device takes on will be written. */
             @Serializable
             data class Location(val sourceId: String) : Destination
+
+            /** When and how much this device takes in. Answers the ask. */
+            @Serializable
+            data class Preferences(val sourceId: String, val location: HostLocationUi) : Destination
         }
 
         /**

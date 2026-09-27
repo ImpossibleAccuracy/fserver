@@ -32,7 +32,7 @@ internal class UploadStrategySelector {
         syncMode: SyncMode,
         role: SourceEntry.Role,
     ): UploadStrategy.Params = when (syncMode) {
-        SyncMode.Mirror -> MirrorUploadStrategy.Params()
+        is SyncMode.Mirror -> MirrorUploadStrategy.Params()
 
         // Files travel initiator -> follower and never back: the initiator does not pull down what
         // it already sent, so only the follower restores what it is missing.

@@ -26,7 +26,8 @@ class SourceRecordsTest {
         )
 
         val modes = listOf(
-            SyncMode.Mirror,
+            SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
+            SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth),
             SyncMode.AutoUpload(ignoreFilesBefore = null),
             SyncMode.AutoUpload(ignoreFilesBefore = Instant.fromEpochMilliseconds(1_700_000_000_000)),
             SyncMode.Offload(
@@ -76,7 +77,6 @@ class SourceRecordsTest {
                     wifiRequired = true,
                     chargingRequired = true,
                 ),
-                conflictResolution = SourceEntry.Preferences.ConflictResolution.KeepBoth,
                 fileLimits = SourceEntry.Preferences.FileLimits(
                     maxFiles = 1000,
                     maxTotalSize = FileSize(4L * 1024 * 1024 * 1024),
@@ -169,7 +169,7 @@ class SourceRecordsTest {
 
     private fun source(
         location: SourceLocation.Persistable = SourceLocation.Media,
-        syncMode: SyncMode = SyncMode.Mirror,
+        syncMode: SyncMode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
         status: SourceEntry.Status = SourceEntry.Status.Active,
         role: SourceEntry.Role = SourceEntry.Role.Initiator,
         createdAt: Instant = Instant.fromEpochMilliseconds(1_600_000_000_000),

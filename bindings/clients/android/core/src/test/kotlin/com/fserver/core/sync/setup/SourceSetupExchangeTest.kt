@@ -125,6 +125,21 @@ class SourceSetupExchangeTest {
     }
 
     @Test
+    fun `accepting keeps this side's own preferences`() = runTest {
+        exchange.onRequest(peerIdentity(OwnerId), request())
+        val preferences = SourceEntry.Preferences.Default.copy(
+            deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
+                wifiRequired = true,
+                chargingRequired = true,
+            ),
+        )
+
+        val source = exchange.accept(SourceId, SourceLocation.Internal(bucket = SourceId), preferences)
+
+        assertEquals(preferences, source.preferences)
+    }
+
+    @Test
     fun `rejecting drops the ask and tells the peer, so it stops retrying`() = runTest {
         exchange.onRequest(peerIdentity(OwnerId), request())
 
@@ -210,7 +225,7 @@ class SourceSetupExchangeTest {
         sourceId = SourceId,
         label = "Peer's photos",
         originPath = "/DCIM/Camera",
-        syncMode = SyncModeDto.Mirror,
+        syncMode = SyncModeDto.Mirror(),
     )
 
     private fun decision(): FileServerMessages.ConfigureSource.Decision =
