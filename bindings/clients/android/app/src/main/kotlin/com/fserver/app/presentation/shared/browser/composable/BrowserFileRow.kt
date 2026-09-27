@@ -88,12 +88,14 @@ private val FileBrowserUi.File.Sync.labelRes: Int
     get() = when (this) {
         FileBrowserUi.File.Sync.Waiting -> R.string.file_sync_waiting
         FileBrowserUi.File.Sync.Sending -> R.string.file_sync_sending
+        FileBrowserUi.File.Sync.Receiving -> R.string.file_sync_receiving
     }
 
 @Composable
 private fun FileBrowserUi.File.Sync.color(): Color = when (this) {
     FileBrowserUi.File.Sync.Waiting -> MaterialTheme.colorScheme.error
-    FileBrowserUi.File.Sync.Sending -> MaterialTheme.colorScheme.primary
+    FileBrowserUi.File.Sync.Sending,
+    FileBrowserUi.File.Sync.Receiving -> MaterialTheme.colorScheme.primary
 }
 
 @Composable

@@ -2,21 +2,33 @@ package com.fserver.app.presentation.screens.files.shared
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.locations
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.flow.update
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
 class FilesProviderHandler(
     private val filesController: FilesController,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
+    private val reporter: ErrorReporter,
     private val openFile: suspend (SyncFileEntry) -> Unit,
 ) {
+    private val _downloading = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Ids of the files being fetched from the peer on demand. */
+    val downloading: StateFlow<Set<String>> = _downloading.asStateFlow()
+
     /**
      * Indexed entries matching the filters, with paths rooted at their source's origin.
      *
@@ -57,11 +69,19 @@ class FilesProviderHandler(
             }
     }
 
+    /** Opens [entry], fetching it from the peer first when only the peer holds it. */
     suspend fun onItemClick(entry: SyncFileEntry) {
-        if (entry.locator == null) {
-            // TODO: download path
-        } else {
-            openFile(entry)
+        if (!entry.isRemote) return openFile(entry)
+
+        // A second tap while the first fetch runs must not start another transfer of the same file.
+        if (entry.fileId in _downloading.getAndUpdate { it + entry.fileId }) return
+
+        try {
+            filesController.download(entry)
+                .onSuccess { openFile(entry.copy(locator = it.locator, localState = it.localState)) }
+                .onFailure { reporter.report(it, "On-demand download of ${entry.fileId} failed") }
+        } finally {
+            _downloading.update { it - entry.fileId }
         }
     }
 }

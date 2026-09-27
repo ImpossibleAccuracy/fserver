@@ -17,6 +17,7 @@ import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
 import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.app.presentation.shared.browser.model.toTree
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
@@ -43,6 +44,7 @@ class StorageSourceViewModel(
     trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
     private val appSettings: AppSettingsStore,
+    reporter: ErrorReporter,
 ) : ViewModel() {
     private val effects = Channel<StorageSourceUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -50,6 +52,7 @@ class StorageSourceViewModel(
     private val filesProviderHandler = FilesProviderHandler(
         filesController = filesController,
         registeredSourcesRepository = registeredSources,
+        reporter = reporter,
         openFile = {
             effects.send(StorageSourceUiEffect.OpenFile(it.asPreviewFile()))
         },

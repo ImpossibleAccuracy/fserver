@@ -14,6 +14,7 @@ import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.app.presentation.shared.browser.model.toTree
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
+import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -50,9 +51,10 @@ class FilesViewModel(
     private val filesProviderHandler = FilesProviderHandler(
         filesController = filesController,
         registeredSourcesRepository = registeredSourcesRepository,
+        reporter = reporter,
         openFile = {
             effects.send(FilesUiEffect.OpenFile(it.asPreviewFile()))
-        }
+        },
     )
 
     private val editable = MutableStateFlow(
@@ -64,24 +66,25 @@ class FilesViewModel(
         .map { Query(it.filter, it.selectedSourceId, it.sort, it.sortAscending) }
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            filesProviderHandler
-                .loadEntries(
+            combine(
+                filesProviderHandler.loadEntries(
                     requiredLocation = when (query.filter) {
                         FilesState.FilterUi.All -> null
                         FilesState.FilterUi.Local -> FileBrowserUi.File.Location.Local
                         FilesState.FilterUi.Cloud -> FileBrowserUi.File.Location.Remote
                     },
                     sourceIds = query.sourceId?.let(::setOf),
+                ),
+                filesProviderHandler.downloading,
+            ) { files, downloading ->
+                FilesState.FeedUi(
+                    preview = files.toTree(query.sort, query.sortAscending) { it.toUi(downloading) },
+                    filter = query.filter,
+                    sourceId = query.sourceId,
+                    sort = query.sort,
+                    sortAscending = query.sortAscending,
                 )
-                .map { files ->
-                    FilesState.FeedUi(
-                        preview = files.toTree(query.sort, query.sortAscending),
-                        filter = query.filter,
-                        sourceId = query.sourceId,
-                        sort = query.sort,
-                        sortAscending = query.sortAscending,
-                    )
-                }
+            }
         }
         .stateIn(
             scope = viewModelScope,
@@ -207,3 +210,7 @@ class FilesViewModel(
         val sortAscending: Boolean = true,
     )
 }
+
+private fun SyncFileEntry.toUi(downloading: Set<String>): FileBrowserUi.File = asPreviewFile().copy(
+    sync = FileBrowserUi.File.Sync.Receiving.takeIf { fileId in downloading },
+)

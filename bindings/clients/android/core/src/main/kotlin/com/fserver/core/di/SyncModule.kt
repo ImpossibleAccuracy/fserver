@@ -20,6 +20,7 @@ import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.runner.FileActionRunner
+import com.fserver.core.sync.runner.FileDownloader
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.runner.UploadStrategySelector
@@ -49,6 +50,7 @@ internal val syncModule = module {
     singleOf(::UploadStaging)
 
     singleOf(::FileUploader)
+    singleOf(::FileDownloader)
     singleOf(::FileActionRunner)
 
     singleOf(::SyncLeaseRegistry)

@@ -687,6 +687,7 @@
     <string name="source_preview_truncated">Showing %1$d of %2$d files</string>
     <string name="file_sync_waiting">waiting to send</string>
     <string name="file_sync_sending">sending</string>
+    <string name="file_sync_receiving">downloading</string>
     <string name="file_browser_empty">The scan found nothing here.</string>
     <string name="file_viewer_enable_notifications">Allow notifications to keep playing in the background</string>
     <string name="file_viewer_open_failed">No app on this phone opens that file.</string>

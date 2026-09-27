@@ -23,10 +23,6 @@ import com.fserver.files.upload.FileVersion
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Carries out one planned [FileAction] and nothing more.
@@ -37,6 +33,7 @@ internal class FileActionRunner(
     private val localIndexer: LocalChangesIndexer,
     private val remoteFetcher: PeerIndexFetcher,
     private val fileUploader: FileUploader,
+    private val fileDownloader: FileDownloader,
     private val timeProvider: TimeProvider,
     private val node: FilesNode,
 ) {
@@ -344,14 +341,11 @@ internal class FileActionRunner(
         action: FileAction.Download,
         source: SourceEntry,
     ) {
-        val session = remoteFetcher.connectToDevice(source)
-
-        session.runRemoteOperation(
-            operation = RemoteOperation.File.Download(
-                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
-                version = action.version?.toDto(),
-            ),
-            timeout = downloadTimeout(action.file.metadata.size),
+        fileDownloader.download(
+            source = source,
+            key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
+            sizeBytes = action.file.metadata.size,
+            version = action.version?.toDto(),
         )
     }
 
@@ -366,20 +360,5 @@ internal class FileActionRunner(
             source = source,
             session = session,
         )
-    }
-
-    /**
-     * The peer confirms a download only once the whole file is across, so a fixed timeout fails
-     * big transfers that are working fine. Budgeted from size against a pessimistic link instead.
-     */
-    private fun downloadTimeout(sizeBytes: Long): Duration =
-        (MinDownloadTimeout + (sizeBytes / SlowestExpectedBytesPerSecond).seconds)
-            .coerceAtMost(MaxDownloadTimeout)
-
-    companion object {
-        // TODO: make configurable
-        private val MinDownloadTimeout = 2.minutes
-        private val MaxDownloadTimeout = 2.hours
-        private const val SlowestExpectedBytesPerSecond = 64L * 1024
     }
 }

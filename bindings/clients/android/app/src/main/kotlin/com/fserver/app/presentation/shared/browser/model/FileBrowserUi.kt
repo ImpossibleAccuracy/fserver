@@ -94,7 +94,7 @@ sealed interface FileBrowserUi {
         val locations: Set<Location> = emptySet(),
         /** Set on a non-media file, which has no thumbnail to fall back on in the gallery. */
         val extensionLabel: String?,
-        /** How the copy to the peer is getting on, where the caller tracks it. Null says nothing. */
+        /** How a transfer of this file is getting on, where the caller tracks it. Null says nothing. */
         val sync: Sync? = null,
     ) : PreviewContentEntry {
         val isLocal: Boolean
@@ -112,10 +112,13 @@ sealed interface FileBrowserUi {
             Remote,
         }
 
-        /** A local file whose bytes the peer does not hold yet. */
+        /** A file whose bytes are only on one side yet. */
         enum class Sync {
             Waiting,
             Sending,
+
+            /** Being fetched from the peer, to be opened here. */
+            Receiving,
         }
     }
 

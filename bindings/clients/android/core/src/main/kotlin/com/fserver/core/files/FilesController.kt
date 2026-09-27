@@ -2,6 +2,7 @@ package com.fserver.core.files
 
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.map
+import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.files.scan.ScannedFile
@@ -9,8 +10,10 @@ import com.fserver.core.files.scan.toCore
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import com.fserver.core.sync.runner.FileDownloader
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +24,7 @@ class FilesController internal constructor(
     private val node: FilesNode,
     private val storage: FServerStorage,
     private val requirementsChecker: RequirementsChecker,
+    private val fileDownloader: FileDownloader,
     private val coroutineScope: BackgroundScope,
 ) {
     /** Scan the given directory and load the content of the files. */
@@ -59,6 +63,28 @@ class FilesController internal constructor(
         initialValue = emptyList(),
     )
 
+    /**
+     * Fetches a file this device does not hold from its source's peer, into the source itself: a
+     * pass then sees both sides equal, and eviction may drop it again later.
+     *
+     * @return the entry as indexed here now, with a [SyncFileEntry.locator] to open it by.
+     */
+    suspend fun download(entry: SyncFileEntry): Result<SyncFileEntry> = runBackgroundJob {
+        val key = IndexedFileKey(fileId = entry.fileId, sourceId = entry.sourceId)
+
+        storage.index.findFile(key)?.presentEntry(entry.remoteState)?.let { return@runBackgroundJob it }
+
+        val source = storage.sources.findById(entry.sourceId)
+            ?: throw IllegalArgumentException("Source ${entry.sourceId} is not registered")
+
+        requirementsChecker.ensureSourceReachable(source.location)
+
+        fileDownloader.download(source = source, key = key, sizeBytes = entry.size.bytes)
+
+        storage.index.findFile(key)?.presentEntry(entry.remoteState)
+            ?: throw IllegalStateException("File ${entry.fileId} was not indexed after download")
+    }
+
     /** Merges the local and remote indexed files within single source. */
     private fun mergeIndexedFiles(
         local: List<LocalIndexedFile>,
@@ -89,13 +115,17 @@ class FilesController internal constructor(
     }
 }
 
+private fun LocalIndexedFile.presentEntry(remoteState: LocalIndexedFile.State?): SyncFileEntry? =
+    takeIf { it.state is LocalIndexedFile.State.Present }?.toSyncEntry(remoteState)
+
 private fun LocalIndexedFile.toSyncEntry(
     remoteState: LocalIndexedFile.State? = null,
 ) = SyncFileEntry(
     fileId = fileId,
     sourceId = sourceId,
     path = path,
-    locator = locator,
+    // An evicted file keeps its old locator in the index, but there is nothing behind it to open.
+    locator = locator.takeIf { state is LocalIndexedFile.State.Present },
     size = size,
     localState = state,
     remoteState = remoteState,
