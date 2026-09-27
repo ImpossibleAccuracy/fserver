@@ -18,6 +18,7 @@ import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
@@ -40,11 +41,12 @@ internal class FileActionRunner(
     private val remoteFetcher: PeerIndexFetcher,
     private val fileUploader: FileUploader,
     private val fileDownloader: FileDownloader,
+    private val fileEvictor: FileEvictor,
     private val timeProvider: TimeProvider,
     private val node: FilesNode,
 ) {
     suspend fun execute(source: SourceEntry, action: FileAction) = runBackgroundJob {
-        refusal(action)?.let { why ->
+        refusal(source, action)?.let { why ->
             Timber.w("Refusing ${action::class.simpleName} on ${action.id.value} in source ${source.id}: $why (planned as: ${action.reason})")
             return@runBackgroundJob
         }
@@ -60,6 +62,10 @@ internal class FileActionRunner(
             is FileAction.Upload -> uploadFile(source, action)
         }
     }
+
+    /** An end that does not drive the source acts on nothing, whatever it was handed. */
+    private fun refusal(source: SourceEntry, action: FileAction): String? =
+        if (!source.drivesSync) "${source.syncMode.type} runs from the initiator" else refusal(action)
 
     /**
      * Why [action] contradicts the records it carries, or null. Any refusal is a strategy bug: this
@@ -343,42 +349,7 @@ internal class FileActionRunner(
         action: FileAction.EvictLocal,
         source: SourceEntry,
     ) {
-        val locator = action.file.locator
-            ?: error("Cannot delete local file ${action.file.id} because it has no locator")
-
-        val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
-        val row = storage.index.findFile(key)
-        val unchanged = row != null && !row.hashStale && row.hash == action.file.content &&
-                (row.state as? LocalIndexedFile.State.Present)?.pinned == false
-        if (!unchanged) {
-            Timber.w("Not evicting ${action.file.path} in source ${source.id}: it changed since planned")
-            return
-        }
-
-        // Only once the peer confirmed the same bytes.
-        val copy = storage.remoteIndex.files(source.id).find { it.fileId == action.id.value }
-        if (copy == null || copy.state !is LocalIndexedFile.State.Present || copy.hash != action.file.content) {
-            Timber.w("Not evicting ${action.file.path} in source ${source.id}: peer holds no confirmed copy")
-            return
-        }
-
-        withContext(NonCancellable) {
-            val fs = node.openSource(source.location.toFiles())
-            // Nothing there is as good as deleted.
-            val deleted = fs.openFile(locator)?.delete() ?: true
-
-            if (!deleted) {
-                Timber.w("Failed to evict file ${action.file.id} at ${action.file.path} from source ${source.id}")
-                return@withContext
-            }
-
-            storage.index.updateFileState(
-                key = key,
-                state = LocalIndexedFile.State.Evicted(
-                    evictedAt = timeProvider.now(),
-                )
-            )
-        }
+        fileEvictor.evict(source, action.id.value, expected = action.file.content)
     }
 
     private suspend fun deleteLocalFile(

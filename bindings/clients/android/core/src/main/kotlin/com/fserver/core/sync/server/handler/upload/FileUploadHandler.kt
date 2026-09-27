@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler.upload
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.StageTimer
@@ -15,7 +16,9 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.limits.FileBudget
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.acceptsPeerWrites
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.util.TimeProvider
@@ -40,6 +43,7 @@ internal class FileUploadHandler(
     private val staging: UploadStaging,
     private val timeProvider: TimeProvider,
     private val progress: SyncProgressReporter,
+    private val requestedDownloads: RequestedDownloads,
 ) {
     suspend fun handle(
         event: PeerSession.Inbound<FileServerMessages>,
@@ -116,6 +120,13 @@ internal class FileUploadHandler(
         context: SessionContext,
     ): Upload {
         val source = authorizer.authorizedSource(session.identity, message.sourceId)
+
+        if (!source.acceptsPeerWrites && !requestedDownloads.isRequested(session.identity.deviceId, message.key)) {
+            throw SyncException.ModeForbiddenException(
+                "Source ${source.id} takes no files from ${session.identity.deviceId} under ${source.syncMode.type}"
+            )
+        }
+
         val now = timeProvider.now()
 
         // Nothing else parks an upload whose sender stopped mid-stream.
@@ -287,7 +298,8 @@ internal class FileUploadHandler(
                 locator = result.locator,
                 currentTime = timeProvider.now(),
             )
-            .copy(modifiedAt = modifiedAt)
+            // Pin and fetch time are this device's own: a new version keeps them.
+            .let { it.copy(modifiedAt = modifiedAt, state = saved?.state as? LocalIndexedFile.State.Present ?: it.state) }
 
         timer.time("index-write") { storage.index.markProcessed(listOf(indexed)) }
 

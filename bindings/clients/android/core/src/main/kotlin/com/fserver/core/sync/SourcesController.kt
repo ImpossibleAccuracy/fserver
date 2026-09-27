@@ -47,13 +47,14 @@ class SourcesController internal constructor(
     /**
      * Modes a source at [location] may be registered under, safest first.
      *
-     * Mirror writes the peer's changes back into [location], so it needs one that can be written
+     * Mirror and Host write the peer's files into [location], so they need one that can be written
      * to as a directory - the media library is not.
      */
     fun availableModes(location: SourceLocation.Selectable): List<SyncMode.Type> = buildList {
         if (location is SourceLocation.Hostable) add(SyncMode.Type.Mirror)
         add(SyncMode.Type.AutoUpload)
         add(SyncMode.Type.Offload)
+        if (location is SourceLocation.Hostable) add(SyncMode.Type.Host)
     }
 
     /** Run a single sync pass over all registered sources. */

@@ -51,6 +51,7 @@ class FileActionRunnerConflictTest {
         remoteFetcher = mockk(relaxed = true),
         fileUploader = mockk(relaxed = true),
         fileDownloader = downloader,
+        fileEvictor = FileEvictor(storage, node, clock),
         timeProvider = clock,
         node = node,
     )

@@ -13,6 +13,7 @@ import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.limits.limit
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.remote.IndexPublisher
@@ -150,6 +151,12 @@ internal class SyncRunner(
             return
         }
 
+        // The initiator drives a one-way source; this end only answers it.
+        if (!source.drivesSync) {
+            Timber.i("Source ${source.id} skipped: ${source.syncMode.type} runs from the initiator")
+            return
+        }
+
         val constraintsMet = force || constraintChecker(
             constraints = source.preferences.deviceConstraints,
         )
@@ -216,8 +223,7 @@ internal class SyncRunner(
 
             Timber.d("Source ${source.id} snapshot round $round: ${snapshot.local.size} local files, ${snapshot.remote.size} remote files")
 
-            // TODO: selector can return null if one-way strategy runs on the wrong side, so move selection out of lease
-            val decisions = uploadStrategySelector.plan(source.syncMode, source.role, snapshot)
+            val decisions = uploadStrategySelector.plan(source, snapshot)
             dropSettledDecisions(source, decisions)
             if (decisions.isEmpty) break
 

@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server.handler.upload
 
 import android.content.ContextWrapper
+import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
@@ -50,7 +51,7 @@ class UploadStagingTest {
         root = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), root)
         staging = UploadStaging(storage, node, clock)
-        garbageCollector = GarbageCollector(storage, node, clock, scope)
+        garbageCollector = GarbageCollector(storage, node, clock, scope, FileEvictor(storage, node, clock))
         storage.sources.upsert(sourceEntry(id = key.sourceId))
     }
 

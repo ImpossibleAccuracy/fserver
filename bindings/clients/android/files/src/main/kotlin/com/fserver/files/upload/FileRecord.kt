@@ -37,6 +37,11 @@ data class FileRecord(
         data class Present(
             /** Pinned files are exempt from eviction. */
             val pinned: Boolean = false,
+            /**
+             * When the bytes were fetched on demand after an eviction, or null. Such a copy is
+             * evicted again by its caller's TTL, never by a plan.
+             */
+            val fetchedAt: Instant? = null,
         ) : State
 
         /** Known here, bytes dropped to reclaim space. Still part of the set - not a deletion. */

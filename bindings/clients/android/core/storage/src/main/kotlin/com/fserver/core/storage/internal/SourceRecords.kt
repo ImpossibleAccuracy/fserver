@@ -43,6 +43,7 @@ internal object SourceRecords {
     private const val Mirror = "Mirror"
     private const val AutoUpload = "AutoUpload"
     private const val Offload = "Offload"
+    private const val Host = "Host"
 
     // Evict policy discriminators, stored under the mode's own `policy` field.
     private const val OlderThanDays = "OlderThanDays"
@@ -57,7 +58,6 @@ internal object SourceRecords {
     private const val Path = "path"
     private const val Bucket = "bucket"
     private const val IgnoreFilesBefore = "ignoreFilesBefore"
-    private const val KeepPinned = "keepPinned"
     private const val Policy = "policy"
     private const val PolicyDays = "policy.days"
     private const val PolicyBytes = "policy.bytes"
@@ -85,6 +85,7 @@ internal object SourceRecords {
         is SyncMode.Mirror -> Mirror
         is SyncMode.AutoUpload -> AutoUpload
         is SyncMode.Offload -> Offload
+        SyncMode.Host -> Host
     }
 
     fun discriminatorOf(status: SourceEntry.Status): String = when (status) {
@@ -210,8 +211,6 @@ internal object SourceRecords {
             is SyncMode.AutoUpload -> put(Mode, IgnoreFilesBefore, mode.ignoreFilesBefore)
 
             is SyncMode.Offload -> {
-                put(Mode, KeepPinned, mode.keepPinned)
-
                 when (val policy = mode.policy) {
                     is SyncMode.Offload.EvictPolicy.OlderThanDays -> {
                         put(Mode, Policy, OlderThanDays)
@@ -224,6 +223,8 @@ internal object SourceRecords {
                     }
                 }
             }
+
+            SyncMode.Host -> Unit
         }
     }
 
@@ -281,14 +282,9 @@ internal object SourceRecords {
                 ignoreFilesBefore = attributes.instant(Mode, IgnoreFilesBefore),
             )
 
-            Offload -> {
-                val keepPinned = attributes.boolean(Mode, KeepPinned)
-                val policy = readPolicy(id, attributes)
+            Offload -> readPolicy(id, attributes)?.let(SyncMode::Offload)
 
-                if (keepPinned == null) missing(id, "mode '$Offload' has no '$KeepPinned'")
-                else if (policy == null) null
-                else SyncMode.Offload(policy = policy, keepPinned = keepPinned)
-            }
+            Host -> SyncMode.Host
 
             else -> missing(id, "mode '$discriminator' is not one this build knows")
         }

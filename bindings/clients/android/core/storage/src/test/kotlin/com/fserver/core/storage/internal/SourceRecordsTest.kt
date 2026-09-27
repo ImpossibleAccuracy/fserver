@@ -32,12 +32,11 @@ class SourceRecordsTest {
             SyncMode.AutoUpload(ignoreFilesBefore = Instant.fromEpochMilliseconds(1_700_000_000_000)),
             SyncMode.Offload(
                 policy = SyncMode.Offload.EvictPolicy.OlderThanDays(30),
-                keepPinned = true,
             ),
             SyncMode.Offload(
                 policy = SyncMode.Offload.EvictPolicy.LargerThanBytes(512L * 1024 * 1024),
-                keepPinned = false,
             ),
+            SyncMode.Host,
         )
 
         val statuses = listOf(
@@ -97,7 +96,6 @@ class SourceRecordsTest {
             location = SourceLocation.Internal("inbox"),
             syncMode = SyncMode.Offload(
                 policy = SyncMode.Offload.EvictPolicy.OlderThanDays(30),
-                keepPinned = true,
             ),
         )
 
@@ -110,7 +108,6 @@ class SourceRecordsTest {
         val source = source(
             syncMode = SyncMode.Offload(
                 policy = SyncMode.Offload.EvictPolicy.LargerThanBytes(1024),
-                keepPinned = true,
             ),
         )
 
@@ -132,7 +129,6 @@ class SourceRecordsTest {
         val source = source(
             syncMode = SyncMode.Offload(
                 policy = SyncMode.Offload.EvictPolicy.OlderThanDays(30),
-                keepPinned = true,
             ),
         )
 

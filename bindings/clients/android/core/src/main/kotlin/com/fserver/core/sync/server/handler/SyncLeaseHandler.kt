@@ -8,6 +8,7 @@ import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.model.peerDrivesSync
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.server.ResolvedIncomingSource
 import com.fserver.core.sync.server.SourceAuthorizer
@@ -49,6 +50,12 @@ internal class SyncLeaseHandler(
 
         modeRefusal(source, requested)?.let {
             reply(it)
+            return
+        }
+
+        if (!source.peerDrivesSync) {
+            Timber.w("Source ${source.id}: ${source.deviceId} asked to drive ${source.syncMode.type}, which runs from here")
+            reply(FileServerMessages.AcquireSyncLease.Denied(sourceId = source.id, reason = DrivenHereReason))
             return
         }
 
@@ -166,5 +173,6 @@ internal class SyncLeaseHandler(
         const val SyncingHereReason = "Source is being synced by its other device"
         const val UnknownSourceReason = "Source not found"
         const val ModeTypeMismatchReason = "Devices run the source under different modes"
+        const val DrivenHereReason = "Source is synced from its initiator only"
     }
 }

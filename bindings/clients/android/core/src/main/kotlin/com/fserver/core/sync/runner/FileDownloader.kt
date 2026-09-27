@@ -17,6 +17,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 internal class FileDownloader(
     private val remoteFetcher: PeerIndexFetcher,
+    private val requestedDownloads: RequestedDownloads,
 ) {
     /** [version] is what the file is recorded as here; null takes the peer's own. */
     suspend fun download(
@@ -27,10 +28,12 @@ internal class FileDownloader(
     ) {
         val session = remoteFetcher.connectToDevice(source)
 
-        session.runRemoteOperation(
-            operation = RemoteOperation.File.Download(key = key, version = version),
-            timeout = downloadTimeout(sizeBytes),
-        )
+        requestedDownloads.awaiting(source.deviceId, key) {
+            session.runRemoteOperation(
+                operation = RemoteOperation.File.Download(key = key, version = version),
+                timeout = downloadTimeout(sizeBytes),
+            )
+        }
     }
 
     /**

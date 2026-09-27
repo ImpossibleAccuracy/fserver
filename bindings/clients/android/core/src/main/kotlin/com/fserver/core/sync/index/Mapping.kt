@@ -57,7 +57,7 @@ internal fun FileRecord.toIndexed(
 )
 
 private fun LocalIndexedFile.State.toFiles(): FileRecord.State = when (this) {
-    is LocalIndexedFile.State.Present -> FileRecord.State.Present(pinned)
+    is LocalIndexedFile.State.Present -> FileRecord.State.Present(pinned, fetchedAt)
 
     is LocalIndexedFile.State.Evicted -> FileRecord.State.Evicted(evictedAt)
 
@@ -65,7 +65,7 @@ private fun LocalIndexedFile.State.toFiles(): FileRecord.State = when (this) {
 }
 
 private fun FileRecord.State.toIndexed(): LocalIndexedFile.State = when (this) {
-    is FileRecord.State.Present -> LocalIndexedFile.State.Present(pinned)
+    is FileRecord.State.Present -> LocalIndexedFile.State.Present(pinned, fetchedAt)
 
     is FileRecord.State.Evicted -> LocalIndexedFile.State.Evicted(evictedAt)
 

@@ -53,6 +53,7 @@ class FileActionRunnerGuardTest {
         remoteFetcher = mockk(relaxed = true),
         fileUploader = uploader,
         fileDownloader = downloader,
+        fileEvictor = FileEvictor(storage, node, clock),
         timeProvider = clock,
         node = node,
     )

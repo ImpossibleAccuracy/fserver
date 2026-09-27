@@ -27,7 +27,6 @@ internal sealed interface SyncModeDto {
     @Serializable
     data class Offload(
         val policy: EvictPolicy,
-        val keepPinned: Boolean,
     ) : SyncModeDto {
         @Serializable
         sealed interface EvictPolicy {
@@ -38,6 +37,9 @@ internal sealed interface SyncModeDto {
             data class LargerThanBytes(val bytes: Long) : EvictPolicy
         }
     }
+
+    @Serializable
+    data object Host : SyncModeDto
 }
 
 internal fun SyncMode.toDto(): SyncModeDto = when (this) {
@@ -53,10 +55,9 @@ internal fun SyncMode.toDto(): SyncModeDto = when (this) {
 
     is SyncMode.AutoUpload -> SyncModeDto.AutoUpload(ignoreFilesBefore)
 
-    is SyncMode.Offload -> SyncModeDto.Offload(
-        policy = policy.toDto(),
-        keepPinned = keepPinned,
-    )
+    is SyncMode.Offload -> SyncModeDto.Offload(policy = policy.toDto())
+
+    SyncMode.Host -> SyncModeDto.Host
 }
 
 internal fun SyncModeDto.toDomain(): SyncMode = when (this) {
@@ -72,10 +73,9 @@ internal fun SyncModeDto.toDomain(): SyncMode = when (this) {
 
     is SyncModeDto.AutoUpload -> SyncMode.AutoUpload(ignoreFilesBefore)
 
-    is SyncModeDto.Offload -> SyncMode.Offload(
-        policy = policy.toDomain(),
-        keepPinned = keepPinned,
-    )
+    is SyncModeDto.Offload -> SyncMode.Offload(policy = policy.toDomain())
+
+    SyncModeDto.Host -> SyncMode.Host
 }
 
 private fun SyncMode.Offload.EvictPolicy.toDto(): SyncModeDto.Offload.EvictPolicy = when (this) {

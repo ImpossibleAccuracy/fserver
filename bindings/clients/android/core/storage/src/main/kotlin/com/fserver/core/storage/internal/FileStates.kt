@@ -8,7 +8,7 @@ import kotlin.time.Instant
  * reported holding. Shared so the two cannot spell the same state differently and stop comparing.
  *
  * Three columns rather than one packed value: a discriminator, the flag only `Present` carries, and
- * the timestamp only the other two do.
+ * the one timestamp each state has - `fetchedAt` for `Present`, where it is optional.
  */
 internal object FileStates {
     private const val Present = "Present"
@@ -24,9 +24,9 @@ internal object FileStates {
     fun pinnedOf(state: LocalIndexedFile.State): Long =
         if ((state as? LocalIndexedFile.State.Present)?.pinned == true) 1 else 0
 
-    /** The one timestamp a state carries, or null for `Present`, which carries none. */
+    /** The one timestamp a state carries; `Present` may carry none. */
     fun changedAtOf(state: LocalIndexedFile.State): Long? = when (state) {
-        is LocalIndexedFile.State.Present -> null
+        is LocalIndexedFile.State.Present -> state.fetchedAt?.toEpochMilliseconds()
         is LocalIndexedFile.State.Evicted -> state.evictedAt.toEpochMilliseconds()
         is LocalIndexedFile.State.Deleted -> state.deletedAt.toEpochMilliseconds()
     }
@@ -48,7 +48,10 @@ internal object FileStates {
             Deleted -> changedAt?.let { LocalIndexedFile.State.Deleted(deletedAt = it) }
                 ?: LocalIndexedFile.State.Present()
 
-            else -> LocalIndexedFile.State.Present(pinned = pinned == 1L)
+            else -> LocalIndexedFile.State.Present(
+                pinned = pinned == 1L,
+                fetchedAt = changedAt.takeIf { state == Present },
+            )
         }
     }
 }

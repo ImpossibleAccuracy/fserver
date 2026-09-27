@@ -22,6 +22,8 @@ import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.runner.FileActionRunner
 import com.fserver.core.sync.runner.FileDownloader
+import com.fserver.core.sync.runner.FileEvictor
+import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.runner.UploadStrategySelector
@@ -52,6 +54,8 @@ internal val syncModule = module {
 
     singleOf(::FileUploader)
     singleOf(::FileDownloader)
+    singleOf(::FileEvictor)
+    singleOf(::RequestedDownloads)
     singleOf(::FileActionRunner)
 
     singleOf(::SyncLeaseRegistry)

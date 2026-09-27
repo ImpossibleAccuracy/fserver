@@ -5,6 +5,10 @@ import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.evictsLocally
+import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
@@ -16,13 +20,15 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 /**
- * Component that drops uploads nobody came back for, rows whose bytes are gone, and bytes with no row.
+ * Component that drops uploads nobody came back for, rows whose bytes are gone, bytes with no row,
+ * and copies fetched on demand once they outlived [FetchedTtl].
  */
 internal class GarbageCollector(
     private val storage: FServerStorage,
     private val node: FilesNode,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
+    private val fileEvictor: FileEvictor,
 ) {
     private val gcLock = Mutex()
 
@@ -47,6 +53,7 @@ internal class GarbageCollector(
         val now = timeProvider.now()
         collectStaleUploads(now)
         collectOrphanStagedFiles(now)
+        collectExpiredFetches(now)
     }
 
     /** Drops uploads whose bytes are gone or which have not been touched for a while. */
@@ -83,6 +90,21 @@ internal class GarbageCollector(
         }
     }
 
+    /** Evicts again what was fetched on demand, once the user had [FetchedTtl] to work with it. */
+    private suspend fun collectExpiredFetches(now: Instant) {
+        val sources = storage.sources.all().filter { it.evictsLocally && it.status == SourceEntry.Status.Active }
+
+        for (source in sources) {
+            for (file in storage.index.processedFiles(source.id)) {
+                val fetchedAt = (file.state as? LocalIndexedFile.State.Present)?.fetchedAt ?: continue
+                if (now - fetchedAt < FetchedTtl) continue
+
+                runCatchingCancellable { fileEvictor.evict(source, file.fileId, expected = file.hash) }
+                    .onFailure { Timber.w(it, "Could not evict fetched ${file.path} in source ${source.id}") }
+            }
+        }
+    }
+
     private suspend fun openOrNull(locator: String): FsFile? =
         try {
             staging.openFile(locator)
@@ -96,5 +118,8 @@ internal class GarbageCollector(
 
         /** Young files may be an upload between creating its file and writing its row. */
         val OrphanGrace = 1.hours
+
+        /** How long a file fetched on demand stays before it is evicted again. TODO: make configurable. */
+        val FetchedTtl = 1.days
     }
 }

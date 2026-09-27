@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server
 
 import android.content.ContextWrapper
+import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
@@ -18,6 +19,7 @@ import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.runner.FileUploader
+import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
@@ -79,7 +81,7 @@ class PeerRequestServerTest {
         LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
     }
     private val staging by lazy { UploadStaging(storage, node, clock) }
-    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background) }
+    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, node, clock)) }
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)
     private val incoming = FakeIncomingConnections()
@@ -243,7 +245,7 @@ class PeerRequestServerTest {
                 localIndexer = indexer,
                 fileUploader = FileUploader(storage, indexer, node, progress, clock),
             ),
-            uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress),
+            uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress, RequestedDownloads()),
             devicesRepository = mockk(relaxed = true),
             requirementsChecker = FakeRequirementsChecker(),
             backgroundScope = background,

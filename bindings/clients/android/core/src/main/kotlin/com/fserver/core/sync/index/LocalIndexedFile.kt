@@ -66,6 +66,8 @@ data class LocalIndexedFile(
         data class Present(
             /** Pinned files are exempt from eviction. */
             val pinned: Boolean = false,
+            /** When the bytes were fetched on demand after an eviction, or null. Evicted again after a TTL. */
+            val fetchedAt: Instant? = null,
         ) : State
 
         /** Known here, bytes dropped to reclaim space. Still part of the set - not a deletion. */

@@ -4,11 +4,9 @@ import com.fserver.files.upload.Causality
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileRecord.State
-import com.fserver.files.upload.FileVersion
 import com.fserver.files.upload.FilesSnapshot
 import com.fserver.files.upload.UploadDecisions
 import com.fserver.files.upload.UploadStrategy
-import com.fserver.files.upload.VersionVector
 
 /**
  * Keeps the remote side holding exactly the local set, and vice versa.
@@ -20,13 +18,7 @@ import com.fserver.files.upload.VersionVector
  */
 class MirrorUploadStrategy : UploadStrategy {
 
-    /**
-     * @param restoreMissingLocalFiles pull files that only the remote side has. Off means the
-     *   mirror runs one-way and such files are deleted remotely instead.
-     */
-    data class Params(
-        val restoreMissingLocalFiles: Boolean = true,
-    ) : UploadStrategy.Params
+    data object Params : UploadStrategy.Params
 
     override fun accepts(params: UploadStrategy.Params): Boolean = params is Params
 
@@ -34,20 +26,19 @@ class MirrorUploadStrategy : UploadStrategy {
         params: UploadStrategy.Params,
         snapshot: FilesSnapshot
     ): UploadDecisions {
-        val params = params as? Params
-            ?: throw IllegalArgumentException("MirrorUploadStrategy only accepts Params, got $params")
+        require(params is Params) { "MirrorUploadStrategy only accepts Params, got $params" }
 
         val actions = snapshot.join().mapNotNull { (_, local, remote) ->
-            decide(params, local, remote)
+            decide(local, remote)
         }
         return UploadDecisions(actions)
     }
 
-    private fun decide(params: Params, local: FileRecord?, remote: FileRecord?): FileAction? =
+    private fun decide(local: FileRecord?, remote: FileRecord?): FileAction? =
         when {
             local == null && remote == null -> null
 
-            local == null -> remoteOnly(params, remote!!)
+            local == null -> remoteOnly(remote!!)
 
             // Evicted with no remote record: the bytes are gone from both sides, nothing to send.
             // Deleted with no remote record: the remote never had it.
@@ -62,17 +53,11 @@ class MirrorUploadStrategy : UploadStrategy {
      * Remote-only file: either it never reached us, or we dropped it. Both look the same here,
      * which is exactly why a local tombstone has to survive long enough to be seen in [reconcile].
      */
-    private fun remoteOnly(params: Params, remote: FileRecord): FileAction? = when {
+    private fun remoteOnly(remote: FileRecord): FileAction? = when {
         remote.state is State.Deleted -> null
 
         // Evicted there: nothing to pull, and its bytes live on a backup a deletion would reach.
         remote.state is State.Evicted -> null
-
-        !params.restoreMissingLocalFiles -> FileAction.DeleteRemote(
-            file = remote,
-            version = null,
-            reason = "one-way mirror, absent locally",
-        )
 
         else -> FileAction.Download(file = remote, reason = "missing locally")
     }
@@ -82,7 +67,7 @@ class MirrorUploadStrategy : UploadStrategy {
      * sides holding the same bytes never trade them, whatever their history says.
      */
     private fun reconcile(local: FileRecord, remote: FileRecord): FileAction? {
-        val causality = local.vector.compare(remote.vector)
+        val causality = local.causality(remote)
         val localDeleted = local.state is State.Deleted
         val remoteDeleted = remote.state is State.Deleted
 
@@ -147,12 +132,7 @@ class MirrorUploadStrategy : UploadStrategy {
 
         if (match == ContentMatch.UNKNOWN && canHash(local, remote)) {
             // Cannot decide without a hash, and cannot compute one here: ask, then re-plan.
-            return FileAction.ComputeHash(
-                id = local.id,
-                local = local,
-                remote = remote,
-                reason = "not hashed yet",
-            )
+            return computeHash(local, remote, "not hashed yet")
         }
 
         // From here content is either known to differ or can never be known: versions decide alone.
@@ -200,55 +180,6 @@ class MirrorUploadStrategy : UploadStrategy {
         val survivor = if (local.state is State.Deleted) remote else local
         if (survivor.state !is State.Present || survivor.content != null) return null
 
-        return FileAction.ComputeHash(
-            id = local.id,
-            local = local,
-            remote = remote,
-            reason = "may hold an unversioned edit",
-        )
+        return computeHash(local, remote, "may hold an unversioned edit")
     }
-
-    /** Same content, different histories: not a conflict, but both sides should record both. */
-    private fun mergeIfDiverged(
-        local: FileRecord,
-        remote: FileRecord,
-        causality: Causality,
-        reason: String,
-    ): FileAction? {
-        if (causality == Causality.Equal) return null
-
-        // Not equal, so at least one side has a version.
-        val merged = listOfNotNull(local.metadata.version, remote.metadata.version)
-            .reduce(FileVersion::merge)
-
-        return FileAction.MergeVersion(local, remote, merged, reason)
-    }
-
-    /** A record with no version reads as never edited, so any versioned one is newer than it. */
-    private val FileRecord.vector: VersionVector
-        get() = metadata.version?.vector ?: VersionVector.Empty
-
-    private enum class ContentMatch { SAME, DIFFERENT, UNKNOWN }
-
-    /**
-     * A differing size is a certain change even unhashed, so it is worth checking before asking for
-     * a hash. An equal size proves nothing, which is what [ContentMatch.UNKNOWN] is for.
-     */
-    private fun compareContent(local: FileRecord, remote: FileRecord): ContentMatch {
-        val localContent = local.content
-        val remoteContent = remote.content
-
-        return when {
-            localContent != null && remoteContent != null ->
-                if (localContent == remoteContent) ContentMatch.SAME else ContentMatch.DIFFERENT
-
-            local.metadata.size != remote.metadata.size -> ContentMatch.DIFFERENT
-
-            else -> ContentMatch.UNKNOWN
-        }
-    }
-
-    /** Hashing reads bytes, so it only helps when every unhashed side still has them. */
-    private fun canHash(local: FileRecord, remote: FileRecord): Boolean =
-        listOf(local, remote).filter { it.content == null }.all { it.state is State.Present }
 }

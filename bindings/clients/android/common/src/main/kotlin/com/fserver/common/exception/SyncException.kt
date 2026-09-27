@@ -21,6 +21,9 @@ sealed class SyncException(message: String, cause: Throwable? = null) :
     class RemoteRejectedException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)
 
+    /** The source's mode does not allow this here, e.g. a follower writing into a one-way source's initiator. */
+    class ModeForbiddenException(message: String) : SyncException(message)
+
     /** The receiver's own file limits had no room for the file. A skip, not a failure. */
     class OverLimitException(message: String) : SyncException(message)
 

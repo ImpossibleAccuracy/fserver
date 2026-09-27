@@ -1,5 +1,6 @@
 package com.fserver.core.files
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.map
 import com.fserver.common.utils.runBackgroundJob
@@ -13,7 +14,10 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import com.fserver.core.sync.model.evictsLocally
+import com.fserver.core.sync.model.fetchesOnDemand
 import com.fserver.core.sync.runner.FileDownloader
+import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +29,7 @@ class FilesController internal constructor(
     private val storage: FServerStorage,
     private val requirementsChecker: RequirementsChecker,
     private val fileDownloader: FileDownloader,
+    private val timeProvider: TimeProvider,
     private val coroutineScope: BackgroundScope,
 ) {
     /** Scan the given directory and load the content of the files. */
@@ -65,7 +70,8 @@ class FilesController internal constructor(
 
     /**
      * Fetches a file this device does not hold from its source's peer, into the source itself: a
-     * pass then sees both sides equal, and eviction may drop it again later.
+     * pass then sees both sides equal. Where the source evicts, the copy is marked fetched, and is
+     * evicted again once its TTL runs out (see [com.fserver.core.files.gc.GarbageCollector]).
      *
      * @return the entry as indexed here now, with a [SyncFileEntry.locator] to open it by.
      */
@@ -77,12 +83,25 @@ class FilesController internal constructor(
         val source = storage.sources.findById(entry.sourceId)
             ?: throw IllegalArgumentException("Source ${entry.sourceId} is not registered")
 
+        if (!source.fetchesOnDemand) {
+            throw SyncException.ModeForbiddenException(
+                "Source ${source.id} fetches nothing on demand under ${source.syncMode.type}"
+            )
+        }
+
         requirementsChecker.ensureSourceReachable(source.location)
 
         fileDownloader.download(source = source, key = key, sizeBytes = entry.size.bytes)
 
+        if (source.evictsLocally) markFetched(key)
+
         storage.index.findFile(key)?.presentEntry(entry.remoteState)
             ?: throw IllegalStateException("File ${entry.fileId} was not indexed after download")
+    }
+
+    private suspend fun markFetched(key: IndexedFileKey) {
+        val present = storage.index.findFile(key)?.state as? LocalIndexedFile.State.Present ?: return
+        storage.index.updateFileState(key, present.copy(fetchedAt = timeProvider.now()))
     }
 
     /** Merges the local and remote indexed files within single source. */

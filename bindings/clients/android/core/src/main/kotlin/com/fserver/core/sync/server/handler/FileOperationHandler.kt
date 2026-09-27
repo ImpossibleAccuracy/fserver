@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -9,6 +10,8 @@ import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.model.acceptsPeerWrites
+import com.fserver.core.sync.model.peerDrivesSync
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.files.FilesNode
@@ -33,6 +36,18 @@ internal class FileOperationHandler(
 
         val file = storage.index.findFile(operation.key)
             ?: throw IllegalArgumentException("File ${operation.key.fileId} not found in source ${source.id}")
+
+        val allowed = when (operation) {
+            is RemoteOperation.File.Hash, is RemoteOperation.File.Download -> true
+            is RemoteOperation.File.Delete -> source.acceptsPeerWrites
+            is RemoteOperation.File.AdoptVersion -> source.peerDrivesSync
+        }
+
+        if (!allowed) {
+            throw SyncException.ModeForbiddenException(
+                "Source ${source.id} refuses ${operation::class.simpleName} from ${session.identity.deviceId} under ${source.syncMode.type}"
+            )
+        }
 
         when (operation) {
             is RemoteOperation.File.Hash -> localIndexer.hashFile(source, file)

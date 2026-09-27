@@ -9,7 +9,7 @@ sealed interface SyncMode {
     /** Which mode this is, without its settings. */
     val type: Type
 
-    enum class Type { Mirror, AutoUpload, Offload }
+    enum class Type { Mirror, AutoUpload, Offload, Host }
 
     data class Mirror(
         val conflictResolution: ConflictResolution,
@@ -25,15 +25,19 @@ sealed interface SyncMode {
         }
     }
 
+    /** Initiator pushes its files and deletions to the follower; the follower's changes never come back. */
     data class AutoUpload(
         val ignoreFilesBefore: Instant?,
     ) : SyncMode {
         override val type: Type get() = Type.AutoUpload
     }
 
+    /**
+     * [AutoUpload] that keeps deleted files on the follower, and evicts local bytes by [policy] once
+     * the follower holds them. Pinned files are never evicted.
+     */
     data class Offload(
         val policy: EvictPolicy,
-        val keepPinned: Boolean,
     ) : SyncMode {
         override val type: Type get() = Type.Offload
 
@@ -42,5 +46,15 @@ sealed interface SyncMode {
 
             data class LargerThanBytes(val bytes: Long) : EvictPolicy
         }
+    }
+
+    /**
+     * Files live on the follower; the initiator keeps only an on-demand cache of them.
+     *
+     * TODO: access rights (read-only / read-write), granted and enforced by the follower. Until
+     *  then the initiator has read-write access.
+     */
+    data object Host : SyncMode {
+        override val type: Type get() = Type.Host
     }
 }

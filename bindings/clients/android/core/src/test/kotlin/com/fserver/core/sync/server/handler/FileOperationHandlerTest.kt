@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server.handler
 
 import android.content.ContextWrapper
+import com.fserver.common.exception.SyncException
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
@@ -16,6 +17,8 @@ import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
@@ -117,6 +120,23 @@ class FileOperationHandlerTest {
         assertTrue(failure is IllegalArgumentException)
         assertTrue(file.exists())
         assertTrue(storage.index.findFile(key())?.state is LocalIndexedFile.State.Present)
+    }
+
+    @Test
+    fun `a one-way initiator refuses its follower's delete and version changes`() = runTest {
+        val source = storage.sources.findById(SourceId)!!
+        storage.sources.upsert(
+            source.copy(syncMode = SyncMode.AutoUpload(ignoreFilesBefore = null), role = SourceEntry.Role.Initiator)
+        )
+        val version = VersionDto(vector = mapOf(OwnerId to 2L), hlc = 7, originDevice = OwnerId)
+
+        val delete = runCatching { handler.handle(owner, RemoteOperation.File.Delete(key(), version = null)) }
+        val adopt = runCatching { handler.handle(owner, RemoteOperation.File.AdoptVersion(key(), version, expected = null)) }
+
+        assertTrue(delete.exceptionOrNull() is SyncException.ModeForbiddenException)
+        assertTrue(adopt.exceptionOrNull() is SyncException.ModeForbiddenException)
+        assertTrue(file.exists())
+        assertEquals(null, storage.index.findFile(key())?.version)
     }
 
     @Test

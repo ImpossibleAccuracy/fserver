@@ -15,8 +15,10 @@ import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
+import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.files.FilesNode
 import com.fserver.net.session.PeerSession
@@ -64,6 +66,7 @@ class FileUploadHandlerTest {
     private val stranger = FakePeerSession(identity = peerIdentity(StrangerId))
 
     private val key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
+    private val requested = RequestedDownloads()
 
     @Before
     fun setUp() = runBlocking {
@@ -80,6 +83,7 @@ class FileUploadHandlerTest {
             staging = staging,
             timeProvider = clock,
             progress = progress,
+            requestedDownloads = requested,
         )
 
         storage.sources.upsert(
@@ -235,6 +239,21 @@ class FileUploadHandlerTest {
         assertTrue(context.uploads.isEmpty())
         assertEquals(emptyList<File>(), root.listFiles()?.toList().orEmpty())
         assertTrue(stagingDir.listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun `a one-way initiator takes a push only as a download it asked for`() = runTest {
+        val source = storage.sources.findById(SourceId)!!
+        storage.sources.upsert(
+            source.copy(syncMode = SyncMode.AutoUpload(ignoreFilesBefore = null), role = SourceEntry.Role.Initiator)
+        )
+
+        assertTrue(init(owner) is Upload.Failed)
+        assertTrue(context.uploads.isEmpty())
+
+        requested.awaiting(OwnerId, key) {
+            assertTrue(init(owner) is Upload.Received)
+        }
     }
 
     @Test

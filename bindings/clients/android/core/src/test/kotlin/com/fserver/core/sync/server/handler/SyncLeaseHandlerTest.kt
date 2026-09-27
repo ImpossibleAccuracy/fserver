@@ -126,12 +126,32 @@ class SyncLeaseHandlerTest {
 
     @Test
     fun `a different mode type is denied and changes nothing`() = runTest {
-        val offload = SyncMode.Offload(SyncMode.Offload.EvictPolicy.OlderThanDays(30), keepPinned = true)
+        val offload = SyncMode.Offload(SyncMode.Offload.EvictPolicy.OlderThanDays(30))
 
         val replies = answer(OwnerId, syncMode = offload)
 
         replies.only<FileServerMessages.AcquireSyncLease.Denied>()
         assertEquals(sourceEntry().syncMode, storage.sources.findById(SourceId)?.syncMode)
+    }
+
+    @Test
+    fun `an initiator of a one-way source never leases it to its follower`() = runTest {
+        val autoUpload = SyncMode.AutoUpload(ignoreFilesBefore = null)
+        storage.sources.upsert(
+            sourceEntry(id = SourceId, deviceId = OwnerId, syncMode = autoUpload, role = SourceEntry.Role.Initiator)
+        )
+
+        val replies = answer(OwnerId, syncMode = autoUpload)
+
+        replies.only<FileServerMessages.AcquireSyncLease.Denied>()
+        assertNotNull(registry.beginAcquire(SourceId))
+    }
+
+    @Test
+    fun `a follower of a one-way source leases it to its initiator`() = runTest {
+        storage.sources.upsert(sourceEntry(id = SourceId, deviceId = OwnerId, syncMode = SyncMode.Host))
+
+        answer(OwnerId, syncMode = SyncMode.Host).only<FileServerMessages.AcquireSyncLease.Granted>()
     }
 
     private suspend fun answer(

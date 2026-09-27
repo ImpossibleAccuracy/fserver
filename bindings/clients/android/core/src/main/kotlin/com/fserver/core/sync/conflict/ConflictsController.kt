@@ -50,6 +50,7 @@ class ConflictsController internal constructor(
         storage.sources.all()
             .filter { it.asksOnConflict() }
             .flatMap { source ->
+                // TODO: non-optimized solution, rewrite
                 held(
                     source = source,
                     localDevice = localDevice,
@@ -98,7 +99,7 @@ class ConflictsController internal constructor(
         val localById = local.associateBy { it.fileId }
         val remoteById = remote.associateBy { it.fileId }
 
-        return strategySelector.plan(source.syncMode, source.role, snapshot)
+        return strategySelector.plan(source, snapshot)
             .filterIsAction<FileAction.Conflict>()
             .mapNotNull { action ->
                 val here = localById[action.id.value] ?: return@mapNotNull null
