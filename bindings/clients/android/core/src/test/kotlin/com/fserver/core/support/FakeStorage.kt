@@ -11,12 +11,14 @@ import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
+import com.fserver.core.store.sync.ConflictDecisionsStore
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
 import com.fserver.core.store.sync.UploadStagingStore
+import com.fserver.core.sync.conflict.ConflictDecision
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
@@ -57,6 +59,7 @@ internal class FakeStorage(
     override val sourceRequests: FakeSourceRequestsStore = FakeSourceRequestsStore()
     override val preferences: FakeSyncStore = FakeSyncStore()
     override val uploads: FakeUploadStagingStore = FakeUploadStagingStore()
+    override val conflictDecisions: FakeConflictDecisionsStore = FakeConflictDecisionsStore()
 }
 
 @OptIn(FServerStorageApi::class)
@@ -323,5 +326,24 @@ internal class FakeUploadStagingStore : UploadStagingStore {
 
     override suspend fun delete(key: IndexedFileKey) {
         rows.remove(key)
+    }
+}
+
+@OptIn(FServerStorageApi::class)
+internal class FakeConflictDecisionsStore : ConflictDecisionsStore {
+    private val rows = MutableStateFlow<Map<IndexedFileKey, ConflictDecision>>(emptyMap())
+    override val all: Flow<List<ConflictDecision>> = rows.map { it.values.toList() }
+
+    override suspend fun find(key: IndexedFileKey): ConflictDecision? = rows.value[key]
+
+    override suspend fun forSource(sourceId: String): List<ConflictDecision> =
+        rows.value.values.filter { it.sourceId == sourceId }
+
+    override suspend fun put(decision: ConflictDecision) {
+        rows.update { it + (IndexedFileKey(fileId = decision.fileId, sourceId = decision.sourceId) to decision) }
+    }
+
+    override suspend fun remove(key: IndexedFileKey) {
+        rows.update { it - key }
     }
 }

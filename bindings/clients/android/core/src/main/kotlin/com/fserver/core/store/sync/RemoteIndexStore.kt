@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.Flow
  * bookkeeping for this side.
  *
  * A cache, not a source of truth: a pass fetches the peer's index over the wire and writes the
- * answer through here, and the peer also pushes its own at the end of its pass. Nothing plans from
- * these rows today, so a stale or missing set costs a pass nothing.
+ * answer through here, and the peer also pushes its own at the end of its pass. A pass never plans from
+ * these rows, so a stale set costs it nothing; held conflicts shown to the user are read from them.
  *
  * Every record is a claim the peer made about itself - never a claim about bytes on this device.
  * See [com.fserver.core.store.FServerStorageApi].

@@ -1,6 +1,7 @@
 package com.fserver.core.di
 
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.LocalChangesIndexer
@@ -59,4 +60,5 @@ internal val syncModule = module {
     singleOf(::SyncRunner)
     singleOf(::AutoSyncCoordinator)
     singleOf(::SourcesController)
+    singleOf(::ConflictsController)
 }

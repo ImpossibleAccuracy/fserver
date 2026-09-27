@@ -80,7 +80,7 @@ class StorageViewModel(
     }
 
     private fun appDataOf(footprint: AppFootprint): List<StorageState.AppDataUi> = listOf(
-        // TODO: downloaded-from-devices, received files and conflict copies have no data source yet.
+        // TODO: downloaded-from-devices and received files have no data source yet.
         StorageState.AppDataUi(StorageState.AppDataKindUi.Cache, footprint.cacheBytes),
         StorageState.AppDataUi(StorageState.AppDataKindUi.Incomplete, footprint.stagingBytes),
     ).filter { it.bytes > 0 }

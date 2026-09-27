@@ -159,18 +159,18 @@ class SyncLeaseNegotiatorTest {
 
     @Test
     fun `a stale follower adopts the initiator's mode and asks again`() = runTest {
-        val keepBoth = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth)
+        val ask = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.Ask)
         val session = session { request ->
             val asked = (request as FileServerMessages.AcquireSyncLease.Request).syncMode
-            if (asked == keepBoth.toDto()) granted(request)
-            else FileServerMessages.AcquireSyncLease.Outdated(SourceId, keepBoth.toDto())
+            if (asked == ask.toDto()) granted(request)
+            else FileServerMessages.AcquireSyncLease.Outdated(SourceId, ask.toDto())
         }
         var ranWith: SyncMode? = null
 
         negotiator.runWithLease(source) { ranWith = it.syncMode }
 
-        assertEquals(keepBoth, ranWith)
-        assertEquals(keepBoth, storage.sources.findById(SourceId)?.syncMode)
+        assertEquals(ask, ranWith)
+        assertEquals(ask, storage.sources.findById(SourceId)?.syncMode)
         assertTrue(session.sent.any { it is FileServerMessages.AcquireSyncLease.ReleaseLease })
     }
 
@@ -181,7 +181,7 @@ class SyncLeaseNegotiatorTest {
         session {
             FileServerMessages.AcquireSyncLease.Outdated(
                 SourceId,
-                SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth).toDto(),
+                SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.Ask).toDto(),
             )
         }
 

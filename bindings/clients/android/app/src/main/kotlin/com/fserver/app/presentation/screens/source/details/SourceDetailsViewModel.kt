@@ -27,6 +27,8 @@ import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.SourceFilesTotals
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.conflict.ConflictsController
+import com.fserver.core.sync.conflict.FileConflict
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import kotlinx.coroutines.channels.Channel
@@ -46,6 +48,7 @@ import java.time.Instant as JavaInstant
 class SourceDetailsViewModel(
     private val key: Destination.Files.SourceDetails,
     private val sourcesController: SourcesController,
+    conflictsController: ConflictsController,
     registeredSources: RegisteredSourcesRepository,
     identity: DeviceIdentityRepository,
     trustedDevices: TrustedDevicesRepository,
@@ -78,7 +81,8 @@ class SourceDetailsViewModel(
         trustedDevices.devices,
         devicesRepository.devices.connected,
         isSyncing,
-    ) { source, totals, environment, trusted, connected, syncing ->
+        conflictsController.pending,
+    ) { source, totals, environment, trusted, connected, syncing, conflicts ->
         if (source == null) return@combineMany SourceDetailsState(isLoading = false)
 
         val session = connected.firstOrNull { it.deviceId == source.deviceId }
@@ -93,7 +97,10 @@ class SourceDetailsViewModel(
                 kind = session?.kind ?: record?.metadata?.kind,
                 online = session != null,
             ),
-        ).copy(isSyncing = syncing)
+        ).copy(
+            isSyncing = syncing,
+            attention = conflicts.filter { it.sourceId == source.id }.toAttention(),
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -130,6 +137,10 @@ class SourceDetailsViewModel(
         }
     }
 }
+
+private fun List<FileConflict>.toAttention(): List<SourceDetailsState.AttentionUi> =
+    if (isEmpty()) emptyList()
+    else listOf(SourceDetailsState.AttentionUi.Conflicts(size, map { it.path.substringAfterLast('/') }))
 
 private data class Environment(
     val onMobile: Boolean,
@@ -236,7 +247,7 @@ private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): 
         when (mode) {
             is SyncMode.Mirror -> add(
                 ConditionUi.OnConflict(
-                    keepBoth = mode.conflictResolution == SyncMode.Mirror.ConflictResolution.KeepBoth,
+                    ask = mode.conflictResolution == SyncMode.Mirror.ConflictResolution.Ask,
                 )
             )
 

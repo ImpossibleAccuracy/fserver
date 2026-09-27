@@ -43,6 +43,7 @@ val coreModule = module {
     single { get<FServerCore>().files }
     single { get<FServerCore>().diskUsage }
     single { get<FServerCore>().sources }
+    single { get<FServerCore>().conflicts }
     single { get<FServerCore>().pairingCodes }
 
     // Storage-backed repositories, republished so a ViewModel can read what the engine reads.

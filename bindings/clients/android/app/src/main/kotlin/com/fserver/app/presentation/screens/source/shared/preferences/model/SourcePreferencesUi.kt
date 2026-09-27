@@ -52,7 +52,7 @@ data class SourcePreferencesUi(
 
     @Immutable
     data class ConflictsUi(
-        val resolution: ConflictResolutionUi = ConflictResolutionUi.LastWriteWins,
+        val resolution: ConflictResolutionUi = ConflictResolutionUi.Ask,
     )
 
     @Immutable
@@ -114,7 +114,7 @@ data class SourcePreferencesUi(
         private fun SyncMode.Mirror.toUi() = ConflictsUi(
             resolution = when (conflictResolution) {
                 SyncMode.Mirror.ConflictResolution.LastWriteWins -> ConflictResolutionUi.LastWriteWins
-                SyncMode.Mirror.ConflictResolution.KeepBoth -> ConflictResolutionUi.KeepBoth
+                SyncMode.Mirror.ConflictResolution.Ask -> ConflictResolutionUi.Ask
             },
         )
 
@@ -200,9 +200,9 @@ fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
 fun SourcePreferencesUi.toSyncMode(mode: SourceModeUi, now: Instant = Clock.System.now()): SyncMode? =
     when (mode) {
         SourceModeUi.Sync -> SyncMode.Mirror(
-            conflictResolution = when (conflicts?.resolution ?: ConflictResolutionUi.LastWriteWins) {
+            conflictResolution = when (conflicts?.resolution ?: ConflictResolutionUi.Ask) {
                 ConflictResolutionUi.LastWriteWins -> SyncMode.Mirror.ConflictResolution.LastWriteWins
-                ConflictResolutionUi.KeepBoth -> SyncMode.Mirror.ConflictResolution.KeepBoth
+                ConflictResolutionUi.Ask -> SyncMode.Mirror.ConflictResolution.Ask
             },
         )
 

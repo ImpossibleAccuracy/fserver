@@ -1,0 +1,38 @@
+-- What the user chose for a held conflict, until a pass carries it out. The versions the user saw
+-- are stored as (hlc, originDevice) per side: null pair = that side had no version.
+CREATE TABLE conflictDecision (
+    sourceId         TEXT    NOT NULL REFERENCES source(id) ON DELETE CASCADE,
+    fileId           TEXT    NOT NULL,
+    -- KeepLocal | KeepRemote | KeepBoth
+    choice           TEXT    NOT NULL,
+    localHlc         INTEGER,
+    localOrigin      TEXT,
+    remoteHlc        INTEGER,
+    remoteOrigin     TEXT,
+    decidedAtEpochMs INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, fileId)
+);
+
+selectAll:
+SELECT *
+FROM conflictDecision;
+
+selectBySource:
+SELECT *
+FROM conflictDecision
+WHERE sourceId = ?;
+
+selectByKey:
+SELECT *
+FROM conflictDecision
+WHERE sourceId = ? AND fileId = ?;
+
+upsert:
+INSERT OR REPLACE INTO conflictDecision(
+    sourceId, fileId, choice, localHlc, localOrigin, remoteHlc, remoteOrigin, decidedAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteByKey:
+DELETE FROM conflictDecision
+WHERE sourceId = ? AND fileId = ?;

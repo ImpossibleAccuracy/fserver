@@ -3,6 +3,8 @@ package com.fserver.app.presentation.screens.activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -142,13 +144,7 @@ private fun ActivityScreenContent(
                     }
                 }
                 items(state.conflicts, key = { it.id }) { conflict ->
-                    ConflictCard(
-                        conflict = conflict,
-                        onCompare = { onIntent(ActivityIntent.ConflictCompareClicked(conflict.id)) },
-                        onKeepMine = {
-                            onIntent(ActivityIntent.ConflictKeepMineClicked(conflict.id))
-                        },
-                    )
+                    ConflictCard(conflict = conflict, onIntent = onIntent)
                 }
             }
 
@@ -238,12 +234,12 @@ private fun TotalCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConflictCard(
     modifier: Modifier = Modifier,
     conflict: ActivityState.ConflictUi,
-    onCompare: () -> Unit,
-    onKeepMine: () -> Unit,
+    onIntent: (ActivityIntent) -> Unit,
 ) {
     DkCard(modifier = modifier, outlined = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
@@ -263,22 +259,43 @@ private fun ConflictCard(
                 )
                 DkCaption(
                     modifier = Modifier.padding(top = DkSpacing.xxs),
-                    text = conflict.detail,
+                    text = stringResource(conflict.change.detailRes, conflict.peerName),
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm)) {
-            DkSecondaryButton(
-                text = stringResource(R.string.activity_conflict_compare),
-                onClick = onCompare,
-            )
-            DkGhostButton(
-                text = stringResource(R.string.activity_conflict_keep_mine),
-                onClick = onKeepMine,
-            )
+        // TODO: compare screen with previews of both versions; the peer's one fetched on demand into a cache, not the source.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        ) {
+            if (conflict.canKeepMine) {
+                DkSecondaryButton(
+                    text = stringResource(R.string.activity_conflict_keep_mine),
+                    onClick = { onIntent(ActivityIntent.ConflictKeepMineClicked(conflict.id)) },
+                )
+            }
+            if (conflict.canKeepTheirs) {
+                DkSecondaryButton(
+                    text = stringResource(R.string.activity_conflict_keep_theirs, conflict.peerName),
+                    onClick = { onIntent(ActivityIntent.ConflictKeepTheirsClicked(conflict.id)) },
+                )
+            }
+            if (conflict.canKeepBoth) {
+                DkGhostButton(
+                    text = stringResource(R.string.activity_conflict_keep_both),
+                    onClick = { onIntent(ActivityIntent.ConflictKeepBothClicked(conflict.id)) },
+                )
+            }
         }
     }
 }
+
+private val ActivityState.ChangeUi.detailRes: Int
+    get() = when (this) {
+        ActivityState.ChangeUi.EditedBoth -> R.string.activity_conflict_edited_both
+        ActivityState.ChangeUi.DeletedHere -> R.string.activity_conflict_deleted_here
+        ActivityState.ChangeUi.DeletedThere -> R.string.activity_conflict_deleted_there
+    }
 
 @Composable
 private fun BatchCard(transfer: TransferUi.Batch, modifier: Modifier = Modifier) {

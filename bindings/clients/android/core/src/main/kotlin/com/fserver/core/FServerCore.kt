@@ -13,6 +13,7 @@ import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.server.PeerRequestServer
 import com.fserver.core.sync.server.handler.upload.UploadStaging
 import kotlinx.coroutines.CoroutineScope
@@ -89,6 +90,9 @@ class FServerCore private constructor(
      * Listing what is registered is a UI concern - inject `RegisteredSourcesRepository` for that.
      */
     val sources: SourcesController by lazy { koin.get() }
+
+    /** Files both sides changed, held for the user to pick a version. */
+    val conflicts: ConflictsController by lazy { koin.get() }
 
     /**
      * Starts answering what peers ask of this device - index requests, transfers, deletes.

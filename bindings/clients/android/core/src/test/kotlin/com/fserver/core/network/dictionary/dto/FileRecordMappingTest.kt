@@ -108,6 +108,19 @@ class FileRecordMappingTest {
     }
 
     @Test
+    fun `the peer's version reaches the remote index, so held conflicts can be seen there`() {
+        val remote = fileDtoWith(
+            FileRecordDto.State.Present(),
+            version = VersionDto(vector = mapOf("device-peer" to 2L), hlc = 7, originDevice = "device-peer"),
+        ).toRemoteIndexed(TestEpoch)
+
+        assertEquals(
+            LocalIndexedFile.Version(VersionVector(mapOf("device-peer" to 2L)), HlcTimestamp(7), "device-peer"),
+            remote.version,
+        )
+    }
+
+    @Test
     fun `a malformed hlc is skipped, not fatal to the whole index`() {
         val valid = HlcTimestamp.of(physicalMs = 5_000, logical = 1)
         val files = listOf(

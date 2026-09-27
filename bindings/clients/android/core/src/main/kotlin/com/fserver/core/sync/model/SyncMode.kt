@@ -17,11 +17,11 @@ sealed interface SyncMode {
         override val type: Type get() = Type.Mirror
 
         enum class ConflictResolution {
-            /** Keep only the last modified file. */
-            LastWriteWins,
+            /** Hold the conflict: each side keeps its own version until the user picks one. */
+            Ask,
 
-            /** Keep both files in `.conflicts` folder. */
-            KeepBoth,
+            /** Keep the version with the later HLC; the other one's content is lost. */
+            LastWriteWins,
         }
     }
 

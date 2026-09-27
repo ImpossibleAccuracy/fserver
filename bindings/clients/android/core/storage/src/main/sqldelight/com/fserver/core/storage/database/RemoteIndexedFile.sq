@@ -1,5 +1,5 @@
 -- The last index each source's peer reported. A cache of what the *other* device holds - never a
--- claim about bytes here, and nothing plans from it today.
+-- claim about bytes here. Passes plan from a fresh fetch; held conflicts are read from this.
 --
 -- Keyed by (sourceId, fileId): fileId is cross-device identity, so it names a file only once paired
 -- with the source it was reported under. deviceId is carried for the record rather than for lookup,
@@ -24,6 +24,10 @@ CREATE TABLE remoteIndexedFile (
     modifiedAtEpochMs    INTEGER NOT NULL,
     hashValue            TEXT,
     hashAlgorithm        TEXT,
+    -- Same as indexedFile: null with originDevice when the peer reported no version; the vector
+    -- lives in remoteIndexedFileVersion.
+    hlc                  INTEGER,
+    originDevice         TEXT,
     -- When this device last heard the peer say so.
     seenAtEpochMs        INTEGER NOT NULL,
     PRIMARY KEY (sourceId, fileId)
@@ -41,9 +45,9 @@ WHERE sourceId = ?;
 insert:
 INSERT OR REPLACE INTO remoteIndexedFile(
     sourceId, fileId, deviceId, path, state, pinned, stateChangedEpochMs,
-    size, modifiedAtEpochMs, hashValue, hashAlgorithm, seenAtEpochMs
+    size, modifiedAtEpochMs, hashValue, hashAlgorithm, hlc, originDevice, seenAtEpochMs
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteBySource:
 DELETE FROM remoteIndexedFile

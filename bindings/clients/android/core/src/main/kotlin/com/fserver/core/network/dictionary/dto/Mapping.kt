@@ -68,6 +68,7 @@ internal fun FileRecordDto.toRemoteIndexed(seenAt: Instant) = RemoteIndexedFile(
     size = FileSize(metadata.size),
     modifiedAt = metadata.lastModified,
     hash = content?.let { ContentHash(value = it.value, algorithm = it.algorithm) },
+    version = metadata.version?.toIndexed(),
     seenAt = seenAt,
 )
 

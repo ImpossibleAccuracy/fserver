@@ -34,8 +34,14 @@ data class ActivityState(
     data class ConflictUi(
         val id: String,
         val fileName: String,
-        val detail: String,
+        val peerName: String,
+        val change: ChangeUi = ChangeUi.EditedBoth,
+        val canKeepMine: Boolean = true,
+        val canKeepTheirs: Boolean = true,
+        val canKeepBoth: Boolean = true,
     )
+
+    enum class ChangeUi { EditedBoth, DeletedHere, DeletedThere }
 
     @Immutable
     data class HistoryUi(
@@ -73,7 +79,14 @@ data class ActivityState(
             ConflictUi(
                 id = "notes",
                 fileName = "Notes.md",
-                detail = "Kept the Laptop version; yours is in .conflicts",
+                peerName = "Laptop",
+            ),
+            ConflictUi(
+                id = "budget",
+                fileName = "Budget 2026.xlsx",
+                peerName = "Laptop",
+                change = ChangeUi.DeletedThere,
+                canKeepBoth = false,
             ),
         )
 

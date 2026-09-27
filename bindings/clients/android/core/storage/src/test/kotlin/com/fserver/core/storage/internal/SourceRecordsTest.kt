@@ -27,7 +27,7 @@ class SourceRecordsTest {
 
         val modes = listOf(
             SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
-            SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth),
+            SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.Ask),
             SyncMode.AutoUpload(ignoreFilesBefore = null),
             SyncMode.AutoUpload(ignoreFilesBefore = Instant.fromEpochMilliseconds(1_700_000_000_000)),
             SyncMode.Offload(

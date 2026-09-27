@@ -70,7 +70,7 @@ internal object SourceRecords {
 
     // Conflict resolution discriminators.
     private const val LastWriteWins = "LastWriteWins"
-    private const val KeepBoth = "KeepBoth"
+    private const val Ask = "Ask"
 
     // ---------------- discriminators, for the row's own columns ----------------
 
@@ -202,7 +202,7 @@ internal object SourceRecords {
             is SyncMode.Mirror -> put(
                 Mode, ConflictResolution, when (mode.conflictResolution) {
                     SyncMode.Mirror.ConflictResolution.LastWriteWins -> LastWriteWins
-                    SyncMode.Mirror.ConflictResolution.KeepBoth -> KeepBoth
+                    SyncMode.Mirror.ConflictResolution.Ask -> Ask
                 }
             )
 
@@ -271,7 +271,7 @@ internal object SourceRecords {
         when (discriminator) {
             Mirror -> when (val stored = attributes.string(Mode, ConflictResolution)) {
                 LastWriteWins -> SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins)
-                KeepBoth -> SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth)
+                Ask -> SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.Ask)
                 null -> missing(id, "mode '$Mirror' has no '$ConflictResolution'")
                 else -> missing(id, "conflict resolution '$stored' is not one this build knows")
             }

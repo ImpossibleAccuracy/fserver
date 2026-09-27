@@ -54,13 +54,13 @@ class SourcePreferencesUiTest {
             ),
         )
         val source = entry(
-            mode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth),
+            mode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
             preferences = preferences,
         )
 
         val ui = SourcePreferencesUi.build(source)
 
-        assertEquals(ConflictResolutionUi.KeepBoth, ui.conflicts?.resolution)
+        assertEquals(ConflictResolutionUi.LastWriteWins, ui.conflicts?.resolution)
         assertEquals(true, ui.limits?.customSize)
         assertEquals(preferences, ui.toPreferences())
         assertEquals(source.syncMode, ui.toSyncMode(SourceModeUi.Sync))

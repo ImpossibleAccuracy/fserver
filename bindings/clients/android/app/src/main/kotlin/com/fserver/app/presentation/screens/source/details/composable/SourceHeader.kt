@@ -66,7 +66,7 @@ private fun ConditionUi.label(): String = when (this) {
 
     ConditionUi.KeepPinned -> stringResource(R.string.source_details_condition_keep_pinned)
     is ConditionUi.OnConflict -> stringResource(
-        if (keepBoth) R.string.source_details_condition_conflict_keep_both
+        if (ask) R.string.source_details_condition_conflict_ask
         else R.string.source_details_condition_conflict_newest
     )
 

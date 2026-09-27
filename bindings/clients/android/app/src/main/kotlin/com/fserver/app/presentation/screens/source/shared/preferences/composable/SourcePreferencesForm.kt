@@ -179,22 +179,20 @@ private fun ConflictsFields(
     ) {
         DkSectionLabel(text = stringResource(R.string.conditions_sync_conflicts_label))
         SourceChoiceRow(
+            title = stringResource(R.string.conditions_sync_conflicts_ask),
+            description = stringResource(R.string.conditions_sync_conflicts_ask_hint),
+            selected = conflicts.resolution == ConflictResolutionUi.Ask,
+            onSelect = {
+                onIntent(SourcePreferencesIntent.ConflictResolutionSelected(ConflictResolutionUi.Ask))
+            },
+        )
+        SourceChoiceRow(
             title = stringResource(R.string.conditions_sync_conflicts_rule),
             description = stringResource(R.string.conditions_sync_conflicts_hint),
             selected = conflicts.resolution == ConflictResolutionUi.LastWriteWins,
             onSelect = {
                 onIntent(
                     SourcePreferencesIntent.ConflictResolutionSelected(ConflictResolutionUi.LastWriteWins)
-                )
-            },
-        )
-        SourceChoiceRow(
-            title = stringResource(R.string.conditions_sync_losers_title),
-            description = stringResource(R.string.conditions_sync_losers_hint),
-            selected = conflicts.resolution == ConflictResolutionUi.KeepBoth,
-            onSelect = {
-                onIntent(
-                    SourcePreferencesIntent.ConflictResolutionSelected(ConflictResolutionUi.KeepBoth)
                 )
             },
         )

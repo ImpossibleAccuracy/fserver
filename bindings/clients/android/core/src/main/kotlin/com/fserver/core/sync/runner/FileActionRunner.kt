@@ -8,6 +8,9 @@ import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.conflict.ConflictCopies
+import com.fserver.core.sync.conflict.ConflictDecision
+import com.fserver.core.sync.conflict.seenVersion
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.LocalIndexedFile
@@ -20,9 +23,11 @@ import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.FileNotFoundException
 
 /**
  * Carries out one planned [FileAction] and nothing more.
@@ -78,130 +83,209 @@ internal class FileActionRunner(
             ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
 
         when (resolution) {
-            SyncMode.Mirror.ConflictResolution.LastWriteWins -> {
-                val local = action.local.metadata.version
-                val remote = action.remote.metadata.version
+            SyncMode.Mirror.ConflictResolution.LastWriteWins ->
+                transferWinner(action, source, localWins = lastWriteWins(action, source))
 
-                val localWins = when {
-                    local == remote ->
-                        // If both sides have the same version, the device with the higher ID wins
-                        storage.identity.localDevice().deviceId > source.deviceId
+            SyncMode.Mirror.ConflictResolution.Ask -> applyDecision(action, source)
+        }
+    }
 
-                    local == null -> false // No local version, remote wins
-                    remote == null -> true // Remote has no version, local wins
-                    else -> local.compareHlc(remote) // Last Write Wins based on HLC comparison
-                }
+    private suspend fun lastWriteWins(action: FileAction.Conflict, source: SourceEntry): Boolean {
+        val local = action.local.metadata.version
+        val remote = action.remote.metadata.version
 
-                val mergedVersion = local?.merge(remote) ?: remote
+        return when {
+            // If both sides have the same version, the device with the higher ID wins
+            local == remote -> storage.identity.localDevice().deviceId > source.deviceId
+            local == null -> false // No local version, remote wins
+            remote == null -> true // Remote has no version, local wins
+            else -> local.compareHlc(remote) // Last Write Wins based on HLC comparison
+        }
+    }
 
-                val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+    /**
+     * The conflict stays held until the user decides. A decision made over versions that have
+     * changed since is dropped: the user never saw what it would now overwrite.
+     */
+    private suspend fun applyDecision(action: FileAction.Conflict, source: SourceEntry) {
+        val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+        val decision = storage.conflictDecisions.find(key) ?: return
 
-                // The transfer leaves the loser's side at mergedVersion; the winner's side adopts it
-                // here, so both agree now rather than on the next pass.
-                if (localWins) {
-                    when (action.local.state) {
-                        is FileRecord.State.Present -> {
-                            val sent = uploadFile(
-                                source = source,
-                                action = FileAction.Upload(
-                                    file = action.local,
-                                    version = mergedVersion,
-                                    reason = "Conflict resolution: local wins"
-                                )
-                            )
+        if (decision.local != action.local.seenVersion() || decision.remote != action.remote.seenVersion()) {
+            // TODO: history entry - "your choice on <file> was dropped: it changed since".
+            Timber.i("Dropping decision on ${action.local.path} in source ${source.id}: a side changed since")
+            storage.conflictDecisions.remove(key)
+            return
+        }
 
-                            adoptLocally(
-                                source = source,
-                                key = key,
-                                file = action.local,
-                                version = mergedVersion,
-                                expected = sent
-                            )
-                        }
+        when (decision.choice) {
+            ConflictDecision.Choice.KeepLocal -> transferWinner(action, source, localWins = true)
 
-                        is FileRecord.State.Deleted -> {
-                            if (action.remote.state is FileRecord.State.Present) {
-                                deleteRemoteFile(
-                                    action = FileAction.DeleteRemote(
-                                        file = action.remote,
-                                        version = mergedVersion,
-                                        reason = "Conflict resolution: local wins"
-                                    ),
-                                    source = source,
-                                )
+            ConflictDecision.Choice.KeepRemote -> transferWinner(action, source, localWins = false)
 
-                                adoptLocally(
-                                    source = source,
-                                    key = key,
-                                    file = action.local,
-                                    version = mergedVersion,
-                                    expected = null
-                                )
-                            }
-                        }
+            ConflictDecision.Choice.KeepBoth -> {
+                copyAside(action.local, source)
+                // The copy is made: a retry after a failed transfer must not make another one.
+                storage.conflictDecisions.put(decision.copy(choice = ConflictDecision.Choice.KeepRemote))
+                transferWinner(action, source, localWins = false)
+            }
+        }
 
-                        is FileRecord.State.Evicted -> {
-                            // evicted version cannot win
-                            Timber.w("Conflict resolution: evicted local file ${action.local.path} win LWW over remote ${action.remote.path}")
-                        }
-                    }
-                } else {
-                    when (action.remote.state) {
-                        is FileRecord.State.Present -> {
-                            downloadFile(
-                                action = FileAction.Download(
-                                    file = action.remote,
-                                    version = mergedVersion,
-                                    reason = "Conflict resolution: remote wins"
-                                ),
-                                source = source,
-                            )
+        storage.conflictDecisions.remove(key)
+    }
 
-                            // An unhashed remote was hashed on the way: our copy holds its bytes now.
-                            val received = action.remote.content ?: storage.index.findFile(key)?.hash
-                            if (received != null) {
-                                adoptRemotely(
-                                    source = source,
-                                    key = key,
-                                    file = action.remote,
-                                    version = mergedVersion,
-                                    expected = received
-                                )
-                            }
-                        }
+    /**
+     * Local bytes of [file] copied next to it as `<name> (<this device>).<ext>`. A new file: the
+     * next scan versions it, and a pass sends it like any other.
+     */
+    private suspend fun copyAside(file: FileRecord, source: SourceEntry) {
+        val locator = file.locator
+            ?: error("Cannot copy local file ${file.id} because it has no locator")
+        val label = storage.identity.localDevice().displayName
 
-                        is FileRecord.State.Deleted -> {
-                            if (action.local.state is FileRecord.State.Present) {
-                                deleteLocalFile(
-                                    action = FileAction.DeleteLocal(
-                                        file = action.local,
-                                        version = mergedVersion,
-                                        reason = "Conflict resolution: remote wins"
-                                    ),
-                                    source = source,
-                                )
+        withContext(Dispatchers.IO) {
+            val fs = node.openSource(source.location.toFiles())
+            val original = fs.openFile(locator) ?: throw FileNotFoundException(locator)
 
-                                adoptRemotely(
-                                    source = source,
-                                    key = key,
-                                    file = action.remote,
-                                    version = mergedVersion,
-                                    expected = null
-                                )
-                            }
-                        }
+            val path = generateSequence(1) { it + 1 }
+                .map { n -> ConflictCopies.path(file.path, label, n) }
+                .first { !fs.fileExists(it) }
 
-                        is FileRecord.State.Evicted -> {
-                            // evicted version cannot win
-                            Timber.w("Conflict resolution: evicted remote file ${action.remote.path} win LWW over local ${action.local.path}")
-                        }
+            val copy = fs.createFile(path)
+
+            copy.openWriter().use { writer ->
+                original.read().use { input ->
+                    val buffer = ByteArray(CopyChunkSize)
+                    var offset = 0L
+
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+
+                        writer.write(offset, buffer, read)
+                        offset += read
                     }
                 }
+
+                writer.sync()
             }
 
-            SyncMode.Mirror.ConflictResolution.KeepBoth -> {
-                Timber.w("Conflict resolution not implemented yet for ${action.local.path} and ${action.remote.path}")
-                // TODO: save both variants to .conflict folder
+            Timber.i("Copied ${file.path} aside to $path in source ${source.id}")
+        }
+    }
+
+    /**
+     * Moves the winner's side over the loser's under the merged version; the winner's side adopts
+     * it here, so both agree now rather than on the next pass.
+     */
+    private suspend fun transferWinner(
+        action: FileAction.Conflict,
+        source: SourceEntry,
+        localWins: Boolean,
+    ) {
+        val local = action.local.metadata.version
+        val remote = action.remote.metadata.version
+        val mergedVersion = local?.merge(remote) ?: remote
+
+        val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+
+        if (localWins) {
+            when (action.local.state) {
+                is FileRecord.State.Present -> {
+                    val sent = uploadFile(
+                        source = source,
+                        action = FileAction.Upload(
+                            file = action.local,
+                            version = mergedVersion,
+                            reason = "Conflict resolution: local wins"
+                        )
+                    )
+
+                    adoptLocally(
+                        source = source,
+                        key = key,
+                        file = action.local,
+                        version = mergedVersion,
+                        expected = sent
+                    )
+                }
+
+                is FileRecord.State.Deleted -> {
+                    if (action.remote.state is FileRecord.State.Present) {
+                        deleteRemoteFile(
+                            action = FileAction.DeleteRemote(
+                                file = action.remote,
+                                version = mergedVersion,
+                                reason = "Conflict resolution: local wins"
+                            ),
+                            source = source,
+                        )
+
+                        adoptLocally(
+                            source = source,
+                            key = key,
+                            file = action.local,
+                            version = mergedVersion,
+                            expected = null
+                        )
+                    }
+                }
+
+                is FileRecord.State.Evicted -> {
+                    // evicted version cannot win
+                    Timber.w("Conflict resolution: evicted local ${action.local.path} cannot win over remote ${action.remote.path}")
+                }
+            }
+        } else {
+            when (action.remote.state) {
+                is FileRecord.State.Present -> {
+                    downloadFile(
+                        action = FileAction.Download(
+                            file = action.remote,
+                            version = mergedVersion,
+                            reason = "Conflict resolution: remote wins"
+                        ),
+                        source = source,
+                    )
+
+                    // An unhashed remote was hashed on the way: our copy holds its bytes now.
+                    val received = action.remote.content ?: storage.index.findFile(key)?.hash
+                    if (received != null) {
+                        adoptRemotely(
+                            source = source,
+                            key = key,
+                            file = action.remote,
+                            version = mergedVersion,
+                            expected = received
+                        )
+                    }
+                }
+
+                is FileRecord.State.Deleted -> {
+                    if (action.local.state is FileRecord.State.Present) {
+                        deleteLocalFile(
+                            action = FileAction.DeleteLocal(
+                                file = action.local,
+                                version = mergedVersion,
+                                reason = "Conflict resolution: remote wins"
+                            ),
+                            source = source,
+                        )
+
+                        adoptRemotely(
+                            source = source,
+                            key = key,
+                            file = action.remote,
+                            version = mergedVersion,
+                            expected = null
+                        )
+                    }
+                }
+
+                is FileRecord.State.Evicted -> {
+                    // evicted version cannot win
+                    Timber.w("Conflict resolution: evicted remote ${action.remote.path} cannot win over local ${action.local.path}")
+                }
             }
         }
     }
@@ -362,3 +446,5 @@ internal class FileActionRunner(
         )
     }
 }
+
+private const val CopyChunkSize = 64 * 1024

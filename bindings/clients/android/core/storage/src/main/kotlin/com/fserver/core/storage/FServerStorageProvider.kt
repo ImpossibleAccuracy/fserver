@@ -10,6 +10,7 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.fserver.core.FServerConfig
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
+import com.fserver.core.storage.internal.ConflictDecisionsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
 import com.fserver.core.storage.internal.FileIndexStoreImpl
 import com.fserver.core.storage.internal.RemoteIndexStoreImpl
@@ -22,6 +23,7 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
+import com.fserver.core.store.sync.ConflictDecisionsStore
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
@@ -76,6 +78,7 @@ class FServerStorageProvider private constructor(
     private val sourceRequestsStore by lazy { SourceRequestsStoreImpl(database) }
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
     private val uploadStagingStore by lazy { UploadStagingStoreImpl(database) }
+    private val conflictDecisionsStore by lazy { ConflictDecisionsStoreImpl(database) }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
@@ -97,6 +100,7 @@ class FServerStorageProvider private constructor(
         override val sourceRequests: SourceRequestsStore get() = sourceRequestsStore
         override val preferences: SyncStore get() = syncStore
         override val uploads: UploadStagingStore get() = uploadStagingStore
+        override val conflictDecisions: ConflictDecisionsStore get() = conflictDecisionsStore
     }
 
     /**

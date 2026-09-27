@@ -52,8 +52,7 @@ data class StorageState(
         Downloaded,
         Received,
         Cache,
-        Incomplete,
-        Conflicts;
+        Incomplete;
 
         val isFreeable: Boolean
             get() = this == Downloaded || this == Cache || this == Incomplete
@@ -109,7 +108,6 @@ data class StorageState(
                 AppDataUi(AppDataKindUi.Received, 4_300_000_000),
                 SampleCache,
                 SampleIncomplete,
-                AppDataUi(AppDataKindUi.Conflicts, 400_000_000),
             ),
             freeable = listOf(
                 FreeableUi.AppData(SampleDownloaded),

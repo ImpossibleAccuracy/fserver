@@ -55,7 +55,7 @@ data class SourceDetailsState(
         data class EvictOlderThan(val days: Int) : ConditionUi
         data class EvictLargerThan(val bytes: Long) : ConditionUi
         data object KeepPinned : ConditionUi
-        data class OnConflict(val keepBoth: Boolean) : ConditionUi
+        data class OnConflict(val ask: Boolean) : ConditionUi
         data class MaxFiles(val count: Int) : ConditionUi
         data class MaxSize(val bytes: Long) : ConditionUi
     }
@@ -142,7 +142,7 @@ data class SourceDetailsState(
             peer = PeerUi(id = "laptop", name = "Laptop", kind = DeviceKind.Laptop, online = true),
             conditions = listOf(
                 ConditionUi.Network(wifiOnly = true),
-                ConditionUi.OnConflict(keepBoth = true),
+                ConditionUi.OnConflict(ask = true),
                 ConditionUi.MaxFiles(1000),
             ),
             stages = listOf(

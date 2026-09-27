@@ -94,10 +94,10 @@ class SyncLeaseHandlerTest {
 
     @Test
     fun `a follower takes the initiator's mode and grants the lease`() = runTest {
-        val replies = answer(OwnerId, syncMode = KeepBoth)
+        val replies = answer(OwnerId, syncMode = AskMode)
 
         replies.only<FileServerMessages.AcquireSyncLease.Granted>()
-        assertEquals(KeepBoth, storage.sources.findById(SourceId)?.syncMode)
+        assertEquals(AskMode, storage.sources.findById(SourceId)?.syncMode)
     }
 
     @Test
@@ -105,7 +105,7 @@ class SyncLeaseHandlerTest {
         val local = checkNotNull(registry.beginAcquire(SourceId))
         registry.confirmLocal(SourceId, local)
 
-        val replies = answer(OwnerId, syncMode = KeepBoth)
+        val replies = answer(OwnerId, syncMode = AskMode)
 
         replies.only<FileServerMessages.AcquireSyncLease.Denied>()
         assertEquals(sourceEntry().syncMode, storage.sources.findById(SourceId)?.syncMode)
@@ -117,7 +117,7 @@ class SyncLeaseHandlerTest {
             sourceEntry(id = SourceId, deviceId = OwnerId, role = SourceEntry.Role.Initiator)
         )
 
-        val replies = answer(OwnerId, syncMode = KeepBoth)
+        val replies = answer(OwnerId, syncMode = AskMode)
 
         val outdated = replies.only<FileServerMessages.AcquireSyncLease.Outdated>()
         assertEquals(sourceEntry().syncMode.toDto(), outdated.syncMode)
@@ -156,6 +156,6 @@ class SyncLeaseHandlerTest {
         const val LocalId = "device-local"
         const val OwnerId = "device-owner"
         const val StrangerId = "device-stranger"
-        val KeepBoth = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.KeepBoth)
+        val AskMode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.Ask)
     }
 }

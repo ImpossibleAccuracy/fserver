@@ -376,8 +376,12 @@
     <string name="activity_batch_counter">%1$d of %2$d</string>
     <string name="activity_interrupted_meta">Stopped at %1$d %% · resumes when the link is back</string>
     <string name="activity_conflict_title">Conflict: %1$s</string>
-    <string name="activity_conflict_compare">Compare</string>
     <string name="activity_conflict_keep_mine">Keep mine</string>
+    <string name="activity_conflict_keep_theirs">Keep from %1$s</string>
+    <string name="activity_conflict_keep_both">Keep both</string>
+    <string name="activity_conflict_edited_both">Changed here and on %1$s. Both versions stay as they are until you pick one.</string>
+    <string name="activity_conflict_deleted_here">Deleted here, changed on %1$s.</string>
+    <string name="activity_conflict_deleted_there">Changed here, deleted on %1$s.</string>
     <string name="activity_full_history">Full history</string>
     <string name="transfer_percent">%1$d %%</string>
     <string name="transfer_progress_meta">%1$s of %2$s · %3$s · ~%4$s</string>
@@ -515,8 +519,6 @@
     <string name="storage_app_cache_desc">Rebuilt on their own</string>
     <string name="storage_app_incomplete">Incomplete</string>
     <string name="storage_app_incomplete_desc">Interrupted transfers</string>
-    <string name="storage_app_conflicts">Conflict copies</string>
-    <string name="storage_app_conflicts_desc">The .conflicts folder</string>
     <string name="storage_free_up_to">You can free up to %1$s</string>
     <string name="storage_free_hint">All of it is on other devices or downloads again</string>
     <string name="storage_free_action">Free up</string>
@@ -752,8 +754,8 @@
     <string name="conditions_sync_conflicts_label">Conflict resolution</string>
     <string name="conditions_sync_conflicts_rule">Last version wins</string>
     <string name="conditions_sync_conflicts_hint">If a file was changed on both sides, the one saved later survives.</string>
-    <string name="conditions_sync_losers_title">Keep both in .conflicts</string>
-    <string name="conditions_sync_losers_hint">Nothing is deleted silently: the second version sits next to the original.</string>
+    <string name="conditions_sync_conflicts_ask">Ask me</string>
+    <string name="conditions_sync_conflicts_ask_hint">Nothing changes on its own: each device keeps its version until you pick one.</string>
     <string name="conditions_limits_label">Limits</string>
     <string name="conditions_limits_hint">Only cap what this phone receives. %1$s keeps its own limits and may turn files down.</string>
     <string name="conditions_limit_files">Limit number of files</string>
@@ -890,7 +892,7 @@
     <string name="source_details_condition_evict_older">Free after %1$d days</string>
     <string name="source_details_condition_evict_larger">Free files over %1$s</string>
     <string name="source_details_condition_keep_pinned">Pinned stay</string>
-    <string name="source_details_condition_conflict_keep_both">On conflict — keep both</string>
+    <string name="source_details_condition_conflict_ask">On conflict — ask me</string>
     <string name="source_details_condition_conflict_newest">On conflict — newest wins</string>
     <plurals name="source_details_condition_max_files">
         <item quantity="one">Up to %1$d file</item>

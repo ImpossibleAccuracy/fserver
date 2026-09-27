@@ -1,0 +1,26 @@
+-- Version vector of each remoteIndexedFile row, shaped like indexedFileVersion.
+CREATE TABLE remoteIndexedFileVersion (
+    sourceId TEXT    NOT NULL,
+    fileId   TEXT    NOT NULL,
+    deviceId TEXT    NOT NULL,
+    counter  INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, fileId, deviceId),
+    FOREIGN KEY (sourceId, fileId) REFERENCES remoteIndexedFile(sourceId, fileId) ON DELETE CASCADE
+);
+
+selectAll:
+SELECT *
+FROM remoteIndexedFileVersion;
+
+selectBySource:
+SELECT *
+FROM remoteIndexedFileVersion
+WHERE sourceId = ?;
+
+insert:
+INSERT INTO remoteIndexedFileVersion(sourceId, fileId, deviceId, counter)
+VALUES (?, ?, ?, ?);
+
+deleteByKey:
+DELETE FROM remoteIndexedFileVersion
+WHERE sourceId = ? AND fileId = ?;

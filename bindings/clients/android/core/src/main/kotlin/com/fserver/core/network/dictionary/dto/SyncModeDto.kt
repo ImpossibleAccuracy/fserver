@@ -18,7 +18,7 @@ internal sealed interface SyncModeDto {
         val conflictResolution: ConflictResolution = ConflictResolution.LastWriteWins,
     ) : SyncModeDto {
         @Serializable
-        enum class ConflictResolution { LastWriteWins, KeepBoth }
+        enum class ConflictResolution { Ask, LastWriteWins }
     }
 
     @Serializable
@@ -46,8 +46,8 @@ internal fun SyncMode.toDto(): SyncModeDto = when (this) {
             SyncMode.Mirror.ConflictResolution.LastWriteWins ->
                 SyncModeDto.Mirror.ConflictResolution.LastWriteWins
 
-            SyncMode.Mirror.ConflictResolution.KeepBoth ->
-                SyncModeDto.Mirror.ConflictResolution.KeepBoth
+            SyncMode.Mirror.ConflictResolution.Ask ->
+                SyncModeDto.Mirror.ConflictResolution.Ask
         },
     )
 
@@ -65,8 +65,8 @@ internal fun SyncModeDto.toDomain(): SyncMode = when (this) {
             SyncModeDto.Mirror.ConflictResolution.LastWriteWins ->
                 SyncMode.Mirror.ConflictResolution.LastWriteWins
 
-            SyncModeDto.Mirror.ConflictResolution.KeepBoth ->
-                SyncMode.Mirror.ConflictResolution.KeepBoth
+            SyncModeDto.Mirror.ConflictResolution.Ask ->
+                SyncMode.Mirror.ConflictResolution.Ask
         },
     )
 

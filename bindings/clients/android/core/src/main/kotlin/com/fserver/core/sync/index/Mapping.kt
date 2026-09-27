@@ -23,6 +23,20 @@ internal fun LocalIndexedFile.toFileRecord(): FileRecord = FileRecord(
     ),
 )
 
+/** The peer's side of a file, from what it last reported. It has no locator here. */
+internal fun RemoteIndexedFile.toFileRecord(): FileRecord = FileRecord(
+    id = FileId(fileId),
+    path = path,
+    locator = null,
+    state = state.toFiles(),
+    content = hash,
+    metadata = FileRecord.Metadata(
+        size = size.bytes,
+        lastModified = modifiedAt,
+        version = version?.toFiles(),
+    ),
+)
+
 internal fun FileRecord.toIndexed(
     id: String,
     sourceId: String,

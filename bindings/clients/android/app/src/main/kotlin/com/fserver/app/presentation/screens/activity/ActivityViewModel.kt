@@ -6,10 +6,16 @@ import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.activity.model.ActivityIntent
 import com.fserver.app.presentation.screens.activity.model.ActivityState
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
+import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.model.FileSize
+import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.conflict.ConflictDecision
+import com.fserver.core.sync.conflict.ConflictsController
+import com.fserver.core.sync.conflict.FileConflict
+import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.progress.FileTransfer
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +25,7 @@ import kotlinx.coroutines.launch
 
 class ActivityViewModel(
     private val sourcesController: SourcesController,
+    private val conflictsController: ConflictsController,
     private val trustedDevices: TrustedDevicesRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
@@ -27,13 +34,14 @@ class ActivityViewModel(
         sourcesController.progress.transfers,
         sourcesController.incomingRequests,
         trustedDevices.devices,
-    ) { transfers, requests, devices ->
+        conflictsController.pending,
+    ) { transfers, requests, devices, conflicts ->
         ActivityState(
             freedLabel = SampleFreed,
             quotaLabel = SampleQuota,
             syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(devices),
             syncRequestsWaiting = requests.size,
-            conflicts = ActivityState.SampleConflicts,
+            conflicts = conflicts.map { it.toUi(devices) },
             running = transfers.map { it.toUi() }.filterNot { it is TransferUi.Completed },
             history = ActivityState.SampleHistory,
         )
@@ -43,7 +51,6 @@ class ActivityViewModel(
         initialValue = ActivityState(
             freedLabel = SampleFreed,
             quotaLabel = SampleQuota,
-            conflicts = ActivityState.SampleConflicts,
             history = ActivityState.SampleHistory,
         ),
     )
@@ -52,12 +59,40 @@ class ActivityViewModel(
         when (intent) {
             ActivityIntent.ClearClicked -> sourcesController.progress.clearFinished()
             is ActivityIntent.RetryClicked -> retry()
-            is ActivityIntent.ConflictCompareClicked -> Unit
-            is ActivityIntent.ConflictKeepMineClicked -> Unit
+            is ActivityIntent.ConflictKeepMineClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepLocal)
+            is ActivityIntent.ConflictKeepTheirsClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepRemote)
+            is ActivityIntent.ConflictKeepBothClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepBoth)
             is ActivityIntent.UndoClicked -> Unit
             ActivityIntent.FullHistoryClicked -> Unit
         }
     }
+
+    private fun resolve(conflictId: String, choice: ConflictDecision.Choice) {
+        val conflict = conflictsController.pending.value.firstOrNull { it.uiId == conflictId } ?: return
+
+        viewModelScope.launch {
+            conflictsController.resolve(conflict, choice)
+                .exceptionOrNull()
+                ?.let { reporter.report(it, "Could not resolve conflict on ${conflict.path}") }
+        }
+    }
+
+    private fun FileConflict.toUi(devices: List<TrustedDevice>) = ActivityState.ConflictUi(
+        id = uiId,
+        fileName = path.substringAfterLast('/'),
+        peerName = devices.latest(remote.deviceId)?.displayName ?: remote.deviceId,
+        change = when {
+            local.state is LocalIndexedFile.State.Deleted -> ActivityState.ChangeUi.DeletedHere
+            remote.state is LocalIndexedFile.State.Deleted -> ActivityState.ChangeUi.DeletedThere
+            else -> ActivityState.ChangeUi.EditedBoth
+        },
+        canKeepMine = ConflictDecision.Choice.KeepLocal in choices,
+        canKeepTheirs = ConflictDecision.Choice.KeepRemote in choices,
+        canKeepBoth = ConflictDecision.Choice.KeepBoth in choices,
+    )
+
+    private val FileConflict.uiId: String
+        get() = "$sourceId/$fileId"
 
     private fun retry() {
         viewModelScope.launch {

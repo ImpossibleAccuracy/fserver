@@ -309,7 +309,6 @@ private fun StorageState.FreeableUi.title(): String = when (this) {
             StorageState.AppDataKindUi.Received -> R.string.storage_app_received
             StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache
             StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete
-            StorageState.AppDataKindUi.Conflicts -> R.string.storage_app_conflicts
         }
     )
 

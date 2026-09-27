@@ -3,6 +3,7 @@ package com.fserver.core.store
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
+import com.fserver.core.store.sync.ConflictDecisionsStore
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.store.sync.RemoteIndexStore
 import com.fserver.core.store.sync.SourceRequestsStore
@@ -35,6 +36,9 @@ interface FServerStorage {
 
     /** Sources a peer asked this device to host, until its user answers. */
     val sourceRequests: SourceRequestsStore
+
+    /** What the user chose for held conflicts, until a pass carries it out. */
+    val conflictDecisions: ConflictDecisionsStore
 
     /** Uploads a peer has not finished pushing here. */
     val uploads: UploadStagingStore

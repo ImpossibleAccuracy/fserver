@@ -245,7 +245,6 @@ private val StorageState.AppDataKindUi.titleRes: Int
         StorageState.AppDataKindUi.Received -> R.string.storage_app_received
         StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache
         StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete
-        StorageState.AppDataKindUi.Conflicts -> R.string.storage_app_conflicts
     }
 
 @get:StringRes
@@ -255,7 +254,6 @@ private val StorageState.AppDataKindUi.descriptionRes: Int
         StorageState.AppDataKindUi.Received -> R.string.storage_app_received_desc
         StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache_desc
         StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete_desc
-        StorageState.AppDataKindUi.Conflicts -> R.string.storage_app_conflicts_desc
     }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 1100)

@@ -5,7 +5,9 @@ import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.conflict.settledDecisions
 import com.fserver.core.sync.device.DeviceConstraintChecker
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
@@ -20,6 +22,7 @@ import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
+import com.fserver.files.upload.UploadDecisions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -58,6 +61,12 @@ internal class SyncRunner(
      */
     suspend fun runSource(sourceId: String, force: Boolean) = mutex.withLock {
         runPass(listOfNotNull(storage.sources.findById(sourceId)), force)
+    }
+
+    /** [runSource] on the background scope. Waits for a pass already running rather than skipping. */
+    fun runSourceAsync(sourceId: String): Job = backgroundScope.launch {
+        runCatchingCancellable { runSource(sourceId, force = false) }
+            .onFailure { Timber.w(it, "Source pass ($sourceId) failed") }
     }
 
     /**
@@ -209,6 +218,7 @@ internal class SyncRunner(
 
             // TODO: selector can return null if one-way strategy runs on the wrong side, so move selection out of lease
             val decisions = uploadStrategySelector.plan(source.syncMode, source.role, snapshot)
+            dropSettledDecisions(source, decisions)
             if (decisions.isEmpty) break
 
             val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()
@@ -267,6 +277,17 @@ internal class SyncRunner(
         errors.forEach(failure::addSuppressed)
 
         throw failure
+    }
+
+    private suspend fun dropSettledDecisions(source: SourceEntry, plan: UploadDecisions) {
+        val stored = storage.conflictDecisions.forSource(source.id)
+        if (stored.isEmpty()) return
+
+        for (decision in settledDecisions(source, plan, stored)) {
+            // TODO: history entry - "your choice on <file> was overtaken" (resolved on the peer, or edited since).
+            Timber.i("Dropping decision on ${decision.fileId} in source ${source.id}: no longer conflicts")
+            storage.conflictDecisions.remove(IndexedFileKey(fileId = decision.fileId, sourceId = source.id))
+        }
     }
 
     companion object {
