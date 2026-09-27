@@ -154,10 +154,121 @@ class MirrorUploadStrategyTest {
     }
 
     @Test
-    fun `an evicted file never propagates, whatever the versions say`() = runTest {
+    fun `an evicted file is not a deletion`() = runTest {
         val action = plan(
-            local = record(vector = mapOf(A to 1L), state = FileRecord.State.Evicted(Early)),
+            local = record(vector = mapOf(A to 1L), content = "x", state = Evicted),
+            remote = record(vector = mapOf(A to 1L), content = "x"),
+        )
+
+        assertEquals(null, action)
+    }
+
+    @Test
+    fun `an evicted file follows a newer remote deletion`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 1L), state = Evicted),
             remote = record(vector = mapOf(A to 2L), state = Deleted),
+        )
+
+        assertTrue(action is FileAction.DeleteLocal)
+    }
+
+    @Test
+    fun `an evicted file is not refilled by a newer remote version`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 1L), content = "old", state = Evicted),
+            remote = record(vector = mapOf(A to 2L), content = "new"),
+        )
+
+        assertEquals(null, action)
+    }
+
+    @Test
+    fun `an evicted file newer than the remote one is a conflict`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 2L), content = "new", state = Evicted),
+            remote = record(vector = mapOf(A to 1L), content = "old"),
+        )
+
+        assertTrue(action is FileAction.Conflict)
+    }
+
+    @Test
+    fun `an unhashed evicted file is never sent to be hashed`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 1L), content = null, state = Evicted),
+            remote = record(vector = mapOf(A to 1L), content = "x"),
+        )
+
+        assertEquals(null, action)
+    }
+
+    @Test
+    fun `a local-only evicted file is not uploaded`() = runTest {
+        val decisions = strategy.plan(
+            MirrorUploadStrategy.Params(),
+            FilesSnapshot(listOf(record(vector = mapOf(A to 1L), state = Evicted)), emptyList()),
+        )
+
+        assertTrue(decisions.isEmpty)
+    }
+
+    @Test
+    fun `a remote-only evicted file is not downloaded`() = runTest {
+        val decisions = strategy.plan(
+            MirrorUploadStrategy.Params(),
+            FilesSnapshot(emptyList(), listOf(record(vector = mapOf(A to 1L), state = Evicted))),
+        )
+
+        assertTrue(decisions.isEmpty)
+    }
+
+    @Test
+    fun `a newer local version is not pushed into a remote eviction`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 2L), content = "new"),
+            remote = record(vector = mapOf(A to 1L), content = "old", state = Evicted),
+        )
+
+        assertEquals(null, action)
+    }
+
+    @Test
+    fun `a deletion older than a remote eviction leaves it alone`() = runTest {
+        // Nobody here has the bytes, but the peer's backup may: deleting would reach it.
+        val action = plan(
+            local = record(vector = mapOf(A to 1L), state = Deleted),
+            remote = record(vector = mapOf(A to 1L, B to 1L), state = Evicted),
+        )
+
+        assertEquals(null, action)
+    }
+
+    @Test
+    fun `a deletion newer than a remote eviction propagates`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 2L), state = Deleted),
+            remote = record(vector = mapOf(A to 1L), state = Evicted),
+        )
+
+        assertTrue(action is FileAction.DeleteRemote)
+    }
+
+    @Test
+    fun `a one-way mirror does not delete a remote eviction`() = runTest {
+        val decisions = strategy.plan(
+            MirrorUploadStrategy.Params(restoreMissingLocalFiles = false),
+            FilesSnapshot(emptyList(), listOf(record(vector = mapOf(A to 1L), state = Evicted))),
+        )
+
+        assertTrue(decisions.isEmpty)
+    }
+
+    @Test
+    fun `evicted on both sides needs nothing`() = runTest {
+        val action = plan(
+            local = record(vector = mapOf(A to 2L), content = "new", state = Evicted),
+            remote = record(vector = mapOf(A to 1L), content = "old", state = Evicted),
         )
 
         assertEquals(null, action)
@@ -214,5 +325,6 @@ class MirrorUploadStrategyTest {
         val Early: Instant = Instant.fromEpochSeconds(1_000_000)
         val Late: Instant = Instant.fromEpochSeconds(2_000_000)
         val Deleted = FileRecord.State.Deleted(Early)
+        val Evicted = FileRecord.State.Evicted(Early)
     }
 }

@@ -14,6 +14,7 @@ import com.fserver.core.sync.conflict.seenVersion
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -43,6 +44,11 @@ internal class FileActionRunner(
     private val node: FilesNode,
 ) {
     suspend fun execute(source: SourceEntry, action: FileAction) = runBackgroundJob {
+        refusal(action)?.let { why ->
+            Timber.w("Refusing ${action::class.simpleName} on ${action.id.value} in source ${source.id}: $why (planned as: ${action.reason})")
+            return@runBackgroundJob
+        }
+
         when (action) {
             is FileAction.ComputeHash -> computeHash(action, source)
             is FileAction.Conflict -> resolveConflict(action, source)
@@ -53,6 +59,39 @@ internal class FileActionRunner(
             is FileAction.Download -> downloadFile(action, source)
             is FileAction.Upload -> uploadFile(source, action)
         }
+    }
+
+    /**
+     * Why [action] contradicts the records it carries, or null. Any refusal is a strategy bug: this
+     * is the last line before bytes are destroyed.
+     */
+    private fun refusal(action: FileAction): String? = when (action) {
+        is FileAction.Upload -> "no local bytes to send".takeUnless { action.file.state is FileRecord.State.Present }
+
+        is FileAction.Download -> "no remote bytes to pull".takeUnless { action.file.state is FileRecord.State.Present }
+
+        is FileAction.EvictLocal -> when (val state = action.file.state) {
+            !is FileRecord.State.Present -> "not present"
+            else -> when {
+                state.pinned -> "pinned"
+                action.file.content == null -> "not hashed, so no copy can be confirmed"
+                else -> null
+            }
+        }
+
+        is FileAction.MergeVersion -> {
+            val localDeleted = action.local.state is FileRecord.State.Deleted
+            when {
+                localDeleted != (action.remote.state is FileRecord.State.Deleted) -> "only one side is deleted"
+                !localDeleted && (action.local.content == null || action.local.content != action.remote.content) ->
+                    "content not known to match"
+                else -> null
+            }
+        }
+
+        is FileAction.Conflict -> "neither side can be kept".takeIf { action.choices().isEmpty() }
+
+        is FileAction.ComputeHash, is FileAction.DeleteLocal, is FileAction.DeleteRemote -> null
     }
 
     private suspend fun computeHash(
@@ -95,6 +134,9 @@ internal class FileActionRunner(
         val remote = action.remote.metadata.version
 
         return when {
+            // A side without bytes cannot win
+            action.local.state is FileRecord.State.Evicted -> false
+            action.remote.state is FileRecord.State.Evicted -> true
             // If both sides have the same version, the device with the higher ID wins
             local == remote -> storage.identity.localDevice().deviceId > source.deviceId
             local == null -> false // No local version, remote wins
@@ -114,6 +156,13 @@ internal class FileActionRunner(
         if (decision.local != action.local.seenVersion() || decision.remote != action.remote.seenVersion()) {
             // TODO: history entry - "your choice on <file> was dropped: it changed since".
             Timber.i("Dropping decision on ${action.local.path} in source ${source.id}: a side changed since")
+            storage.conflictDecisions.remove(key)
+            return
+        }
+
+        // Eviction is not a version, so the check above misses a side evicted since the decision.
+        if (decision.choice !in action.choices()) {
+            Timber.i("Dropping decision on ${action.local.path} in source ${source.id}: ${decision.choice} no longer available")
             storage.conflictDecisions.remove(key)
             return
         }
@@ -211,7 +260,7 @@ internal class FileActionRunner(
                 }
 
                 is FileRecord.State.Deleted -> {
-                    if (action.remote.state is FileRecord.State.Present) {
+                    if (action.remote.state !is FileRecord.State.Deleted) {
                         deleteRemoteFile(
                             action = FileAction.DeleteRemote(
                                 file = action.remote,
@@ -262,7 +311,7 @@ internal class FileActionRunner(
                 }
 
                 is FileRecord.State.Deleted -> {
-                    if (action.local.state is FileRecord.State.Present) {
+                    if (action.local.state !is FileRecord.State.Deleted) {
                         deleteLocalFile(
                             action = FileAction.DeleteLocal(
                                 file = action.local,
@@ -297,7 +346,21 @@ internal class FileActionRunner(
         val locator = action.file.locator
             ?: error("Cannot delete local file ${action.file.id} because it has no locator")
 
-        // skip checks, strategy knows what it's doing
+        val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
+        val row = storage.index.findFile(key)
+        val unchanged = row != null && !row.hashStale && row.hash == action.file.content &&
+                (row.state as? LocalIndexedFile.State.Present)?.pinned == false
+        if (!unchanged) {
+            Timber.w("Not evicting ${action.file.path} in source ${source.id}: it changed since planned")
+            return
+        }
+
+        // Only once the peer confirmed the same bytes.
+        val copy = storage.remoteIndex.files(source.id).find { it.fileId == action.id.value }
+        if (copy == null || copy.state !is LocalIndexedFile.State.Present || copy.hash != action.file.content) {
+            Timber.w("Not evicting ${action.file.path} in source ${source.id}: peer holds no confirmed copy")
+            return
+        }
 
         withContext(NonCancellable) {
             val fs = node.openSource(source.location.toFiles())
@@ -310,7 +373,7 @@ internal class FileActionRunner(
             }
 
             storage.index.updateFileState(
-                key = IndexedFileKey(fileId = action.id.value, sourceId = source.id),
+                key = key,
                 state = LocalIndexedFile.State.Evicted(
                     evictedAt = timeProvider.now(),
                 )
@@ -324,6 +387,13 @@ internal class FileActionRunner(
     ) {
         val locator = action.file.locator
             ?: error("Cannot delete local file ${action.file.id} because it has no locator")
+
+        // Deleting over an edit the plan never saw would destroy it.
+        val row = storage.index.findFile(IndexedFileKey(fileId = action.id.value, sourceId = source.id))
+        if (row == null || !row.toFileRecord().sameAs(action.file)) {
+            Timber.w("Not deleting ${action.file.path} in source ${source.id}: it changed since planned")
+            return
+        }
 
         withContext(NonCancellable) {
             val fs = node.openSource(source.location.toFiles())
@@ -448,3 +518,17 @@ internal class FileActionRunner(
 }
 
 private const val CopyChunkSize = 64 * 1024
+
+/** Same as [com.fserver.core.sync.conflict.FileConflict.choices], over plan records. */
+private fun FileAction.Conflict.choices(): Set<ConflictDecision.Choice> = buildSet {
+    if (local.state !is FileRecord.State.Evicted) add(ConflictDecision.Choice.KeepLocal)
+    if (remote.state !is FileRecord.State.Evicted) add(ConflictDecision.Choice.KeepRemote)
+
+    if (local.state is FileRecord.State.Present && remote.state is FileRecord.State.Present) {
+        add(ConflictDecision.Choice.KeepBoth)
+    }
+}
+
+/** Same kind of state, content and version: nothing happened to the file in between. */
+private fun FileRecord.sameAs(other: FileRecord): Boolean =
+    state::class == other.state::class && content == other.content && metadata.version == other.metadata.version
