@@ -4,7 +4,6 @@ import com.fserver.app.R
 import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsUiEffect
@@ -80,7 +79,6 @@ class SourceConditionsHandler(
                 preferences = local.preferencesFor(mode),
                 sourceFiles = shared.source?.files,
                 sourceBytes = shared.source?.bytes?.bytes,
-                hostRights = local.hostRights,
                 progress = local.progress,
                 progressDetail = local.progressDetail,
                 error = local.error,
@@ -93,9 +91,6 @@ class SourceConditionsHandler(
                 editable.update { it.copy(explainerAccepted = true) }
 
             is SourceConditionsIntent.PreferencesChanged -> changePreferences(intent.intent)
-
-            is SourceConditionsIntent.HostRightsSelected ->
-                editable.update { it.copy(hostRights = intent.rights) }
 
             SourceConditionsIntent.Confirmed -> {
                 prepareJob?.cancel()
@@ -197,7 +192,6 @@ class SourceConditionsHandler(
         /** Answers for [preferencesMode]; going back and picking another mode starts them over. */
         val preferences: SourcePreferencesUi? = null,
         val preferencesMode: SourceModeUi? = null,
-        val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
         val preparing: Boolean = false,
         val progress: Float = 0f,
         val progressDetail: UiText? = null,

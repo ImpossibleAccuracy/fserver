@@ -128,5 +128,5 @@ private fun SourceEntry.editedMode(preferences: SourcePreferencesUi): SyncMode {
 
     if (role != SourceEntry.Role.Initiator || untouched) return syncMode
 
-    return preferences.toSyncMode(syncMode.toUi()) ?: syncMode
+    return preferences.toSyncMode(syncMode.toUi())
 }

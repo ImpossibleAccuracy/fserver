@@ -141,7 +141,7 @@ private fun SourceDetailsScreenContent(
                 .fillMaxSize()
                 .padding(innerPadding),
             isRefreshing = false,
-            onRefresh = { onIntent(SourceDetailsIntent.RefreshRequested) },
+            onRefresh = { if (state.canSync) onIntent(SourceDetailsIntent.RefreshRequested) },
         ) {
             Column(
                 modifier = Modifier
@@ -283,7 +283,12 @@ private fun StatusNote(
     state: SourceDetailsState,
 ) {
     when (val status = state.status) {
-        SourceDetailsState.StatusUi.Active -> Unit
+        SourceDetailsState.StatusUi.Active -> if (!state.canSync) {
+            DkInfoBox(
+                modifier = modifier,
+                text = stringResource(R.string.source_details_driven_by_peer, state.peer.name),
+            )
+        }
 
         SourceDetailsState.StatusUi.Pending -> DkInfoBox(
             modifier = modifier,

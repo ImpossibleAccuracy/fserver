@@ -4,11 +4,7 @@ import androidx.annotation.StringRes
 import com.fserver.app.R
 import kotlinx.serialization.Serializable
 
-/**
- * What happens to a source's files. One mode per source.
- *
- * [Host] is never offered yet: the engine has no `SyncMode` for serving a folder.
- */
+/** What happens to a source's files. One mode per source. */
 @Serializable
 enum class SourceModeUi { Sync, AutoUpload, Offload, Host }
 

@@ -36,12 +36,10 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.source.shared.preferences.model.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsUiEffect
 import com.fserver.app.presentation.screens.source.shared.preferences.model.UploadScopeUi
-import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
 import com.fserver.app.presentation.screens.source.shared.preferences.composable.SourcePreferencesForm
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
@@ -194,45 +192,19 @@ private fun ConditionsForm(
         )
 
         if (state.mode == SourceModeUi.Host) {
-            HostFields(state, onIntent)
-        } else {
-            SourcePreferencesForm(
-                state = state.preferences,
-                onIntent = { onIntent(SourceConditionsIntent.PreferencesChanged(it)) },
-                peerName = state.targetName,
-                sourceFiles = state.sourceFiles,
-                sourceBytes = state.sourceBytes,
+            DkInfoBox(
+                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+                text = stringResource(R.string.conditions_host_note, state.targetName),
             )
         }
-    }
-}
 
-@Composable
-private fun HostFields(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    Column(
-        modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-        verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
-    ) {
-        DkSectionLabel(text = stringResource(R.string.conditions_host_rights_label))
-        SourceChoiceRow(
-            title = stringResource(R.string.conditions_host_read_title),
-            description = stringResource(R.string.conditions_host_read_hint),
-            selected = state.hostRights == HostRightsUi.ReadOnly,
-            onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadOnly)) },
+        SourcePreferencesForm(
+            state = state.preferences,
+            onIntent = { onIntent(SourceConditionsIntent.PreferencesChanged(it)) },
+            peerName = state.targetName,
+            sourceFiles = state.sourceFiles,
+            sourceBytes = state.sourceBytes,
         )
-        SourceChoiceRow(
-            title = stringResource(R.string.conditions_host_write_title),
-            description = stringResource(R.string.conditions_host_write_hint),
-            selected = state.hostRights == HostRightsUi.ReadWrite,
-            onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadWrite)) },
-            warning = true,
-        )
-        // The only mode where this phone becomes a source for others, so the doze caveat sits on
-        // the conditions screen rather than in a help page nobody opens.
-        DkInfoBox(text = stringResource(R.string.conditions_host_note))
     }
 }
 
@@ -306,7 +278,7 @@ private fun SourceConditionsState.headerText(): String = when (mode) {
         stringResource(R.string.conditions_sync_body, sourceLabel, targetName)
 
     SourceModeUi.Host ->
-        stringResource(R.string.conditions_host_body)
+        stringResource(R.string.conditions_host_body, targetName)
 }
 
 private val SourceConditionsState.prepareTitleRes: Int

@@ -16,6 +16,8 @@ import com.fserver.app.presentation.screens.source.shared.model.readablePath
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
+import com.fserver.core.files.FilesController
+import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.LocalDevice
@@ -31,6 +33,7 @@ import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.conflict.FileConflict
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.model.drivesSync
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -49,6 +52,7 @@ class SourceDetailsViewModel(
     private val key: Destination.Files.SourceDetails,
     private val sourcesController: SourcesController,
     conflictsController: ConflictsController,
+    filesController: FilesController,
     registeredSources: RegisteredSourcesRepository,
     identity: DeviceIdentityRepository,
     trustedDevices: TrustedDevicesRepository,
@@ -74,6 +78,16 @@ class SourceDetailsViewModel(
         Environment(onMobile = network is NetworkInfo.Mobile, self = self)
     }
 
+    private val issues = combine(
+        conflictsController.pending,
+        filesController.overallContent,
+    ) { conflicts, files ->
+        Issues(
+            conflicts = conflicts.filter { it.sourceId == key.sourceId },
+            lost = files.filter { it.sourceId == key.sourceId && it.lostOnPeer },
+        )
+    }
+
     val state: StateFlow<SourceDetailsState> = combineMany(
         registeredSources.observeById(key.sourceId),
         registeredSources.observeTotals(key.sourceId),
@@ -81,8 +95,8 @@ class SourceDetailsViewModel(
         trustedDevices.devices,
         devicesRepository.devices.connected,
         isSyncing,
-        conflictsController.pending,
-    ) { source, totals, environment, trusted, connected, syncing, conflicts ->
+        issues,
+    ) { source, totals, environment, trusted, connected, syncing, issues ->
         if (source == null) return@combineMany SourceDetailsState(isLoading = false)
 
         val session = connected.firstOrNull { it.deviceId == source.deviceId }
@@ -99,7 +113,7 @@ class SourceDetailsViewModel(
             ),
         ).copy(
             isSyncing = syncing,
-            attention = conflicts.filter { it.sourceId == source.id }.toAttention(),
+            attention = issues.toAttention(source.syncMode),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -138,9 +152,21 @@ class SourceDetailsViewModel(
     }
 }
 
-private fun List<FileConflict>.toAttention(): List<SourceDetailsState.AttentionUi> =
-    if (isEmpty()) emptyList()
-    else listOf(SourceDetailsState.AttentionUi.Conflicts(size, map { it.path.substringAfterLast('/') }))
+private data class Issues(
+    val conflicts: List<FileConflict>,
+    val lost: List<SyncFileEntry>,
+)
+
+private fun Issues.toAttention(mode: SyncMode): List<SourceDetailsState.AttentionUi> = buildList {
+    if (conflicts.isNotEmpty()) {
+        add(SourceDetailsState.AttentionUi.Conflicts(conflicts.size, conflicts.map { it.path.fileName() }))
+    }
+    if (mode is SyncMode.Offload && lost.isNotEmpty()) {
+        add(SourceDetailsState.AttentionUi.LostOnPeer(lost.size, lost.map { it.path.fileName() }))
+    }
+}
+
+private fun String.fileName(): String = substringAfterLast('/')
 
 private data class Environment(
     val onMobile: Boolean,
@@ -153,7 +179,7 @@ private fun SourceEntry.toState(
     peer: SourceDetailsState.PeerUi,
 ): SourceDetailsState {
     val mode = syncMode.toUi()
-    val outgoing = syncMode is SyncMode.Mirror || role == SourceEntry.Role.Initiator
+    val outgoing = drivesSync
     val initiator = role == SourceEntry.Role.Initiator
     val here = if (initiator) originPath else location.readablePath()
     val there = if (initiator) null else originPath
@@ -180,6 +206,7 @@ private fun SourceEntry.toState(
         isLoading = false,
         label = label,
         mode = mode,
+        canSync = drivesSync,
         origin = if (initiator) self else other,
         target = if (initiator) other else self,
         peer = peer,
@@ -221,7 +248,7 @@ private fun stagesOf(
 
         !outgoing -> listOf(peer, here)
 
-        mode == SourceModeUi.Offload -> listOf(
+        mode == SourceModeUi.Offload || mode == SourceModeUi.Host -> listOf(
             here,
             pending,
             peer,
@@ -266,8 +293,9 @@ private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): 
                             ConditionUi.EvictLargerThan(policy.bytes)
                     }
                 )
-                if (mode.keepPinned) add(ConditionUi.KeepPinned)
             }
+
+            SyncMode.Host -> Unit
         }
 
         preferences.fileLimits.maxFiles?.let { add(ConditionUi.MaxFiles(it)) }

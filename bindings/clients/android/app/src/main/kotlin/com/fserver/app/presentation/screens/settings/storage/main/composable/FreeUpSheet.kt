@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -105,7 +106,10 @@ private fun FreeUpSheetContent(
             verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
         ) {
             Text(
-                text = stringResource(R.string.storage_free_title, FileSize(freedBytes).formatted()),
+                text = stringResource(
+                    R.string.storage_free_title,
+                    FileSize(freedBytes).formatted()
+                ),
                 style = MaterialTheme.typography.titleMedium,
             )
             DkCaption(text = stringResource(R.string.storage_free_body))
@@ -286,7 +290,9 @@ private fun PreviewStrip(
     ) {
         previews.forEach { file ->
             BrowserGalleryTile(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .widthIn(max = 42.dp)
+                    .weight(1f, fill = false),
                 file = file,
                 selection = null,
                 onFileClick = null,
@@ -312,7 +318,11 @@ private fun StorageState.FreeableUi.title(): String = when (this) {
         }
     )
 
-    is StorageState.FreeableUi.LinkCopies -> stringResource(R.string.storage_free_copies_title, label, deviceName)
+    is StorageState.FreeableUi.LinkCopies -> stringResource(
+        R.string.storage_free_copies_title,
+        label,
+        deviceName
+    )
 }
 
 @Composable
@@ -323,7 +333,11 @@ private fun StorageState.FreeableUi.hint(): String = when (this) {
         else -> stringResource(R.string.storage_free_cache_hint)
     }
 
-    is StorageState.FreeableUi.LinkCopies -> pluralStringResource(R.plurals.storage_free_copies_hint, files, files)
+    is StorageState.FreeableUi.LinkCopies -> pluralStringResource(
+        R.plurals.storage_free_copies_hint,
+        files,
+        files
+    )
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)

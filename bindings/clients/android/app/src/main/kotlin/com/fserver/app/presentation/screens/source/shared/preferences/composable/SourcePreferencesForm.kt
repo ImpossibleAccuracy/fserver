@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -147,23 +146,24 @@ private fun EvictionFields(
                 )
             }
             SourceChoiceRow(
-                title = stringResource(R.string.conditions_criterion_lru_title),
-                description = stringResource(R.string.conditions_criterion_lru_hint),
-                selected = eviction.criterion == EvictCriterionUi.LeastRecentlyUsed,
+                title = stringResource(R.string.conditions_criterion_size_title),
+                description = stringResource(R.string.conditions_criterion_size_hint),
+                selected = eviction.criterion == EvictCriterionUi.LargerThan,
                 onSelect = {
-                    onIntent(
-                        SourcePreferencesIntent.CriterionSelected(EvictCriterionUi.LeastRecentlyUsed)
-                    )
+                    onIntent(SourcePreferencesIntent.CriterionSelected(EvictCriterionUi.LargerThan))
                 },
-            )
+            ) {
+                ValueStepper(
+                    label = stringResource(
+                        R.string.conditions_criterion_size_value,
+                        FileSize(eviction.largerThanBytes).formatted(),
+                    ),
+                    enabled = eviction.criterion == EvictCriterionUi.LargerThan,
+                    onStep = { onIntent(SourcePreferencesIntent.SizeThresholdStepped(it)) },
+                )
+            }
+            DkCaption(text = stringResource(R.string.conditions_keep_pinned_hint))
         }
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_keep_pinned),
-            supportingText = stringResource(R.string.conditions_keep_pinned_hint),
-            leadingIcon = Icons.Default.PushPin,
-            checked = eviction.keepPinned,
-            onCheckedChange = { onIntent(SourcePreferencesIntent.KeepPinnedToggled(it)) },
-        )
     }
 }
 

@@ -25,5 +25,5 @@ sealed interface SourcePreferencesIntent {
 
     data class DaysStepped(val steps: Int) : SourcePreferencesIntent
 
-    data class KeepPinnedToggled(val enabled: Boolean) : SourcePreferencesIntent
+    data class SizeThresholdStepped(val steps: Int) : SourcePreferencesIntent
 }

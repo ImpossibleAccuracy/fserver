@@ -13,6 +13,8 @@ data class SyncFileEntry(
     val localState: LocalIndexedFile.State?,
     val remoteState: LocalIndexedFile.State?,
     val modifiedAt: Instant,
+    /** Evicted here, and the peer no longer holds that version - deleted or changed there. */
+    val lostOnPeer: Boolean = false,
 ) {
     val isRemote: Boolean
         get() = locator == null

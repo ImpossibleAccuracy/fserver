@@ -11,6 +11,7 @@ fun SyncMode.Type.toUi(): SourceModeUi = when (this) {
     SyncMode.Type.Mirror -> SourceModeUi.Sync
     SyncMode.Type.AutoUpload -> SourceModeUi.AutoUpload
     SyncMode.Type.Offload -> SourceModeUi.Offload
+    SyncMode.Type.Host -> SourceModeUi.Host
 }
 
 fun SourceEntry.Role.toUi(): SourceRoleUi = when (this) {

@@ -1,18 +1,23 @@
 package com.fserver.app.presentation.screens.source.shared.preferences.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
+import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.DaysStep
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.LargerThanStepMb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxDays
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxFilesStep
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxLargerThanMb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxMaxFiles
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxMaxSizeGb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MaxSizeStepGb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinDays
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinLargerThanMb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinMaxFiles
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinMaxSizeGb
-import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
-import com.fserver.app.presentation.screens.source.shared.model.toUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.SizePresetsGb
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.build
 import com.fserver.common.model.FileSize
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -62,8 +67,10 @@ data class SourcePreferencesUi(
     data class EvictionUi(
         val criterion: EvictCriterionUi = EvictCriterionUi.OlderThanDays,
         val olderThanDays: Int = DefaultDays,
-        val keepPinned: Boolean = true,
-    )
+        val largerThanMb: Int = DefaultLargerThanMb,
+    ) {
+        val largerThanBytes: Long get() = largerThanMb.toLong() * BytesInMb
+    }
 
     companion object {
         const val DefaultMaxFiles = 1000
@@ -82,7 +89,15 @@ data class SourcePreferencesUi(
         const val MinDays = 15
         const val MaxDays = 365
 
-        const val BytesInGb = 1024L * 1024 * 1024
+        const val DefaultLargerThanMb = 100
+        const val LargerThanStepMb = 50
+        const val MinLargerThanMb = 10
+        const val MaxLargerThanMb = 4096
+
+        const val BytesInMb = 1024L * 1024
+        const val BytesInGb = 1024L * BytesInMb
+
+        // TODO: build works pretty bad, need to refactor the whole thing
 
         /** Defaults for a new source of [mode], as seen from [role]. */
         fun build(mode: SourceModeUi, role: SourceRoleUi): SourcePreferencesUi {
@@ -122,14 +137,22 @@ data class SourcePreferencesUi(
             scope = if (ignoreFilesBefore == null) UploadScopeUi.All else UploadScopeUi.New,
         )
 
-        private fun SyncMode.Offload.toUi() = EvictionUi(
-            olderThanDays = (policy as? SyncMode.Offload.EvictPolicy.OlderThanDays)?.days
-                ?: DefaultDays,
-            keepPinned = keepPinned,
-        )
+        private fun SyncMode.Offload.toUi() = when (val policy = policy) {
+            is SyncMode.Offload.EvictPolicy.OlderThanDays -> EvictionUi(
+                criterion = EvictCriterionUi.OlderThanDays,
+                olderThanDays = policy.days,
+            )
+
+            is SyncMode.Offload.EvictPolicy.LargerThanBytes -> EvictionUi(
+                criterion = EvictCriterionUi.LargerThan,
+                largerThanMb = (policy.bytes / BytesInMb).toInt()
+                    .coerceIn(MinLargerThanMb, MaxLargerThanMb),
+            )
+        }
 
         private fun SourceEntry.Preferences.FileLimits.toUi(): LimitsUi {
-            val sizeGb = maxTotalSize?.let { (it.bytes / BytesInGb).toInt().coerceAtLeast(MinMaxSizeGb) }
+            val sizeGb =
+                maxTotalSize?.let { (it.bytes / BytesInGb).toInt().coerceAtLeast(MinMaxSizeGb) }
 
             return LimitsUi(
                 limitFiles = maxFiles != null,
@@ -142,43 +165,61 @@ data class SourcePreferencesUi(
     }
 }
 
-fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferencesUi = when (intent) {
-    is SourcePreferencesIntent.WifiOnlyToggled -> copy(wifiOnly = intent.enabled)
-    is SourcePreferencesIntent.ChargingOnlyToggled -> copy(chargingOnly = intent.enabled)
+fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferencesUi =
+    when (intent) {
+        is SourcePreferencesIntent.WifiOnlyToggled -> copy(wifiOnly = intent.enabled)
+        is SourcePreferencesIntent.ChargingOnlyToggled -> copy(chargingOnly = intent.enabled)
 
-    is SourcePreferencesIntent.LimitFilesToggled -> updateLimits { copy(limitFiles = intent.enabled) }
-    is SourcePreferencesIntent.MaxFilesStepped -> updateLimits {
-        copy(maxFiles = stepped(maxFiles, intent.steps, MaxFilesStep, MinMaxFiles, MaxMaxFiles))
-    }
+        is SourcePreferencesIntent.LimitFilesToggled -> updateLimits { copy(limitFiles = intent.enabled) }
+        is SourcePreferencesIntent.MaxFilesStepped -> updateLimits {
+            copy(maxFiles = stepped(maxFiles, intent.steps, MaxFilesStep, MinMaxFiles, MaxMaxFiles))
+        }
 
-    is SourcePreferencesIntent.LimitSizeToggled -> updateLimits { copy(limitSize = intent.enabled) }
-    is SourcePreferencesIntent.SizePresetSelected -> updateLimits {
-        when (val gb = intent.gb) {
-            null -> copy(customSize = true)
-            else -> copy(customSize = false, maxSizeGb = gb)
+        is SourcePreferencesIntent.LimitSizeToggled -> updateLimits { copy(limitSize = intent.enabled) }
+        is SourcePreferencesIntent.SizePresetSelected -> updateLimits {
+            when (val gb = intent.gb) {
+                null -> copy(customSize = true)
+                else -> copy(customSize = false, maxSizeGb = gb)
+            }
+        }
+
+        is SourcePreferencesIntent.MaxSizeStepped -> updateLimits {
+            copy(
+                maxSizeGb = stepped(
+                    maxSizeGb,
+                    intent.steps,
+                    MaxSizeStepGb,
+                    MinMaxSizeGb,
+                    MaxMaxSizeGb
+                )
+            )
+        }
+
+        is SourcePreferencesIntent.ConflictResolutionSelected ->
+            copy(conflicts = conflicts?.copy(resolution = intent.resolution))
+
+        is SourcePreferencesIntent.UploadScopeSelected ->
+            copy(upload = upload?.copy(scope = intent.scope))
+
+        is SourcePreferencesIntent.CriterionSelected ->
+            updateEviction { copy(criterion = intent.criterion) }
+
+        is SourcePreferencesIntent.DaysStepped -> updateEviction {
+            copy(olderThanDays = stepped(olderThanDays, intent.steps, DaysStep, MinDays, MaxDays))
+        }
+
+        is SourcePreferencesIntent.SizeThresholdStepped -> updateEviction {
+            copy(
+                largerThanMb = stepped(
+                    largerThanMb,
+                    intent.steps,
+                    LargerThanStepMb,
+                    MinLargerThanMb,
+                    MaxLargerThanMb
+                )
+            )
         }
     }
-
-    is SourcePreferencesIntent.MaxSizeStepped -> updateLimits {
-        copy(maxSizeGb = stepped(maxSizeGb, intent.steps, MaxSizeStepGb, MinMaxSizeGb, MaxMaxSizeGb))
-    }
-
-    is SourcePreferencesIntent.ConflictResolutionSelected ->
-        copy(conflicts = conflicts?.copy(resolution = intent.resolution))
-
-    is SourcePreferencesIntent.UploadScopeSelected ->
-        copy(upload = upload?.copy(scope = intent.scope))
-
-    is SourcePreferencesIntent.CriterionSelected ->
-        updateEviction { copy(criterion = intent.criterion) }
-
-    is SourcePreferencesIntent.DaysStepped -> updateEviction {
-        copy(olderThanDays = stepped(olderThanDays, intent.steps, DaysStep, MinDays, MaxDays))
-    }
-
-    is SourcePreferencesIntent.KeepPinnedToggled ->
-        updateEviction { copy(keepPinned = intent.enabled) }
-}
 
 fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
     deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
@@ -194,10 +235,13 @@ fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
 )
 
 /**
- * The initiator's [SyncMode] for [mode], or null for one the engine cannot run. Auto-upload scoped
- * to new files is a cut-off rather than a filter, which is why the scope becomes an instant.
+ * The initiator's [SyncMode] for [mode]. Auto-upload scoped to new files is a cut-off rather than a
+ * filter, which is why the scope becomes an instant.
  */
-fun SourcePreferencesUi.toSyncMode(mode: SourceModeUi, now: Instant = Clock.System.now()): SyncMode? =
+fun SourcePreferencesUi.toSyncMode(
+    mode: SourceModeUi,
+    now: Instant = Clock.System.now()
+): SyncMode =
     when (mode) {
         SourceModeUi.Sync -> SyncMode.Mirror(
             conflictResolution = when (conflicts?.resolution ?: ConflictResolutionUi.Ask) {
@@ -213,16 +257,16 @@ fun SourcePreferencesUi.toSyncMode(mode: SourceModeUi, now: Instant = Clock.Syst
             },
         )
 
-        // The engine evicts by age only, so the least-recently-used rule falls back to the same
-        // cut-off until it grows a policy of its own.
         SourceModeUi.Offload -> SyncMode.Offload(
-            policy = SyncMode.Offload.EvictPolicy.OlderThanDays(
-                eviction?.olderThanDays ?: SourcePreferencesUi.DefaultDays,
-            ),
-            keepPinned = eviction?.keepPinned ?: true,
+            policy = (eviction ?: SourcePreferencesUi.EvictionUi()).let {
+                when (it.criterion) {
+                    EvictCriterionUi.OlderThanDays -> SyncMode.Offload.EvictPolicy.OlderThanDays(it.olderThanDays)
+                    EvictCriterionUi.LargerThan -> SyncMode.Offload.EvictPolicy.LargerThanBytes(it.largerThanBytes)
+                }
+            },
         )
 
-        SourceModeUi.Host -> null
+        SourceModeUi.Host -> SyncMode.Host
     }
 
 private fun SourcePreferencesUi.updateLimits(

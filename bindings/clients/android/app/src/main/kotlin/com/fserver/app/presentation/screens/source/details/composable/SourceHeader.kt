@@ -64,7 +64,6 @@ private fun ConditionUi.label(): String = when (this) {
         FileSize(bytes).formatted(),
     )
 
-    ConditionUi.KeepPinned -> stringResource(R.string.source_details_condition_keep_pinned)
     is ConditionUi.OnConflict -> stringResource(
         if (ask) R.string.source_details_condition_conflict_ask
         else R.string.source_details_condition_conflict_newest

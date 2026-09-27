@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +66,22 @@ fun AttentionCard(
                     text = stringResource(R.string.source_details_conflicts_resolve),
                     onClick = onResolveConflicts,
                 )
+            }
+
+            is AttentionUi.LostOnPeer -> {
+                Title(
+                    icon = Icons.Default.ErrorOutline,
+                    text = pluralStringResource(
+                        R.plurals.source_details_lost_title,
+                        attention.count,
+                        attention.count,
+                        peerName,
+                    ),
+                )
+                Body(text = stringResource(R.string.source_details_lost_body, peerName))
+                if (attention.fileNames.isNotEmpty()) {
+                    DkCaption(text = attention.fileNames.joinToString(", "))
+                }
             }
 
             is AttentionUi.PeerAlmostFull -> {
@@ -136,6 +153,11 @@ private fun AttentionCardPreview() {
             AttentionCard(
                 attention = AttentionUi.Conflicts(2, listOf("Lease.docx", "Budget 2026.xlsx")),
                 peerName = "Laptop",
+                onResolveConflicts = {},
+            )
+            AttentionCard(
+                attention = AttentionUi.LostOnPeer(1, listOf("IMG_0412.jpg")),
+                peerName = "Server",
                 onResolveConflicts = {},
             )
             AttentionCard(

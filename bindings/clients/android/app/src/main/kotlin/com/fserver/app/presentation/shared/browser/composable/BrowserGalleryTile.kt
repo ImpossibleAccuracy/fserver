@@ -2,6 +2,7 @@ package com.fserver.app.presentation.shared.browser.composable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -32,7 +33,7 @@ fun BrowserGalleryTile(
     val hasThumbnail = file.kind.isMedia
     var isThumbnailLoaded by remember(file.locator) { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
+    Box(modifier = modifier.aspectRatio(1f)) {
         DkMediaTile(
             extensionLabel = file.extensionLabel.takeUnless { isThumbnailLoaded },
             thumbnail = if (hasThumbnail) {

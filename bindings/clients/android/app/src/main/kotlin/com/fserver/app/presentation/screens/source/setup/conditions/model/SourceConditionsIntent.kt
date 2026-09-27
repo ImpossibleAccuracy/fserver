@@ -7,8 +7,6 @@ sealed interface SourceConditionsIntent {
 
     data class PreferencesChanged(val intent: SourcePreferencesIntent) : SourceConditionsIntent
 
-    data class HostRightsSelected(val rights: HostRightsUi) : SourceConditionsIntent
-
     /** The form is answered — this is what starts the preparing step. */
     data object Confirmed : SourceConditionsIntent
 

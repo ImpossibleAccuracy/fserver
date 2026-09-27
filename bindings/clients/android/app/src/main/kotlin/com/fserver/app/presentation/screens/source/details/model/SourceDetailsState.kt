@@ -13,6 +13,7 @@ data class SourceDetailsState(
     val isSyncing: Boolean = false,
 
     val mode: SourceModeUi = SourceModeUi.AutoUpload,
+    val canSync: Boolean = true,
     val origin: SourceEndpointUi = SourceEndpointUi(),
     val target: SourceEndpointUi = SourceEndpointUi(),
     val conditions: List<ConditionUi> = emptyList(),
@@ -54,7 +55,6 @@ data class SourceDetailsState(
         data object CopiesStay : ConditionUi
         data class EvictOlderThan(val days: Int) : ConditionUi
         data class EvictLargerThan(val bytes: Long) : ConditionUi
-        data object KeepPinned : ConditionUi
         data class OnConflict(val ask: Boolean) : ConditionUi
         data class MaxFiles(val count: Int) : ConditionUi
         data class MaxSize(val bytes: Long) : ConditionUi
@@ -76,6 +76,7 @@ data class SourceDetailsState(
     @Immutable
     sealed interface AttentionUi {
         data class Conflicts(val count: Int, val fileNames: List<String>) : AttentionUi
+        data class LostOnPeer(val count: Int, val fileNames: List<String>) : AttentionUi
         data class PeerAlmostFull(
             val freeBytes: Long,
             val totalBytes: Long,

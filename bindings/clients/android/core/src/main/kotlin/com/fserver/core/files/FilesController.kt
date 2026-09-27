@@ -122,9 +122,10 @@ class FilesController internal constructor(
             if (local != null && remote != null) {
                 result += local.toSyncEntry(
                     remoteState = remote.state,
+                    lostOnPeer = local.lostOn(remote),
                 )
             } else if (local != null) {
-                result += local.toSyncEntry()
+                result += local.toSyncEntry(lostOnPeer = local.lostOn(remote = null))
             } else if (remote != null) {
                 result += remote.toSyncEntry()
             }
@@ -137,8 +138,13 @@ class FilesController internal constructor(
 private fun LocalIndexedFile.presentEntry(remoteState: LocalIndexedFile.State?): SyncFileEntry? =
     takeIf { it.state is LocalIndexedFile.State.Present }?.toSyncEntry(remoteState)
 
+/** Evicted here while [remote] (null when gone) no longer holds these bytes. An unhashed remote is trusted. */
+private fun LocalIndexedFile.lostOn(remote: RemoteIndexedFile?): Boolean =
+    state is LocalIndexedFile.State.Evicted && (remote == null || (remote.hash != null && remote.hash != hash))
+
 private fun LocalIndexedFile.toSyncEntry(
     remoteState: LocalIndexedFile.State? = null,
+    lostOnPeer: Boolean = false,
 ) = SyncFileEntry(
     fileId = fileId,
     sourceId = sourceId,
@@ -149,6 +155,7 @@ private fun LocalIndexedFile.toSyncEntry(
     localState = state,
     remoteState = remoteState,
     modifiedAt = modifiedAt,
+    lostOnPeer = lostOnPeer,
 )
 
 private fun RemoteIndexedFile.toSyncEntry() = SyncFileEntry(

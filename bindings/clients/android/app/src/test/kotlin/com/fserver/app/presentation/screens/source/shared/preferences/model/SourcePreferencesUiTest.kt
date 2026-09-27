@@ -67,6 +67,29 @@ class SourcePreferencesUiTest {
     }
 
     @Test
+    fun `every offload policy reads back as saved`() {
+        val policies = listOf(
+            SyncMode.Offload.EvictPolicy.OlderThanDays(30),
+            SyncMode.Offload.EvictPolicy.LargerThanBytes(200 * SourcePreferencesUi.BytesInMb),
+        )
+
+        for (policy in policies) {
+            val source = entry(mode = SyncMode.Offload(policy), preferences = SourceEntry.Preferences.Default)
+
+            assertEquals(source.syncMode, SourcePreferencesUi.build(source).toSyncMode(SourceModeUi.Offload))
+        }
+    }
+
+    @Test
+    fun `host has no mode settings of its own and maps to its mode`() {
+        val ui = SourcePreferencesUi.build(SourceModeUi.Host, SourceRoleUi.Initiator)
+
+        assertNull(ui.eviction)
+        assertNull(ui.limits)
+        assertEquals(SyncMode.Host, ui.toSyncMode(SourceModeUi.Host))
+    }
+
+    @Test
     fun `size preset and custom size are exclusive`() {
         val base = SourcePreferencesUi.build(SourceModeUi.Sync, SourceRoleUi.Follower)
 

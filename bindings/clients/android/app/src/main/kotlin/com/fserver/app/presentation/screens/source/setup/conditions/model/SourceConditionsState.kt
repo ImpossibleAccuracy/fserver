@@ -22,8 +22,6 @@ data class SourceConditionsState(
     /** What the access step's scan found, for the backlog and size-limit hints. */
     val sourceFiles: Int? = null,
     val sourceBytes: Long? = null,
-    /** Host: what trusted devices may do with the folder. */
-    val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
     val progress: Float = 0f,
     val progressDetail: UiText? = null,
     /** Why registering the source failed, when it did. */

@@ -722,8 +722,8 @@
     <string name="mode_offload_subtitle">Free up space — files move to another device</string>
     <string name="mode_sync_title">Sync</string>
     <string name="mode_sync_subtitle">The same contents here and on another device</string>
-    <string name="mode_host_title">Share over the network (host)</string>
-    <string name="mode_host_subtitle">Files stay here, other devices reach them over the network</string>
+    <string name="mode_host_title">Keep on another device (host)</string>
+    <string name="mode_host_subtitle">Files live on another device and open over the network</string>
 
     <!-- Send flow: the conditions each mode asks for -->
     <string name="conditions_autoupload_body">Copies go to %1$s. Originals stay on the phone.</string>
@@ -746,10 +746,10 @@
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>
     </plurals>
-    <string name="conditions_criterion_lru_title">Not opened for a long time</string>
-    <string name="conditions_criterion_lru_hint">LRU: whatever you have not come back to the longest goes first.</string>
-    <string name="conditions_keep_pinned">Pinned files are never deleted</string>
-    <string name="conditions_keep_pinned_hint">Marked files stay on the phone under any rule</string>
+    <string name="conditions_criterion_size_title">Larger than a size</string>
+    <string name="conditions_criterion_size_hint">Big files go first, small ones stay on the phone.</string>
+    <string name="conditions_criterion_size_value">Over %1$s</string>
+    <string name="conditions_keep_pinned_hint">Pinned files stay on the phone under any rule.</string>
     <string name="conditions_sync_body">%1$s ↔ %2$s. The contents will be the same on both sides.</string>
     <string name="conditions_sync_conflicts_label">Conflict resolution</string>
     <string name="conditions_sync_conflicts_rule">Last version wins</string>
@@ -767,13 +767,8 @@
     <string name="conditions_limit_size">Limit total size</string>
     <string name="conditions_limit_size_hint">Stops taking new files, and edits that grow a file, once the source reaches it</string>
     <string name="conditions_limit_size_value">%1$d GB</string>
-    <string name="conditions_host_body">Files stay on the phone. Trusted devices can open this folder while the app is running.</string>
-    <string name="conditions_host_rights_label">Rights</string>
-    <string name="conditions_host_read_title">Read only</string>
-    <string name="conditions_host_read_hint">Other devices download files but cannot change them</string>
-    <string name="conditions_host_write_title">Read and write</string>
-    <string name="conditions_host_write_hint">They will be able to add, overwrite and delete files in the folder</string>
-    <string name="conditions_host_note">Only devices from the trusted list get access. While the phone sleeps the folder is unreachable.</string>
+    <string name="conditions_host_body">Files move to %1$s and open from there over the network. What you open stays on the phone for a day.</string>
+    <string name="conditions_host_note">Files open only while %1$s is online. Pinned files always stay on the phone.</string>
 
     <!-- Send flow: offload gets its own explainer, because it deletes originals -->
     <string name="offload_explainer_title">How freeing up space works</string>
@@ -814,8 +809,8 @@
     <string name="source_summary_scope_all">Everything in the source</string>
     <string name="source_summary_rule_older">Older than %1$d days</string>
     <string name="source_summary_rule_larger">Larger than %1$s</string>
+    <string name="source_summary_rule_host">Opened files stay for a day</string>
     <string name="source_summary_pinned_kept">never deleted</string>
-    <string name="source_summary_pinned_evicted">evicted like the rest</string>
     <!-- Both halves of a source: the wait for the other device, and the first pass -->
     <string name="source_create_failed_title">The source was not registered</string>
     <string name="source_progress_title">Setting up</string>
@@ -860,6 +855,7 @@
     <string name="error_source_duplicate">That folder is already synced with this device.</string>
     <string name="error_source_rejected">The other device turned the source down.</string>
     <string name="error_source_over_limit">The other device has no room for this file under its limits.</string>
+    <string name="error_source_mode_forbidden">This source does not allow that on this device.</string>
     <string name="error_sync_failed">The sync pass did not finish.</string>
     <string name="error_sync_unreachable">The device could not be reached, so the folder did not sync.</string>
     <string name="error_sync_refused">The other device turned the sync down.</string>
@@ -891,7 +887,6 @@
     <string name="source_details_condition_copies_stay">Copies stay</string>
     <string name="source_details_condition_evict_older">Free after %1$d days</string>
     <string name="source_details_condition_evict_larger">Free files over %1$s</string>
-    <string name="source_details_condition_keep_pinned">Pinned stay</string>
     <string name="source_details_condition_conflict_ask">On conflict — ask me</string>
     <string name="source_details_condition_conflict_newest">On conflict — newest wins</string>
     <plurals name="source_details_condition_max_files">
@@ -930,6 +925,12 @@
     <string name="source_details_status_pending">Waiting for %1$s to accept this source. Nothing moves until then.</string>
     <string name="source_details_status_disabled">Stopped</string>
     <string name="source_details_conflicts_title">Conflicts · %1$d</string>
+    <string name="source_details_driven_by_peer">Synced from %1$s. This device only receives, so passes start there.</string>
+    <plurals name="source_details_lost_title">
+        <item quantity="one">%1$d file lost on %2$s</item>
+        <item quantity="other">%1$d files lost on %2$s</item>
+    </plurals>
+    <string name="source_details_lost_body">These were freed on this phone, and %1$s no longer holds them: deleted or changed there. This phone cannot bring them back.</string>
     <string name="source_details_conflicts_body">These files changed on both sides. They stay out of sync until you pick which version to keep.</string>
     <string name="source_details_conflicts_resolve">Resolve</string>
     <string name="source_details_peer_full_title">%1$s is almost full</string>

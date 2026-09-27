@@ -103,13 +103,11 @@ data class SourceDoneState(
 
             is SyncMode.Offload -> listOf(
                 SummaryRow(R.string.source_summary_rule, policy.ruleValue()),
-                SummaryRow(
-                    R.string.source_summary_pinned,
-                    UiText.Resource(
-                        if (keepPinned) R.string.source_summary_pinned_kept
-                        else R.string.source_summary_pinned_evicted
-                    ),
-                ),
+                SummaryRow(R.string.source_summary_pinned, UiText.Resource(R.string.source_summary_pinned_kept)),
+            )
+
+            SyncMode.Host -> listOf(
+                SummaryRow(R.string.source_summary_rule, UiText.Resource(R.string.source_summary_rule_host)),
             )
         }
 
