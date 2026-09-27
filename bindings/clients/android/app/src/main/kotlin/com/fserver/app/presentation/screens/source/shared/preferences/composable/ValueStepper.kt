@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.composable
+package com.fserver.app.presentation.screens.source.shared.preferences.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row

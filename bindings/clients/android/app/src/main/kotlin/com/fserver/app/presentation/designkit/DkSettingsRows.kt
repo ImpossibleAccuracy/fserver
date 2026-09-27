@@ -16,17 +16,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Settings rows. All three share one skeleton — title, optional supporting line,
- * trailing control — so a group reads as a single column no matter what it mixes.
+ * Settings rows. All three share one skeleton — optional leading icon, title, optional supporting
+ * line, trailing control — so a group reads as a single column no matter what it mixes.
  *
  * The screen gutter is inside the row, as in [DkListRow]: the row spans the full width so its
  * click target and ripple reach the screen edges, and only the content is inset. Callers therefore
@@ -40,6 +43,7 @@ fun DkSettingsRow(
     accented: Boolean = false,
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
     titleMinWidth: Dp = Dp.Unspecified,
+    leadingIcon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
     trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
@@ -51,6 +55,9 @@ fun DkSettingsRow(
         verticalAlignment = verticalAlignment,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
+        if (leadingIcon != null) {
+            DkIcon(icon = leadingIcon)
+        }
         Column(
             modifier = if (titleMinWidth == Dp.Unspecified) {
                 Modifier.weight(1f)
@@ -109,7 +116,10 @@ fun DkSwitch(
     )
 }
 
-/** Row whose trailing slot is a switch; the whole row toggles it. */
+/**
+ * Row whose trailing slot is a switch; the whole row toggles it. The row is the touch target, so
+ * the switch drops its own 48dp minimum instead of inflating every row in a group.
+ */
 @Composable
 fun DkSwitchRow(
     title: String,
@@ -118,18 +128,22 @@ fun DkSwitchRow(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     enabled: Boolean = true,
+    leadingIcon: ImageVector? = null,
 ) {
     DkSettingsRow(
         modifier = modifier,
         title = title,
         supportingText = supportingText,
+        leadingIcon = leadingIcon,
         onClick = { onCheckedChange(!checked) },
         trailing = {
-            DkSwitch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-            )
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                DkSwitch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = enabled,
+                )
+            }
         },
     )
 }

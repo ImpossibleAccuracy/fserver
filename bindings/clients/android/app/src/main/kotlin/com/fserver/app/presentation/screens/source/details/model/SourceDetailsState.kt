@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.details.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.device.model.DeviceKind
 
@@ -12,8 +13,8 @@ data class SourceDetailsState(
     val isSyncing: Boolean = false,
 
     val mode: SourceModeUi = SourceModeUi.AutoUpload,
-    val origin: EndpointUi = EndpointUi(),
-    val target: EndpointUi = EndpointUi(),
+    val origin: SourceEndpointUi = SourceEndpointUi(),
+    val target: SourceEndpointUi = SourceEndpointUi(),
     val conditions: List<ConditionUi> = emptyList(),
 
     val peer: PeerUi = PeerUi(),
@@ -24,13 +25,6 @@ data class SourceDetailsState(
     val attention: List<AttentionUi> = emptyList(),
     val history: List<HistoryUi> = emptyList(),
 ) {
-    @Immutable
-    data class EndpointUi(
-        val name: String = "",
-        val detail: String? = null,
-        val deviceKind: DeviceKind? = null,
-    )
-
     @Immutable
     data class PeerUi(
         val id: String = "",
@@ -115,12 +109,12 @@ data class SourceDetailsState(
             label = "Camera",
             isSyncing = true,
             mode = SourceModeUi.AutoUpload,
-            origin = EndpointUi(
+            origin = SourceEndpointUi(
                 name = "Pixel 8",
                 detail = "DCIM/Camera",
                 deviceKind = DeviceKind.Phone
             ),
-            target = EndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
+            target = SourceEndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
             peer = PeerUi(id = "server", name = "Server", kind = DeviceKind.Nas, online = true),
             conditions = listOf(
                 ConditionUi.Network(wifiOnly = true),
@@ -139,12 +133,12 @@ data class SourceDetailsState(
             isLoading = false,
             label = "Documents",
             mode = SourceModeUi.Sync,
-            origin = EndpointUi(
+            origin = SourceEndpointUi(
                 name = "Pixel 8",
                 detail = "Documents",
                 deviceKind = DeviceKind.Phone
             ),
-            target = EndpointUi(name = "Laptop", deviceKind = DeviceKind.Laptop),
+            target = SourceEndpointUi(name = "Laptop", deviceKind = DeviceKind.Laptop),
             peer = PeerUi(id = "laptop", name = "Laptop", kind = DeviceKind.Laptop, online = true),
             conditions = listOf(
                 ConditionUi.Network(wifiOnly = true),
@@ -170,12 +164,12 @@ data class SourceDetailsState(
             isLoading = false,
             label = "WhatsApp Media",
             mode = SourceModeUi.Offload,
-            origin = EndpointUi(
+            origin = SourceEndpointUi(
                 name = "Pixel 8",
                 detail = "WhatsApp/Media",
                 deviceKind = DeviceKind.Phone
             ),
-            target = EndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
+            target = SourceEndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
             peer = PeerUi(id = "server", name = "Server", kind = DeviceKind.Nas, online = true),
             conditions = listOf(
                 ConditionUi.Network(wifiOnly = true),

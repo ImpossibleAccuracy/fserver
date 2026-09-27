@@ -1,6 +1,11 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +16,9 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.fserver.app.presentation.theme.FServerTheme
 
 @Composable
 fun DkProgressBar(
@@ -54,4 +61,50 @@ fun DkInlineSpinner(modifier: Modifier = Modifier) {
         trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         strokeWidth = 2.dp,
     )
+}
+
+/**
+ * Where a fixed-length flow is: one segment per step, filled up to and including [currentStep]
+ * (1-based). Sits under the top bar, so the step count is read before the question.
+ */
+@Composable
+fun DkStepBar(
+    modifier: Modifier = Modifier,
+    stepCount: Int,
+    currentStep: Int,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
+    ) {
+        repeat(stepCount) { index ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        if (index < currentStep) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }
+                    ),
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun DkStepBarPreview() {
+    FServerTheme {
+        DkSurfacePreview {
+            DkStepBar(
+                modifier = Modifier.padding(DkSpacing.lg),
+                stepCount = 3,
+                currentStep = 2,
+            )
+        }
+    }
 }

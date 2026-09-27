@@ -597,24 +597,35 @@
     <string name="sync_requests_card_body">Folder \"%1$s\"</string>
     <string name="sync_requests_card_trusted">Trusted device</string>
     <string name="sync_request_title">Sync request</string>
-    <string name="sync_request_heading">%1$s wants to sync with this device</string>
-    <string name="sync_request_body">Accepting registers this device as the other half of that source. Files arrive here; nothing on this phone is sent back unless you set up a source of your own.</string>
-    <string name="sync_request_from">From</string>
+    <string name="sync_request_heading">%1$s wants to sync</string>
+    <string name="sync_request_body">Files will come from %1$s to this phone. Nothing is sent back.</string>
     <string name="sync_request_source">Source</string>
     <string name="sync_request_mode">Mode</string>
-    <string name="sync_request_note">You choose where the files land on the next screen. Declining tells the device, so it stops asking.</string>
+    <string name="sync_request_note">You choose where to save them on the next step.</string>
+    <string name="sync_request_fingerprint">Fingerprint</string>
+    <string name="sync_request_volume">Size</string>
+    <string name="sync_request_volume_value">%1$s · %2$s</string>
+    <string name="sync_request_volume_unknown">—</string>
+    <plurals name="sync_request_volume_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="sync_request_route_this_device">This phone</string>
+    <string name="sync_request_step">%1$d / %2$d</string>
     <string name="sync_request_gone_title">Nothing to answer</string>
     <string name="sync_request_gone_body">This request is no longer waiting — it was answered already, or the device withdrew it.</string>
     <string name="sync_request_location_title">Where to keep it?</string>
-    <string name="sync_request_location_body">One folder per source. Whatever the other device sends is written there and nowhere else.</string>
+    <string name="sync_request_location_body">One folder per source. Whatever %1$s sends is written there and nowhere else.</string>
     <string name="sync_request_location_internal_title">App storage</string>
     <string name="sync_request_location_internal_subtitle">Private to the app, needs no permission, and goes with an uninstall.</string>
     <string name="sync_request_location_folder_title">Folder on this device</string>
-    <string name="sync_request_location_folder_subtitle">Pick a folder you can reach from any other app.</string>
+    <string name="sync_request_location_folder_subtitle">Reachable from any app. Picked in the system dialog.</string>
+    <string name="sync_request_location_folder_change">Change</string>
+    <string name="sync_request_location_folder_not_empty">This folder already has files. What %1$s sends lands next to them.</string>
+    <string name="sync_request_location_disk_needed">Needed ≈ %1$s</string>
+    <string name="sync_request_location_disk_free">%1$s free</string>
     <string name="sync_request_preferences_title">How to receive</string>
-    <string name="sync_request_preferences_body">These settings belong to this device. %1$s decides what to send; this phone decides when and how much to take in.</string>
-    <string name="sync_request_preferences_when_label">When to sync</string>
-    <string name="sync_request_preferences_note">Accepting tells the other device it can start sending. It can be undone later by removing the source.</string>
+    <string name="sync_request_preferences_body">%1$s decides what to send. This phone decides when and how much to take in.</string>
 
     <!-- Send flow, screen 0: what the app is allowed to see on this phone -->
     <string name="source_pick_title">What to connect?</string>
@@ -717,7 +728,10 @@
     <string name="conditions_upload_new">New</string>
     <string name="conditions_upload_all">All</string>
     <string name="conditions_upload_scope_hint">Only shots taken after it is turned on. "All" adds %1$s older photos.</string>
-    <string name="conditions_when_label">When to upload</string>
+    <string name="source_preferences_when_label">When</string>
+    <string name="source_preferences_size_custom">Custom</string>
+    <string name="source_preferences_size_usage">%1$s / %2$s</string>
+    <string name="source_preferences_size_unknown">—</string>
     <string name="conditions_wifi_only">Wi-Fi only</string>
     <string name="conditions_wifi_only_hint">No mobile data is spent</string>
     <string name="conditions_charging_only">Only while charging</string>
@@ -737,7 +751,7 @@
     <string name="conditions_sync_conflicts_label">Conflict resolution</string>
     <string name="conditions_sync_conflicts_rule">Last version wins</string>
     <string name="conditions_sync_conflicts_hint">If a file was changed on both sides, the one saved later survives.</string>
-    <string name="conditions_sync_losers_title">Losing versions go to the .conflicts folder</string>
+    <string name="conditions_sync_losers_title">Keep both in .conflicts</string>
     <string name="conditions_sync_losers_hint">Nothing is deleted silently: the second version sits next to the original.</string>
     <string name="conditions_limits_label">Limits</string>
     <string name="conditions_limits_hint">Only cap what this phone receives. %1$s keeps its own limits and may turn files down.</string>

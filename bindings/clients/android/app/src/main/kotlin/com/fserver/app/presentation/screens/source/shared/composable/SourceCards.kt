@@ -69,7 +69,8 @@ fun SourceOptionCard(
  * a one-line choice and a four-line one reading as the same control. Everything below the title
  * hangs off the same gutter.
  *
- * [warning] marks a choice that lets something be destroyed; [recommended] marks the default.
+ * [warning] marks a choice that lets something be destroyed; [recommended] marks the default;
+ * [navigates] marks one that opens another screen (a system picker) before it is selected.
  */
 @Composable
 fun SourceChoiceRow(
@@ -80,6 +81,7 @@ fun SourceChoiceRow(
     description: String? = null,
     recommended: Boolean = false,
     warning: Boolean = false,
+    navigates: Boolean = false,
     content: @Composable (() -> Unit)? = null,
 ) {
     DkCard(modifier = modifier, onClick = onSelect, outlined = !selected) {
@@ -112,6 +114,9 @@ fun SourceChoiceRow(
             }
             if (warning) {
                 DkIcon(icon = Icons.Default.PriorityHigh)
+            }
+            if (navigates) {
+                DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight)
             }
         }
 

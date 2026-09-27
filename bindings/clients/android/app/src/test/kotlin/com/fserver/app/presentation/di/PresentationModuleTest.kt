@@ -45,8 +45,6 @@ class PresentationModuleTest {
                 Destination.Source.Done::class,
                 Destination.Source.Progress::class,
                 Destination.Source.Request.Details::class,
-                Destination.Source.Request.Location::class,
-                Destination.Source.Request.Preferences::class,
             ),
         )
     }

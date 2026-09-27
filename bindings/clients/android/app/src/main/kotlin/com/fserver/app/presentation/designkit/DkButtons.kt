@@ -76,6 +76,7 @@ fun DkSecondaryButton(
     }
 }
 
+/** [danger] recolours the label for an action that throws something away (decline, remove). */
 @Composable
 fun DkGhostButton(
     modifier: Modifier = Modifier,
@@ -83,6 +84,7 @@ fun DkGhostButton(
     onClick: () -> Unit,
     icon: ImageVector? = null,
     enabled: Boolean = true,
+    danger: Boolean = false,
 ) {
     TextButton(
         onClick = onClick,
@@ -90,7 +92,11 @@ fun DkGhostButton(
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.textButtonColors(
-            contentColor = MaterialTheme.colorScheme.primary,
+            contentColor = if (danger) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
         ),
         contentPadding = DkButtonPadding,
     ) {

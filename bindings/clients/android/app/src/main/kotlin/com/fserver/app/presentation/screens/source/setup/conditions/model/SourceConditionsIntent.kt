@@ -1,25 +1,11 @@
 package com.fserver.app.presentation.screens.source.setup.conditions.model
 
-import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
-import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
-import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
 
 sealed interface SourceConditionsIntent {
     data object ExplainerAccepted : SourceConditionsIntent
 
-    data class UploadScopeSelected(val scope: UploadScopeUi) : SourceConditionsIntent
-    data class WifiOnlyToggled(val enabled: Boolean) : SourceConditionsIntent
-    data class ChargingOnlyToggled(val enabled: Boolean) : SourceConditionsIntent
-    data class KeepBothToggled(val enabled: Boolean) : SourceConditionsIntent
-
-    data class LimitFilesToggled(val enabled: Boolean) : SourceConditionsIntent
-    data class MaxFilesStepped(val steps: Int) : SourceConditionsIntent
-    data class LimitSizeToggled(val enabled: Boolean) : SourceConditionsIntent
-    data class MaxSizeStepped(val steps: Int) : SourceConditionsIntent
-
-    data class CriterionSelected(val criterion: EvictCriterionUi) : SourceConditionsIntent
-    data class DaysStepped(val steps: Int) : SourceConditionsIntent
-    data class KeepPinnedToggled(val enabled: Boolean) : SourceConditionsIntent
+    data class PreferencesChanged(val intent: SourcePreferencesIntent) : SourceConditionsIntent
 
     data class HostRightsSelected(val rights: HostRightsUi) : SourceConditionsIntent
 

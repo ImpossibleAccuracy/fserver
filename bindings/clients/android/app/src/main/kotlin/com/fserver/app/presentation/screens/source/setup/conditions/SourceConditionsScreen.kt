@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.setup.conditions
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,17 +35,19 @@ import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.EvictCriterionUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsUiEffect
-import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.UploadScopeUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceChoiceRow
+import com.fserver.app.presentation.screens.source.shared.preferences.composable.SourcePreferencesForm
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
-import com.fserver.app.presentation.screens.source.shared.composable.ValueStepper
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.theme.FServerTheme
@@ -180,154 +183,28 @@ private fun ConditionsForm(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = DkSpacing.screenPadding)
             .padding(bottom = DkSpacing.screenPadding),
         verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
     ) {
         Text(
+            modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
             text = state.headerText(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        when (state.mode) {
-            SourceModeUi.AutoUpload -> AutoUploadFields(state, onIntent)
-            SourceModeUi.Offload -> OffloadFields(state, onIntent)
-            SourceModeUi.Sync -> SyncFields(state, onIntent)
-            SourceModeUi.Host -> HostFields(state, onIntent)
+        if (state.mode == SourceModeUi.Host) {
+            HostFields(state, onIntent)
+        } else {
+            SourcePreferencesForm(
+                state = state.preferences,
+                onIntent = { onIntent(SourceConditionsIntent.PreferencesChanged(it)) },
+                peerName = state.targetName,
+                sourceFiles = state.sourceFiles,
+                sourceBytes = state.sourceBytes,
+            )
         }
     }
-}
-
-@Composable
-private fun AutoUploadFields(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    DkSectionLabel(text = stringResource(R.string.conditions_upload_scope_label))
-    DkSegmentedControl(
-        options = listOf(
-            DkSegmentedOption(
-                value = UploadScopeUi.New,
-                label = stringResource(R.string.conditions_upload_new),
-            ),
-            DkSegmentedOption(
-                value = UploadScopeUi.All,
-                label = stringResource(R.string.conditions_upload_all),
-            ),
-        ),
-        selected = state.uploadScope,
-        onSelect = { onIntent(SourceConditionsIntent.UploadScopeSelected(it)) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-
-    if (state.backlogLabel != null) {
-        DkCaption(
-            text = stringResource(R.string.conditions_upload_scope_hint, state.backlogLabel),
-        )
-    }
-
-    DkSectionLabel(text = stringResource(R.string.conditions_when_label))
-    Column {
-        WifiOnlyRow(state, onIntent)
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_charging_only),
-            supportingText = stringResource(R.string.conditions_charging_only_hint),
-            checked = state.chargingOnly,
-            onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
-        )
-    }
-}
-
-@Composable
-private fun OffloadFields(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    SourceChoiceRow(
-        title = stringResource(R.string.conditions_criterion_age_title),
-        description = stringResource(R.string.conditions_criterion_age_hint),
-        selected = state.criterion == EvictCriterionUi.OlderThanDays,
-        onSelect = {
-            onIntent(SourceConditionsIntent.CriterionSelected(EvictCriterionUi.OlderThanDays))
-        },
-    ) {
-        ValueStepper(
-            label = pluralStringResource(
-                R.plurals.conditions_criterion_age_value,
-                state.olderThanDays,
-                state.olderThanDays,
-            ),
-            enabled = state.criterion == EvictCriterionUi.OlderThanDays,
-            onStep = { onIntent(SourceConditionsIntent.DaysStepped(it)) },
-        )
-    }
-    SourceChoiceRow(
-        title = stringResource(R.string.conditions_criterion_lru_title),
-        description = stringResource(R.string.conditions_criterion_lru_hint),
-        selected = state.criterion == EvictCriterionUi.LeastRecentlyUsed,
-        onSelect = {
-            onIntent(SourceConditionsIntent.CriterionSelected(EvictCriterionUi.LeastRecentlyUsed))
-        },
-    )
-
-    DkSectionLabel(text = stringResource(R.string.conditions_when_label))
-    Column {
-        WifiOnlyRow(state, onIntent)
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_charging_only),
-            supportingText = stringResource(R.string.conditions_charging_only_hint),
-            checked = state.chargingOnly,
-            onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
-        )
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_keep_pinned),
-            supportingText = stringResource(R.string.conditions_keep_pinned_hint),
-            checked = state.keepPinned,
-            onCheckedChange = { onIntent(SourceConditionsIntent.KeepPinnedToggled(it)) },
-        )
-    }
-}
-
-@Composable
-private fun SyncFields(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    // The conflict rule is fixed in the MVP, but it is shown anyway: it decides whether the
-    // user loses a version, which is not something to leave implicit.
-    DkSectionLabel(text = stringResource(R.string.conditions_sync_conflicts_label))
-
-    Column {
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_sync_conflicts_rule),
-            supportingText = stringResource(R.string.conditions_sync_conflicts_hint),
-            checked = true,
-            onCheckedChange = {
-                // TODO
-            }
-        )
-
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_sync_losers_title),
-            supportingText = stringResource(R.string.conditions_sync_losers_hint),
-            checked = state.keepBoth,
-            onCheckedChange = { onIntent(SourceConditionsIntent.KeepBothToggled(it)) },
-        )
-    }
-
-    DkSectionLabel(text = stringResource(R.string.conditions_when_label))
-    Column {
-        WifiOnlyRow(state, onIntent)
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_charging_only),
-            supportingText = stringResource(R.string.conditions_charging_only_hint),
-            checked = state.chargingOnly,
-            onCheckedChange = { onIntent(SourceConditionsIntent.ChargingOnlyToggled(it)) },
-        )
-    }
-
-    LimitsFields(state, onIntent)
 }
 
 @Composable
@@ -335,78 +212,27 @@ private fun HostFields(
     state: SourceConditionsState,
     onIntent: (SourceConditionsIntent) -> Unit,
 ) {
-    DkSectionLabel(text = stringResource(R.string.conditions_host_rights_label))
-    SourceChoiceRow(
-        title = stringResource(R.string.conditions_host_read_title),
-        description = stringResource(R.string.conditions_host_read_hint),
-        selected = state.hostRights == HostRightsUi.ReadOnly,
-        onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadOnly)) },
-    )
-    SourceChoiceRow(
-        title = stringResource(R.string.conditions_host_write_title),
-        description = stringResource(R.string.conditions_host_write_hint),
-        selected = state.hostRights == HostRightsUi.ReadWrite,
-        onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadWrite)) },
-        warning = true,
-    )
-    // The only mode where this phone becomes a source for others, so the doze caveat sits on
-    // the conditions screen rather than in a help page nobody opens.
-    DkInfoBox(text = stringResource(R.string.conditions_host_note))
-}
-
-@Composable
-private fun WifiOnlyRow(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    DkSwitchRow(
-        title = stringResource(R.string.conditions_wifi_only),
-        supportingText = stringResource(R.string.conditions_wifi_only_hint),
-        checked = state.wifiOnly,
-        onCheckedChange = { onIntent(SourceConditionsIntent.WifiOnlyToggled(it)) },
-    )
-}
-
-@Composable
-private fun LimitsFields(
-    state: SourceConditionsState,
-    onIntent: (SourceConditionsIntent) -> Unit,
-) {
-    DkSectionLabel(text = stringResource(R.string.conditions_limits_label))
-    DkCaption(text = stringResource(R.string.conditions_limits_hint, state.targetName))
-    Column {
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_limit_files),
-            supportingText = stringResource(R.string.conditions_limit_files_hint),
-            checked = state.limitFiles,
-            onCheckedChange = { onIntent(SourceConditionsIntent.LimitFilesToggled(it)) },
+    Column(
+        modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(DkSpacing.md),
+    ) {
+        DkSectionLabel(text = stringResource(R.string.conditions_host_rights_label))
+        SourceChoiceRow(
+            title = stringResource(R.string.conditions_host_read_title),
+            description = stringResource(R.string.conditions_host_read_hint),
+            selected = state.hostRights == HostRightsUi.ReadOnly,
+            onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadOnly)) },
         )
-        if (state.limitFiles) {
-            ValueStepper(
-                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                label = pluralStringResource(
-                    R.plurals.conditions_limit_files_value,
-                    state.maxFiles,
-                    state.maxFiles,
-                ),
-                enabled = true,
-                onStep = { onIntent(SourceConditionsIntent.MaxFilesStepped(it)) },
-            )
-        }
-        DkSwitchRow(
-            title = stringResource(R.string.conditions_limit_size),
-            supportingText = stringResource(R.string.conditions_limit_size_hint),
-            checked = state.limitSize,
-            onCheckedChange = { onIntent(SourceConditionsIntent.LimitSizeToggled(it)) },
+        SourceChoiceRow(
+            title = stringResource(R.string.conditions_host_write_title),
+            description = stringResource(R.string.conditions_host_write_hint),
+            selected = state.hostRights == HostRightsUi.ReadWrite,
+            onSelect = { onIntent(SourceConditionsIntent.HostRightsSelected(HostRightsUi.ReadWrite)) },
+            warning = true,
         )
-        if (state.limitSize) {
-            ValueStepper(
-                modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
-                label = stringResource(R.string.conditions_limit_size_value, state.maxSizeGb),
-                enabled = true,
-                onStep = { onIntent(SourceConditionsIntent.MaxSizeStepped(it)) },
-            )
-        }
+        // The only mode where this phone becomes a source for others, so the doze caveat sits on
+        // the conditions screen rather than in a help page nobody opens.
+        DkInfoBox(text = stringResource(R.string.conditions_host_note))
     }
 }
 
@@ -506,7 +332,8 @@ private fun ConditionsAutoUploadPreview() {
                 kind = SourceKindUi.Media,
                 mode = SourceModeUi.AutoUpload,
                 targetName = "HOME-NAS",
-                backlogLabel = "3,402",
+                preferences = SourcePreferencesUi.build(SourceModeUi.AutoUpload, SourceRoleUi.Initiator),
+                sourceFiles = 3402,
             ),
             onIntent = {},
             navigateUp = {},
@@ -541,6 +368,7 @@ private fun ConditionsOffloadPreview() {
                 mode = SourceModeUi.Offload,
                 targetName = "HOME-NAS",
                 sourceLabel = "DCIM/Projects",
+                preferences = SourcePreferencesUi.build(SourceModeUi.Offload, SourceRoleUi.Initiator),
             ),
             onIntent = {},
             navigateUp = {},
@@ -558,8 +386,7 @@ private fun ConditionsSyncPreview() {
                 mode = SourceModeUi.Sync,
                 targetName = "HOME-NAS",
                 sourceLabel = "DCIM/Projects",
-                keepBoth = true,
-                limitFiles = true,
+                preferences = SourcePreferencesUi.build(SourceModeUi.Sync, SourceRoleUi.Initiator),
             ),
             onIntent = {},
             navigateUp = {},

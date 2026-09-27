@@ -3,7 +3,6 @@ package com.fserver.app.presentation.model
 import androidx.navigation3.runtime.NavKey
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
-import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.info.model.PeerLocator
@@ -94,9 +93,8 @@ sealed interface Destination : NavKey {
         /**
          * Answering a peer's ask to host one of its sources here.
          *
-         * Every key carries the source id rather than the request itself: the ask lives in the
-         * engine until it is answered, so each screen re-reads it and the flow survives process
-         * death without a shared ViewModel behind it.
+         * The key carries the source id rather than the request itself: the ask lives in the
+         * engine until it is answered, so the screen re-reads it and survives process death.
          */
         @Serializable
         data object Request {
@@ -105,17 +103,9 @@ sealed interface Destination : NavKey {
             @Serializable
             data object List : Destination
 
-            /** Who asked, for what, and under which mode. */
+            /** One screen, three steps: who asked and for what, where to keep it, how to receive. */
             @Serializable
             data class Details(val sourceId: String) : Destination
-
-            /** Where the files this device takes on will be written. */
-            @Serializable
-            data class Location(val sourceId: String) : Destination
-
-            /** When and how much this device takes in. Answers the ask. */
-            @Serializable
-            data class Preferences(val sourceId: String, val location: HostLocationUi) : Destination
         }
 
         /**

@@ -24,8 +24,8 @@ Check here before writing any composable. Everything below already exists.
 | Component | Signature (abridged) | Use for |
 |---|---|---|
 | `DkListRow` | `(title, modifier, subtitle, subtitleStyle, subtitleMaxLines, dimmed, onClick, leading, trailing)` | Devices, files, folders. Gutter is inside the row — see the ripple rule. |
-| `DkSettingsRow` | `(modifier, title, supportingText, accented, verticalAlignment, onClick, trailing)` | Base settings row; the other three delegate to it. |
-| `DkSwitchRow` | `(title, checked, onCheckedChange, modifier, supportingText, enabled)` | Setting with a toggle. |
+| `DkSettingsRow` | `(modifier, title, supportingText, accented, verticalAlignment, leadingIcon, onClick, trailing)` | Base settings row; the other three delegate to it. |
+| `DkSwitchRow` | `(title, checked, onCheckedChange, modifier, supportingText, enabled, leadingIcon)` | Setting with a toggle. |
 | `DkNavigationRow` | `(title, onClick, modifier, value, supportingText, accented)` | Setting that opens another screen; renders the chevron. |
 | `DkValueRow` | `(title, value, modifier)` | Read-only value, mono-styled. |
 | `DkSwitch` | `(checked, onCheckedChange, modifier, enabled)` | The switch alone, for rows that pair it with another control. |
@@ -49,6 +49,7 @@ Check here before writing any composable. Everything below already exists.
 | `DkPlaceholderBox` / `DkSkeletonBlock` | `(label, modifier, dashedBorder, content)` / `(modifier, color)` | Unbuilt or not-yet-loaded area. Hatched so it never reads as an empty component. |
 | `DkProgressBar` / `DkInlineSpinner` | `(progress, modifier)` / `(modifier)` | Determinate and indeterminate progress. |
 | `DkPageIndicator` | `(pageCount, currentPage, modifier)` | Pager dots. |
+| `DkStepBar` | `(modifier, stepCount, currentStep)` | Segmented progress of a fixed-length flow, under the top bar. |
 
 ## Input
 
@@ -56,11 +57,12 @@ Check here before writing any composable. Everything below already exists.
 |---|---|---|
 | `DkPrimaryButton` | `(modifier, text, onClick, icon, enabled)` | The one action a screen is for. Outline + accent — the deck has no filled buttons. |
 | `DkSecondaryButton` | same | Alternative action. |
-| `DkGhostButton` | same | Tertiary / inline action ("Change", "Cancel"). |
+| `DkGhostButton` | same + `danger` | Tertiary / inline action ("Change", "Cancel"); `danger` for decline/remove. |
 | `DkPillButton` | `(modifier, text, onClick, icon)` | Floating pill over content. |
 | `DkIconButton` | `(modifier, onClick, icon)` | Icon-only action. |
 | `DkTextField` | `(label, value, onValueChange, modifier, singleLine, isPassword)` | Text input. |
 | `DkSegmentedControl<T>` | `(options: List<DkSegmentedOption<T>>, selected, onSelect, modifier, labelsVisible)` | Small exclusive choice. |
+| `DkChoiceBar<T>` | `(modifier, options: List<DkSegmentedOption<T>>, selected, onSelect)` | Value presets in one hairline box, selected cell filled. |
 
 ## Tokens
 

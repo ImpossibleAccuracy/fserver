@@ -4,17 +4,20 @@ import com.fserver.app.R
 import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.screens.source.setup.conditions.model.EvictCriterionUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.HostRightsUi
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsUiEffect
-import com.fserver.app.presentation.screens.source.setup.conditions.model.UploadScopeUi
 import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupIncompleteException
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
+import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
+import com.fserver.app.presentation.screens.source.shared.preferences.model.toSyncMode
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
+import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.shared.error.toAppError
-import com.fserver.common.model.FileSize
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -34,7 +37,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SourceConditionsHandler(
@@ -75,21 +77,9 @@ class SourceConditionsHandler(
                 },
                 targetName = device?.displayName ?: "",
                 sourceLabel = shared.source?.label ?: "",
-                uploadScope = local.uploadScope,
-                backlogLabel = when (local.uploadScope) {
-                    UploadScopeUi.New -> null
-                    UploadScopeUi.All -> (shared.source?.files ?: 0).toString()
-                },
-                wifiOnly = local.wifiOnly,
-                chargingOnly = local.chargingOnly,
-                keepBoth = local.keepBoth,
-                limitFiles = local.limitFiles,
-                maxFiles = local.maxFiles,
-                limitSize = local.limitSize,
-                maxSizeGb = local.maxSizeGb,
-                criterion = local.criterion,
-                olderThanDays = local.olderThanDays,
-                keepPinned = local.keepPinned,
+                preferences = local.preferencesFor(mode),
+                sourceFiles = shared.source?.files,
+                sourceBytes = shared.source?.bytes?.bytes,
                 hostRights = local.hostRights,
                 progress = local.progress,
                 progressDetail = local.progressDetail,
@@ -102,59 +92,7 @@ class SourceConditionsHandler(
             SourceConditionsIntent.ExplainerAccepted ->
                 editable.update { it.copy(explainerAccepted = true) }
 
-            is SourceConditionsIntent.UploadScopeSelected ->
-                editable.update { it.copy(uploadScope = intent.scope) }
-
-            is SourceConditionsIntent.WifiOnlyToggled ->
-                editable.update { it.copy(wifiOnly = intent.enabled) }
-
-            is SourceConditionsIntent.ChargingOnlyToggled ->
-                editable.update { it.copy(chargingOnly = intent.enabled) }
-
-            is SourceConditionsIntent.KeepBothToggled ->
-                editable.update { it.copy(keepBoth = intent.enabled) }
-
-            is SourceConditionsIntent.LimitFilesToggled ->
-                editable.update { it.copy(limitFiles = intent.enabled) }
-
-            is SourceConditionsIntent.MaxFilesStepped -> editable.update {
-                val stepped = it.maxFiles + intent.steps * SourceConditionsState.MaxFilesStep
-                it.copy(
-                    maxFiles = stepped.coerceIn(
-                        SourceConditionsState.MinMaxFiles,
-                        SourceConditionsState.MaxMaxFiles,
-                    )
-                )
-            }
-
-            is SourceConditionsIntent.LimitSizeToggled ->
-                editable.update { it.copy(limitSize = intent.enabled) }
-
-            is SourceConditionsIntent.MaxSizeStepped -> editable.update {
-                val stepped = it.maxSizeGb + intent.steps * SourceConditionsState.MaxSizeStepGb
-                it.copy(
-                    maxSizeGb = stepped.coerceIn(
-                        SourceConditionsState.MinMaxSizeGb,
-                        SourceConditionsState.MaxMaxSizeGb,
-                    )
-                )
-            }
-
-            is SourceConditionsIntent.CriterionSelected ->
-                editable.update { it.copy(criterion = intent.criterion) }
-
-            is SourceConditionsIntent.DaysStepped -> editable.update {
-                val stepped = it.olderThanDays + intent.steps * SourceConditionsState.DaysStep
-                it.copy(
-                    olderThanDays = stepped.coerceIn(
-                        SourceConditionsState.MinDays,
-                        SourceConditionsState.MaxDays,
-                    )
-                )
-            }
-
-            is SourceConditionsIntent.KeepPinnedToggled ->
-                editable.update { it.copy(keepPinned = intent.enabled) }
+            is SourceConditionsIntent.PreferencesChanged -> changePreferences(intent.intent)
 
             is SourceConditionsIntent.HostRightsSelected ->
                 editable.update { it.copy(hostRights = intent.rights) }
@@ -180,6 +118,13 @@ class SourceConditionsHandler(
     fun reset() {
         prepareJob?.cancel()
         editable.value = Editable()
+    }
+
+    private fun changePreferences(intent: SourcePreferencesIntent) {
+        val mode = flow.value.mode ?: return
+        editable.update {
+            it.copy(preferences = it.preferencesFor(mode).reduce(intent), preferencesMode = mode)
+        }
     }
 
     private suspend fun prepare() {
@@ -218,16 +163,18 @@ class SourceConditionsHandler(
     }
 
     private suspend fun submit() {
-        val syncMode = flow.value.mode?.let(::toSyncMode)
+        val mode = flow.value.mode
+        val preferences = mode?.let { editable.value.preferencesFor(it) }
+        val syncMode = mode?.let { preferences?.toSyncMode(it) }
 
-        if (syncMode == null) {
+        if (preferences == null || syncMode == null) {
             editable.update {
                 it.copy(preparing = false, error = UiText.of(R.string.source_create_incomplete))
             }
             return
         }
 
-        register(syncMode, toPreferences()).fold(
+        register(syncMode, preferences.toPreferences()).fold(
             onSuccess = { entry ->
                 editable.update { it.copy(preparing = false) }
                 effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
@@ -245,69 +192,11 @@ class SourceConditionsHandler(
         )
     }
 
-    /**
-     * The form, as the engine reads it. Auto-upload scoped to new files is a cut-off rather than a
-     * filter, which is why the backlog answer becomes an instant.
-     */
-    private fun toSyncMode(mode: SourceModeUi): SyncMode? = when (mode) {
-        SourceModeUi.Sync -> SyncMode.Mirror(
-            conflictResolution = if (editable.value.keepBoth) {
-                SyncMode.Mirror.ConflictResolution.KeepBoth
-            } else {
-                SyncMode.Mirror.ConflictResolution.LastWriteWins
-            },
-        )
-
-        SourceModeUi.AutoUpload -> SyncMode.AutoUpload(
-            ignoreFilesBefore = when (editable.value.uploadScope) {
-                UploadScopeUi.New -> Clock.System.now()
-                UploadScopeUi.All -> null
-            },
-        )
-
-        // The engine evicts by age only, so the least-recently-used rule falls back to the same
-        // cut-off until it grows a policy of its own.
-        SourceModeUi.Offload -> SyncMode.Offload(
-            policy = SyncMode.Offload.EvictPolicy.OlderThanDays(editable.value.olderThanDays),
-            keepPinned = editable.value.keepPinned,
-        )
-
-        SourceModeUi.Host -> null
-    }
-
-    private fun toPreferences(): SourceEntry.Preferences {
-        val form = editable.value
-
-        return SourceEntry.Preferences(
-            deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
-                wifiRequired = form.wifiOnly,
-                chargingRequired = form.chargingOnly,
-            ),
-            fileLimits = if (flow.value.mode == SourceModeUi.Sync) {
-                SourceEntry.Preferences.FileLimits(
-                    maxFiles = form.maxFiles.takeIf { form.limitFiles },
-                    maxTotalSize = FileSize(form.maxSizeGb.toLong() * BytesInGb)
-                        .takeIf { form.limitSize },
-                )
-            } else {
-                SourceEntry.Preferences.FileLimits.None
-            },
-        )
-    }
-
     private data class Editable(
         val explainerAccepted: Boolean = false,
-        val uploadScope: UploadScopeUi = UploadScopeUi.New,
-        val wifiOnly: Boolean = true,
-        val chargingOnly: Boolean = false,
-        val keepBoth: Boolean = false,
-        val limitFiles: Boolean = false,
-        val maxFiles: Int = SourceConditionsState.DefaultMaxFiles,
-        val limitSize: Boolean = false,
-        val maxSizeGb: Int = SourceConditionsState.DefaultMaxSizeGb,
-        val criterion: EvictCriterionUi = EvictCriterionUi.OlderThanDays,
-        val olderThanDays: Int = SourceConditionsState.DefaultDays,
-        val keepPinned: Boolean = true,
+        /** Answers for [preferencesMode]; going back and picking another mode starts them over. */
+        val preferences: SourcePreferencesUi? = null,
+        val preferencesMode: SourceModeUi? = null,
         val hostRights: HostRightsUi = HostRightsUi.ReadOnly,
         val preparing: Boolean = false,
         val progress: Float = 0f,
@@ -315,7 +204,7 @@ class SourceConditionsHandler(
         val error: UiText? = null,
     )
 
-    private companion object {
-        const val BytesInGb = 1024L * 1024 * 1024
-    }
+    private fun Editable.preferencesFor(mode: SourceModeUi): SourcePreferencesUi =
+        preferences?.takeIf { preferencesMode == mode }
+            ?: SourcePreferencesUi.build(mode, SourceRoleUi.Initiator)
 }

@@ -8,6 +8,7 @@ import com.fserver.app.presentation.screens.source.details.model.SourceDetailsSt
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.ConditionUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageKindUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.screens.source.shared.model.readablePath
@@ -137,13 +138,13 @@ private fun SourceEntry.toState(
     val sendNow =
         waiting?.takeIf { preferences.deviceConstraints.wifiRequired && environment.onMobile }
 
-    val self = SourceDetailsState.EndpointUi(
+    val self = SourceEndpointUi(
         name = environment.self.displayName,
         detail = here,
         deviceKind = environment.self.kind ?: DeviceKind.Phone,
     )
     // TODO: the initiator does not know where the peer stores the source - show that folder once the setup exchange reports it.
-    val other = SourceDetailsState.EndpointUi(
+    val other = SourceEndpointUi(
         name = peer.name,
         detail = there,
         deviceKind = peer.kind,
