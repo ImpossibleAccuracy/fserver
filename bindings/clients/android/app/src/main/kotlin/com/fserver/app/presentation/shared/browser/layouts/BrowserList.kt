@@ -44,12 +44,14 @@ fun BrowserList(
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
     onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
+    fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
 ) {
     val actions = BrowserActions(
         selection = selection,
         onOpenDirectory = null,
         onFileClick = onFileClick,
         onFileLongClick = onFileLongClick,
+        fileMenu = fileMenu,
     )
 
     LazyColumn(
@@ -94,6 +96,7 @@ internal fun BrowserEntryRow(
             selection = actions.selection,
             onFileClick = actions.onFileClick,
             onFileLongClick = actions.onFileLongClick,
+            menu = actions.fileMenu,
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -14,4 +15,5 @@ internal class BrowserActions(
     val onOpenDirectory: ((FileBrowserUi.Directory) -> Unit)?,
     val onFileClick: (FileBrowserUi.File) -> Unit,
     val onFileLongClick: ((FileBrowserUi.File) -> Unit)?,
+    val fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
 )

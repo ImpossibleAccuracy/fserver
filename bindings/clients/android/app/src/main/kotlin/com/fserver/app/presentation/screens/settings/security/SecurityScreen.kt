@@ -28,7 +28,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkSwitch
 import com.fserver.app.presentation.designkit.DkSwitchRow
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.settings.composable.TextEditorDialog
+import com.fserver.app.presentation.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.settings.security.model.SecurityIntent
 import com.fserver.app.presentation.screens.settings.security.model.SecurityState
 import com.fserver.app.presentation.theme.FServerTheme

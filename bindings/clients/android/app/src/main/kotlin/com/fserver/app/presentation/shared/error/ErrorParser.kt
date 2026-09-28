@@ -183,7 +183,7 @@ private fun FileSystemException.toAppError(): AppError = when (this) {
         -> AppError(UiText.of(R.string.error_path_invalid))
 
     is FileSystemException.AlreadyExists -> AppError(UiText.of(R.string.error_file_exists))
-    is FileSystemException.CreationFailed,
-    is FileSystemException.RenameRejected,
-        -> AppError(UiText.of(R.string.error_file_create_failed))
+    is FileSystemException.CreationFailed -> AppError(UiText.of(R.string.error_file_create_failed))
+    is FileSystemException.RenameRejected -> AppError(UiText.of(R.string.error_file_rename_failed))
+    is FileSystemException.DeleteRejected -> AppError(UiText.of(R.string.error_file_delete_failed))
 }

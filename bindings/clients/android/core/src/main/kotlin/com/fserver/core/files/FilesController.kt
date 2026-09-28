@@ -5,6 +5,8 @@ import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.map
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.access.LocalFileEditor
+import com.fserver.core.files.access.SourceFile
 import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.files.scan.ScannedFile
 import com.fserver.core.files.scan.toCore
@@ -29,6 +31,7 @@ class FilesController internal constructor(
     private val storage: FServerStorage,
     private val requirementsChecker: RequirementsChecker,
     private val fileDownloader: FileDownloader,
+    private val editor: LocalFileEditor,
     private val timeProvider: TimeProvider,
     private val coroutineScope: BackgroundScope,
 ) {
@@ -78,7 +81,8 @@ class FilesController internal constructor(
     suspend fun download(entry: SyncFileEntry): Result<SyncFileEntry> = runBackgroundJob {
         val key = IndexedFileKey(fileId = entry.fileId, sourceId = entry.sourceId)
 
-        storage.index.findFile(key)?.presentEntry(entry.remoteState)?.let { return@runBackgroundJob it }
+        storage.index.findFile(key)?.presentEntry(entry.remoteState)
+            ?.let { return@runBackgroundJob it }
 
         val source = storage.sources.findById(entry.sourceId)
             ?: throw IllegalArgumentException("Source ${entry.sourceId} is not registered")
@@ -99,8 +103,25 @@ class FilesController internal constructor(
             ?: throw IllegalStateException("File ${entry.fileId} was not indexed after download")
     }
 
+    /** File [fileId] of [sourceId] as indexed here, or null when this device has no row for it. */
+    suspend fun file(sourceId: String, fileId: String): SourceFile? = editor.find(sourceId, fileId)
+
+    /**
+     * Creates an empty file at [path] - source-relative, as [SyncFileEntry.path] - and indexes it.
+     * Fill it with [SourceFile.write].
+     */
+    suspend fun create(sourceId: String, path: String): SourceFile = editor.create(sourceId, path)
+
+    /**
+     * Deletes [fileId] of [sourceId], and the deletion reaches the peer. An evicted file is deleted
+     * too; one this device has no row for is left alone.
+     */
+    suspend fun delete(sourceId: String, fileId: String) =
+        editor.delete(IndexedFileKey(fileId = fileId, sourceId = sourceId))
+
     private suspend fun markFetched(key: IndexedFileKey) {
-        val present = storage.index.findFile(key)?.state as? LocalIndexedFile.State.Present ?: return
+        val present = storage.index.findFile(key)?.state as? LocalIndexedFile.State.Present
+            ?: return
         storage.index.updateFileState(key, present.copy(fetchedAt = timeProvider.now()))
     }
 
@@ -116,7 +137,9 @@ class FilesController internal constructor(
         val fileIds = localById.keys + remoteById.keys
 
         for (file in fileIds) {
-            val local = localById[file]?.takeUnless { it.isDeleted }
+            val local = localById[file]
+            if (local?.isDeleted == true) continue
+
             val remote = remoteById[file]?.takeUnless { it.isDeleted }
 
             if (local != null && remote != null) {

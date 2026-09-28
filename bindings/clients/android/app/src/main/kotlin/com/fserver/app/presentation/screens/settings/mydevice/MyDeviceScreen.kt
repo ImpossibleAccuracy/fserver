@@ -25,7 +25,7 @@ import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSettingsRow
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.screens.settings.composable.TextEditorDialog
+import com.fserver.app.presentation.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.settings.mydevice.composable.AddressRow
 import com.fserver.app.presentation.screens.settings.mydevice.composable.ConnectionQrSheet
 import com.fserver.app.presentation.screens.settings.mydevice.model.MyDeviceIntent

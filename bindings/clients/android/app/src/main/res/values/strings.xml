@@ -268,6 +268,16 @@
     <string name="files_filter_all">All</string>
     <string name="files_filter_local">Local</string>
     <string name="files_filter_cloud">Cloud</string>
+    <string name="files_selected">%1$d selected</string>
+    <string name="files_file_actions">File actions</string>
+    <string name="files_action_rename">Rename</string>
+    <string name="files_rename_title">Rename file</string>
+    <string name="files_rename_label">Name</string>
+    <plurals name="files_delete_title">
+        <item quantity="one">Delete %1$d file?</item>
+        <item quantity="other">Delete %1$d files?</item>
+    </plurals>
+    <string name="files_delete_body">The deletion reaches the other device on the next sync.</string>
     <string name="files_device_folders">Folders and modes</string>
     <string name="files_device_add_folder">Add folder</string>
     <string name="files_device_configure">Configure</string>
@@ -880,6 +890,8 @@
     <string name="error_path_invalid">That location cannot be used.</string>
     <string name="error_file_exists">A file with that name is already there.</string>
     <string name="error_file_create_failed">The file could not be created.</string>
+    <string name="error_file_rename_failed">Could not rename the file. A file with that name may already exist.</string>
+    <string name="error_file_delete_failed">Android would not let this file be deleted.</string>
 
     <string name="pairing_probe_failed">Could not read what the device offers.</string>
     <string name="source_create_incomplete">The setup was left without a source, a target or a mode.</string>

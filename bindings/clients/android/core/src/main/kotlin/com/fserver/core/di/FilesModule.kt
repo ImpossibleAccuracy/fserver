@@ -3,6 +3,7 @@ package com.fserver.core.di
 import com.fserver.core.FServerConfig
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.files.FilesController
+import com.fserver.core.files.access.LocalFileEditor
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.files.FilesNode
 import org.koin.core.module.dsl.singleOf
@@ -13,6 +14,7 @@ internal val filesModule = module {
     single { FilesNode.create(get()) }
 
     singleOf(::FilesController)
+    singleOf(::LocalFileEditor)
     singleOf(::GarbageCollector)
     single { DiskUsageRepository(get(), get(), get<FServerConfig>().evictionPreviewer) }
 }

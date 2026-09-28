@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.composable
+package com.fserver.app.presentation.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,7 +17,7 @@ import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTextField
 
-/** One-field edit dialog shared by the settings screens. */
+/** One-field edit dialog. */
 @Composable
 fun TextEditorDialog(
     title: String,

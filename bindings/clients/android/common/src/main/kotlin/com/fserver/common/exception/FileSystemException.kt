@@ -15,4 +15,5 @@ sealed class FileSystemException(message: String, cause: Throwable? = null) :
     class CreationFailed(path: String) : FileSystemException("Failed to create file at path: $path")
     class RenameRejected(locator: String, newName: String) :
         FileSystemException("Rename rejected: $locator -> $newName")
+    class DeleteRejected(locator: String) : FileSystemException("Delete rejected: $locator")
 }

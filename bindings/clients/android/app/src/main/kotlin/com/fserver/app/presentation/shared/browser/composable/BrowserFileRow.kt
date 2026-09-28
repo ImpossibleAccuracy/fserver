@@ -38,6 +38,7 @@ internal fun BrowserFileRow(
     selection: FileBrowserSelection?,
     onFileClick: (FileBrowserUi.File) -> Unit,
     onFileLongClick: ((FileBrowserUi.File) -> Unit)?,
+    menu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
 ) {
     val gestures = fileGestures(file, selection, onFileClick, onFileLongClick)
     val sync = file.sync
@@ -59,7 +60,12 @@ internal fun BrowserFileRow(
                 EntryThumbnail(file = file)
             }
         },
-        trailing = { RemoteOnlyBadge(file = file) },
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RemoteOnlyBadge(file = file)
+                if (selection == null) menu?.invoke(file)
+            }
+        },
         onClick = gestures.onClick,
         onLongClick = gestures.onLongClick,
     )

@@ -13,12 +13,15 @@ import com.fserver.app.presentation.shared.browser.model.FileSortUi
 import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.app.presentation.shared.browser.model.toTree
 import com.fserver.app.presentation.shared.error.ErrorReporter
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.model.drivesSync
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -76,13 +79,17 @@ class FilesViewModel(
                     sourceIds = query.sourceId?.let(::setOf),
                 ),
                 filesProviderHandler.downloading,
-            ) { files, downloading ->
+                registeredSourcesRepository.sources,
+            ) { files, downloading, sources ->
+                val writable = sources.filter { it.drivesSync }.mapTo(HashSet()) { it.id }
+
                 FilesState.FeedUi(
                     preview = files.toTree(query.sort, query.sortAscending) { it.toUi(downloading) },
                     filter = query.filter,
                     sourceId = query.sourceId,
                     sort = query.sort,
                     sortAscending = query.sortAscending,
+                    actions = files.associate { it.fileId to it.actions(writable) },
                 )
             }
         }
@@ -136,6 +143,8 @@ class FilesViewModel(
             sort = edit.sort,
             sortAscending = edit.sortAscending,
             isSyncing = syncing,
+            editing = edit.editing,
+            selected = edit.selected,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -168,14 +177,55 @@ class FilesViewModel(
                     sortAscending = if (it.sort == intent.sort) !it.sortAscending else true,
                 )
             }
+
+            is FilesIntent.EntryLongPressed -> editable.update {
+                it.copy(editing = true, selected = it.selected + intent.entryId)
+            }
+
+            is FilesIntent.EntryToggled -> editable.update { it.toggled(intent.entryId) }
+
+            FilesIntent.EditClosed -> closeEdit()
+
+            is FilesIntent.EditRequested -> Unit
+
+            is FilesIntent.RenameConfirmed -> rename(intent.entryId, intent.newName)
+
+            is FilesIntent.DeleteConfirmed -> delete(intent.entryIds)
         }
     }
 
+    private fun rename(entryId: String, newName: String) {
+        viewModelScope.launch {
+            val entry = entryOf(entryId) ?: return@launch
+
+            runCatchingCancellable { filesController.file(entry.sourceId, entry.fileId)?.rename(newName) }
+                .onFailure { reporter.report(it, "Rename of ${entry.fileId} failed") }
+
+            closeEdit()
+        }
+    }
+
+    private fun delete(entryIds: Set<String>) {
+        viewModelScope.launch {
+            for (entryId in entryIds) {
+                val entry = entryOf(entryId) ?: continue
+
+                runCatchingCancellable { filesController.delete(entry.sourceId, entry.fileId) }
+                    .onFailure { reporter.report(it, "Delete of ${entry.fileId} failed") }
+            }
+
+            closeEdit()
+        }
+    }
+
+    private fun closeEdit() = editable.update { it.copy(editing = false, selected = emptySet()) }
+
+    private fun entryOf(entryId: String): SyncFileEntry? =
+        filesController.overallContent.value.find { it.fileId == entryId }
+
     private fun openEntry(entryId: String) {
         viewModelScope.launch {
-            val file = filesController.overallContent.value
-                .find { it.fileId == entryId }
-                ?: return@launch
+            val file = entryOf(entryId) ?: return@launch
 
             filesProviderHandler.onItemClick(file)
         }
@@ -208,9 +258,23 @@ class FilesViewModel(
         val openedPath: String? = null,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,
-    )
+        val editing: Boolean = false,
+        val selected: Set<String> = emptySet(),
+    ) {
+        fun toggled(entryId: String): Editable {
+            val next = if (entryId in selected) selected - entryId else selected + entryId
+            return copy(selected = next, editing = next.isNotEmpty())
+        }
+    }
 }
 
 private fun SyncFileEntry.toUi(downloading: Set<String>): FileBrowserUi.File = asPreviewFile().copy(
     sync = FileBrowserUi.File.Sync.Receiving.takeIf { fileId in downloading },
 )
+
+private fun SyncFileEntry.actions(writable: Set<String>): Set<FilesState.FileActionUi> = when {
+    sourceId !in writable -> emptySet()
+    localState is LocalIndexedFile.State.Present -> FilesState.FileActionUi.entries.toSet()
+    localState is LocalIndexedFile.State.Evicted -> setOf(FilesState.FileActionUi.Delete)
+    else -> emptySet()
+}

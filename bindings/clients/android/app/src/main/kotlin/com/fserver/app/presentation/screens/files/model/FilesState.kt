@@ -18,6 +18,8 @@ data class FilesState(
     val sort: FileSortUi = FileSortUi.Name,
     val sortAscending: Boolean = true,
     val isSyncing: Boolean = false,
+    val editing: Boolean = false,
+    val selected: Set<String> = emptySet(),
 ) {
     val selectedSource: SourceUi?
         get() = sources.firstOrNull { it.id == selectedSourceId }
@@ -35,6 +37,17 @@ data class FilesState(
     val showsCloudNotice: Boolean
         get() = openedDirectory?.contents?.any { it is FileBrowserUi.File && it.isRemoteOnly } == true
 
+    val selectionActions: Set<FileActionUi>
+        get() {
+            if (selected.isEmpty()) return emptySet()
+            val common = selected.map(::actionsFor).reduce { acc, actions -> acc intersect actions }
+            return if (selected.size == 1) common else common - FileActionUi.Edit - FileActionUi.Rename
+        }
+
+    fun actionsFor(fileId: String): Set<FileActionUi> = entries?.actions?.get(fileId).orEmpty()
+
+    fun fileName(fileId: String): String? = entries?.preview?.directories?.findFile(fileId)?.name
+
     val emptyReason: EmptyReasonUi
         get() = when {
             entries?.sourceId != null -> EmptyReasonUi.NoSourceFiles
@@ -50,7 +63,10 @@ data class FilesState(
         val sourceId: String?,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,
+        val actions: Map<String, Set<FileActionUi>> = emptyMap(),
     )
+
+    enum class FileActionUi { Edit, Rename, Delete }
 
     @Immutable
     data class SourceUi(
@@ -87,4 +103,14 @@ data class FilesState(
             SourceUi("documents", "Documents", "Laptop", DeviceKind.Laptop),
         )
     }
+}
+
+private fun List<FileBrowserUi.PreviewContentEntry>.findFile(fileId: String): FileBrowserUi.File? {
+    for (entry in this) {
+        when (entry) {
+            is FileBrowserUi.File -> if (entry.id == fileId) return entry
+            is FileBrowserUi.Directory -> entry.contents.findFile(fileId)?.let { return it }
+        }
+    }
+    return null
 }

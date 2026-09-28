@@ -1,11 +1,14 @@
 package com.fserver.app.presentation.screens.files
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -48,7 +52,10 @@ import com.fserver.app.presentation.designkit.DkProgressBar
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.composable.TextEditorDialog
 import com.fserver.app.presentation.screens.files.composable.Breadcrumbs
+import com.fserver.app.presentation.screens.files.composable.DeleteFilesDialog
+import com.fserver.app.presentation.screens.files.composable.FileActionsMenu
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.files.composable.FilesFilterSheet
 import com.fserver.app.presentation.screens.files.model.FilesIntent
@@ -56,8 +63,10 @@ import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
 import com.fserver.app.presentation.shared.browser.FileBrowser
 import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
+import com.fserver.app.presentation.shared.browser.FileBrowserSelection
 import com.fserver.app.presentation.shared.browser.composable.FileSortAction
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.SampleFiles
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
@@ -101,36 +110,55 @@ private fun FilesScreenContent(
 ) {
     val opened = state.openedDirectory
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<Set<String>?>(null) }
+
+    val onFileAction = { action: FilesState.FileActionUi, entryIds: Set<String> ->
+        when (action) {
+            FilesState.FileActionUi.Edit -> onIntent(FilesIntent.EditRequested(entryIds.single()))
+            FilesState.FileActionUi.Rename -> renaming = entryIds.single()
+            FilesState.FileActionUi.Delete -> deleting = entryIds
+        }
+    }
 
     DkScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            DkTopBar(
-                title = opened?.name ?: stringResource(R.string.files_title),
-                subtitle = state.filterSummary(),
-                onBack = {
-                    if (opened != null) onIntent(FilesIntent.FolderUp) else navigateUp()
-                },
-                actions = {
-                    FileSortAction(
-                        sort = state.sort,
-                        ascending = state.sortAscending,
-                        onSelect = { onIntent(FilesIntent.SortSelected(it)) },
-                    )
+            AnimatedContent(
+                targetState = state.editing,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+            ) { editing ->
+                if (editing) {
+                    SelectionTopBar(state = state, onIntent = onIntent, onFileAction = onFileAction)
+                } else {
+                    DkTopBar(
+                        title = opened?.name ?: stringResource(R.string.files_title),
+                        subtitle = state.filterSummary(),
+                        onBack = {
+                            if (opened != null) onIntent(FilesIntent.FolderUp) else navigateUp()
+                        },
+                        actions = {
+                            FileSortAction(
+                                sort = state.sort,
+                                ascending = state.sortAscending,
+                                onSelect = { onIntent(FilesIntent.SortSelected(it)) },
+                            )
 
-                    // The filters are fixed while a folder is open; the subtitle says which.
-                    AnimatedVisibility(
-                        visible = opened == null,
-                        enter = fadeIn() + scaleIn(),
-                        exit = fadeOut() + scaleOut(),
-                    ) {
-                        FilterAction(
-                            isFiltered = state.isFiltered,
-                            onClick = { showFilters = true },
-                        )
-                    }
-                },
-            )
+                            // The filters are fixed while a folder is open; the subtitle says which.
+                            AnimatedVisibility(
+                                visible = opened == null,
+                                enter = fadeIn() + scaleIn(),
+                                exit = fadeOut() + scaleOut(),
+                            ) {
+                                FilterAction(
+                                    isFiltered = state.isFiltered,
+                                    onClick = { showFilters = true },
+                                )
+                            }
+                        },
+                    )
+                }
+            }
         },
     ) { innerPadding ->
         FilesContent(
@@ -140,7 +168,31 @@ private fun FilesScreenContent(
             contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
             state = state,
             onIntent = onIntent,
+            onFileAction = onFileAction,
             navigateToSourcePick = navigateToSourcePick,
+        )
+    }
+
+    BackHandler(enabled = state.editing) { onIntent(FilesIntent.EditClosed) }
+
+    renaming?.let { entryId ->
+        TextEditorDialog(
+            title = stringResource(R.string.files_rename_title),
+            label = stringResource(R.string.files_rename_label),
+            initialValue = state.fileName(entryId).orEmpty(),
+            onDismiss = { renaming = null },
+            onConfirm = {
+                onIntent(FilesIntent.RenameConfirmed(entryId, it))
+                renaming = null
+            },
+        )
+    }
+
+    deleting?.let { entryIds ->
+        DeleteFilesDialog(
+            count = entryIds.size,
+            onConfirm = { onIntent(FilesIntent.DeleteConfirmed(entryIds)) },
+            onDismiss = { deleting = null },
         )
     }
 
@@ -153,6 +205,28 @@ private fun FilesScreenContent(
             onDismiss = { showFilters = false },
         )
     }
+}
+
+@Composable
+private fun SelectionTopBar(
+    modifier: Modifier = Modifier,
+    state: FilesState,
+    onIntent: (FilesIntent) -> Unit,
+    onFileAction: (FilesState.FileActionUi, Set<String>) -> Unit,
+) {
+    DkTopBar(
+        modifier = modifier,
+        title = stringResource(R.string.files_selected, state.selected.size),
+        onBack = { onIntent(FilesIntent.EditClosed) },
+        backIcon = Icons.Default.Close,
+        backLabel = stringResource(R.string.action_close),
+        actions = {
+            FileActionsMenu(
+                actions = state.selectionActions,
+                onAction = { onFileAction(it, state.selected) },
+            )
+        },
+    )
 }
 
 @Composable
@@ -179,6 +253,7 @@ private fun FilesContent(
     contentPadding: PaddingValues,
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
+    onFileAction: (FilesState.FileActionUi, Set<String>) -> Unit,
     navigateToSourcePick: () -> Unit,
 ) {
     val opened = state.openedDirectory
@@ -239,7 +314,25 @@ private fun FilesContent(
                             onOpen = { onIntent(FilesIntent.FolderOpened(it.path)) },
                             onUp = { onIntent(FilesIntent.FolderUp) },
                         ),
+                        selection = if (state.editing) {
+                            FileBrowserSelection(
+                                selected = state.selected,
+                                onToggle = { onIntent(FilesIntent.EntryToggled(it.id)) },
+                            )
+                        } else {
+                            null
+                        },
                         onFileClick = { onIntent(FilesIntent.EntryClicked(it.id)) },
+                        onFileLongClick = { onIntent(FilesIntent.EntryLongPressed(it.id)) },
+                        fileMenu = { file ->
+                            val actions = state.actionsFor(file.id)
+                            if (actions.isNotEmpty()) {
+                                FileActionsMenu(
+                                    actions = actions,
+                                    onAction = { onFileAction(it, setOf(file.id)) },
+                                )
+                            }
+                        },
                     )
                 }
 
@@ -406,6 +499,25 @@ private fun FilesScreenEmptyPreview() {
                     filter = FilesState.FilterUi.Cloud,
                     sourceId = null,
                 ),
+            ),
+            onIntent = {},
+            navigateToSourcePick = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(name = "Selecting", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun FilesScreenSelectingPreview() {
+    FServerTheme {
+        FilesScreenContent(
+            state = FilesState(
+                sources = FilesState.SampleSources,
+                entries = FilesState.SampleEntries,
+                openedPath = "/DCIM",
+                editing = true,
+                selected = setOf(FileBrowserUi.SampleFiles[1].id),
             ),
             onIntent = {},
             navigateToSourcePick = {},

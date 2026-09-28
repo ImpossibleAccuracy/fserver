@@ -1,7 +1,10 @@
 package com.fserver.core.sync.index
 
+import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.ContentHash
+import com.fserver.common.model.FileSize
 import com.fserver.common.utils.IdGenerator
+import com.fserver.common.utils.SourcePaths
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
@@ -126,6 +129,98 @@ internal class LocalIndexWriter(
                 ),
             )
         )
+    }
+
+    /**
+     * Records a rename the user made here: [from] deleted, its bytes now at [path] / [locator]. Both
+     * are new versions of our own - the target's after any tombstone already at [path].
+     */
+    suspend fun recordRenamed(
+        source: SourceEntry,
+        from: IndexedFileKey,
+        path: String,
+        locator: String,
+        modifiedAt: Instant,
+    ): LocalIndexedFile = locks.withLock(source.id) {
+        val row = storage.index.findFile(from)
+            ?: throw IllegalArgumentException("File ${from.fileId} not found in source ${source.id}")
+        val fileId = SourcePaths.fileId(path)
+        val existing = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = source.id))
+        val versions = versions.issuer(2)
+        val now = timeProvider.now()
+
+        // Same bytes, so pin, size and hash carry over.
+        val moved = row.copy(
+            id = existing?.id ?: IdGenerator.nextId,
+            fileId = fileId,
+            path = path,
+            locator = locator,
+            modifiedAt = modifiedAt,
+            version = versions.after(existing?.version),
+            processedAt = now,
+        )
+        storage.index.markProcessed(
+            listOf(
+                row.copy(
+                    state = LocalIndexedFile.State.Deleted(deletedAt = now),
+                    version = versions.after(row.version),
+                    processedAt = now,
+                ),
+                moved,
+            )
+        )
+        moved
+    }
+
+    /** Records an empty file the user created at [path], versioned after any tombstone there. */
+    suspend fun recordCreated(
+        source: SourceEntry,
+        path: String,
+        locator: String,
+        modifiedAt: Instant,
+    ): LocalIndexedFile = locks.withLock(source.id) {
+        val fileId = SourcePaths.fileId(path)
+        val existing = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = source.id))
+        if (existing?.state is LocalIndexedFile.State.Present) throw FileSystemException.AlreadyExists(path)
+        val now = timeProvider.now()
+
+        val created = LocalIndexedFile(
+            id = existing?.id ?: IdGenerator.nextId,
+            sourceId = source.id,
+            fileId = fileId,
+            path = path,
+            locator = locator,
+            state = LocalIndexedFile.State.Present(pinned = false),
+            size = FileSize(0),
+            modifiedAt = modifiedAt,
+            version = versions.issuer(1).after(existing?.version),
+            processedAt = now,
+        )
+        storage.index.markProcessed(listOf(created))
+        created
+    }
+
+    /** Records new bytes the user wrote to [key] as a new version of our own; the hash is taken later. */
+    suspend fun recordWritten(
+        source: SourceEntry,
+        key: IndexedFileKey,
+        size: FileSize,
+        modifiedAt: Instant,
+    ): LocalIndexedFile = locks.withLock(source.id) {
+        val row = storage.index.findFile(key)
+            ?: throw IllegalArgumentException("File ${key.fileId} not found in source ${source.id}")
+
+        val written = row.copy(
+            state = row.state as? LocalIndexedFile.State.Present ?: LocalIndexedFile.State.Present(),
+            size = size,
+            modifiedAt = modifiedAt,
+            hash = null,
+            hashStale = false,
+            version = versions.issuer(1).after(row.version),
+            processedAt = timeProvider.now(),
+        )
+        storage.index.markProcessed(listOf(written))
+        written
     }
 
     /**

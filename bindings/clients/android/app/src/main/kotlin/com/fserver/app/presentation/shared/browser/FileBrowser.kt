@@ -65,6 +65,8 @@ fun FileBrowser(
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
     onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
+    /** Drawn at the end of each file row while no [selection] runs; tiles have none, a long press is their way in. */
+    fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
 ) {
     if (preview.isEmpty) {
         FileBrowserEmpty(modifier = modifier, header = header)
@@ -89,6 +91,7 @@ fun FileBrowser(
             contentPadding = contentPadding,
             onFileClick = onFileClick,
             onFileLongClick = onFileLongClick,
+            fileMenu = fileMenu,
             header = header,
         )
 
@@ -100,6 +103,7 @@ fun FileBrowser(
             contentPadding = contentPadding,
             onFileClick = onFileClick,
             onFileLongClick = onFileLongClick,
+            fileMenu = fileMenu,
             header = header,
         )
     }

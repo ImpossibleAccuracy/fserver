@@ -46,12 +46,14 @@ fun BrowserTree(
     header: @Composable (() -> Unit)? = null,
     onFileClick: (FileBrowserUi.File) -> Unit,
     onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
+    fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
 ) {
     // A caller that does not show where the walk is still gets one, kept here instead.
     val walk = navigation ?: rememberTreeNavigation(preview)
     val opened = walk.opened
 
-    BackHandler(enabled = opened != null, onBack = walk.onUp)
+    // A running selection is the caller's to close first.
+    BackHandler(enabled = opened != null && selection == null, onBack = walk.onUp)
 
     Column(modifier = modifier.fillMaxSize()) {
         if (header != null) {
@@ -70,6 +72,7 @@ fun BrowserTree(
                 onOpenDirectory = walk.onOpen,
                 onFileClick = onFileClick,
                 onFileLongClick = onFileLongClick,
+                fileMenu = fileMenu,
             )
 
             if (directory?.isMediaDirectory == true) {
