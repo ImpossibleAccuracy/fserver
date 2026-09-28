@@ -1,5 +1,6 @@
 package com.fserver.app.di
 
+import com.fserver.app.data.preview.CoilEvictionPreviewer
 import com.fserver.core.FServerConfig
 import com.fserver.core.FServerCore
 import com.fserver.core.storage.FServerStorageProvider
@@ -24,6 +25,7 @@ val coreModule = module {
     single {
         FServerConfig(
             context = get(),
+            evictionPreviewer = get<CoilEvictionPreviewer>(),
         )
     }
 

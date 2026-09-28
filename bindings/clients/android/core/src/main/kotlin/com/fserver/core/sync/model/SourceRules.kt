@@ -11,10 +11,7 @@ val SourceEntry.drivesSync: Boolean
 internal val SourceEntry.peerDrivesSync: Boolean
     get() = syncMode is SyncMode.Mirror || role == SourceEntry.Role.Follower
 
-/**
- * The peer may change the files this device holds for the source: push, overwrite, delete.
- * TODO: a read-only Host follower refuses these, once Host has access rights.
- */
+/** The peer may change the files this device holds for the source: push, overwrite, delete. */
 internal val SourceEntry.acceptsPeerWrites: Boolean
     get() = peerDrivesSync
 

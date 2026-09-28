@@ -52,10 +52,14 @@ data class StorageState(
         Downloaded,
         Received,
         Cache,
+        EvictionPreviews,
         Incomplete;
 
         val isFreeable: Boolean
-            get() = this == Downloaded || this == Cache || this == Incomplete
+            get() = this == Downloaded || this == Cache || this == EvictionPreviews || this == Incomplete
+
+        val isDestructive: Boolean
+            get() = this == EvictionPreviews
     }
 
     @Immutable
@@ -63,11 +67,17 @@ data class StorageState(
         val key: String
         val bytes: Long
         val selectedByDefault: Boolean
+        val isDestructive: Boolean
 
         data class AppData(val data: AppDataUi) : FreeableUi {
-            override val key: String get() = "app:${data.kind}"
+            override val key: String get() = keyOf(data.kind)
             override val bytes: Long get() = data.bytes
-            override val selectedByDefault: Boolean get() = true
+            override val selectedByDefault: Boolean get() = !data.kind.isDestructive
+            override val isDestructive: Boolean get() = data.kind.isDestructive
+
+            companion object {
+                fun keyOf(kind: AppDataKindUi): String = "app:$kind"
+            }
         }
 
         data class LinkCopies(
@@ -80,6 +90,7 @@ data class StorageState(
         ) : FreeableUi {
             override val key: String get() = "link:$sourceId"
             override val selectedByDefault: Boolean get() = false
+            override val isDestructive: Boolean get() = false
 
             val morePreviews: Int
                 get() = files - previews.size
@@ -92,6 +103,7 @@ data class StorageState(
         private val SampleLaptop = PeerUi("Laptop", DeviceKind.Laptop)
         private val SampleCache = AppDataUi(AppDataKindUi.Cache, 3_100_000_000)
         private val SampleDownloaded = AppDataUi(AppDataKindUi.Downloaded, 14_000_000_000, files = 86)
+        private val SampleEvictionPreviews = AppDataUi(AppDataKindUi.EvictionPreviews, 48_000_000)
         private val SampleIncomplete = AppDataUi(AppDataKindUi.Incomplete, 1_200_000_000, files = 3)
 
         val Sample = StorageState(
@@ -107,11 +119,13 @@ data class StorageState(
                 SampleDownloaded,
                 AppDataUi(AppDataKindUi.Received, 4_300_000_000),
                 SampleCache,
+                SampleEvictionPreviews,
                 SampleIncomplete,
             ),
             freeable = listOf(
                 FreeableUi.AppData(SampleDownloaded),
                 FreeableUi.AppData(SampleCache),
+                FreeableUi.AppData(SampleEvictionPreviews),
                 FreeableUi.AppData(SampleIncomplete),
                 FreeableUi.LinkCopies(
                     sourceId = "camera",

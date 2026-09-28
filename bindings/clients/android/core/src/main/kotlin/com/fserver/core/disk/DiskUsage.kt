@@ -18,9 +18,11 @@ data class AppFootprint(
     val stagingBytes: Long,
     /** Thumbnails, previews and exports: rebuilt on demand. */
     val cacheBytes: Long,
+    /** Previews of evicted files. Not rebuilt: dropping them leaves stubs without a picture. */
+    val evictionPreviewBytes: Long,
     /** Index, settings and keys. Not something to free. */
     val serviceBytes: Long,
 ) {
     val totalBytes: Long
-        get() = (apkBytes ?: 0) + stagingBytes + cacheBytes + serviceBytes
+        get() = (apkBytes ?: 0) + stagingBytes + cacheBytes + evictionPreviewBytes + serviceBytes
 }

@@ -1,5 +1,6 @@
 package com.fserver.core.di
 
+import com.fserver.core.FServerConfig
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.gc.GarbageCollector
@@ -13,5 +14,5 @@ internal val filesModule = module {
 
     singleOf(::FilesController)
     singleOf(::GarbageCollector)
-    singleOf(::DiskUsageRepository)
+    single { DiskUsageRepository(get(), get(), get<FServerConfig>().evictionPreviewer) }
 }

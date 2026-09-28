@@ -48,12 +48,7 @@ sealed interface SyncMode {
         }
     }
 
-    /**
-     * Files live on the follower; the initiator keeps only an on-demand cache of them.
-     *
-     * TODO: access rights (read-only / read-write), granted and enforced by the follower. Until
-     *  then the initiator has read-write access.
-     */
+    /** Files live on the follower; the initiator keeps only an on-demand cache of them. */
     data object Host : SyncMode {
         override val type: Type get() = Type.Host
     }

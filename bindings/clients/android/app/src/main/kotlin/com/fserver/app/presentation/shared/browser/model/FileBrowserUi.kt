@@ -82,6 +82,8 @@ sealed interface FileBrowserUi {
     @Immutable
     data class File(
         val id: String,
+        /** The source an indexed file belongs to; null for a scan, which has none yet. */
+        val sourceId: String? = null,
         override val path: String,
         override val name: String,
         val kind: FileKindUi,

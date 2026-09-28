@@ -25,9 +25,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class StorageViewModel(
-    diskUsage: DiskUsageRepository,
+    private val diskUsage: DiskUsageRepository,
     registeredSources: RegisteredSourcesRepository,
     filesController: FilesController,
     trustedDevices: TrustedDevicesRepository,
@@ -76,12 +77,16 @@ class StorageViewModel(
     }
 
     private fun freeUp(keys: Set<String>) {
-        // TODO: free up the selected app data and evict the selected links' copies. Evict, never delete.
+        if (FreeableUi.AppData.keyOf(StorageState.AppDataKindUi.EvictionPreviews) in keys) {
+            viewModelScope.launch { diskUsage.clearEvictionPreviews() }
+        }
+        // TODO: free up the rest of the selected app data and evict the selected links' copies. Evict, never delete.
     }
 
     private fun appDataOf(footprint: AppFootprint): List<StorageState.AppDataUi> = listOf(
         // TODO: downloaded-from-devices and received files have no data source yet.
         StorageState.AppDataUi(StorageState.AppDataKindUi.Cache, footprint.cacheBytes),
+        StorageState.AppDataUi(StorageState.AppDataKindUi.EvictionPreviews, footprint.evictionPreviewBytes),
         StorageState.AppDataUi(StorageState.AppDataKindUi.Incomplete, footprint.stagingBytes),
     ).filter { it.bytes > 0 }
 }

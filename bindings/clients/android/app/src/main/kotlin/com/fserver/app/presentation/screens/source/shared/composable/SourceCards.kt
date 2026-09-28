@@ -62,7 +62,7 @@ fun SourceOptionCard(
 }
 
 /**
- * A single-choice row: mode, eviction rule, host rights. The row is the touch target, so the
+ * A single-choice row: mode, eviction rule. The row is the touch target, so the
  * label never has to be hit exactly.
  *
  * The radio sits on the title's own line rather than beside the whole block, which is what keeps

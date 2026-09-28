@@ -11,16 +11,13 @@ import com.fserver.files.upload.UploadStrategy
 /**
  * The remote side holds the files, the local side only a cache of them.
  *
- * Remote changes always land here. Local edits reach the remote only when [Params.writable]; until
- * then they stay local, and a remote change overwrites them. A local copy the remote confirmably
- * holds is evicted, unless pinned or fetched on demand (the caller's TTL evicts those).
+ * Remote changes land here and local edits go out, concurrent ones conflicting. A local copy the
+ * remote confirmably holds is evicted, unless pinned or fetched on demand (the caller's TTL evicts
+ * those).
  */
 class HostedUploadStrategy : UploadStrategy {
 
-    /** @param writable local edits, new files and deletions may be sent to the remote. */
-    data class Params(
-        val writable: Boolean,
-    ) : UploadStrategy.Params
+    data object Params : UploadStrategy.Params
 
     override fun accepts(params: UploadStrategy.Params): Boolean = params is Params
 
@@ -30,20 +27,18 @@ class HostedUploadStrategy : UploadStrategy {
     ): UploadDecisions {
         require(params is Params) { "HostedUploadStrategy only accepts Params, got $params" }
 
-        val actions = snapshot.join().mapNotNull { (_, local, remote) ->
-            decide(params, local, remote)
-        }
+        val actions = snapshot.join().mapNotNull { (_, local, remote) -> decide(local, remote) }
         return UploadDecisions(pairMoves(actions))
     }
 
-    private fun decide(params: Params, local: FileRecord?, remote: FileRecord?): FileAction? =
+    private fun decide(local: FileRecord?, remote: FileRecord?): FileAction? =
         when (local?.state) {
             // Not cached: fetched on demand.
             null -> null
 
-            is State.Present -> present(params, local, remote)
+            is State.Present -> present(local, remote)
 
-            is State.Deleted -> deleted(params, local, remote)
+            is State.Deleted -> deleted(local, remote)
 
             is State.Evicted -> when (remote?.state) {
                 // Eviction only follows a confirmed copy, so the remote deletion drops nothing of ours.
@@ -52,20 +47,19 @@ class HostedUploadStrategy : UploadStrategy {
             }
         }
 
-    private fun present(params: Params, local: FileRecord, remote: FileRecord?): FileAction? {
+    private fun present(local: FileRecord, remote: FileRecord?): FileAction? {
         val causality = remote?.let(local::causality)
 
         return when (remote?.state) {
-            null -> FileAction.Upload(local, local.metadata.version, "missing remotely").takeIf { params.writable }
+            null -> FileAction.Upload(local, local.metadata.version, "missing remotely")
 
             is State.Evicted -> null
 
             is State.Deleted -> when {
                 causality == Causality.Newer ->
                     FileAction.Upload(local, local.metadata.version, "edited locally after remote deletion")
-                        .takeIf { params.writable }
 
-                params.writable && causality != Causality.Older ->
+                causality != Causality.Older ->
                     FileAction.Conflict(local, remote, "deleted remotely, edited locally")
 
                 else -> hashBeforeDeleting(local, remote)
@@ -81,9 +75,8 @@ class HostedUploadStrategy : UploadStrategy {
                 ContentMatch.DIFFERENT -> when {
                     causality == Causality.Newer ->
                         FileAction.Upload(local, local.metadata.version, "newer locally")
-                            .takeIf { params.writable }
 
-                    params.writable && causality != Causality.Older ->
+                    causality != Causality.Older ->
                         FileAction.Conflict(local, remote, "edited on both sides")
 
                     else -> FileAction.Download(file = remote, reason = "newer remotely")
@@ -92,7 +85,7 @@ class HostedUploadStrategy : UploadStrategy {
         }
     }
 
-    private fun deleted(params: Params, local: FileRecord, remote: FileRecord?): FileAction? {
+    private fun deleted(local: FileRecord, remote: FileRecord?): FileAction? {
         remote ?: return null
 
         return when (remote.state) {
@@ -106,7 +99,7 @@ class HostedUploadStrategy : UploadStrategy {
                 Causality.Older -> null
                 Causality.Equal, Causality.Concurrent ->
                     FileAction.Conflict(local, remote, "deleted locally, edited remotely")
-            }.takeIf { params.writable }
+            }
         }
     }
 

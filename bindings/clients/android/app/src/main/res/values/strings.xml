@@ -515,10 +515,14 @@
     <string name="storage_app_downloaded_desc">Files opened from other devices</string>
     <string name="storage_app_received">Received files</string>
     <string name="storage_app_received_desc">One-off transfers</string>
-    <string name="storage_app_cache">Previews and cache</string>
+    <string name="storage_app_cache">Cache</string>
     <string name="storage_app_cache_desc">Rebuilt on their own</string>
     <string name="storage_app_incomplete">Incomplete</string>
     <string name="storage_app_incomplete_desc">Interrupted transfers</string>
+    <string name="storage_app_eviction_previews">Offloaded file previews</string>
+    <string name="storage_app_eviction_previews_desc">Pictures of files kept only on other devices</string>
+    <string name="storage_clear_previews_title">Clear previews?</string>
+    <string name="storage_clear_previews_body">Files kept only on other devices will show no picture until they are downloaded again. This can\'t be undone.</string>
     <string name="storage_free_up_to">You can free up to %1$s</string>
     <string name="storage_free_hint">All of it is on other devices or downloads again</string>
     <string name="storage_free_action">Free up</string>
@@ -530,6 +534,7 @@
     <string name="storage_free_downloaded_hint">Stay listed, download again on tap</string>
     <string name="storage_free_cache_hint">Rebuilt when viewed</string>
     <string name="storage_free_incomplete_hint">Transfers start over</string>
+    <string name="storage_free_eviction_previews_hint">Offloaded files lose their picture for good</string>
     <string name="storage_free_copies_title">%1$s on %2$s</string>
     <plurals name="storage_free_copies_hint">
         <item quantity="one">%1$d file, copy verified</item>

@@ -8,6 +8,8 @@ import coil3.disk.DiskCache
 import coil3.video.VideoFrameDecoder
 import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
 import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
+import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
+import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.di.coreModule
 import com.fserver.app.di.dataModule
 import com.fserver.app.di.domainModule
@@ -30,6 +32,7 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val syncScheduler: SyncScheduler by inject()
+    private val evictionPreviews: EvictionPreviews by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -67,6 +70,7 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
             .components {
                 add(VideoFrameDecoder.Factory())
                 add(AudioArtworkFetcher.Factory(), AudioArtwork::class)
+                add(FileImageMapper(evictionPreviews))
             }
             .build()
 

@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.data.AuthManagerImpl
+import com.fserver.app.data.preview.CoilEvictionPreviewer
+import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.domain.AuthManager
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.singleOf
@@ -20,6 +22,8 @@ internal val dataModule = module {
 
     singleOf(::AppSettingsStore)
 
+    singleOf(::EvictionPreviews)
+    singleOf(::CoilEvictionPreviewer)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "fserver_prefs")

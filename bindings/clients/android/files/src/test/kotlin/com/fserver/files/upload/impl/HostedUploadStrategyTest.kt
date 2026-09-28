@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The remote holds the files; local edits go out only when writable. */
+/** The remote holds the files; local edits go out. */
 class HostedUploadStrategyTest {
 
     private val strategy = HostedUploadStrategy()
@@ -37,29 +37,26 @@ class HostedUploadStrategyTest {
     }
 
     @Test
-    fun `a local edit goes out only when writable`() = runTest {
+    fun `a local edit goes out`() = runTest {
         val local = record(vector = mapOf(A to 1L, B to 1L), content = "mine")
         val remote = record(vector = mapOf(B to 1L), content = "theirs")
 
-        assertTrue(plan(local, remote, writable = true) is FileAction.Upload)
-        assertNull(plan(local, remote, writable = false))
+        assertTrue(plan(local, remote) is FileAction.Upload)
     }
 
     @Test
-    fun `a new local file goes out only when writable`() = runTest {
+    fun `a new local file goes out`() = runTest {
         val local = record(vector = mapOf(A to 1L), content = "mine")
 
-        assertTrue(plan(local, null, writable = true) is FileAction.Upload)
-        assertNull(plan(local, null, writable = false))
+        assertTrue(plan(local, null) is FileAction.Upload)
     }
 
     @Test
-    fun `concurrent edits conflict when writable, the remote wins when not`() = runTest {
+    fun `concurrent edits conflict`() = runTest {
         val local = record(vector = mapOf(A to 1L), content = "mine")
         val remote = record(vector = mapOf(B to 1L), content = "theirs")
 
-        assertTrue(plan(local, remote, writable = true) is FileAction.Conflict)
-        assertTrue(plan(local, remote, writable = false) is FileAction.Download)
+        assertTrue(plan(local, remote) is FileAction.Conflict)
     }
 
     @Test
@@ -72,12 +69,11 @@ class HostedUploadStrategyTest {
     }
 
     @Test
-    fun `a local deletion reaches the remote only when writable`() = runTest {
+    fun `a local deletion reaches the remote`() = runTest {
         val local = record(vector = mapOf(A to 1L, B to 1L), state = Deleted)
         val remote = record(vector = mapOf(B to 1L), content = "x")
 
-        assertTrue(plan(local, remote, writable = true) is FileAction.DeleteRemote)
-        assertNull(plan(local, remote, writable = false))
+        assertTrue(plan(local, remote) is FileAction.DeleteRemote)
     }
 
     @Test
@@ -85,12 +81,11 @@ class HostedUploadStrategyTest {
         val action = plan(
             local = record(vector = mapOf(B to 1L), state = Deleted),
             remote = record(vector = mapOf(B to 2L), content = "x"),
-            writable = true,
         )
 
         assertNull(action)
     }
 
-    private suspend fun plan(local: FileRecord?, remote: FileRecord?, writable: Boolean = true): FileAction? =
-        strategy.planOne(HostedUploadStrategy.Params(writable), local, remote)
+    private suspend fun plan(local: FileRecord?, remote: FileRecord?): FileAction? =
+        strategy.planOne(HostedUploadStrategy.Params, local, remote)
 }

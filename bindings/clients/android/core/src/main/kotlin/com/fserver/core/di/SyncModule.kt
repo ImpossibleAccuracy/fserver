@@ -1,5 +1,6 @@
 package com.fserver.core.di
 
+import com.fserver.core.FServerConfig
 import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.conflict.ConflictCopier
@@ -80,7 +81,7 @@ internal val syncModule = module {
     singleOf(::FileUploader)
     singleOf(::FileDownloader)
     singleOf(::RequestedDownloads)
-    singleOf(::FileEvictor)
+    single { FileEvictor(get(), get(), get(), get<FServerConfig>().evictionPreviewer) }
     singleOf(::FileMover)
     singleOf(::FileDeleter)
 

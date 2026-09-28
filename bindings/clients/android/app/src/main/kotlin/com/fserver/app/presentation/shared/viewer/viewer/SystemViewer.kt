@@ -10,6 +10,7 @@ import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.fserver.app.R
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.viewer.impl.locatorUri
 import timber.log.Timber
 import java.io.File
 
@@ -37,9 +38,7 @@ internal fun Context.openInSystemViewer(file: FileBrowserUi.File) {
 }
 
 /** What this app itself reads [locator] through: no grant needed. */
-internal fun FileBrowserUi.File.localUri(): Uri? = locator?.let {
-    if (it.startsWith('/')) Uri.fromFile(File(it)) else it.toUri()
-}
+internal fun FileBrowserUi.File.localUri(): Uri? = locator?.let(::locatorUri)
 
 private fun Context.shareableUri(locator: String): Uri? {
     if (!locator.startsWith('/')) return locator.toUri()

@@ -53,7 +53,6 @@ internal class UploadStrategySelector(
             },
         )
 
-        // TODO: writable from Host's access rights, once it has them.
-        SyncMode.Host -> HostedUploadStrategy.Params(writable = true)
+        SyncMode.Host -> HostedUploadStrategy.Params
     }
 }

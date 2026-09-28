@@ -106,6 +106,7 @@ fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
 
     return FileBrowserUi.File(
         id = fileId,
+        sourceId = sourceId,
         path = path,
         name = name,
         kind = kind,

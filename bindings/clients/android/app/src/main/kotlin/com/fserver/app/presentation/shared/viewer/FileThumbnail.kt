@@ -11,10 +11,9 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
-import com.fserver.app.presentation.shared.viewer.viewer.localUri
+import com.fserver.app.presentation.shared.viewer.impl.FileImage
+import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
 
 /**
  * A cropped preview for a tile: an image, a video frame, or an audio file's embedded artwork. Tied
@@ -29,10 +28,12 @@ fun FileThumbnail(
     onLoaded: () -> Unit = {},
 ) {
     val context = LocalPlatformContext.current
-    val request = remember(context, file.locator) {
+    val key = file.thumbnailCacheKey
+
+    val request = remember(context, key, file.locator) {
         ImageRequest.Builder(context)
             .data(file.imageModel())
-            .memoryCacheKey(file.thumbnailCacheKey)
+            .memoryCacheKey(key)
             .build()
     }
 
@@ -45,10 +46,14 @@ fun FileThumbnail(
     )
 }
 
-/** What Coil loads for [this]: the file itself, or for audio the picture in its tags. */
-internal fun FileBrowserUi.File.imageModel(): Any? = localUri()?.let {
-    if (kind == FileKindUi.Audio) AudioArtwork(it, version = "${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}") else it
-}
+/** What Coil loads for [this] - see [FileImageMapper]. */
+internal fun FileBrowserUi.File.imageModel(): FileImage = FileImage(
+    sourceId = sourceId,
+    fileId = id,
+    locator = locator,
+    kind = kind,
+    version = "${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}",
+)
 
 /** Whatever [FileViewerHost] shows now; thumbnails of it step aside for the full-screen copy. */
 @Stable
@@ -92,7 +97,7 @@ internal fun Modifier.fileViewerContent(
 
 /** The viewer shows this as a placeholder while the full-size image decodes. */
 internal val FileBrowserUi.File.thumbnailCacheKey: String
-    get() = "thumbnail:$sharedKey"
+    get() = "thumbnail:$sourceId:$id:${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}"
 
 private val FileBrowserUi.File.sharedKey: String
     get() = "file:${locator ?: path}"

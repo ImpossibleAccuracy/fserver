@@ -244,6 +244,7 @@ private val StorageState.AppDataKindUi.titleRes: Int
         StorageState.AppDataKindUi.Downloaded -> R.string.storage_app_downloaded
         StorageState.AppDataKindUi.Received -> R.string.storage_app_received
         StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache
+        StorageState.AppDataKindUi.EvictionPreviews -> R.string.storage_app_eviction_previews
         StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete
     }
 
@@ -253,6 +254,7 @@ private val StorageState.AppDataKindUi.descriptionRes: Int
         StorageState.AppDataKindUi.Downloaded -> R.string.storage_app_downloaded_desc
         StorageState.AppDataKindUi.Received -> R.string.storage_app_received_desc
         StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache_desc
+        StorageState.AppDataKindUi.EvictionPreviews -> R.string.storage_app_eviction_previews_desc
         StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete_desc
     }
 

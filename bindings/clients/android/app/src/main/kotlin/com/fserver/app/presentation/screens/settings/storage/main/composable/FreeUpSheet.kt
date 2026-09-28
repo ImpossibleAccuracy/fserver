@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,6 +55,7 @@ import com.fserver.common.model.FileSize
 /**
  * What freeing space would drop, picked row by row, with the free space before and after.
  * App data starts ticked; a link's copies do not, since dropping them is a decision to make.
+ * Nor does anything destructive, which is also marked in the error colour and asks once more.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +97,9 @@ private fun FreeUpSheetContent(
     onDismiss: () -> Unit,
 ) {
     var selection by remember { mutableStateOf(initialSelection) }
-    val freedBytes = items.filter { it.key in selection }.sumOf { it.bytes }
+    var confirmingDestructive by remember { mutableStateOf(false) }
+    val selected = items.filter { it.key in selection }
+    val freedBytes = selected.sumOf { it.bytes }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -148,9 +152,18 @@ private fun FreeUpSheetContent(
                 modifier = Modifier.weight(1f),
                 text = stringResource(R.string.storage_free_action),
                 enabled = selection.isNotEmpty(),
-                onClick = { onConfirm(selection) },
+                onClick = {
+                    if (selected.any { it.isDestructive }) confirmingDestructive = true else onConfirm(selection)
+                },
             )
         }
+    }
+
+    if (confirmingDestructive) {
+        ClearEvictionPreviewsDialog(
+            onConfirm = { onConfirm(selection) },
+            onDismiss = { confirmingDestructive = false },
+        )
     }
 }
 
@@ -242,12 +255,14 @@ private fun FreeableRow(
             .padding(vertical = DkSpacing.sm),
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
+        val colors = MaterialTheme.colorScheme
+
         Checkbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.primary,
-                uncheckedColor = MaterialTheme.colorScheme.outline,
+                checkedColor = if (item.isDestructive) colors.error else colors.primary,
+                uncheckedColor = colors.outline,
             ),
         )
         Column(
@@ -261,6 +276,7 @@ private fun FreeableRow(
                     modifier = Modifier.weight(1f),
                     text = item.title(),
                     style = MaterialTheme.typography.titleSmall,
+                    color = if (item.isDestructive) colors.error else Color.Unspecified,
                 )
                 DkMonoCaption(text = FileSize(item.bytes).formatted())
             }
@@ -314,6 +330,7 @@ private fun StorageState.FreeableUi.title(): String = when (this) {
             StorageState.AppDataKindUi.Downloaded -> R.string.storage_app_downloaded
             StorageState.AppDataKindUi.Received -> R.string.storage_app_received
             StorageState.AppDataKindUi.Cache -> R.string.storage_app_cache
+            StorageState.AppDataKindUi.EvictionPreviews -> R.string.storage_app_eviction_previews
             StorageState.AppDataKindUi.Incomplete -> R.string.storage_app_incomplete
         }
     )
@@ -330,6 +347,7 @@ private fun StorageState.FreeableUi.hint(): String = when (this) {
     is StorageState.FreeableUi.AppData -> when (data.kind) {
         StorageState.AppDataKindUi.Downloaded -> stringResource(R.string.storage_free_downloaded_hint)
         StorageState.AppDataKindUi.Incomplete -> stringResource(R.string.storage_free_incomplete_hint)
+        StorageState.AppDataKindUi.EvictionPreviews -> stringResource(R.string.storage_free_eviction_previews_hint)
         else -> stringResource(R.string.storage_free_cache_hint)
     }
 
