@@ -10,6 +10,7 @@ import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.toOriginPath
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncProgressReporter
@@ -37,6 +38,7 @@ class SourcesController internal constructor(
     private val timeProvider: TimeProvider,
     private val requirementsChecker: RequirementsChecker,
     private val sessionProgressReporter: SyncProgressReporter,
+    private val localIndexer: LocalChangesIndexer,
 ) {
     /** Every source a peer has asked this device to host, oldest first. */
     val incomingRequests: Flow<List<IncomingSourceRequest>> get() = sourceSetup.pending
@@ -66,6 +68,17 @@ class SourcesController internal constructor(
      */
     suspend fun runSync(sourceId: String, force: Boolean = false) =
         syncRunner.runSource(sourceId, force)
+
+    /**
+     * Brings the index of [sourceId] in line with its folder now, without syncing. Followed through
+     * [SyncProgressRepository.indexing].
+     */
+    suspend fun index(sourceId: String): Result<Unit> = runBackgroundJob {
+        val source = storage.sources.findById(sourceId)
+            ?: throw IllegalArgumentException("Source $sourceId is not registered")
+
+        localIndexer.refresh(source)
+    }
 
     /**
      * Registers a new [location] + [syncMode] pair, persists it, and asks [deviceId] to register

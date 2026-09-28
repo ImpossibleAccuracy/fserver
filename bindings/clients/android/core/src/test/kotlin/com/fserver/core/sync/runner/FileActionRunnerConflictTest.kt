@@ -52,7 +52,7 @@ class FileActionRunnerConflictTest {
         fileUploader = mockk(relaxed = true),
         fileDownloader = downloader,
         fileEvictor = FileEvictor(storage, node, clock),
-        timeProvider = clock,
+        fileMover = mockk(relaxed = true),
         node = node,
     )
 

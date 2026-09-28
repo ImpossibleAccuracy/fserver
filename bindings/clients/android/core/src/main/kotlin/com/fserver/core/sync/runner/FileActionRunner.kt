@@ -13,14 +13,12 @@ import com.fserver.core.sync.conflict.ConflictDecision
 import com.fserver.core.sync.conflict.seenVersion
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
-import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.sync.remote.PeerIndexFetcher
-import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileRecord
@@ -42,7 +40,7 @@ internal class FileActionRunner(
     private val fileUploader: FileUploader,
     private val fileDownloader: FileDownloader,
     private val fileEvictor: FileEvictor,
-    private val timeProvider: TimeProvider,
+    private val fileMover: FileMover,
     private val node: FilesNode,
 ) {
     suspend fun execute(source: SourceEntry, action: FileAction) = runBackgroundJob {
@@ -60,12 +58,15 @@ internal class FileActionRunner(
             is FileAction.MergeVersion -> mergeVersion(action, source)
             is FileAction.Download -> downloadFile(action, source)
             is FileAction.Upload -> uploadFile(source, action)
+            is FileAction.MoveLocal -> moveLocalFile(action, source)
+            is FileAction.MoveRemote -> moveRemoteFile(action, source)
         }
     }
 
     /** An end that does not drive the source acts on nothing, whatever it was handed. */
     private fun refusal(source: SourceEntry, action: FileAction): String? =
-        if (!source.drivesSync) "${source.syncMode.type} runs from the initiator" else refusal(action)
+        if (!source.drivesSync) "${source.syncMode.type} runs from the initiator"
+        else refusal(action)
 
     /**
      * Why [action] contradicts the records it carries, or null. Any refusal is a strategy bug: this
@@ -91,13 +92,24 @@ internal class FileActionRunner(
                 localDeleted != (action.remote.state is FileRecord.State.Deleted) -> "only one side is deleted"
                 !localDeleted && (action.local.content == null || action.local.content != action.remote.content) ->
                     "content not known to match"
+
                 else -> null
             }
         }
 
         is FileAction.Conflict -> "neither side can be kept".takeIf { action.choices().isEmpty() }
 
+        is FileAction.MoveLocal -> moveRefusal(action.from, action.to)
+
+        is FileAction.MoveRemote -> moveRefusal(action.from, action.to)
+
         is FileAction.ComputeHash, is FileAction.DeleteLocal, is FileAction.DeleteRemote -> null
+    }
+
+    private fun moveRefusal(from: FileRecord, to: FileRecord): String? = when {
+        from.state !is FileRecord.State.Present || to.state !is FileRecord.State.Present -> "a side has no bytes"
+        from.content == null || from.content != to.content -> "content not known to match"
+        else -> null
     }
 
     private suspend fun computeHash(
@@ -360,7 +372,8 @@ internal class FileActionRunner(
             ?: error("Cannot delete local file ${action.file.id} because it has no locator")
 
         // Deleting over an edit the plan never saw would destroy it.
-        val row = storage.index.findFile(IndexedFileKey(fileId = action.id.value, sourceId = source.id))
+        val row =
+            storage.index.findFile(IndexedFileKey(fileId = action.id.value, sourceId = source.id))
         if (row == null || !row.toFileRecord().sameAs(action.file)) {
             Timber.w("Not deleting ${action.file.path} in source ${source.id}: it changed since planned")
             return
@@ -457,7 +470,43 @@ internal class FileActionRunner(
             operation = RemoteOperation.File.AdoptVersion(
                 key = key,
                 version = version.toDto(),
-                expected = expected?.let { ContentHashDto(value = it.value, algorithm = it.algorithm) },
+                expected = expected?.let {
+                    ContentHashDto(
+                        value = it.value,
+                        algorithm = it.algorithm
+                    )
+                },
+            ),
+        )
+    }
+
+    private suspend fun moveLocalFile(
+        action: FileAction.MoveLocal,
+        source: SourceEntry,
+    ) {
+        fileMover.move(
+            source = source,
+            from = IndexedFileKey(fileId = action.from.id.value, sourceId = source.id),
+            expected = action.from.content!!,
+            target = action.to,
+            version = action.version,
+            deletedVersion = action.deletedVersion,
+        )
+    }
+
+    private suspend fun moveRemoteFile(
+        action: FileAction.MoveRemote,
+        source: SourceEntry,
+    ) {
+        val expected = action.from.content!!
+        val session = remoteFetcher.connectToDevice(source)
+
+        session.runRemoteOperation(
+            operation = RemoteOperation.File.Move(
+                key = IndexedFileKey(fileId = action.from.id.value, sourceId = source.id),
+                expected = ContentHashDto(value = expected.value, algorithm = expected.algorithm),
+                target = action.to.toDto(source.id, action.version),
+                deletedVersion = action.deletedVersion?.toDto(),
             ),
         )
     }

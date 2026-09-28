@@ -72,6 +72,32 @@ sealed interface FileAction {
     }
 
     /**
+     * A rename: the remote renames its [from] to [to]'s path instead of receiving [to]'s bytes and
+     * deleting [from]. It records [to] under [version] and [from]'s deletion under [deletedVersion].
+     * Both hold the same content.
+     */
+    data class MoveRemote(
+        val from: FileRecord,
+        val to: FileRecord,
+        val version: FileVersion?,
+        val deletedVersion: FileVersion?,
+        override val reason: String,
+    ) : FileAction {
+        override val id: FileId get() = to.id
+    }
+
+    /** [MoveRemote] the other way: the local [from] is renamed to the remote [to]'s path. */
+    data class MoveLocal(
+        val from: FileRecord,
+        val to: FileRecord,
+        val version: FileVersion?,
+        val deletedVersion: FileVersion?,
+        override val reason: String,
+    ) : FileAction {
+        override val id: FileId get() = to.id
+    }
+
+    /**
      * Free local bytes, keep the file in the set.
      * Distinct from [DeleteLocal] on purpose: an executor that maps this onto a deleted that
      * later propagates destroys user data.

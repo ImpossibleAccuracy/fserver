@@ -23,6 +23,7 @@ import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.runner.FileActionRunner
 import com.fserver.core.sync.runner.FileDownloader
 import com.fserver.core.sync.runner.FileEvictor
+import com.fserver.core.sync.runner.FileMover
 import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.runner.SyncRunner
@@ -55,6 +56,7 @@ internal val syncModule = module {
     singleOf(::FileUploader)
     singleOf(::FileDownloader)
     singleOf(::FileEvictor)
+    singleOf(::FileMover)
     singleOf(::RequestedDownloads)
     singleOf(::FileActionRunner)
 

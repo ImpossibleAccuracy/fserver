@@ -68,6 +68,7 @@ class SourceSetupViewModel(
 
     val conditions = SourceConditionsHandler(
         devicesRepository = devicesRepository,
+        sourcesController = sourcesController,
         register = ::register,
         flow = editable,
         scope = viewModelScope,

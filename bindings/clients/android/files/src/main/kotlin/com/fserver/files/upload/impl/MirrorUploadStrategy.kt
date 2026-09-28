@@ -31,7 +31,7 @@ class MirrorUploadStrategy : UploadStrategy {
         val actions = snapshot.join().mapNotNull { (_, local, remote) ->
             decide(local, remote)
         }
-        return UploadDecisions(actions)
+        return UploadDecisions(pairMoves(actions))
     }
 
     private fun decide(local: FileRecord?, remote: FileRecord?): FileAction? =

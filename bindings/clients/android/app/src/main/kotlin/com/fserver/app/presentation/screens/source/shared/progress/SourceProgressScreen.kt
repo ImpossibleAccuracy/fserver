@@ -137,6 +137,9 @@ private fun SourceProgressState.progressDetail(): String = when {
     showsPassDetail && isPlanned ->
         stringResource(R.string.source_progress_detail, actionsDone, actionsPlanned)
 
+    showsPassDetail && isHashing ->
+        stringResource(R.string.source_progress_hashing_detail, filesHashed, filesToHash)
+
     showsPassDetail -> stringResource(R.string.source_progress_scanning_detail)
 
     filesTotal > 0 -> stringResource(R.string.source_progress_files_count, filesDone, filesTotal)

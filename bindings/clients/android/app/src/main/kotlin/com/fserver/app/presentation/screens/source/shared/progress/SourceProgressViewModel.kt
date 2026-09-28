@@ -42,12 +42,15 @@ class SourceProgressViewModel(
 
     private val transfers = sourcesController.progress.transfers
 
+    private val indexing = sourcesController.progress.indexing(key.sourceId)
+
     val state: StateFlow<SourceProgressState> = combine(
         entry,
         pass,
         transfers,
         trustedDevices.devices,
-    ) { source, pass, transfers, devices ->
+        indexing,
+    ) { source, pass, transfers, devices, indexing ->
         source ?: return@combine SourceProgressState()
 
         val local = pass as? SourcePass.Local
@@ -69,7 +72,10 @@ class SourceProgressViewModel(
             actionsPlanned = local?.actionsPlanned ?: 0,
             actionsDone = local?.actionsDone ?: 0,
             isCounted = local != null,
-            isPlanned = local != null && local.stage != SourcePass.Local.Stage.Scanning,
+            isPlanned = local != null && local.stage !in PrePlanStages,
+            isHashing = local?.stage == SourcePass.Local.Stage.Hashing,
+            filesHashed = indexing?.filesHashed ?: 0,
+            filesToHash = indexing?.filesToHash ?: 0,
             filesDone = moving.count { it.state == FileTransfer.State.Completed },
             filesTotal = moving.size,
             filesSkipped = local?.filesSkipped ?: 0,
@@ -101,3 +107,5 @@ class SourceProgressViewModel(
         }
     }
 }
+
+private val PrePlanStages = setOf(SourcePass.Local.Stage.Scanning, SourcePass.Local.Stage.Hashing)

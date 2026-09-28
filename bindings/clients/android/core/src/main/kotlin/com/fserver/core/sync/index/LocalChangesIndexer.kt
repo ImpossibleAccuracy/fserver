@@ -3,12 +3,14 @@ package com.fserver.core.sync.index
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.version.VersionVector
@@ -31,17 +33,53 @@ internal class LocalChangesIndexer(
     private val requirementsChecker: RequirementsChecker,
     private val timeProvider: TimeProvider,
     private val clock: HybridLogicalClock,
+    private val progress: SyncProgressReporter,
 ) {
     private val sourceLocks = ConcurrentHashMap<String, Mutex>()
+    private val renameHashLocks = ConcurrentHashMap<String, Mutex>()
 
     /**
-     * Re-scan [source] and bring the index in line with what is on disk.
+     * Re-scan [source] and bring the index in line with what is on disk, then hash the files that
+     * may be renames (see [renameCandidates]). Reports its own progress.
      *
      * Serialized per source: a local pass and a peer's index request both land here, and two
      * scans writing the same rows interleave into double-bumped version vectors.
      */
-    suspend fun refresh(source: SourceEntry): List<LocalIndexedFile> =
-        lockFor(source).withLock { runRefresh(source) }
+    suspend fun refresh(source: SourceEntry): List<LocalIndexedFile> {
+        progress.indexingStarted(source.id)
+
+        try {
+            val indexed = lockFor(source).withLock { runRefresh(source) }
+            val rehashed = hashRenameCandidates(source)
+
+            progress.indexingFinished(source.id, failed = false)
+            return if (rehashed) store.index.processedFiles(source.id) else indexed
+        } catch (e: Throwable) {
+            progress.indexingFinished(source.id, failed = true)
+            throw e
+        }
+    }
+
+    /**
+     * Hashes outside the index lock, so a long read does not hold scans up; its own lock keeps a
+     * pass and a peer's index request from reading the same files twice.
+     *
+     * @return whether anything was hashed
+     */
+    private suspend fun hashRenameCandidates(source: SourceEntry): Boolean = renameHashLockFor(source).withLock {
+        val candidates = renameCandidates(store.index.processedFiles(source.id))
+        if (candidates.isEmpty()) return@withLock false
+
+        candidates.forEachIndexed { done, row ->
+            progress.indexingHashing(source.id, done, candidates.size)
+
+            runCatchingCancellable { hashFile(source, row) }
+                .onFailure { Timber.w(it, "Could not hash rename candidate ${row.path} in source ${source.id}") }
+        }
+        progress.indexingHashing(source.id, candidates.size, candidates.size)
+
+        true
+    }
 
     private suspend fun runRefresh(source: SourceEntry): List<LocalIndexedFile> {
         requirementsChecker.ensureSourceReachable(source.location)
@@ -54,9 +92,9 @@ internal class LocalChangesIndexer(
             .toMutableMap()
 
         // TODO: filter out temp files
-        val actualState = node.openSource(source.location.toFiles())
-            .scan()
-            .result().getOrThrow()
+        val scan = node.openSource(source.location.toFiles()).scan()
+        scan.progress.collect { progress.indexingScanned(source.id, it.scannedFiles, it.scannedSizeBytes) }
+        val actualState = scan.result().getOrThrow()
 
         val new = mutableListOf<FoundFile>()
         val changed = mutableMapOf<LocalIndexedFile, FoundFile>()
@@ -133,11 +171,11 @@ internal class LocalChangesIndexer(
                 }
 
                 // A deletion is a version like any other, so it can be ordered against a remote edit.
+                // hashStale is kept: a rename is matched by the tombstone's hash.
                 for (saved in toDelete) {
                     this += saved.copy(
                         state = LocalIndexedFile.State.Deleted(deletedAt = currentTime),
                         version = versions.after(saved.version),
-                        hashStale = false,
                         processedAt = currentTime,
                     )
                 }
@@ -272,12 +310,52 @@ internal class LocalChangesIndexer(
                     row.copy(
                         state = LocalIndexedFile.State.Deleted(deletedAt = now),
                         version = version ?: versionIssuer(1).after(row.version),
-                        hashStale = false,
                         processedAt = now,
                     )
                 )
             )
         }
+
+    /**
+     * Records a rename done for a plan: the bytes of [from] now sit at [path] / [locator] as
+     * [fileId] under [version], and [from] is deleted under [deletedVersion] - or a new version of
+     * our own when null. The bytes must already be moved.
+     */
+    suspend fun recordMoved(
+        source: SourceEntry,
+        from: IndexedFileKey,
+        deletedVersion: LocalIndexedFile.Version?,
+        fileId: String,
+        path: String,
+        locator: String,
+        modifiedAt: Instant,
+        version: LocalIndexedFile.Version?,
+    ) = lockFor(source).withLock {
+        val row = store.index.findFile(from)
+            ?: throw IllegalArgumentException("File ${from.fileId} not found in source ${source.id}")
+        val existing = store.index.findFile(IndexedFileKey(fileId = fileId, sourceId = source.id))
+        val now = timeProvider.now()
+
+        store.index.markProcessed(
+            listOf(
+                row.copy(
+                    state = LocalIndexedFile.State.Deleted(deletedAt = now),
+                    version = deletedVersion ?: versionIssuer(1).after(row.version),
+                    processedAt = now,
+                ),
+                // Same bytes, so pin, size and hash carry over.
+                row.copy(
+                    id = existing?.id ?: IdGenerator.nextId,
+                    fileId = fileId,
+                    path = path,
+                    locator = locator,
+                    modifiedAt = modifiedAt,
+                    version = version,
+                    processedAt = now,
+                ),
+            )
+        )
+    }
 
     /**
      * Records [version] for content both sides already agree on: [expected] bytes, or a deletion
@@ -313,8 +391,26 @@ internal class LocalChangesIndexer(
     private fun lockFor(source: SourceEntry): Mutex =
         sourceLocks.computeIfAbsent(source.id) { Mutex() }
 
+    private fun renameHashLockFor(source: SourceEntry): Mutex =
+        renameHashLocks.computeIfAbsent(source.id) { Mutex() }
+
     companion object {
         private const val HashChunkSize = 8192 // 8 KB chunk size
+    }
+}
+
+/**
+ * Unhashed present files that may be a rename: same size and mtime as a tombstone with a trusted
+ * hash. A file never sent needs no rename, and a sent one was hashed on the way.
+ */
+internal fun renameCandidates(rows: List<LocalIndexedFile>): List<LocalIndexedFile> {
+    val tombstones = rows
+        .filter { it.isDeleted && it.hash != null && !it.hashStale }
+        .mapTo(HashSet()) { it.size to it.modifiedAt }
+    if (tombstones.isEmpty()) return emptyList()
+
+    return rows.filter {
+        it.state is LocalIndexedFile.State.Present && it.hash == null && (it.size to it.modifiedAt) in tombstones
     }
 }
 

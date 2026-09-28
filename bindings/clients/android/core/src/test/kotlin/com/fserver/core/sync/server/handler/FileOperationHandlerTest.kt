@@ -5,6 +5,9 @@ import com.fserver.common.exception.SyncException
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.common.model.ContentHash
+import com.fserver.core.network.dictionary.dto.ContentHashDto
+import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.VersionDto
 import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.support.FakeRequirementsChecker
@@ -20,6 +23,7 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.runner.FileMover
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.version.HybridLogicalClock
@@ -35,6 +39,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.security.MessageDigest
+import kotlin.time.Instant
 
 /**
  * What a peer may have done to a file this device holds.
@@ -51,7 +56,7 @@ class FileOperationHandlerTest {
     private val storage = FakeStorage(clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
     private val indexer =
-        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
+        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock))
     private val progress = SyncProgressReporter(clock)
 
     private lateinit var root: File
@@ -72,6 +77,7 @@ class FileOperationHandlerTest {
             node = node,
             localIndexer = indexer,
             fileUploader = FileUploader(storage, indexer, node, progress, clock),
+            fileMover = FileMover(storage, node, indexer),
         )
 
         storage.sources.upsert(
@@ -210,6 +216,92 @@ class FileOperationHandlerTest {
         assertNull(storage.index.findFile(key())?.hash)
     }
 
+    @Test
+    fun `a move renames the file and indexes both paths under the peer's versions`() = runTest {
+        hashIndexed()
+        val version = VersionDto(vector = mapOf(OwnerId to 1L), hlc = 7, originDevice = OwnerId)
+        val deleted = VersionDto(vector = mapOf(OwnerId to 2L), hlc = 8, originDevice = OwnerId)
+
+        handler.handle(owner, move(target = target(version), deletedVersion = deleted))
+
+        val moved = storage.index.findFile(IndexedFileKey(MovedIdValue, SourceId))
+        assertTrue(!file.exists())
+        assertEquals(Contents, File(root, MovedName).readText())
+        assertEquals(MovedName, moved?.path)
+        assertEquals(version.toIndexed(), moved?.version)
+        assertEquals(sha256(Contents.toByteArray()), moved?.hash?.value)
+        assertTrue(storage.index.findFile(key())?.state is LocalIndexedFile.State.Deleted)
+        assertEquals(deleted.toIndexed(), storage.index.findFile(key())?.version)
+    }
+
+    @Test
+    fun `a move over a file not indexed yet is refused and touches nothing`() = runTest {
+        hashIndexed()
+        File(root, MovedName).writeText("not indexed yet")
+
+        val failure = runCatching { handler.handle(owner, move(target = target(version = null))) }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals("not indexed yet", File(root, MovedName).readText())
+        assertTrue(file.exists())
+    }
+
+    @Test
+    fun `a move of bytes that changed since planned is refused`() = runTest {
+        hashIndexed()
+
+        val failure = runCatching {
+            handler.handle(owner, move(target = target(version = null), expected = "other"))
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertTrue(file.exists())
+        assertTrue(!File(root, MovedName).exists())
+    }
+
+    @Test
+    fun `a one-way initiator refuses its follower's move`() = runTest {
+        hashIndexed()
+        val source = storage.sources.findById(SourceId)!!
+        storage.sources.upsert(
+            source.copy(syncMode = SyncMode.AutoUpload(ignoreFilesBefore = null), role = SourceEntry.Role.Initiator)
+        )
+
+        val failure = runCatching { handler.handle(owner, move(target = target(version = null))) }.exceptionOrNull()
+
+        assertTrue(failure is SyncException.ModeForbiddenException)
+        assertTrue(file.exists())
+    }
+
+    private suspend fun hashIndexed() {
+        val row = storage.index.findFile(key())!!
+        storage.index.markProcessed(listOf(row.copy(hash = ContentHash(sha256(Contents.toByteArray()), "SHA-256"))))
+    }
+
+    private fun move(
+        target: FileRecordDto,
+        expected: String = sha256(Contents.toByteArray()),
+        deletedVersion: VersionDto? = null,
+    ) = RemoteOperation.File.Move(
+        key = key(),
+        expected = ContentHashDto(value = expected, algorithm = "SHA-256"),
+        target = target,
+        deletedVersion = deletedVersion,
+    )
+
+    private fun target(version: VersionDto?) = FileRecordDto(
+        id = MovedIdValue,
+        sourceId = SourceId,
+        path = MovedName,
+        state = FileRecordDto.State.Present(),
+        content = ContentHashDto(value = sha256(Contents.toByteArray()), algorithm = "SHA-256"),
+        metadata = FileRecordDto.Metadata(
+            size = Contents.length.toLong(),
+            lastModified = Instant.fromEpochMilliseconds(file.lastModified()),
+            version = version,
+        ),
+    )
+
     private fun key() = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
 
     /** A peer that takes every upload, holding [resumeFrom] bytes of it before the first chunk. */
@@ -237,6 +329,8 @@ class FileOperationHandlerTest {
         const val StrangerId = "device-stranger"
         const val FileIdValue = "file-1"
         const val FileName = "photo.jpg"
+        const val MovedIdValue = "file-2"
+        const val MovedName = "renamed.jpg"
         const val Contents = "the actual file contents"
     }
 }

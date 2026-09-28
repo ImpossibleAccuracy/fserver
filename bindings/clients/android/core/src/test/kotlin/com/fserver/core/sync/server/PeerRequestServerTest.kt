@@ -18,6 +18,7 @@ import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.runner.FileMover
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.server.handler.FetchFilesHandler
@@ -78,7 +79,7 @@ class PeerRequestServerTest {
         FilesNode.create(ContextWrapper(null), stagingDir = File(temp.root, "staging"))
     }
     private val indexer by lazy {
-        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
+        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock))
     }
     private val staging by lazy { UploadStaging(storage, node, clock) }
     private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, node, clock)) }
@@ -244,6 +245,7 @@ class PeerRequestServerTest {
                 node = node,
                 localIndexer = indexer,
                 fileUploader = FileUploader(storage, indexer, node, progress, clock),
+                fileMover = FileMover(storage, node, indexer),
             ),
             uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress, RequestedDownloads()),
             devicesRepository = mockk(relaxed = true),
@@ -259,7 +261,7 @@ class PeerRequestServerTest {
 
     private fun realFetchFiles() = FetchFilesHandler(
         authorizer = authorizer(),
-        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock)),
+        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock)),
     )
 
     /** Publishes a session the way the node would, and waits until the server has taken it up. */

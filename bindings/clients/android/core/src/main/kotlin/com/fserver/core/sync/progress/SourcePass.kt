@@ -48,6 +48,9 @@ sealed interface SourcePass {
             /** Walking the source and bringing the local index in line with what is on disk. */
             Scanning,
 
+            /** Hashing possible renames; counts are in [IndexingProgress]. */
+            Hashing,
+
             /** Both indexes in hand, working out what has to move. */
             Planning,
 

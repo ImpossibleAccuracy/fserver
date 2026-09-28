@@ -5,6 +5,7 @@ import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.network.dictionary.dto.toFiles
 import com.fserver.core.network.dictionary.dto.toIndexed
 import com.fserver.core.store.FServerStorage
@@ -12,6 +13,7 @@ import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.acceptsPeerWrites
 import com.fserver.core.sync.model.peerDrivesSync
+import com.fserver.core.sync.runner.FileMover
 import com.fserver.core.sync.runner.FileUploader
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.files.FilesNode
@@ -20,13 +22,14 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
-/** Runs what the peer asks us to do to one file we hold: hash it, delete it, or send it back. */
+/** Runs what the peer asks us to do to one file we hold: hash, delete, rename it, or send it back. */
 internal class FileOperationHandler(
     private val authorizer: SourceAuthorizer,
     private val storage: FServerStorage,
     private val node: FilesNode,
     private val localIndexer: LocalChangesIndexer,
     private val fileUploader: FileUploader,
+    private val fileMover: FileMover,
 ) {
     suspend fun handle(
         session: PeerSession<FileServerMessages>,
@@ -39,7 +42,7 @@ internal class FileOperationHandler(
 
         val allowed = when (operation) {
             is RemoteOperation.File.Hash, is RemoteOperation.File.Download -> true
-            is RemoteOperation.File.Delete -> source.acceptsPeerWrites
+            is RemoteOperation.File.Delete, is RemoteOperation.File.Move -> source.acceptsPeerWrites
             is RemoteOperation.File.AdoptVersion -> source.peerDrivesSync
         }
 
@@ -63,6 +66,19 @@ internal class FileOperationHandler(
                 localIndexer.recordDeleted(source, operation.key, operation.version?.toIndexed())
 
                 Timber.i("Deleted file ${file.path} from source ${source.id} as requested by peer ${session.identity.deviceId}")
+            }
+
+            is RemoteOperation.File.Move -> {
+                val target = operation.target.toFileRecord()
+
+                fileMover.move(
+                    source = source,
+                    from = operation.key,
+                    expected = ContentHash(value = operation.expected.value, algorithm = operation.expected.algorithm),
+                    target = target,
+                    version = target.metadata.version,
+                    deletedVersion = operation.deletedVersion?.toFiles(),
+                )
             }
 
             is RemoteOperation.File.AdoptVersion -> localIndexer.adoptVersion(

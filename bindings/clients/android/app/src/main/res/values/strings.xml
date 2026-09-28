@@ -826,6 +826,7 @@
     <string name="source_progress_files_detail">%1$d files so far</string>
     <string name="source_progress_skipped">%1$d skipped by limits</string>
     <string name="source_progress_scanning_detail">Reading the folder…</string>
+    <string name="source_progress_hashing_detail">Checking renamed files… %1$d of %2$d</string>
     <string name="source_progress_refused_title">%1$s refused the source</string>
     <string name="source_progress_background_note">You can close this — the setup and the transfer carry on without the screen.</string>
     <string name="source_progress_close">Close</string>

@@ -1,5 +1,8 @@
 package com.fserver.core.sync.index
 
+import com.fserver.core.sync.progress.IndexingProgress
+import com.fserver.core.sync.progress.SourcePass
+import com.fserver.core.sync.progress.SyncProgressReporter
 import android.content.ContextWrapper
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
@@ -12,6 +15,7 @@ import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.version.VersionVector
 import com.fserver.files.FilesNode
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,7 +42,8 @@ class LocalChangesIndexerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
-    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock))
+    private val progress = SyncProgressReporter(clock)
+    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), progress)
 
     private lateinit var root: File
     private lateinit var source: SourceEntry
@@ -275,6 +280,76 @@ class LocalChangesIndexerTest {
 
         val key = IndexedFileKey(fileId = indexed.fileId, sourceId = SourceId)
         assertEquals(sha256("hash me".toByteArray()), storage.index.findFile(key)?.hash?.value)
+    }
+
+    @Test
+    fun `a rename of a hashed file hashes the new path, so a plan can match it with the tombstone`() = runTest {
+        val file = write("photo.jpg", "one")
+        val before = hashed(indexer.refresh(source).single())
+
+        file.renameTo(File(root, "renamed.jpg"))
+        val indexed = indexer.refresh(source)
+
+        val tombstone = indexed.single { it.path == "photo.jpg" }
+        val renamed = indexed.single { it.path == "renamed.jpg" }
+        assertTrue(tombstone.state is LocalIndexedFile.State.Deleted)
+        assertEquals(before.hash, tombstone.hash)
+        assertEquals(before.hash, renamed.hash)
+        // Hashing an unhashed row proves nothing new, so the file keeps its first version.
+        assertEquals(VersionVector(mapOf(LocalId to 1L)), renamed.version?.vector)
+    }
+
+    @Test
+    fun `a rename of a file never hashed hashes nothing`() = runTest {
+        val file = write("photo.jpg", "one")
+        indexer.refresh(source)
+
+        file.renameTo(File(root, "renamed.jpg"))
+        val indexed = indexer.refresh(source)
+
+        assertNull(indexed.single { it.path == "renamed.jpg" }.hash)
+        assertEquals(0, progress.indexing(SourceId).first()?.filesToHash)
+    }
+
+    @Test
+    fun `a tombstone with a stale hash matches no rename`() = runTest {
+        val file = write("photo.jpg", "one")
+        hashed(indexer.refresh(source).single())
+        file.setLastModified(file.lastModified() + 60_000)
+        indexer.refresh(source)
+
+        file.renameTo(File(root, "renamed.jpg"))
+        val indexed = indexer.refresh(source)
+
+        assertTrue(indexed.single { it.path == "photo.jpg" }.hashStale)
+        assertNull(indexed.single { it.path == "renamed.jpg" }.hash)
+    }
+
+    @Test
+    fun `an indexing run reports what it scanned and hashed`() = runTest {
+        val file = write("photo.jpg", "one")
+        hashed(indexer.refresh(source).single())
+        file.renameTo(File(root, "renamed.jpg"))
+
+        indexer.refresh(source)
+
+        val run = progress.indexing(SourceId).first()!!
+        assertEquals(IndexingProgress.Stage.Finished, run.stage)
+        assertEquals(1, run.filesScanned)
+        assertEquals(1, run.filesHashed)
+        assertEquals(1, run.filesToHash)
+    }
+
+    @Test
+    fun `a pass still indexing shows the hashing as its stage`() = runTest {
+        val file = write("photo.jpg", "one")
+        hashed(indexer.refresh(source).single())
+        file.renameTo(File(root, "renamed.jpg"))
+        progress.localPassStarted(SourceId)
+
+        indexer.refresh(source)
+
+        assertEquals(SourcePass.Local.Stage.Hashing, (progress.pass(SourceId).first() as SourcePass.Local).stage)
     }
 
     private suspend fun hashed(file: LocalIndexedFile): LocalIndexedFile {

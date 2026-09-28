@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 /**
  * The engine's side of [SyncProgressRepository]: every state change goes through here.
  *
- * Two maps behind two `StateFlow`s rather than a bus of events, because a screen that subscribes
+ * Maps behind `StateFlow`s rather than a bus of events, because a screen that subscribes
  * halfway through a pass has to see where the pass already is, not only what happens next.
  */
 internal class SyncProgressReporter(
@@ -21,6 +21,7 @@ internal class SyncProgressReporter(
 ) : SyncProgressRepository {
     private val passState = MutableStateFlow<Map<String, SourcePass>>(emptyMap())
     private val transferState = MutableStateFlow<Map<FileTransferKey, FileTransfer>>(emptyMap())
+    private val indexingState = MutableStateFlow<Map<String, IndexingProgress>>(emptyMap())
 
     override val passes: Flow<List<SourcePass>> =
         passState.map { passes -> passes.values.sortedBy { it.startedAt } }
@@ -31,9 +32,44 @@ internal class SyncProgressReporter(
     override fun pass(sourceId: String): Flow<SourcePass?> =
         passState.map { it[sourceId] }.distinctUntilChanged()
 
+    override fun indexing(sourceId: String): Flow<IndexingProgress?> =
+        indexingState.map { it[sourceId] }.distinctUntilChanged()
+
     override fun clearFinished() {
         passState.update { passes -> passes.filterValues { !it.isFinished } }
         transferState.update { transfers -> transfers.filterValues { !it.isFinished } }
+        indexingState.update { runs -> runs.filterValues { !it.isFinished } }
+    }
+
+    fun indexingStarted(sourceId: String) {
+        val now = timeProvider.now()
+
+        indexingState.update {
+            it + (sourceId to IndexingProgress(
+                sourceId = sourceId,
+                stage = IndexingProgress.Stage.Scanning,
+                startedAt = now,
+                updatedAt = now,
+            ))
+        }
+    }
+
+    fun indexingScanned(sourceId: String, files: Int, bytes: Long) =
+        updateIndexing(sourceId) { it.copy(filesScanned = files, bytesScanned = bytes) }
+
+    /** [done] of [total] possible renames hashed. A local pass still indexing shows it as its stage. */
+    fun indexingHashing(sourceId: String, done: Int, total: Int) {
+        updateIndexing(sourceId) {
+            it.copy(stage = IndexingProgress.Stage.Hashing, filesHashed = done, filesToHash = total)
+        }
+
+        updateLocalPass(sourceId) {
+            if (it.stage == SourcePass.Local.Stage.Scanning) it.copy(stage = SourcePass.Local.Stage.Hashing) else it
+        }
+    }
+
+    fun indexingFinished(sourceId: String, failed: Boolean) = updateIndexing(sourceId) {
+        it.copy(stage = if (failed) IndexingProgress.Stage.Failed else IndexingProgress.Stage.Finished)
     }
 
     /**
@@ -291,6 +327,13 @@ internal class SyncProgressReporter(
         passState.update { passes ->
             val existing = passes[sourceId] as? SourcePass.Local ?: return@update passes
             passes + (sourceId to transform(existing).copy(updatedAt = timeProvider.now()))
+        }
+    }
+
+    private fun updateIndexing(sourceId: String, transform: (IndexingProgress) -> IndexingProgress) {
+        indexingState.update { runs ->
+            val existing = runs[sourceId] ?: return@update runs
+            runs + (sourceId to transform(existing).copy(updatedAt = timeProvider.now()))
         }
     }
 

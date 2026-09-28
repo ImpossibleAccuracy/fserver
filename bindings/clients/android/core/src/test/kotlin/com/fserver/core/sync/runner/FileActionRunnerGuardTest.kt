@@ -54,7 +54,7 @@ class FileActionRunnerGuardTest {
         fileUploader = uploader,
         fileDownloader = downloader,
         fileEvictor = FileEvictor(storage, node, clock),
-        timeProvider = clock,
+        fileMover = mockk(relaxed = true),
         node = node,
     )
 

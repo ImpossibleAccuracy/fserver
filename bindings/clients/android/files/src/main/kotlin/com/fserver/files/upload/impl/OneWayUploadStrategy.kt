@@ -48,7 +48,7 @@ class OneWayUploadStrategy : UploadStrategy {
         val actions = snapshot.join().mapNotNull { (_, local, remote) ->
             decide(params, local, remote)
         }
-        return UploadDecisions(actions)
+        return UploadDecisions(pairMoves(actions))
     }
 
     private fun decide(params: Params, local: FileRecord?, remote: FileRecord?): FileAction? =

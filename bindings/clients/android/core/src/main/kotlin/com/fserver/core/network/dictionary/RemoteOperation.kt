@@ -38,6 +38,18 @@ internal sealed interface RemoteOperation {
             val expected: ContentHashDto?,
         ) : File
 
+        /**
+         * Rename the file - still holding [expected] - to [target]'s path, recording [target] as it
+         * says and the old file's deletion as [deletedVersion], or as the peer's own new one when null.
+         */
+        @Serializable
+        data class Move(
+            override val key: IndexedFileKey,
+            val expected: ContentHashDto,
+            val target: FileRecordDto,
+            val deletedVersion: VersionDto? = null,
+        ) : File
+
         @Serializable
         data class Download(
             override val key: IndexedFileKey,

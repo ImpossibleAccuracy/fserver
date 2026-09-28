@@ -18,17 +18,24 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.Sour
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.shared.error.toAppError
 import com.fserver.core.network.device.DevicesRepository
+import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.progress.IndexingProgress
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -36,10 +43,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SourceConditionsHandler(
     private val devicesRepository: DevicesRepository,
+    private val sourcesController: SourcesController,
     private val register: suspend (SyncMode, SourceEntry.Preferences) -> Result<SourceEntry>,
 
     private val flow: MutableStateFlow<SourceSetupState>,
@@ -128,37 +137,6 @@ class SourceConditionsHandler(
         }
 
         val mode = flow.value.mode
-        val steps = 5
-
-        // TODO
-        repeat(steps) { step ->
-            delay(100)
-            val done = step + 1
-            editable.update {
-                it.copy(
-                    progress = done.toFloat() / steps,
-                    progressDetail = if (mode == SourceModeUi.Offload) {
-                        UiText.of(
-                            R.string.source_prepare_detail_offload,
-                            done * 214,
-                            done * 184 / 100.0,
-                        )
-                    } else {
-                        UiText.of(
-                            R.string.source_progress_detail,
-                            done * 340,
-                            flow.value.source?.files ?: 0,
-                        )
-                    },
-                )
-            }
-        }
-
-        submit()
-    }
-
-    private suspend fun submit() {
-        val mode = flow.value.mode
         val preferences = mode?.let { editable.value.preferencesFor(it) }
         val syncMode = mode?.let { preferences?.toSyncMode(it) }
 
@@ -169,12 +147,8 @@ class SourceConditionsHandler(
             return
         }
 
-        register(syncMode, preferences.toPreferences()).fold(
-            onSuccess = { entry ->
-                editable.update { it.copy(preparing = false) }
-                effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
-            },
-            onFailure = { failure ->
+        val entry = withContext(NonCancellable) { register(syncMode, preferences.toPreferences()) }
+            .getOrElse { failure ->
                 val error = if (failure is SourceSetupIncompleteException) {
                     UiText.of(R.string.source_create_incomplete)
                 } else {
@@ -183,8 +157,52 @@ class SourceConditionsHandler(
                 }
 
                 editable.update { it.copy(preparing = false, error = error) }
-            },
-        )
+                return
+            }
+
+        try {
+            currentCoroutineContext().ensureActive()
+            index(entry.id)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { sourcesController.removeSource(entry.id) }
+            throw e
+        }
+
+        editable.update { it.copy(preparing = false) }
+        effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
+    }
+
+    private suspend fun index(sourceId: String) = coroutineScope {
+        val watcher = launch {
+            sourcesController.progress.indexing(sourceId)
+                .filterNotNull()
+                .collect { run -> editable.update { it.withIndexing(run) } }
+        }
+
+        sourcesController.index(sourceId)
+            .onFailure { reporter.report(it, "Could not index the new source") }
+
+        watcher.cancel()
+    }
+
+    private fun Editable.withIndexing(run: IndexingProgress): Editable {
+        val total = flow.value.source?.files ?: 0
+
+        return when (run.stage) {
+            IndexingProgress.Stage.Hashing -> copy(
+                progress = run.filesHashed.toFloat() / run.filesToHash.coerceAtLeast(1),
+                progressDetail = UiText.of(R.string.source_progress_hashing_detail, run.filesHashed, run.filesToHash),
+            )
+
+            else -> copy(
+                progress = if (total > 0) (run.filesScanned.toFloat() / total).coerceAtMost(1f) else 0f,
+                progressDetail = if (flow.value.mode == SourceModeUi.Offload) {
+                    UiText.of(R.string.source_prepare_detail_offload, run.filesScanned, run.bytesScanned / BytesPerGb)
+                } else {
+                    UiText.of(R.string.source_progress_detail, run.filesScanned, total)
+                },
+            )
+        }
     }
 
     private data class Editable(
@@ -202,3 +220,5 @@ class SourceConditionsHandler(
         preferences?.takeIf { preferencesMode == mode }
             ?: SourcePreferencesUi.build(mode, SourceRoleUi.Initiator)
 }
+
+private const val BytesPerGb = 1_000_000_000.0

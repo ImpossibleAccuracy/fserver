@@ -12,6 +12,9 @@ interface SyncProgressRepository {
 
     fun pass(sourceId: String): Flow<SourcePass?>
 
+    /** The newest indexing run over [sourceId], whether a pass, a peer or the host started it. */
+    fun indexing(sourceId: String): Flow<IndexingProgress?>
+
     /** Drops what has finished. Anything still moving is left alone. */
     fun clearFinished()
 }
