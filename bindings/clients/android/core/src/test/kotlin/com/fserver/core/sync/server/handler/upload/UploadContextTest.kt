@@ -6,8 +6,7 @@ import com.fserver.core.support.InMemoryFileSystem
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.server.SessionContext
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CoroutineScope
@@ -139,14 +138,14 @@ class UploadContextTest {
     @Test
     fun `a chunk that does not fit the session buffer is refused, not queued`() = runTest {
         // One byte short of the cap: any chunk at all overflows it.
-        buffered.set(SessionContext.InFlightChunkBytesLimit - 1)
+        buffered.set(SessionUploads.InFlightChunkBytesLimit - 1)
         val upload = upload(size = 64)
 
         val accepted = upload.offer(chunk(offset = 0, bytes = ByteArray(64)))
 
         assertFalse(accepted)
         // Refusing must not eat the budget it briefly reserved, or the session starves itself.
-        assertEquals(SessionContext.InFlightChunkBytesLimit - 1, buffered.get())
+        assertEquals(SessionUploads.InFlightChunkBytesLimit - 1, buffered.get())
 
         upload.close()
     }

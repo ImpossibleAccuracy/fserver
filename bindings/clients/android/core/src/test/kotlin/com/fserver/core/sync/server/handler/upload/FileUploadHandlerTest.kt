@@ -7,6 +7,7 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.fileDto
@@ -16,10 +17,10 @@ import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
-import com.fserver.core.sync.runner.RequestedDownloads
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.files.FilesNode
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.CoroutineScope
@@ -72,19 +73,19 @@ class FileUploadHandlerTest {
     fun setUp() = runBlocking {
         root = temp.newFolder("source-root")
         stagingDir = temp.newFolder("staging")
-        context = SessionContext(scope)
 
         val node = FilesNode.create(ContextWrapper(null), stagingDir = stagingDir)
         staging = UploadStaging(storage, node, clock)
         handler = FileUploadHandler(
             authorizer = SourceAuthorizer(storage),
-            storage = storage,
+            admission = UploadAdmission(storage, requested),
+            indexWriter = LocalIndex(storage, node, clock).writer,
             node = node,
             staging = staging,
             timeProvider = clock,
             progress = progress,
-            requestedDownloads = requested,
         )
+        context = SessionContext(scope, handler.sessionUploads(scope))
 
         storage.sources.upsert(
             sourceEntry(
@@ -161,7 +162,7 @@ class FileUploadHandlerTest {
         awaitStaged(6)
 
         handler.sessionEnded(context)
-        context = SessionContext(scope)
+        context = SessionContext(scope, handler.sessionUploads(scope))
 
         val resumed = init(owner, size = bytes.size.toLong())
         assertEquals(6L, (resumed as Upload.Received).offset)
@@ -178,7 +179,7 @@ class FileUploadHandlerTest {
         handler.queueChunk(chunk("hello ".toByteArray()), context)
         awaitStaged(6)
         handler.sessionEnded(context)
-        context = SessionContext(scope)
+        context = SessionContext(scope, handler.sessionUploads(scope))
 
         val restarted = init(owner, size = 12)
 
@@ -194,7 +195,7 @@ class FileUploadHandlerTest {
         assertTrue(push(bytes) is Upload.Failed)
 
         File(root, FilePath).delete()
-        context = SessionContext(scope)
+        context = SessionContext(scope, handler.sessionUploads(scope))
 
         val resumed = init(owner, size = bytes.size.toLong())
         assertEquals(bytes.size.toLong(), (resumed as Upload.Received).offset)
@@ -228,7 +229,7 @@ class FileUploadHandlerTest {
         val answer = complete(owner, "0123456789".toByteArray())
 
         assertEquals(5L, (answer as Upload.Received).offset)
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(context.uploads.inFlight.isEmpty())
         assertFalse(File(root, FilePath).exists())
     }
 
@@ -236,7 +237,7 @@ class FileUploadHandlerTest {
     fun `a push into a source that syncs with another device is refused`() = runTest {
         assertTrue(init(stranger) is Upload.Failed)
 
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(context.uploads.inFlight.isEmpty())
         assertEquals(emptyList<File>(), root.listFiles()?.toList().orEmpty())
         assertTrue(stagingDir.listFiles().isNullOrEmpty())
     }
@@ -249,7 +250,7 @@ class FileUploadHandlerTest {
         )
 
         assertTrue(init(owner) is Upload.Failed)
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(context.uploads.inFlight.isEmpty())
 
         requested.awaiting(OwnerId, key) {
             assertTrue(init(owner) is Upload.Received)
@@ -390,7 +391,7 @@ class FileUploadHandlerTest {
         storage.index.markProcessed(listOf(indexedFile(fileId = "other", sourceId = SourceId)))
 
         assertTrue(init(owner) is Upload.OverLimit)
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(context.uploads.inFlight.isEmpty())
         assertNull(storage.uploads.find(key))
     }
 
@@ -468,7 +469,7 @@ class FileUploadHandlerTest {
 
     /** Chunks are written off the collector; a test that parks the upload waits for them first. */
     private fun awaitStaged(bytes: Long) {
-        val upload = context.uploads.getValue(key)
+        val upload = context.uploads.inFlight.getValue(key)
         val deadline = System.currentTimeMillis() + 5_000
 
         while (upload.prefix < bytes) {

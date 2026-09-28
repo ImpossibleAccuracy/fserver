@@ -1,10 +1,10 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.fileops
 
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
@@ -20,7 +20,7 @@ import java.io.FileNotFoundException
 internal class FileMover(
     private val storage: FServerStorage,
     private val node: FilesNode,
-    private val localIndexer: LocalChangesIndexer,
+    private val indexWriter: LocalIndexWriter,
 ) {
     /**
      * Moves the bytes of [from] to [target]'s path, recording [target] under [version] and [from]'s
@@ -55,7 +55,7 @@ internal class FileMover(
             // Recorded as the disk reports it, or the next scan reads a mismatch as a local edit.
             val modifiedAt = placed.settleLastModified(target.metadata.lastModified)
 
-            localIndexer.recordMoved(
+            indexWriter.recordMoved(
                 source = source,
                 from = from,
                 deletedVersion = deletedVersion?.toIndexed(),

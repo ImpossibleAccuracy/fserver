@@ -9,7 +9,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerConnector
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -31,7 +31,7 @@ class SourceSetupExchangeTest {
 
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
-    private val peers = mockk<PeerIndexFetcher>()
+    private val peers = mockk<PeerConnector>()
 
     private val ownerSession = FakePeerSession(identity = peerIdentity(OwnerId))
     private val exchange = SourceSetupExchange(storage, peers, clock)

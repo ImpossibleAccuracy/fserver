@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 
 
 /** Check if the device meets the specified constraints for synchronization. */
-class DeviceConstraintChecker(
+internal class DeviceConstraintChecker(
     private val context: Context,
     private val networkInfoRepository: NetworkInfoRepository,
 ) {

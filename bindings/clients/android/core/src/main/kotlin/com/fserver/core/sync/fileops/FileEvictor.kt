@@ -1,12 +1,12 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.fileops
 
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -16,7 +16,7 @@ import timber.log.Timber
 internal class FileEvictor(
     private val storage: FServerStorage,
     private val node: FilesNode,
-    private val timeProvider: TimeProvider,
+    private val indexWriter: LocalIndexWriter,
 ) {
     /**
      * Evicts [fileId] only while it is still unpinned and holds [expected], and the peer confirmed
@@ -50,7 +50,7 @@ internal class FileEvictor(
                 return@withContext false
             }
 
-            storage.index.updateFileState(key, LocalIndexedFile.State.Evicted(evictedAt = timeProvider.now()))
+            indexWriter.recordEvicted(source, key)
             true
         }
     }

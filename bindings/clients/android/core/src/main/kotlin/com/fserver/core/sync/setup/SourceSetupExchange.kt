@@ -7,7 +7,8 @@ import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.model.SourceRemovedReason
+import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.util.TimeProvider
 import com.fserver.net.security.identity.PeerIdentity
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ import timber.log.Timber
  */
 internal class SourceSetupExchange(
     private val storage: FServerStorage,
-    private val peers: PeerIndexFetcher,
+    private val peers: PeerConnector,
     private val timeProvider: TimeProvider,
 ) {
     /** Every ask waiting on this device's user, oldest first. */
@@ -41,6 +42,26 @@ internal class SourceSetupExchange(
                 )
             )
             .getOrThrow()
+    }
+
+    /**
+     * Re-asks the peer of every source in [sources] still pending here. It may have accepted while
+     * we were offline, and a peer that already answered answers again instead of asking its user twice.
+     */
+    suspend fun resendPending(sources: List<SourceEntry>) {
+        val pending = sources.filter {
+            it.role == SourceEntry.Role.Initiator && it.status == SourceEntry.Status.Pending
+        }
+
+        for (source in pending) {
+            val current = storage.sources.findById(source.id)
+                ?.takeIf { it.status == SourceEntry.Status.Pending }
+                ?: continue
+
+            runCatchingCancellable { requestRemote(current) }
+                .exceptionOrNull()
+                ?.let { Timber.w(it, "Could not re-ask ${current.deviceId} to host source ${current.id}") }
+        }
     }
 
     /**
@@ -78,7 +99,7 @@ internal class SourceSetupExchange(
                 deviceId = peer.deviceId,
                 sourceId = message.sourceId,
                 accepted = false,
-                reason = if (tombstone.location == null) RejectedReason else RemovedReason,
+                reason = if (tombstone.location == null) RejectedReason else SourceRemovedReason,
             )
             return
         }
@@ -225,8 +246,6 @@ internal class SourceSetupExchange(
 
     companion object {
         private const val RejectedReason = "Rejected by user"
-
-        private const val RemovedReason = "Source was removed on the other device"
 
         private const val RefusedReason = "Refused by the other device"
     }

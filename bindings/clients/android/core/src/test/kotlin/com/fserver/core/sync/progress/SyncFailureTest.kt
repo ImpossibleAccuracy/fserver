@@ -7,6 +7,7 @@ import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.requirement.Requirement
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.support.MutableTimeProvider
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

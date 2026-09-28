@@ -6,36 +6,30 @@ import com.fserver.common.utils.SourcePaths
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.files.scan.toFiles
-import com.fserver.core.files.util.FileHasher
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.version.HlcTimestamp
-import com.fserver.core.sync.version.HybridLogicalClock
-import com.fserver.core.sync.version.VersionVector
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FoundFile
-import com.fserver.files.upload.FileRecord
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Instant
 
+/** Brings a source's local index in line with its folder. Writes outside a scan go through [LocalIndexWriter]. */
 internal class LocalChangesIndexer(
     private val store: FServerStorage,
     private val node: FilesNode,
     private val requirementsChecker: RequirementsChecker,
     private val timeProvider: TimeProvider,
-    private val clock: HybridLogicalClock,
+    private val locks: SourceIndexLocks,
+    private val versions: LocalVersions,
+    private val hasher: LocalFileHasher,
     private val progress: SyncProgressReporter,
 ) {
-    private val sourceLocks = ConcurrentHashMap<String, Mutex>()
     private val renameHashLocks = ConcurrentHashMap<String, Mutex>()
 
     /**
@@ -49,7 +43,7 @@ internal class LocalChangesIndexer(
         progress.indexingStarted(source.id)
 
         try {
-            val indexed = lockFor(source).withLock { runRefresh(source) }
+            val indexed = locks.withLock(source.id) { runRefresh(source) }
             val rehashed = hashRenameCandidates(source)
 
             progress.indexingFinished(source.id, failed = false)
@@ -73,7 +67,7 @@ internal class LocalChangesIndexer(
         candidates.forEachIndexed { done, row ->
             progress.indexingHashing(source.id, done, candidates.size)
 
-            runCatchingCancellable { hashFile(source, row) }
+            runCatchingCancellable { hasher.hashFile(source, row) }
                 .onFailure { Timber.w(it, "Could not hash rename candidate ${row.path} in source ${source.id}") }
         }
         progress.indexingHashing(source.id, candidates.size, candidates.size)
@@ -122,7 +116,7 @@ internal class LocalChangesIndexer(
         }
 
         // Every certain change is a new version: a new file, new bytes, or a deletion.
-        val versions = versionIssuer(new.size + changed.size + toDelete.size)
+        val versions = this.versions.issuer(new.size + changed.size + toDelete.size)
 
         val toSave =
             ArrayList<LocalIndexedFile>(new.size + changed.size + touched.size + toDelete.size).apply {
@@ -187,216 +181,8 @@ internal class LocalChangesIndexer(
         return store.index.processedFiles(source.id)
     }
 
-    /** Run hash computation for file record */
-    suspend fun hashFile(source: SourceEntry, local: FileRecord) {
-        val locator = local.locator
-            ?: error("Cannot hash file without locator: ${local.path} in source ${source.id}")
-
-        val key = IndexedFileKey(fileId = local.id.value, sourceId = source.id)
-        hashFile(
-            source = source,
-            key = key,
-            locator = locator,
-            size = local.metadata.size,
-            modifiedAt = local.metadata.lastModified
-        )
-    }
-
-    /** Run hash computation for indexed file */
-    suspend fun hashFile(source: SourceEntry, local: LocalIndexedFile) {
-        val key = IndexedFileKey(fileId = local.fileId, sourceId = source.id)
-        hashFile(
-            source = source,
-            key = key,
-            locator = local.locator,
-            size = local.size.bytes,
-            modifiedAt = local.modifiedAt
-        )
-
-        Timber.d("Hashed file ${local.path} in source ${source.id} with locator ${local.locator}")
-    }
-
-    /** Records [hash], read from the bytes [local] described while they were being sent. */
-    suspend fun recordHash(source: SourceEntry, local: FileRecord, hash: ContentHash) {
-        val key = IndexedFileKey(fileId = local.id.value, sourceId = source.id)
-        recordHash(
-            source = source,
-            key = key,
-            size = local.metadata.size,
-            modifiedAt = local.metadata.lastModified,
-            hash = hash
-        )
-    }
-
-    /** Hashing reads the whole file, so it runs outside the source lock; [recordHash] re-checks. */
-    private suspend fun hashFile(
-        source: SourceEntry,
-        key: IndexedFileKey,
-        locator: String,
-        size: Long,
-        modifiedAt: Instant,
-    ) {
-        val hasher = FileHasher()
-
-        withContext(Dispatchers.IO) {
-            val fs = node.openSource(source.location.toFiles())
-            val file = fs.openFile(locator) ?: throw FileNotFoundException(locator)
-
-            file.read().use { stream ->
-                val buffer = ByteArray(HashChunkSize)
-                var bytesRead: Int
-
-                while (stream.read(buffer).also { bytesRead = it } != -1) {
-                    hasher.write(buffer, bytesRead)
-                }
-            }
-        }
-
-        recordHash(
-            source = source,
-            key = key,
-            size = size,
-            modifiedAt = modifiedAt,
-            hash = hasher.compute()
-        )
-    }
-
-    /**
-     * The one place a hash lands. Bytes that differ from the last hashed ones are an edit nobody
-     * versioned yet, so they get a version now.
-     */
-    private suspend fun recordHash(
-        source: SourceEntry,
-        key: IndexedFileKey,
-        size: Long,
-        modifiedAt: Instant,
-        hash: ContentHash,
-    ) = lockFor(source).withLock {
-        val row = store.index.findFile(key) ?: return@withLock
-
-        // Rescanned while hashing: the hash may describe bytes that are no longer there.
-        if (row.state !is LocalIndexedFile.State.Present ||
-            row.size.bytes != size ||
-            row.modifiedAt != modifiedAt
-        ) {
-            Timber.d("Dropping hash of ${row.path} in source ${source.id}: file changed meanwhile")
-            return@withLock
-        }
-
-        val edited = row.hash != null && row.hash != hash
-        val version = if (edited) versionIssuer(1).after(row.version) else row.version
-
-        store.index.markProcessed(
-            listOf(row.copy(hash = hash, hashStale = false, version = version))
-        )
-    }
-
-    /**
-     * Records a deletion done on the peer's behalf, as the peer's [version] - or, with none given,
-     * as a new version of this device's own. The bytes must already be gone.
-     */
-    suspend fun recordDeleted(
-        source: SourceEntry,
-        key: IndexedFileKey,
-        version: LocalIndexedFile.Version?
-    ) =
-        lockFor(source).withLock {
-            val row = store.index.findFile(key)
-                ?: throw IllegalArgumentException("File ${key.fileId} not found in source ${source.id}")
-            val now = timeProvider.now()
-
-            store.index.markProcessed(
-                listOf(
-                    row.copy(
-                        state = LocalIndexedFile.State.Deleted(deletedAt = now),
-                        version = version ?: versionIssuer(1).after(row.version),
-                        processedAt = now,
-                    )
-                )
-            )
-        }
-
-    /**
-     * Records a rename done for a plan: the bytes of [from] now sit at [path] / [locator] as
-     * [fileId] under [version], and [from] is deleted under [deletedVersion] - or a new version of
-     * our own when null. The bytes must already be moved.
-     */
-    suspend fun recordMoved(
-        source: SourceEntry,
-        from: IndexedFileKey,
-        deletedVersion: LocalIndexedFile.Version?,
-        fileId: String,
-        path: String,
-        locator: String,
-        modifiedAt: Instant,
-        version: LocalIndexedFile.Version?,
-    ) = lockFor(source).withLock {
-        val row = store.index.findFile(from)
-            ?: throw IllegalArgumentException("File ${from.fileId} not found in source ${source.id}")
-        val existing = store.index.findFile(IndexedFileKey(fileId = fileId, sourceId = source.id))
-        val now = timeProvider.now()
-
-        store.index.markProcessed(
-            listOf(
-                row.copy(
-                    state = LocalIndexedFile.State.Deleted(deletedAt = now),
-                    version = deletedVersion ?: versionIssuer(1).after(row.version),
-                    processedAt = now,
-                ),
-                // Same bytes, so pin, size and hash carry over.
-                row.copy(
-                    id = existing?.id ?: IdGenerator.nextId,
-                    fileId = fileId,
-                    path = path,
-                    locator = locator,
-                    modifiedAt = modifiedAt,
-                    version = version,
-                    processedAt = now,
-                ),
-            )
-        )
-    }
-
-    /**
-     * Records [version] for content both sides already agree on: [expected] bytes, or a deletion
-     * when null. Refused when the file changed since, so a fresh local edit is never relabelled
-     * as something the peer already has.
-     */
-    suspend fun adoptVersion(
-        source: SourceEntry,
-        key: IndexedFileKey,
-        version: LocalIndexedFile.Version,
-        expected: ContentHash?,
-    ) = lockFor(source).withLock {
-        val row = store.index.findFile(key)
-            ?: throw IllegalArgumentException("File ${key.fileId} not found in source ${source.id}")
-
-        val unchanged =
-            if (expected == null) row.isDeleted
-            else !row.isDeleted && !row.hashStale && row.hash == expected
-        check(unchanged) { "File ${row.path} in source ${source.id} changed since the merge was planned" }
-
-        store.index.markProcessed(
-            listOf(row.copy(version = version))
-        )
-    }
-
-
-    /** Issues [count] new versions of this device's own, each stamped with its own HLC reading. */
-    private suspend fun versionIssuer(count: Int) = VersionIssuer(
-        deviceId = store.identity.localDevice().deviceId,
-        stamps = clock.ticks(count).iterator(),
-    )
-
-    private fun lockFor(source: SourceEntry): Mutex =
-        sourceLocks.computeIfAbsent(source.id) { Mutex() }
-
     private fun renameHashLockFor(source: SourceEntry): Mutex =
         renameHashLocks.computeIfAbsent(source.id) { Mutex() }
-
-    companion object {
-        private const val HashChunkSize = 8192 // 8 KB chunk size
-    }
 }
 
 /**
@@ -412,17 +198,6 @@ internal fun renameCandidates(rows: List<LocalIndexedFile>): List<LocalIndexedFi
     return rows.filter {
         it.state is LocalIndexedFile.State.Present && it.hash == null && (it.size to it.modifiedAt) in tombstones
     }
-}
-
-private class VersionIssuer(
-    private val deviceId: String,
-    private val stamps: Iterator<HlcTimestamp>
-) {
-    fun after(previous: LocalIndexedFile.Version?) = LocalIndexedFile.Version(
-        vector = (previous?.vector ?: VersionVector.Empty).bump(deviceId),
-        hlc = stamps.next(),
-        originDevice = deviceId,
-    )
 }
 
 private fun FoundFile.toIndexed(

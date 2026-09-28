@@ -1,11 +1,11 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.transfer
 
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.network.dictionary.dto.VersionDto
 import com.fserver.core.network.utils.runRemoteOperation
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerConnector
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.seconds
  * the peer confirms only after our side accepted the whole upload.
  */
 internal class FileDownloader(
-    private val remoteFetcher: PeerIndexFetcher,
+    private val connector: PeerConnector,
     private val requestedDownloads: RequestedDownloads,
 ) {
     /** [version] is what the file is recorded as here; null takes the peer's own. */
@@ -26,7 +26,7 @@ internal class FileDownloader(
         sizeBytes: Long,
         version: VersionDto? = null,
     ) {
-        val session = remoteFetcher.connectToDevice(source)
+        val session = connector.connectToDevice(source)
 
         requestedDownloads.awaiting(source.deviceId, key) {
             session.runRemoteOperation(

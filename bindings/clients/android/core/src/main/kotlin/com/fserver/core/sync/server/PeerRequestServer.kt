@@ -6,7 +6,6 @@ import com.fserver.core.network.NetworkController
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
-import com.fserver.core.network.device.impl.ReachabilityTracker
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.requirement.RequirementsChecker
@@ -52,7 +51,6 @@ internal class PeerRequestServer(
     private val fetchFiles: FetchFilesHandler,
     private val publishedIndexes: PublishIndexHandler,
     private val leases: SyncLeaseHandler,
-    private val reachability: ReachabilityTracker,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
     private val devicesRepository: DevicesRepositoryImpl,
@@ -135,12 +133,7 @@ internal class PeerRequestServer(
                 existing.job.cancel()
             }
 
-            devicesRepository.rememberRoute(
-                deviceId = session.identity.deviceId,
-                endpoint = session.route.endpoint,
-            )
-
-            reachability.recordSuccess(peer.deviceId)
+            devicesRepository.recordReached(session)
 
             val job = backgroundScope.launch {
                 try {
@@ -170,7 +163,7 @@ internal class PeerRequestServer(
      */
     private suspend fun serve(session: PeerSession<FileServerMessages>) = coroutineScope {
         val scope = this
-        val context = SessionContext(scope)
+        val context = SessionContext(scope, uploads.sessionUploads(scope))
 
         // Bounds concurrent long-running work per peer. Deliberately non-blocking: `:net` drops
         // fire-and-forget frames when `incoming` is not drained (PeerSessionImpl), so parking the
@@ -255,46 +248,44 @@ internal class PeerRequestServer(
             is FileServerMessages.Upload ->
                 uploads.handle(event, message, session, context)
 
-            is FileServerMessages.OperationWithConfirmation.Request -> {
-                val result = runCatchingCancellable {
-                    runOperation(session, message.instance)
-                }
-
-                val reply = event.reply
-                if (reply == null) {
-                    Timber.w("Cannot answer ${message.instance} from ${session.identity.deviceId}: no reply channel")
-                    return
-                }
-
-                result.fold(
-                    onSuccess = {
-                        reply(FileServerMessages.OperationWithConfirmation.Completed(message.operationId))
-                    },
-                    onFailure = { t ->
-                        Timber.w(
-                            t,
-                            "Operation ${message.instance} from ${session.identity.deviceId} failed"
-                        )
-
-                        reply(
-                            FileServerMessages.OperationWithConfirmation.Failed(
-                                operationId = message.operationId,
-                                reason = t.message ?: "Unknown error"
-                            )
-                        )
-                    }
-                )
-            }
+            is FileServerMessages.OperationWithConfirmation.Request ->
+                answer(event, message, session)
         }
     }
 
-    private suspend fun runOperation(
+    /** Runs the operation and confirms it, or says why it failed. */
+    suspend fun answer(
+        event: PeerSession.Inbound<FileServerMessages>,
+        message: FileServerMessages.OperationWithConfirmation.Request,
         session: PeerSession<FileServerMessages>,
-        operation: RemoteOperation,
     ) {
-        when (operation) {
-            is RemoteOperation.File -> fileOperations.handle(session, operation)
+        val result = runCatchingCancellable {
+            when (val operation = message.instance) {
+                is RemoteOperation.File -> fileOperations.handle(session, operation)
+            }
         }
+
+        val reply = event.reply
+        if (reply == null) {
+            Timber.w("Cannot answer ${message.instance} from ${session.identity.deviceId}: no reply channel")
+            return
+        }
+
+        result.fold(
+            onSuccess = {
+                reply(FileServerMessages.OperationWithConfirmation.Completed(message.operationId))
+            },
+            onFailure = { t ->
+                Timber.w(t, "Operation ${message.instance} from ${session.identity.deviceId} failed")
+
+                reply(
+                    FileServerMessages.OperationWithConfirmation.Failed(
+                        operationId = message.operationId,
+                        reason = t.message ?: "Unknown error"
+                    )
+                )
+            }
+        )
     }
 
     /** Tells the peer we are at capacity, so it fails now instead of waiting out its timeout. */

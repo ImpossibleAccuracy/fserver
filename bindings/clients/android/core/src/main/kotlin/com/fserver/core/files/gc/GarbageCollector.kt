@@ -4,11 +4,11 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.evictsLocally
-import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile

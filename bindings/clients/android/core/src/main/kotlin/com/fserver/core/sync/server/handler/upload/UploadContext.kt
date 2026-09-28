@@ -3,12 +3,12 @@ package com.fserver.core.sync.server.handler.upload
 import com.fserver.common.exception.TransferException
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
-import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.FileTransferKey
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.server.SessionContext
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.transfer.ProgressiveHash
+import com.fserver.core.sync.transfer.skipExactly
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsWriter
@@ -50,7 +50,7 @@ internal class UploadContext(
     scope: CoroutineScope,
 ) {
     /** Incoming whoever asked: a peer pushing to us, or a download this device requested. */
-    val transferKey: FileTransferKey = SyncProgressReporter.incoming(key.sourceId, key.fileId)
+    val transferKey: FileTransferKey = FileTransferKey.incoming(key.sourceId, key.fileId)
 
     /**
      * Where the receiving side's time goes: waiting for chunks or the disk. A dominant
@@ -63,11 +63,8 @@ internal class UploadContext(
     var failure: Throwable? = null
         private set
 
-    /** Fed in offset order; only the writer touches it. */
-    private val hasher = FileHasher()
-
-    /** Where [hasher] got to. Trails [prefix] only inside one [write]. */
-    private var hashedTo = 0L
+    /** Fed in offset order; only the writer touches it. Trails [prefix] only inside one [write]. */
+    private val digest = ProgressiveHash()
 
     private val outClosed = AtomicBoolean(false)
 
@@ -106,7 +103,7 @@ internal class UploadContext(
     fun offer(chunk: FileServerMessages.UploadChunk): Boolean {
         val size = chunk.bytes.size
 
-        if (buffered.addAndGet(size) > SessionContext.InFlightChunkBytesLimit) {
+        if (buffered.addAndGet(size) > SessionUploads.InFlightChunkBytesLimit) {
             buffered.addAndGet(-size)
             return false
         }
@@ -128,7 +125,7 @@ internal class UploadContext(
     }
 
     /** Hash of `[0, prefix)`. Once, after [await] returned and the upload [isWhole]. */
-    fun hash(): ContentHash = hasher.compute()
+    fun hash(): ContentHash = digest.hash
 
     /**
      * Flushes what the writer wrote.
@@ -203,36 +200,28 @@ internal class UploadContext(
     }
 
     /**
-     * Hashes up to [contiguous]: from [chunk] while it sits right at [hashedTo], from disk for the
-     * run behind it that arrived early.
+     * Hashes up to [contiguous]: from [chunk] while it sits right at where the hash got to, from
+     * disk for the run behind it that arrived early.
      */
     private suspend fun advanceHash(chunk: FileServerMessages.UploadChunk, contiguous: Long) {
-        val end = chunk.offset + chunk.bytes.size
-
-        if (chunk.offset <= hashedTo && hashedTo < end) {
-            val from = (hashedTo - chunk.offset).toInt()
-            hasher.write(chunk.bytes, from, chunk.bytes.size - from)
-            hashedTo = end
-        }
-
+        digest.feed(chunk.offset, chunk.bytes, chunk.bytes.size)
         hashStaged(until = contiguous)
     }
 
     /** Feeds `[hashedTo, until)` from [staging] into the hash. */
     private suspend fun hashStaged(until: Long) {
-        if (until <= hashedTo) return
+        if (until <= digest.hashedTo) return
 
         staging.read().use { input ->
             withContext(Dispatchers.IO) {
-                input.skipNBytesCompat(hashedTo)
+                input.skipExactly(digest.hashedTo)
 
                 val buffer = ByteArray(HashBufferSize)
-                while (hashedTo < until) {
-                    val read = input.read(buffer, 0, minOf(buffer.size.toLong(), until - hashedTo).toInt())
-                    if (read == -1) throw TransferException.FileNotFoundException("Staged ${file.id} ends at $hashedTo")
+                while (digest.hashedTo < until) {
+                    val read = input.read(buffer, 0, minOf(buffer.size.toLong(), until - digest.hashedTo).toInt())
+                    if (read == -1) throw TransferException.FileNotFoundException("Staged ${file.id} ends at ${digest.hashedTo}")
 
-                    hasher.write(buffer, 0, read)
-                    hashedTo += read
+                    digest.feed(digest.hashedTo, buffer, read)
                 }
             }
         }
@@ -252,23 +241,5 @@ internal class UploadContext(
 
     private companion object {
         const val HashBufferSize = 1024 * 1024 // 1 MiB
-    }
-}
-
-/** `InputStream.skipNBytes` is API 33+ / JVM 12+. */
-private fun java.io.InputStream.skipNBytesCompat(count: Long) {
-    var left = count
-
-    while (left > 0) {
-        val skipped = skip(left)
-
-        if (skipped > 0) {
-            left -= skipped
-            continue
-        }
-
-        // skip() may return 0 before the end: one read tells the two apart.
-        if (read() == -1) throw java.io.EOFException("Ended $left bytes short")
-        left--
     }
 }

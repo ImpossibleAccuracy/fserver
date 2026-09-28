@@ -1,33 +1,38 @@
 package com.fserver.core.sync.server
 
 import android.content.ContextWrapper
-import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDto
-import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.fileops.FileDeleter
+import com.fserver.core.sync.fileops.FileEvictor
+import com.fserver.core.sync.fileops.FileMover
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.lease.SyncLeaseRegistry
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.runner.FileMover
-import com.fserver.core.sync.runner.FileUploader
-import com.fserver.core.sync.runner.RequestedDownloads
+import com.fserver.core.sync.lease.SyncModeReconciler
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.runner.pass.PassCompletion
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
+import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.setup.SourceSetupExchange
+import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
 import com.fserver.net.connection.IncomingConnectionsManager
@@ -78,11 +83,9 @@ class PeerRequestServerTest {
     private val node by lazy {
         FilesNode.create(ContextWrapper(null), stagingDir = File(temp.root, "staging"))
     }
-    private val indexer by lazy {
-        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock))
-    }
+    private val index by lazy { LocalIndex(storage, node, clock) }
     private val staging by lazy { UploadStaging(storage, node, clock) }
-    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, node, clock)) }
+    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, node, index.writer)) }
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)
     private val incoming = FakeIncomingConnections()
@@ -238,20 +241,39 @@ class PeerRequestServerTest {
             sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock),
             fetchFiles = fetchFiles,
             publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
-            leases = SyncLeaseHandler(authorizer(), storage, registry, garbageCollector, clock),
+            leases = SyncLeaseHandler(
+                authorizer(),
+                storage,
+                registry,
+                SyncModeReconciler(storage),
+                PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock),
+            ),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),
                 storage = storage,
-                node = node,
-                localIndexer = indexer,
-                fileUploader = FileUploader(storage, indexer, node, progress, clock),
-                fileMover = FileMover(storage, node, indexer),
+                localHasher = index.hasher,
+                indexWriter = index.writer,
+                fileDeleter = FileDeleter(storage, node, index.writer),
+                fileUploader = FileUploader(
+                index.writer,
+                PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
+                node,
+                progress,
             ),
-            uploads = FileUploadHandler(authorizer(), storage, node, staging, clock, progress, RequestedDownloads()),
+                fileMover = FileMover(storage, node, index.writer),
+            ),
+            uploads = FileUploadHandler(
+                authorizer(),
+                UploadAdmission(storage, RequestedDownloads()),
+                index.writer,
+                node,
+                staging,
+                clock,
+                progress,
+            ),
             devicesRepository = mockk(relaxed = true),
             requirementsChecker = FakeRequirementsChecker(),
             backgroundScope = background,
-            reachability = mockk(relaxed = true),
         )
 
         assertNotNull(server.start().getOrThrow())
@@ -261,7 +283,7 @@ class PeerRequestServerTest {
 
     private fun realFetchFiles() = FetchFilesHandler(
         authorizer = authorizer(),
-        localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock)),
+        localIndexer = index.indexer,
     )
 
     /** Publishes a session the way the node would, and waits until the server has taken it up. */

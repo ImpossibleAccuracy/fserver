@@ -1,16 +1,17 @@
 package com.fserver.core.sync.index
 
-import com.fserver.core.sync.progress.IndexingProgress
-import com.fserver.core.sync.progress.SourcePass
-import com.fserver.core.sync.progress.SyncProgressReporter
 import android.content.ContextWrapper
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.IndexingProgress
+import com.fserver.core.sync.progress.SourcePass
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.sync.version.VersionVector
@@ -43,7 +44,8 @@ class LocalChangesIndexerTest {
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
     private val progress = SyncProgressReporter(clock)
-    private val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), progress)
+    private val index = LocalIndex(storage, node, clock, progress)
+    private val indexer = index.indexer
 
     private lateinit var root: File
     private lateinit var source: SourceEntry
@@ -199,7 +201,7 @@ class LocalChangesIndexerTest {
         write("photo.jpg", "one plus more")
         file.setLastModified(file.lastModified() + 60_000)
         indexer.refresh(source)
-        indexer.hashFile(source, stale)
+        index.hasher.hashFile(source, stale)
 
         assertNull(storage.index.findFile(key(stale))?.hash)
     }
@@ -214,7 +216,7 @@ class LocalChangesIndexerTest {
             originDevice = PeerId,
         )
 
-        indexer.recordDeleted(source, key(indexed), peers)
+        index.writer.recordDeleted(source, key(indexed), peers)
 
         val row = storage.index.findFile(key(indexed))
         assertTrue(row?.state is LocalIndexedFile.State.Deleted)
@@ -226,7 +228,7 @@ class LocalChangesIndexerTest {
         write("photo.jpg", "one")
         val indexed = indexer.refresh(source).single()
 
-        indexer.recordDeleted(source, key(indexed), version = null)
+        index.writer.recordDeleted(source, key(indexed), version = null)
 
         assertEquals(VersionVector(mapOf(LocalId to 2L)), storage.index.findFile(key(indexed))?.version?.vector)
     }
@@ -241,7 +243,7 @@ class LocalChangesIndexerTest {
             originDevice = PeerId,
         )
 
-        indexer.adoptVersion(source, key(indexed), merged, expected = indexed.hash)
+        index.writer.adoptVersion(source, key(indexed), merged, expected = indexed.hash)
 
         assertEquals(merged, storage.index.findFile(key(indexed))?.version)
     }
@@ -253,7 +255,7 @@ class LocalChangesIndexerTest {
         val merged = indexed.version!!.copy(vector = VersionVector(mapOf(LocalId to 1L, PeerId to 1L)))
 
         val failure = runCatching {
-            indexer.adoptVersion(source, key(indexed), merged, expected = ContentHash("other", "SHA-256"))
+            index.writer.adoptVersion(source, key(indexed), merged, expected = ContentHash("other", "SHA-256"))
         }.exceptionOrNull()
 
         assertTrue(failure is IllegalStateException)
@@ -276,7 +278,7 @@ class LocalChangesIndexerTest {
         write("photo.jpg", "hash me")
         val indexed = indexer.refresh(source).single()
 
-        indexer.hashFile(source, indexed)
+        index.hasher.hashFile(source, indexed)
 
         val key = IndexedFileKey(fileId = indexed.fileId, sourceId = SourceId)
         assertEquals(sha256("hash me".toByteArray()), storage.index.findFile(key)?.hash?.value)
@@ -353,7 +355,7 @@ class LocalChangesIndexerTest {
     }
 
     private suspend fun hashed(file: LocalIndexedFile): LocalIndexedFile {
-        indexer.hashFile(source, file)
+        index.hasher.hashFile(source, file)
         return storage.index.findFile(key(file))!!
     }
 

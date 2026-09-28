@@ -1,6 +1,6 @@
 package com.fserver.core.sync.lease
 
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse

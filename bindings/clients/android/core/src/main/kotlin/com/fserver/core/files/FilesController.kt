@@ -16,7 +16,7 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.model.evictsLocally
 import com.fserver.core.sync.model.fetchesOnDemand
-import com.fserver.core.sync.runner.FileDownloader
+import com.fserver.core.sync.transfer.FileDownloader
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.flow.SharingStarted

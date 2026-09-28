@@ -2,32 +2,36 @@ package com.fserver.core.sync.server.handler
 
 import android.content.ContextWrapper
 import com.fserver.common.exception.SyncException
+import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
-import com.fserver.common.model.ContentHash
 import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.VersionDto
 import com.fserver.core.network.dictionary.dto.toIndexed
-import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.fileops.FileDeleter
+import com.fserver.core.sync.fileops.FileMover
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.runner.FileMover
-import com.fserver.core.sync.runner.FileUploader
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.transfer.FileUploader
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
+import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -55,8 +59,7 @@ class FileOperationHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
-    private val indexer =
-        LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock))
+    private val index = LocalIndex(storage, node, clock)
     private val progress = SyncProgressReporter(clock)
 
     private lateinit var root: File
@@ -74,10 +77,16 @@ class FileOperationHandlerTest {
         handler = FileOperationHandler(
             authorizer = SourceAuthorizer(storage),
             storage = storage,
-            node = node,
-            localIndexer = indexer,
-            fileUploader = FileUploader(storage, indexer, node, progress, clock),
-            fileMover = FileMover(storage, node, indexer),
+            localHasher = index.hasher,
+            indexWriter = index.writer,
+            fileDeleter = FileDeleter(storage, node, index.writer),
+            fileUploader = FileUploader(
+                index.writer,
+                PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
+                node,
+                progress,
+            ),
+            fileMover = FileMover(storage, node, index.writer),
         )
 
         storage.sources.upsert(

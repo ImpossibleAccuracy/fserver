@@ -9,8 +9,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.server.SessionContext
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
@@ -31,7 +30,7 @@ import java.io.File
 import kotlin.time.Duration.Companion.minutes
 
 /** What one peer may have open at once, and what happens to what it left unfinished. */
-class SessionContextTest {
+class SessionUploadsTest {
 
     @get:Rule
     val temp: TemporaryFolder = TemporaryFolder()
@@ -41,17 +40,18 @@ class SessionContextTest {
     private val storage = FakeStorage(clock = clock)
     private val fs = InMemoryFileSystem()
     private val progress = SyncProgressReporter(clock)
-    private val context = SessionContext(scope)
     private val source = sourceEntry(id = "source-1")
 
     private lateinit var stagingDir: File
     private lateinit var staging: UploadStaging
+    private lateinit var uploads: SessionUploads
 
     @Before
     fun setUp() = runBlocking {
         stagingDir = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), stagingDir = stagingDir)
         staging = UploadStaging(storage, node, clock)
+        uploads = SessionUploads(scope, staging, progress)
         storage.sources.upsert(source)
     }
 
@@ -62,12 +62,12 @@ class SessionContextTest {
 
     @Test
     fun `a peer may not open more uploads than the session allows`() = runTest {
-        repeat(SessionContext.MaxConcurrentUploads) { open("file-$it") }
+        repeat(SessionUploads.MaxConcurrentUploads) { open("file-$it") }
 
         val failure = runCatching { open("one-too-many") }.exceptionOrNull()
 
         assertTrue(failure is TransferException.TooManyUploadsException)
-        assertEquals(SessionContext.MaxConcurrentUploads, context.uploads.size)
+        assertEquals(SessionUploads.MaxConcurrentUploads, uploads.inFlight.size)
     }
 
     @Test
@@ -79,7 +79,7 @@ class SessionContextTest {
         val second = open("file-1")
 
         assertEquals(4, second.prefix)
-        assertEquals(1, context.uploads.size)
+        assertEquals(1, uploads.inFlight.size)
         assertEquals("half", stagedBytes("file-1"))
     }
 
@@ -89,9 +89,9 @@ class SessionContextTest {
         stale.offer(chunk("file-1", "half".toByteArray()))
         stale.await()
 
-        context.pruneStaleUploads(TestEpoch + SessionContext.UploadTimeout + 1.minutes, staging)
+        uploads.pruneStale(TestEpoch + SessionUploads.UploadTimeout + 1.minutes)
 
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(uploads.inFlight.isEmpty())
         assertEquals("half", stagedBytes("file-1"))
         assertEquals(4L, storage.uploads.find(key("file-1"))?.committedOffset)
     }
@@ -100,9 +100,9 @@ class SessionContextTest {
     fun `an upload still inside its timeout is left alone`() = runTest {
         open("file-1")
 
-        context.pruneStaleUploads(TestEpoch + SessionContext.UploadTimeout - 1.minutes, staging)
+        uploads.pruneStale(TestEpoch + SessionUploads.UploadTimeout - 1.minutes)
 
-        assertEquals(1, context.uploads.size)
+        assertEquals(1, uploads.inFlight.size)
     }
 
     @Test
@@ -111,14 +111,14 @@ class SessionContextTest {
         upload.offer(chunk("file-1", "half".toByteArray()))
         upload.await()
 
-        context.parkAll(staging)
+        uploads.parkAll()
 
-        assertTrue(context.uploads.isEmpty())
+        assertTrue(uploads.inFlight.isEmpty())
         assertEquals(4L, storage.uploads.find(key("file-1"))?.committedOffset)
     }
 
     private suspend fun open(fileId: String): UploadContext =
-        context.start(
+        uploads.start(
             source = source,
             file = FileRecord(
                 id = FileId(fileId),
@@ -134,9 +134,7 @@ class SessionContextTest {
             ),
             deviceId = source.deviceId,
             fs = fs,
-            staging = staging,
             startedAt = TestEpoch,
-            progress = progress,
         )
 
     private fun key(fileId: String) = IndexedFileKey(fileId = fileId, sourceId = source.id)

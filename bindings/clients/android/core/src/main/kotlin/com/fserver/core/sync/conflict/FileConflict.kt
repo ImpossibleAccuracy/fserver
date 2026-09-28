@@ -27,12 +27,20 @@ data class FileConflict(
 
     /** What the user may pick: a side whose bytes were evicted has nothing to keep. */
     val choices: Set<ConflictDecision.Choice>
-        get() = buildSet {
-            if (local.state !is LocalIndexedFile.State.Evicted) add(ConflictDecision.Choice.KeepLocal)
-            if (remote.state !is LocalIndexedFile.State.Evicted) add(ConflictDecision.Choice.KeepRemote)
+        get() = conflictChoices(
+            localEvicted = local.state is LocalIndexedFile.State.Evicted,
+            remoteEvicted = remote.state is LocalIndexedFile.State.Evicted,
+            bothPresent = local.state is LocalIndexedFile.State.Present && remote.state is LocalIndexedFile.State.Present,
+        )
+}
 
-            if (local.state is LocalIndexedFile.State.Present && remote.state is LocalIndexedFile.State.Present) {
-                add(ConflictDecision.Choice.KeepBoth)
-            }
-        }
+/** The one rule for what a conflict offers, over index rows and plan records alike. */
+internal fun conflictChoices(
+    localEvicted: Boolean,
+    remoteEvicted: Boolean,
+    bothPresent: Boolean,
+): Set<ConflictDecision.Choice> = buildSet {
+    if (!localEvicted) add(ConflictDecision.Choice.KeepLocal)
+    if (!remoteEvicted) add(ConflictDecision.Choice.KeepRemote)
+    if (bothPresent) add(ConflictDecision.Choice.KeepBoth)
 }

@@ -1,30 +1,22 @@
 package com.fserver.core.sync.server.handler.upload
 
-import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
-import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.StageTimer
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.toFileRecord
-import com.fserver.core.store.FServerStorage
-import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.index.LocalIndexedFile
-import com.fserver.core.sync.index.toIndexed
-import com.fserver.core.sync.limits.FileBudget
+import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.model.acceptsPeerWrites
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.runner.RequestedDownloads
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
-import com.fserver.files.upload.FileRecord
 import com.fserver.net.session.PeerSession
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -34,24 +26,27 @@ import timber.log.Timber
  *
  * Chunks land in [UploadStaging], not in the source: the source's backend is touched once, when
  * the file is whole. The bytes never touch this class - it opens an [UploadContext] per file and
- * lets that write them off the session collector. See [SessionContext] for why.
+ * lets that write them off the session collector. Placing and indexing the file is its last step.
  */
 internal class FileUploadHandler(
     private val authorizer: SourceAuthorizer,
-    private val storage: FServerStorage,
+    private val admission: UploadAdmission,
+    private val indexWriter: LocalIndexWriter,
     private val node: FilesNode,
     private val staging: UploadStaging,
     private val timeProvider: TimeProvider,
     private val progress: SyncProgressReporter,
-    private val requestedDownloads: RequestedDownloads,
 ) {
+    /** The upload part of a new [SessionContext], living as long as [scope]. */
+    fun sessionUploads(scope: CoroutineScope) = SessionUploads(scope, staging, progress)
+
     suspend fun handle(
         event: PeerSession.Inbound<FileServerMessages>,
         message: Upload,
         session: PeerSession<FileServerMessages>,
         context: SessionContext,
     ) {
-        val answer = runCatchingCancellable { answer(session, message, context) }
+        val answer = runCatchingCancellable { answer(session, message, context.uploads) }
             .getOrElse { t ->
                 Timber.w(
                     t,
@@ -73,10 +68,11 @@ internal class FileUploadHandler(
         message: FileServerMessages.UploadChunk,
         context: SessionContext,
     ) {
-        val timer = context.collector
+        val uploads = context.uploads
+        val timer = uploads.collector
 
         val key = IndexedFileKey(fileId = message.fileId, sourceId = message.sourceId)
-        val upload = context.uploads[key]
+        val upload = uploads.inFlight[key]
             ?: throw TransferException.UploadNotFoundException(message.fileId)
 
         timer.count("bytes", message.bytes.size.toLong())
@@ -91,50 +87,44 @@ internal class FileUploadHandler(
         timer.count("refused-chunks")
 
         throw upload.failure ?: TransferException.PendingChunksOverflowException(
-            occupiedBytes = context.buffered.get(),
-            maxBytes = SessionContext.InFlightChunkBytesLimit,
+            occupiedBytes = uploads.buffered.get(),
+            maxBytes = SessionUploads.InFlightChunkBytesLimit,
         )
     }
 
     /** The session is gone: its uploads wait in staging for the peer to come back. */
     suspend fun sessionEnded(context: SessionContext) {
-        context.parkAll(staging)
+        context.uploads.parkAll()
     }
 
     private suspend fun answer(
         session: PeerSession<FileServerMessages>,
         message: Upload,
-        context: SessionContext,
+        uploads: SessionUploads,
     ): Upload = when (message) {
         is FileServerMessages.Response ->
             throw IllegalStateException("Cannot answer a response: $message")
 
-        is Upload.Init -> init(session, message, context)
-        is Upload.Status -> status(session, message, context)
-        is Upload.Complete -> complete(session, message, context)
+        is Upload.Init -> init(session, message, uploads)
+        is Upload.Status -> status(session, message, uploads)
+        is Upload.Complete -> complete(session, message, uploads)
     }
 
     private suspend fun init(
         session: PeerSession<FileServerMessages>,
         message: Upload.Init,
-        context: SessionContext,
+        uploads: SessionUploads,
     ): Upload {
         val source = authorizer.authorizedSource(session.identity, message.sourceId)
 
-        if (!source.acceptsPeerWrites && !requestedDownloads.isRequested(session.identity.deviceId, message.key)) {
-            throw SyncException.ModeForbiddenException(
-                "Source ${source.id} takes no files from ${session.identity.deviceId} under ${source.syncMode.type}"
-            )
-        }
+        admission.checkMode(source, session.identity.deviceId, message.key)
 
         val now = timeProvider.now()
-
-        // Nothing else parks an upload whose sender stopped mid-stream.
-        context.pruneStaleUploads(now, staging)
+        uploads.pruneStale(now)
 
         val file = message.file.toFileRecord()
 
-        if (!fitsLimits(source, file, context)) {
+        if (!admission.fitsLimits(source, file, uploads)) {
             Timber.i("Upload of ${file.id} into source ${source.id} declined: over this device's file limits")
             return Upload.OverLimit(key = message.key)
         }
@@ -144,14 +134,12 @@ internal class FileUploadHandler(
         // Refused before anything is staged, not once it all arrived.
         fs.checkPath(file.path)
 
-        val upload = context.start(
+        val upload = uploads.start(
             source = source,
             file = file,
             deviceId = session.identity.deviceId,
             fs = fs,
-            staging = staging,
             startedAt = now,
-            progress = progress,
         )
 
         progress.transferStarted(
@@ -167,47 +155,15 @@ internal class FileUploadHandler(
         return Upload.Received(key = upload.key, offset = upload.prefix)
     }
 
-    /**
-     * Our own limits, never the sender's. A file we hold is capped by its growth, a new one by
-     * count and size; uploads still open on this session count as booked.
-     */
-    private suspend fun fitsLimits(
-        source: SourceEntry,
-        file: FileRecord,
-        context: SessionContext,
-    ): Boolean {
-        val limits = source.preferences.fileLimits
-        if (limits == SourceEntry.Preferences.FileLimits.None) return true
-
-        val key = IndexedFileKey(fileId = file.id.value, sourceId = source.id)
-        val budget = FileBudget(limits, storage.index.presentUsage(source.id))
-
-        // At most MaxConcurrentUploads of them, so a lookup each is cheap.
-        context.uploads.values
-            .filter { it.key.sourceId == source.id && it.key != key }
-            .forEach { budget.admit(it.key, it.file.metadata.size) }
-
-        return budget.admit(key, file.metadata.size)
-    }
-
-    private suspend fun FileBudget.admit(key: IndexedFileKey, size: Long): Boolean {
-        val held = storage.index.presentSize(key)
-        return if (held != null) admitUpdate(from = held, to = size) else admitNew(size)
-    }
-
-    /** Size of the file we hold under [key], or null when we hold none. */
-    private suspend fun FileIndexStore.presentSize(key: IndexedFileKey): Long? =
-        findFile(key)?.takeIf { it.state is LocalIndexedFile.State.Present }?.size?.bytes
-
     /** A checkpoint: the answer is what survives a crash from here on. */
     private suspend fun status(
         session: PeerSession<FileServerMessages>,
         message: Upload.Status,
-        context: SessionContext,
+        uploads: SessionUploads,
     ): Upload {
         authorizer.authorizedSource(session.identity, message.key.sourceId)
 
-        val upload = context.uploads[message.key]
+        val upload = uploads.inFlight[message.key]
             ?: throw TransferException.UploadNotFoundException(message.key.fileId)
 
         // A dead writer takes no more chunks: the sender Inits again, which parks this one.
@@ -222,18 +178,18 @@ internal class FileUploadHandler(
     private suspend fun complete(
         session: PeerSession<FileServerMessages>,
         message: Upload.Complete,
-        context: SessionContext,
+        uploads: SessionUploads,
     ): Upload {
         val source = authorizer.authorizedSource(session.identity, message.key.sourceId)
 
-        val upload = context.uploads.remove(message.key)
+        val upload = uploads.inFlight.remove(message.key)
             ?: throw TransferException.UploadNotFoundException(message.key.fileId)
 
         val written = runCatchingCancellable { upload.await() }
 
         // Refused chunks, or a writer that died: park what arrived, the sender Inits again.
         if (written.isFailure || !upload.isWhole) {
-            withContext(NonCancellable) { park(upload, staging) }
+            withContext(NonCancellable) { uploads.park(upload) }
             written.exceptionOrNull()?.let { throw it }
 
             return Upload.Received(key = upload.key, offset = upload.prefix)
@@ -288,20 +244,14 @@ internal class FileUploadHandler(
             result.settleLastModified(upload.file.metadata.lastModified)
         }
 
-        val saved = timer.time("index-lookup") { storage.index.findFile(message.key) }
-
-        val indexed = upload.file
-            .copy(content = computedHash)
-            .toIndexed(
-                id = saved?.id ?: IdGenerator.nextId,
-                sourceId = source.id,
+        timer.time("index-write") {
+            indexWriter.recordReceived(
+                source = source,
+                file = upload.file.copy(content = computedHash),
                 locator = result.locator,
-                currentTime = timeProvider.now(),
+                modifiedAt = modifiedAt,
             )
-            // Pin and fetch time are this device's own: a new version keeps them.
-            .let { it.copy(modifiedAt = modifiedAt, state = saved?.state as? LocalIndexedFile.State.Present ?: it.state) }
-
-        timer.time("index-write") { storage.index.markProcessed(listOf(indexed)) }
+        }
 
         progress.transferCompleted(upload.transferKey)
 

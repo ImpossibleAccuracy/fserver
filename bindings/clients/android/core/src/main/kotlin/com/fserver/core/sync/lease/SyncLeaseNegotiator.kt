@@ -5,11 +5,10 @@ import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.SyncFailureReason
 import com.fserver.core.sync.progress.toSyncFailure
 import com.fserver.core.sync.progress.toWire
-import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.net.session.PeerSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -27,7 +26,8 @@ import timber.log.Timber
 internal class SyncLeaseNegotiator(
     private val storage: FServerStorage,
     private val registry: SyncLeaseRegistry,
-    private val peers: PeerIndexFetcher,
+    private val peers: PeerConnector,
+    private val modes: SyncModeReconciler,
 ) {
     /**
      * Runs [block] only if both devices agree we hold [source] and run it under the same mode.
@@ -123,7 +123,7 @@ internal class SyncLeaseNegotiator(
 
             is FileServerMessages.AcquireSyncLease.Outdated -> {
                 registry.release(source.id, leaseId)
-                val updated = adoptMode(source, response.syncMode.toDomain())
+                val updated = modes.adopt(source, response.syncMode.toDomain())
                 if (adopt) acquire(updated, adopt = false) else null
             }
 
@@ -132,18 +132,6 @@ internal class SyncLeaseNegotiator(
                 throw IllegalStateException("Unexpected answer to AcquireSyncLease from ${source.deviceId}: $response")
             }
         }
-    }
-
-    /** Only the follower takes a mode from the peer, and only settings: never the mode's type. */
-    private suspend fun adoptMode(source: SourceEntry, mode: SyncMode): SourceEntry {
-        check(source.role == SourceEntry.Role.Follower && source.syncMode.type == mode.type) {
-            "Source ${source.id}: cannot adopt $mode from ${source.deviceId} as ${source.role} running ${source.syncMode}"
-        }
-
-        Timber.i("Source ${source.id}: adopting ${source.deviceId}'s mode $mode")
-        val updated = source.copy(syncMode = mode)
-        storage.sources.upsert(updated)
-        return updated
     }
 
     private suspend fun release(

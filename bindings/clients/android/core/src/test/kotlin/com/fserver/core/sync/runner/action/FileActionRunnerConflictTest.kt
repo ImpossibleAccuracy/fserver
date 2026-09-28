@@ -1,18 +1,26 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.runner.action
 
 import android.content.ContextWrapper
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.conflict.ConflictCopier
 import com.fserver.core.sync.conflict.ConflictDecision
+import com.fserver.core.sync.conflict.ConflictResolver
 import com.fserver.core.sync.conflict.seenVersion
+import com.fserver.core.sync.fileops.FileDeleter
+import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.sync.remote.PeerFileOperations
+import com.fserver.core.sync.transfer.FileDownloader
+import com.fserver.core.sync.transfer.FileUploader
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
@@ -45,15 +53,24 @@ class FileActionRunnerConflictTest {
     private val node = FilesNode.create(ContextWrapper(null))
     private val downloader = mockk<FileDownloader>()
 
-    private val runner = FileActionRunner(
-        storage = storage,
-        localIndexer = mockk(relaxed = true),
-        remoteFetcher = mockk(relaxed = true),
+    private val writer = LocalIndex(storage, node, clock).writer
+    private val peerFiles = mockk<PeerFileOperations>(relaxed = true)
+    private val steps = ActionSteps(
+        connector = mockk(relaxed = true),
+        indexWriter = writer,
+        peerFiles = peerFiles,
         fileUploader = mockk(relaxed = true),
         fileDownloader = downloader,
-        fileEvictor = FileEvictor(storage, node, clock),
+        fileDeleter = FileDeleter(storage, node, writer),
+    )
+
+    private val runner = FileActionRunner(
+        steps = steps,
+        conflicts = ConflictResolver(storage, steps, ConflictCopier(storage, node)),
+        localHasher = mockk(relaxed = true),
+        peerFiles = peerFiles,
+        fileEvictor = FileEvictor(storage, node, writer),
         fileMover = mockk(relaxed = true),
-        node = node,
     )
 
     private lateinit var root: File

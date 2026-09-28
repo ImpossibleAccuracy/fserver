@@ -13,8 +13,8 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.progress.SyncProgressReporter
 import com.fserver.core.sync.progress.SyncProgressRepository
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import com.fserver.core.sync.setup.SourceSetupExchange
@@ -97,16 +97,7 @@ class SourcesController internal constructor(
             "${syncMode.type} is not available for $location"
         }
 
-        storage.sources.findByModeAndLocation(
-            mode = syncMode,
-            location = location
-        )?.let {
-            throw SyncException.DuplicateSourceException(
-                sourceId = it.id,
-                location = location.toString(),
-                mode = syncMode.toString()
-            )
-        }
+        ensureNoDuplicate(syncMode, location)
 
         val source = SourceEntry(
             id = UUID.randomUUID().toString(),
@@ -191,15 +182,7 @@ class SourcesController internal constructor(
             "Only the initiator may change the mode of source $id"
         }
 
-        storage.sources.findByModeAndLocation(mode = syncMode, location = existing.location)
-            ?.takeIf { it.id != id }
-            ?.let {
-                throw SyncException.DuplicateSourceException(
-                    sourceId = it.id,
-                    location = existing.location.toString(),
-                    mode = syncMode.toString()
-                )
-            }
+        ensureNoDuplicate(syncMode, existing.location, except = id)
 
         val updated = existing.copy(syncMode = syncMode, preferences = preferences)
         storage.sources.upsert(updated)
@@ -222,5 +205,18 @@ class SourcesController internal constructor(
         // TODO: notify peer about removal
     }.onSuccess {
         syncRunner.runOnceAsync()
+    }
+
+    /** One source per mode and location: two would sync the same files twice. */
+    private suspend fun ensureNoDuplicate(mode: SyncMode, location: SourceLocation, except: String? = null) {
+        storage.sources.findByModeAndLocation(mode = mode, location = location)
+            ?.takeIf { it.id != except }
+            ?.let {
+                throw SyncException.DuplicateSourceException(
+                    sourceId = it.id,
+                    location = location.toString(),
+                    mode = mode.toString()
+                )
+            }
     }
 }

@@ -8,9 +8,10 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.lease.SyncLeaseRegistry
+import com.fserver.core.sync.lease.SyncModeReconciler
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.net.session.PeerSession
 import io.mockk.mockk
@@ -34,7 +35,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, mockk(relaxed = true), clock)
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true))
 
     @Before
     fun setUp() = runBlocking {

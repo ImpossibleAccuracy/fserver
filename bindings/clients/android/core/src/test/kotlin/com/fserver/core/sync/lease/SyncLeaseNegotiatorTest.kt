@@ -9,8 +9,8 @@ import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.remote.PeerConnector
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -27,7 +27,7 @@ import org.junit.Test
  * The asking half of the lease. The answering half is `SyncLeaseHandler`, and the registry both
  * sides share is covered by `SyncLeaseRegistryTest`.
  *
- * `PeerIndexFetcher` is mocked rather than faked: it is a final class that dials through
+ * `PeerConnector` is mocked rather than faked: it is a final class that dials through
  * `NetworkController`, and the only thing this class wants from it is a session.
  */
 class SyncLeaseNegotiatorTest {
@@ -35,10 +35,10 @@ class SyncLeaseNegotiatorTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val peers = mockk<PeerIndexFetcher>()
+    private val peers = mockk<PeerConnector>()
 
     private val source = sourceEntry(id = SourceId, deviceId = PeerId)
-    private val negotiator = SyncLeaseNegotiator(storage, registry, peers)
+    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage))
 
     @Before
     fun setUp() = runBlocking {

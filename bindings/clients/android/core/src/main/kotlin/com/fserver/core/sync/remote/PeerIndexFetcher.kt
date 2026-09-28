@@ -1,31 +1,28 @@
 package com.fserver.core.sync.remote
 
 import com.fserver.common.exception.SyncException
-import com.fserver.core.network.NetworkController
-import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.network.device.impl.ReachabilityTracker
+import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.network.dictionary.dto.toFileRecord
+import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.latestHlc
+import com.fserver.core.network.dictionary.dto.toFileRecord
 import com.fserver.core.network.dictionary.dto.toRemoteIndexed
-import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileRecord
-import com.fserver.net.session.PeerSession
+import timber.log.Timber
 
+/** The peer's index: fetched for a pass, and cached in `remoteIndex` for what comes after it. */
 internal class PeerIndexFetcher(
     private val storage: FServerStorage,
-    private val networkController: NetworkController,
-    private val devicesRepository: DevicesRepository,
-    private val reachability: ReachabilityTracker,
+    private val connector: PeerConnector,
     private val timeProvider: TimeProvider,
     private val clock: HybridLogicalClock,
 ) {
     suspend fun fetchIndex(source: SourceEntry): List<FileRecord> {
-        val device = connectToDevice(source)
+        val device = connector.connectToDevice(source)
 
         val response = device.request(FileServerMessages.FetchFiles.Request(source.id))
             .getOrThrow()
@@ -54,28 +51,13 @@ internal class PeerIndexFetcher(
         }
     }
 
-    suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =
-        connectToDevice(source.deviceId)
-
     /**
-     * The one place a pass turns a device id into a session, so it is also where the pass records
-     * whether the device could be reached at all - a failure here is what the user is shown
-     * instead of a source that silently stays as it was.
+     * The peer holds [file] now, as we sent it; recorded so it shows before its next published
+     * index. A cache write, so a failure is logged rather than failing a finished upload.
      */
-    suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> {
-        networkController.incomingConnections.session(deviceId)?.let { session ->
-            return session
-        }
-
-        return tryToConnectByDeviceId(deviceId)
-    }
-
-    private suspend fun tryToConnectByDeviceId(deviceId: String): PeerSession<FileServerMessages> {
-        val peer = PeerLocator.KnownDevice(deviceId)
-
-        devicesRepository.connect(peer, null).getOrThrow()
-
-        return networkController.incomingConnections.session(deviceId)
-            ?: throw IllegalStateException("Failed to establish session with device $deviceId")
+    suspend fun recordSent(source: SourceEntry, file: FileRecordDto) {
+        runCatchingCancellable {
+            storage.remoteIndex.upsert(deviceId = source.deviceId, file = file.toRemoteIndexed(timeProvider.now()))
+        }.onFailure { Timber.w(it, "Failed to record upload of ${file.id} in remote index") }
     }
 }

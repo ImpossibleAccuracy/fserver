@@ -2,6 +2,7 @@ package com.fserver.core.sync.server
 
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.SourceRemovedReason
 import com.fserver.net.security.identity.PeerIdentity
 import timber.log.Timber
 
@@ -72,13 +73,9 @@ internal class SourceAuthorizer(
         val tombstone = storage.sources.findTombstone(sourceId)
 
         return if (tombstone != null && tombstone.deviceId == peer.deviceId) {
-            ResolvedIncomingSource.Gone(RemovedReason)
+            ResolvedIncomingSource.Gone(SourceRemovedReason)
         } else {
             ResolvedIncomingSource.Unknown
         }
-    }
-
-    private companion object {
-        const val RemovedReason = "Source was removed on the other device"
     }
 }

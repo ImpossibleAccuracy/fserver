@@ -149,14 +149,7 @@ internal class DevicesRepositoryImpl(
                 connectRoute(peer = peer, request = request).verifiedAs(expected)
             },
         )
-            .onSuccess { session ->
-                reachability.recordSuccess(session.identity.deviceId)
-
-                rememberRoute(
-                    deviceId = session.identity.deviceId,
-                    endpoint = session.route.endpoint
-                )
-            }
+            .onSuccess { session -> recordReached(session) }
             .onFailure { failure ->
                 if (expected != null) reachability.recordFailure(expected, failure)
             }
@@ -381,12 +374,18 @@ internal class DevicesRepositoryImpl(
         return RequirementsNotMetException(report).takeUnless { report.isSatisfied }
     }
 
+    /** A session with the device is up, whichever side dialled: it is reachable, and by this route. */
+    suspend fun recordReached(session: PeerSession<*>) {
+        reachability.recordSuccess(session.identity.deviceId)
+        rememberRoute(deviceId = session.identity.deviceId, endpoint = session.route.endpoint)
+    }
+
     /**
      * Writes down how [deviceId] was reached.
      * Best-effort on purpose: remembering a route is convenience,
      * and a storage failure must not turn an operation that succeeded into a failure.
      */
-    suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
+    private suspend fun rememberRoute(deviceId: String, endpoint: TransportEndpoint) {
         val route = endpoint.toKnownRoute()
 
         runCatching {

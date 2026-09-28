@@ -5,16 +5,17 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
-import com.fserver.core.sync.runner.FileEvictor
 import com.fserver.files.FilesNode
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -44,7 +45,7 @@ class GarbageCollectorFetchedTest {
     @Before
     fun setUp() {
         node = FilesNode.create(ContextWrapper(null), stagingDir = temp.newFolder("staging"))
-        gc = GarbageCollector(storage, node, clock, TestScope(), FileEvictor(storage, node, clock))
+        gc = GarbageCollector(storage, node, clock, TestScope(), FileEvictor(storage, node, LocalIndex(storage, node, clock).writer))
         root = temp.newFolder("source-root")
         file = File(root, FileName).apply { writeText("bytes") }
     }

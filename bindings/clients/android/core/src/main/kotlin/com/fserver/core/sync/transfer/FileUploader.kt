@@ -1,48 +1,41 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.transfer
 
 import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
-import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
 import com.fserver.core.files.scan.toFiles
-import com.fserver.core.files.util.FileHasher
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
 import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.toDto
-import com.fserver.core.network.dictionary.dto.toRemoteIndexed
-import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.index.LocalChangesIndexer
+import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransferKey
-import com.fserver.core.sync.progress.SyncProgressReporter
-import com.fserver.core.sync.runner.FileUploader.Companion.MinChunkSize
-import com.fserver.core.util.TimeProvider
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.transfer.FileUploader.Companion.MinChunkSize
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
-import java.io.InputStream
 
 /**
  * Streams one local file to the peer: [Upload.Init], chunks, then [Upload.Complete] with the hash.
- * Split out of [FileActionRunner] because it is the one action with a multi-message protocol of its
- * own.
+ * Used by a pass pushing a file, and by the server handing one back to the peer that asked.
  *
  * The receiver stages what arrives and answers every step with how far it got, so a dropped
  * upload resumes from there instead of starting over - within this call, and across passes.
  */
 internal class FileUploader(
-    private val storage: FServerStorage,
-    private val localIndexer: LocalChangesIndexer,
+    private val indexWriter: LocalIndexWriter,
+    private val remoteIndex: PeerIndexFetcher,
     private val node: FilesNode,
     private val progress: SyncProgressReporter,
-    private val timeProvider: TimeProvider,
 ) {
     /**
      * Reported as one transfer whichever way it was asked for: a pass pushing the file, or a peer
@@ -56,7 +49,7 @@ internal class FileUploader(
         source: SourceEntry,
         session: PeerSession<FileServerMessages>,
     ): ContentHash {
-        val key = SyncProgressReporter.outgoing(source, file.id.value)
+        val key = FileTransferKey.outgoing(source.id, file.id.value)
 
         return try {
             stream(
@@ -105,7 +98,7 @@ internal class FileUploader(
         val opened = fs.openFile(locator)
             ?: throw TransferException.FileNotFoundException("File ${file.id} is gone from $locator")
 
-        val digest = if (file.content == null) Digest() else null
+        val digest = if (file.content == null) ProgressiveHash() else null
 
         var resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
         progress.transferStarted(key, file.path, file.metadata.size)
@@ -148,10 +141,13 @@ internal class FileUploader(
                 Timber.i(timer.summary())
 
                 if (digest != null) {
-                    localIndexer.recordHash(source, file, hash)
+                    indexWriter.recordHash(source, file, hash)
                 }
 
-                recordRemote(source, init, hash)
+                remoteIndex.recordSent(
+                    source = source,
+                    file = init.file.copy(content = ContentHashDto(value = hash.value, algorithm = hash.algorithm)),
+                )
 
                 return hash
             }
@@ -166,22 +162,6 @@ internal class FileUploader(
     }
 
     /**
-     * The peer holds what [init] described now; recorded so it shows before its next published
-     * index. A cache write, so a failure is logged rather than failing a finished upload.
-     */
-    private suspend fun recordRemote(source: SourceEntry, init: Upload.Init, hash: ContentHash) {
-        runCatchingCancellable {
-            val file = init.file.copy(
-                content = ContentHashDto(value = hash.value, algorithm = hash.algorithm),
-            )
-            storage.remoteIndex.upsert(
-                deviceId = source.deviceId,
-                file = file.toRemoteIndexed(timeProvider.now()),
-            )
-        }.onFailure { Timber.w(it, "Failed to record upload of ${init.file.id} in remote index") }
-    }
-
-    /**
      * Sends [file] from [offset] to its end.
      *
      * @return false when the receiver no longer knows the upload, so it must be [Upload.Init]ed again.
@@ -191,7 +171,7 @@ internal class FileUploader(
         file: FsFile,
         uploadKey: IndexedFileKey,
         chunkSize: Int,
-        digest: Digest?,
+        digest: ProgressiveHash?,
         session: PeerSession<FileServerMessages>,
         key: FileTransferKey,
         timer: StageTimer,
@@ -295,28 +275,6 @@ internal class FileUploader(
     }
 }
 
-/**
- * The file's hash, fed each byte once and in order however often resume re-reads it.
- * Resume from past [hashedTo] reads the gap for the hash without sending it.
- */
-private class Digest {
-    private val hasher = FileHasher()
-
-    var hashedTo = 0L
-        private set
-
-    val hash: ContentHash by lazy { hasher.compute() }
-
-    fun feed(position: Long, buffer: ByteArray, length: Int) {
-        val end = position + length
-        if (end <= hashedTo) return
-
-        val from = (hashedTo - position).coerceAtLeast(0).toInt()
-        hasher.write(buffer, from, length - from)
-        hashedTo = end
-    }
-}
-
 private fun Upload.offset(): Long =
     (this as? Upload.Received)?.offset ?: error("Expected Upload.Received, got $this")
 
@@ -333,41 +291,3 @@ private fun chunkSize(
     fileId: String,
 ): Int = (session.maxPayloadSize - UploadChunkCodec.headerSize(sourceId, fileId))
     .coerceAtLeast(MinChunkSize)
-
-/**
- * Fills [buffer] to the brim, or to the end of the file.
- *
- * A single read is free to return less than it was asked for, and every short read would be a
- * frame carrying less than it could - the whole point of sizing the buffer to the frame.
- */
-private fun InputStream.fill(buffer: ByteArray, length: Int = buffer.size): Int {
-    var filled = 0
-
-    while (filled < length) {
-        val read = read(buffer, filled, length - filled)
-        if (read == -1) break
-        filled += read
-    }
-
-    return filled
-}
-
-/** Skips up to [count] bytes, fewer only at the end of the file. */
-private fun InputStream.skipFully(count: Long): Long {
-    var skipped = 0L
-
-    while (skipped < count) {
-        val step = skip(count - skipped)
-
-        if (step > 0) {
-            skipped += step
-            continue
-        }
-
-        // skip() may return 0 before the end: one read tells the two apart.
-        if (read() == -1) break
-        skipped++
-    }
-
-    return skipped
-}

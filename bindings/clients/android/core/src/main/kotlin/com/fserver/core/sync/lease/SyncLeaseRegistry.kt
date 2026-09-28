@@ -3,7 +3,7 @@ package com.fserver.core.sync.lease
 import com.fserver.common.utils.IdGenerator
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncFailureReason
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

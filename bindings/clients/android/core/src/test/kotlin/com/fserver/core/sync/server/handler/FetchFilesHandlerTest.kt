@@ -3,14 +3,15 @@ package com.fserver.core.sync.server.handler
 import android.content.ContextWrapper
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakePeerSession
+import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
+import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.LocalChangesIndexer
-import com.fserver.core.sync.progress.SyncProgressReporter
+import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
@@ -44,7 +45,7 @@ class FetchFilesHandlerTest {
 
         handler = FetchFilesHandler(
             authorizer = SourceAuthorizer(storage),
-            localIndexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, HybridLogicalClock(storage, clock), SyncProgressReporter(clock)),
+            localIndexer = LocalIndex(storage, node, clock).indexer,
         )
 
         storage.sources.upsert(

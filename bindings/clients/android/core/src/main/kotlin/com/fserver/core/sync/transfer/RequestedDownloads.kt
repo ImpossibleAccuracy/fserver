@@ -1,4 +1,4 @@
-package com.fserver.core.sync.runner
+package com.fserver.core.sync.transfer
 
 import com.fserver.core.sync.index.IndexedFileKey
 import java.util.concurrent.ConcurrentHashMap
