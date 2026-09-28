@@ -31,6 +31,8 @@ internal class ChannelWriter(
             }
         }
 
+    override suspend fun truncate(size: Long) = withContext(Dispatchers.IO) { channel.truncate(size); Unit }
+
     override suspend fun sync() = withContext(Dispatchers.IO) { channel.force(false) }
 
     override fun close() = onClose()

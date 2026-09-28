@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.files
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.screens.files.editor.shared.EditableImageFormat
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
@@ -186,8 +187,6 @@ class FilesViewModel(
 
             FilesIntent.EditClosed -> closeEdit()
 
-            is FilesIntent.EditRequested -> Unit
-
             is FilesIntent.RenameConfirmed -> rename(intent.entryId, intent.newName)
 
             is FilesIntent.DeleteConfirmed -> delete(intent.entryIds)
@@ -275,6 +274,7 @@ private fun SyncFileEntry.toUi(downloading: Set<String>): FileBrowserUi.File = a
 private fun SyncFileEntry.actions(writable: Set<String>): Set<FilesState.FileActionUi> = when {
     sourceId !in writable -> emptySet()
     localState is LocalIndexedFile.State.Present -> FilesState.FileActionUi.entries.toSet()
+        .let { if (EditableImageFormat.of(path) == null) it - FilesState.FileActionUi.Edit else it }
     localState is LocalIndexedFile.State.Evicted -> setOf(FilesState.FileActionUi.Delete)
     else -> emptySet()
 }

@@ -40,6 +40,7 @@ import com.fserver.app.presentation.screens.discovery.manual.manualAddressEntry
 import com.fserver.app.presentation.screens.discovery.qr.qrScanEntry
 import com.fserver.app.presentation.screens.dashboard.dashboardEntry
 import com.fserver.app.presentation.screens.files.filesEntry
+import com.fserver.app.presentation.screens.files.editor.filesImageEditorEntry
 import com.fserver.app.presentation.screens.source.details.filesSourceDetailsEntry
 import com.fserver.app.presentation.screens.source.edit.filesSourceEditEntry
 import com.fserver.app.presentation.screens.onboarding.onboardingEntry
@@ -247,6 +248,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
 
             dashboardEntry(navigator)
             filesEntry(navigator)
+            filesImageEditorEntry(navigator)
             filesSourceDetailsEntry(navigator)
             filesSourceEditEntry(navigator)
 

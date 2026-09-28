@@ -118,7 +118,7 @@ internal class LocalFileEditor(
                 written = indexWriter.recordWritten(
                     source = source,
                     key = key,
-                    size = FileSize(maxOf(row.size.bytes, writer.end)),
+                    size = FileSize(writer.sizeAfter(row.size.bytes)),
                     modifiedAt = file.settleLastModified(timeProvider.now()),
                 )
             }
@@ -149,15 +149,24 @@ internal class LocalFileEditor(
 
 /** Remembers how far the writes reached, since [FsWriter] cannot tell the size. */
 private class TrackingWriter(private val delegate: FsWriter) : SourceFileWriter, AutoCloseable {
-    var end = 0L
-        private set
+    private var end = 0L
+    private var truncatedTo: Long? = null
     var touched = false
         private set
+
+    fun sizeAfter(initial: Long): Long = maxOf(truncatedTo?.let { minOf(initial, it) } ?: initial, end)
 
     override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
         touched = true
         delegate.write(offset, bytes, length)
         end = maxOf(end, offset + length)
+    }
+
+    override suspend fun truncate(size: Long) {
+        touched = true
+        delegate.truncate(size)
+        truncatedTo = minOf(truncatedTo ?: Long.MAX_VALUE, size)
+        end = minOf(end, size)
     }
 
     suspend fun sync() = delegate.sync()

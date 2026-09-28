@@ -135,6 +135,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
 
+    // Image editing - crop and rotate
+    implementation(libs.krop.core)
+    implementation(libs.krop.ui)
+
     // Media playback - video and audio viewer
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui.compose)

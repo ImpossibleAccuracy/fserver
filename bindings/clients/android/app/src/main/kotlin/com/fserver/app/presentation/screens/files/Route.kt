@@ -13,6 +13,9 @@ fun EntryProviderScope<Destination>.filesEntry(
             navigateToSourcePick = {
                 navigator.navigate(Destination.Source.Setup.Pick())
             },
+            navigateToImageEditor = { sourceId, fileId ->
+                navigator.navigate(Destination.Files.ImageEditor(sourceId, fileId))
+            },
             navigateUp = { navigator.navigateUp() },
         )
     }

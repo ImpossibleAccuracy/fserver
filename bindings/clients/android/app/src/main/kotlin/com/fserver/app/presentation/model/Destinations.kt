@@ -49,6 +49,10 @@ sealed interface Destination : NavKey {
         /** One registered source's settings: this side's preferences, and the mode if this side owns it. */
         @Serializable
         data class SourceEdit(val sourceId: String) : Destination
+
+        /** Crop and rotate of one image held here, written back over the same file. */
+        @Serializable
+        data class ImageEditor(val sourceId: String, val fileId: String) : Destination
     }
 
     /**

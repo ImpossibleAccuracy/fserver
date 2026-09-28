@@ -22,7 +22,6 @@ sealed interface FilesIntent {
     data class EntryToggled(val entryId: String) : FilesIntent
     data object EditClosed : FilesIntent
 
-    data class EditRequested(val entryId: String) : FilesIntent
     data class RenameConfirmed(val entryId: String, val newName: String) : FilesIntent
     data class DeleteConfirmed(val entryIds: Set<String>) : FilesIntent
 }

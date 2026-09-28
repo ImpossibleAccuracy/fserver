@@ -78,6 +78,7 @@ fun FilesScreen(
     key: Destination.Files,
     viewModel: FilesViewModel = koinViewModel { parametersOf(key) },
     navigateToSourcePick: () -> Unit,
+    navigateToImageEditor: (sourceId: String, fileId: String) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +97,7 @@ fun FilesScreen(
         state = state,
         onIntent = viewModel::onIntent,
         navigateToSourcePick = navigateToSourcePick,
+        navigateToImageEditor = navigateToImageEditor,
         navigateUp = navigateUp,
     )
 }
@@ -106,6 +108,7 @@ private fun FilesScreenContent(
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
     navigateToSourcePick: () -> Unit,
+    navigateToImageEditor: (sourceId: String, fileId: String) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val opened = state.openedDirectory
@@ -115,7 +118,14 @@ private fun FilesScreenContent(
 
     val onFileAction = { action: FilesState.FileActionUi, entryIds: Set<String> ->
         when (action) {
-            FilesState.FileActionUi.Edit -> onIntent(FilesIntent.EditRequested(entryIds.single()))
+            FilesState.FileActionUi.Edit -> {
+                val file = state.file(entryIds.single())
+                val sourceId = file?.sourceId
+                if (sourceId != null) {
+                    onIntent(FilesIntent.EditClosed)
+                    navigateToImageEditor(sourceId, file.id)
+                }
+            }
             FilesState.FileActionUi.Rename -> renaming = entryIds.single()
             FilesState.FileActionUi.Delete -> deleting = entryIds
         }
@@ -179,7 +189,7 @@ private fun FilesScreenContent(
         TextEditorDialog(
             title = stringResource(R.string.files_rename_title),
             label = stringResource(R.string.files_rename_label),
-            initialValue = state.fileName(entryId).orEmpty(),
+            initialValue = state.file(entryId)?.name.orEmpty(),
             onDismiss = { renaming = null },
             onConfirm = {
                 onIntent(FilesIntent.RenameConfirmed(entryId, it))
@@ -463,6 +473,7 @@ private fun FilesScreenPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
+            navigateToImageEditor = { _, _ -> },
             navigateUp = {},
         )
     }
@@ -482,6 +493,7 @@ private fun FilesScreenFolderPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
+            navigateToImageEditor = { _, _ -> },
             navigateUp = {},
         )
     }
@@ -502,6 +514,7 @@ private fun FilesScreenEmptyPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
+            navigateToImageEditor = { _, _ -> },
             navigateUp = {},
         )
     }
@@ -521,6 +534,7 @@ private fun FilesScreenSelectingPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
+            navigateToImageEditor = { _, _ -> },
             navigateUp = {},
         )
     }

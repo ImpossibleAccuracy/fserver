@@ -46,7 +46,7 @@ data class FilesState(
 
     fun actionsFor(fileId: String): Set<FileActionUi> = entries?.actions?.get(fileId).orEmpty()
 
-    fun fileName(fileId: String): String? = entries?.preview?.directories?.findFile(fileId)?.name
+    fun file(fileId: String): FileBrowserUi.File? = entries?.preview?.directories?.findFile(fileId)
 
     val emptyReason: EmptyReasonUi
         get() = when {

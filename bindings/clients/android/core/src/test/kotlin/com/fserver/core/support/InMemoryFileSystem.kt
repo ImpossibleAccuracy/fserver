@@ -82,6 +82,11 @@ internal class InMemoryFileSystem : FileSystem {
                     files[locator] = grown
                 }
 
+                override suspend fun truncate(size: Long) {
+                    val current = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+                    if (size < current.size) files[locator] = current.copyOf(size.toInt())
+                }
+
                 override suspend fun sync() {
                     synced += locator
                 }

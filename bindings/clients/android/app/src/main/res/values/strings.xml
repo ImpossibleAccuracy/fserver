@@ -273,6 +273,14 @@
     <string name="files_action_rename">Rename</string>
     <string name="files_rename_title">Rename file</string>
     <string name="files_rename_label">Name</string>
+
+    <!-- Image editor -->
+    <string name="image_editor_title">Edit image</string>
+    <string name="image_editor_rotate_left">Rotate left</string>
+    <string name="image_editor_rotate_right">Rotate right</string>
+    <string name="image_editor_flip">Flip</string>
+    <string name="image_editor_reset">Reset</string>
+    <string name="image_editor_load_failed">Could not open this image</string>
     <plurals name="files_delete_title">
         <item quantity="one">Delete %1$d file?</item>
         <item quantity="other">Delete %1$d files?</item>

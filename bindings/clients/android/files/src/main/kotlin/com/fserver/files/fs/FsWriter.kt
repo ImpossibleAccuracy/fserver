@@ -11,6 +11,9 @@ interface FsWriter : Closeable {
         length: Int = bytes.size,
     )
 
+    /** Cuts the file down to [size] bytes; a larger [size] changes nothing. */
+    suspend fun truncate(size: Long)
+
     /** Flushes what was written to the storage device, so it outlives a crash. */
     suspend fun sync()
 }

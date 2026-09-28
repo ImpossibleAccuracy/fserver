@@ -70,6 +70,20 @@ class LocalFileEditorTest {
     }
 
     @Test
+    fun `a shorter rewrite truncates the old tail`() = runTest {
+        register()
+
+        val file = editor.create(SourceId, "a.txt").write { it.write(0, Content.toByteArray()) }
+        val rewritten = file.write {
+            it.write(0, "hi".toByteArray())
+            it.truncate(2)
+        }
+
+        assertEquals("hi", File(root, "a.txt").readText())
+        assertEquals(2L, rewritten.size.bytes)
+    }
+
+    @Test
     fun `create refuses a taken path`() = runTest {
         register()
         editor.create(SourceId, "a.txt")
