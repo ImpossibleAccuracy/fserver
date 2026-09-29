@@ -14,6 +14,7 @@ import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
+import com.fserver.core.sync.server.handler.SyncRequestHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.net.security.identity.PeerIdentity
@@ -51,6 +52,7 @@ internal class PeerRequestServer(
     private val fetchFiles: FetchFilesHandler,
     private val publishedIndexes: PublishIndexHandler,
     private val leases: SyncLeaseHandler,
+    private val syncRequests: SyncRequestHandler,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
     private val devicesRepository: DevicesRepositoryImpl,
@@ -229,6 +231,9 @@ internal class PeerRequestServer(
 
             is FileServerMessages.PublishIndex ->
                 publishedIndexes.handle(message, session)
+
+            is FileServerMessages.RequestSync ->
+                syncRequests.handle(message, session)
 
             is FileServerMessages.AcquireSyncLease.Request ->
                 leases.answer(event, message, session)

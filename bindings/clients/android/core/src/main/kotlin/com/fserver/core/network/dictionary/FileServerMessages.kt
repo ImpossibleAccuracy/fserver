@@ -45,6 +45,13 @@ internal sealed interface FileServerMessages {
         val files: List<FileRecordDto>,
     ) : FileServerMessages
 
+    /**
+     * Asks the peer to run a pass over [sourceId], sent where only the peer drives it. Fire and
+     * forget: the pass is the peer's to schedule, and a lost request waits for the next trigger.
+     */
+    @Serializable
+    data class RequestSync(val sourceId: String) : FileServerMessages
+
     /** Asks the peer to hold the pass over [Request.sourceId] while we run ours. */
     @Serializable
     sealed interface AcquireSyncLease : FileServerMessages {

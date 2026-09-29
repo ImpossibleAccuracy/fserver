@@ -26,6 +26,7 @@ import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.sync.remote.PeerFileOperations
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerSyncRequester
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.runner.UploadStrategySelector
 import com.fserver.core.sync.runner.action.ActionSteps
@@ -38,6 +39,7 @@ import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
+import com.fserver.core.sync.server.handler.SyncRequestHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadStaging
@@ -67,6 +69,7 @@ internal val syncModule = module {
     singleOf(::PeerIndexFetcher)
     singleOf(::PeerFileOperations)
     singleOf(::IndexPublisher)
+    singleOf(::PeerSyncRequester)
     singleOf(::SourceSetupExchange)
     single {
         val context = get<Context>()
@@ -79,6 +82,7 @@ internal val syncModule = module {
     singleOf(::FetchFilesHandler)
     singleOf(::PublishIndexHandler)
     singleOf(::SyncLeaseHandler)
+    singleOf(::SyncRequestHandler)
     singleOf(::FileOperationHandler)
     singleOf(::FileUploadHandler)
     singleOf(::UploadAdmission)

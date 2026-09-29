@@ -47,7 +47,6 @@ Idea:
 Major:
 - add QR connection via OutOfBandKeyAuthMethod
 - impl network scanner SPI
-- add request to execute sync (like download request) to the source
 - no compatibility with different hashers (e.g. SHA-256 vs BLAKE3) - need to add a selection based on already used hash info
 
 ## Net

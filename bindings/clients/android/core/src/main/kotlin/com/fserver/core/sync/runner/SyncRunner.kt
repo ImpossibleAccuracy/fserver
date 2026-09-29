@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Decides when passes run and over which sources, one batch at a time. What one source's pass
@@ -29,6 +30,9 @@ internal class SyncRunner(
     private val backgroundScope: BackgroundScope,
 ) {
     private val mutex = Mutex()
+
+    /** Sources a [requestSourceAsync] pass is still waiting on the [mutex] for. */
+    private val requested = ConcurrentHashMap.newKeySet<String>()
 
     /** One pass over every registered source. Waits for a pass already running. */
     suspend fun runOnce() = mutex.withLock { runPass(storage.sources.all()) }
@@ -56,6 +60,26 @@ internal class SyncRunner(
     fun runSourceAsync(sourceId: String): Job = backgroundScope.launch {
         runCatchingCancellable { runSource(sourceId, force = false) }
             .onFailure { Timber.w(it, "Source pass ($sourceId) failed") }
+    }
+
+    /**
+     * [runSourceAsync] for a pass the peer asked for. Dropped while an earlier one for [sourceId]
+     * has not started yet: that pass covers this request too.
+     */
+    fun requestSourceAsync(sourceId: String) {
+        if (!requested.add(sourceId)) return
+
+        backgroundScope.launch {
+            try {
+                mutex.withLock {
+                    requested.remove(sourceId)
+                    runCatchingCancellable { runPass(listOfNotNull(storage.sources.findById(sourceId))) }
+                        .onFailure { Timber.w(it, "Requested source pass ($sourceId) failed") }
+                }
+            } finally {
+                requested.remove(sourceId)
+            }
+        }
     }
 
     /**

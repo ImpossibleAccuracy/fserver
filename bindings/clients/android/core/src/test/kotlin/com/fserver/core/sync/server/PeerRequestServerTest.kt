@@ -28,6 +28,7 @@ import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
+import com.fserver.core.sync.server.handler.SyncRequestHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
 import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadStaging
@@ -250,6 +251,7 @@ class PeerRequestServerTest {
                 PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock),
                 peerMetadataExchange(storage, clock),
             ),
+            syncRequests = SyncRequestHandler(authorizer(), mockk(relaxed = true)),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),
                 storage = storage,

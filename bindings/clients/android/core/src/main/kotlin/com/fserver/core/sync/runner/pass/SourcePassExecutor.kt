@@ -14,6 +14,7 @@ import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.remote.PeerIndexFetcher
+import com.fserver.core.sync.remote.PeerSyncRequester
 import com.fserver.core.sync.runner.UploadStrategySelector
 import com.fserver.core.sync.runner.action.FileActionRunner
 import com.fserver.files.upload.FileAction
@@ -34,6 +35,7 @@ internal class SourcePassExecutor(
     private val leaseNegotiator: SyncLeaseNegotiator,
     private val progress: SyncProgressReporter,
     private val completion: PassCompletion,
+    private val syncRequester: PeerSyncRequester,
 ) {
     /**
      * One source, under a lease the peer agreed to. [force] skips the device constraints.
@@ -53,18 +55,19 @@ internal class SourcePassExecutor(
             return
         }
 
-        // The initiator drives a one-way source; this end only answers it.
-        if (!source.drivesSync) {
-            Timber.i("Source ${source.id} skipped: ${source.syncMode.type} runs from the initiator")
-            return
-        }
-
         val constraintsMet = force || constraintChecker(
             constraints = source.preferences.deviceConstraints,
         )
 
         if (!constraintsMet) {
             Timber.w("Source ${source.id} skipped: device constraints not met")
+            return
+        }
+
+        // The initiator drives a one-way source: ask it to run the pass by itself instead.
+        if (!source.drivesSync) {
+            syncRequester.requestAsync(source)
+            Timber.i("Requested source ${source.id} pass from peer")
             return
         }
 
