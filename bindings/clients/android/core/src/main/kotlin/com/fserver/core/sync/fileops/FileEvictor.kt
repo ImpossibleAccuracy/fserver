@@ -2,6 +2,7 @@ package com.fserver.core.sync.fileops
 
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.files.evictRefusal
 import com.fserver.core.files.preview.EvictingFile
 import com.fserver.core.files.preview.EvictionPreviewer
 import com.fserver.core.files.scan.toFiles
@@ -33,17 +34,14 @@ internal class FileEvictor(
         val key = IndexedFileKey(fileId = fileId, sourceId = source.id)
         val row = storage.index.findFile(key)
 
-        val unchanged = row != null && !row.hashStale && row.hash == expected &&
-                (row.state as? LocalIndexedFile.State.Present)?.pinned == false
-        if (expected == null || !unchanged) {
+        if (expected == null || row == null || row.hash != expected) {
             Timber.w("Not evicting $fileId in source ${source.id}: it changed since planned")
             return false
         }
 
-        // Only once the peer confirmed the same bytes.
         val copy = storage.remoteIndex.files(source.id).find { it.fileId == fileId }
-        if (copy == null || copy.state !is LocalIndexedFile.State.Present || copy.hash != expected) {
-            Timber.w("Not evicting ${row.path} in source ${source.id}: peer holds no confirmed copy")
+        row.evictRefusal(copy)?.let {
+            Timber.w("Not evicting ${row.path} in source ${source.id}: $it")
             return false
         }
 

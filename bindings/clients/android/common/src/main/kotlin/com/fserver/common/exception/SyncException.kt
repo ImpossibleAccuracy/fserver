@@ -27,6 +27,9 @@ sealed class SyncException(message: String, cause: Throwable? = null) :
     /** The receiver's own file limits had no room for the file. A skip, not a failure. */
     class OverLimitException(message: String) : SyncException(message)
 
+    /** The source's lease is held elsewhere - usually the peer's pass - so nothing ran. Worth retrying. */
+    class SourceBusyException(message: String) : SyncException(message)
+
     /** The pass kept re-planning without converging and was cut off. */
     class MaxRetriesExceededException(message: String, cause: Throwable? = null) :
         SyncException(message, cause)

@@ -13,8 +13,8 @@ import com.fserver.files.upload.UploadStrategy
  *
  * An evicted side stays in the set but has no bytes: it never sends, is never refilled (it catches
  * up on demand), never turns into a deletion, and is never deleted by anything but a newer
- * deletion. Where it holds the only newer version against the other side's bytes, the plan says so
- * with a [FileAction.Conflict] rather than silently.
+ * deletion. Either side may evict, once both hold the same bytes under the same version: from there
+ * it never conflicts unless a history it missed makes it strictly newer or concurrent.
  */
 class MirrorUploadStrategy : UploadStrategy {
 
@@ -134,6 +134,11 @@ class MirrorUploadStrategy : UploadStrategy {
             // Cannot decide without a hash, and cannot compute one here: ask, then re-plan.
             return computeHash(local, remote, "not hashed yet")
         }
+
+        // Eviction keeps the version, so under the same one the other side's bytes are all there
+        // is: an edit it never versioned, not a choice. The evicted side catches up on demand.
+        val evicted = local.state is State.Evicted || remote.state is State.Evicted
+        if (evicted && causality == Causality.Equal) return null
 
         // From here content is either known to differ or can never be known: versions decide alone.
         return when (causality) {

@@ -35,8 +35,17 @@ internal class SourcePassExecutor(
     private val progress: SyncProgressReporter,
     private val completion: PassCompletion,
 ) {
-    /** One source, under a lease the peer agreed to. [force] skips the device constraints. */
-    suspend fun process(source: SourceEntry, force: Boolean) {
+    /**
+     * One source, under a lease the peer agreed to. [force] skips the device constraints.
+     *
+     * [whileHeld] runs after a clean pass, still under the lease and with the peer's index just
+     * re-fetched: the peer can change nothing meanwhile.
+     */
+    suspend fun process(
+        source: SourceEntry,
+        force: Boolean,
+        whileHeld: (suspend (SourceEntry) -> Unit)? = null,
+    ) {
         // Allow sync only active sources
         if (source.status != SourceEntry.Status.Active) {
             localIndexer.refresh(source) // refresh local index anyway
@@ -77,6 +86,11 @@ internal class SourcePassExecutor(
 
                 progress.localPassFinished(source.id, null)
                 completion.localPassSucceeded(source)
+
+                if (whileHeld != null) {
+                    remoteFetcher.fetchIndex(agreed)
+                    whileHeld(agreed)
+                }
             }
         } catch (e: CancellationException) {
             throw e

@@ -26,6 +26,8 @@ data class StorageSourceState(
     val tree: FileBrowserUi.Tree = FileBrowserUi.Tree(),
     val editing: Boolean = false,
     val selected: Set<String> = emptySet(),
+    val freeBlock: FreeBlockUi? = null,
+    val refusals: Map<String, RefusalUi> = emptyMap(),
 ) {
     val preview: FileBrowserUi = when {
         grouped -> tree
@@ -42,13 +44,26 @@ data class StorageSourceState(
     val selectedBytes: Long
         get() = files.filter { it.id in selected }.sumOf { it.bytes }
 
-    val selectedWithoutCopy: Int
-        get() = files.count { it.id in selected && !it.isRemote }
+    val canFree: Boolean
+        get() = freeBlock == null
+
+    val freeable: Set<String>
+        get() = selected - refusals.keys
+
+    val freeableBytes: Long
+        get() = files.filter { it.id in freeable }.sumOf { it.bytes }
+
+    val selectedRefusals: Map<RefusalUi, Int>
+        get() = selected.mapNotNull { refusals[it] }.groupingBy { it }.eachCount()
 
     val allSelected: Boolean
         get() = selected.isNotEmpty() && selected.size == files.size
 
     enum class SortUi { Size, Date, Name }
+
+    enum class FreeBlockUi { Keeper, Inactive }
+
+    enum class RefusalUi { NotOnPeer, PeerDiffers, Unverified, Pinned }
 
     companion object {
         private fun sampleFile(
@@ -89,7 +104,13 @@ data class StorageSourceState(
         val SampleEditing = Sample.copy(
             editing = true,
             selected = setOf("VID_20260814_1902.mp4", "VID_20260902_1144.mp4"),
+            refusals = mapOf(
+                "VID_20260902_1144.mp4" to RefusalUi.NotOnPeer,
+                "VID_20260920_0915.mp4" to RefusalUi.NotOnPeer,
+            ),
         )
+
+        val SampleKeeper = Sample.copy(freeBlock = FreeBlockUi.Keeper)
 
         val SampleOffPhone = StorageSourceState(
             isLoading = false,

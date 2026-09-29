@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.settings.storage.source.composable
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,16 +22,17 @@ import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.RefusalUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
-/** What a selection adds up to, and the one thing to do with it. */
+/** What a selection adds up to, and freeing it from this phone. */
 @Composable
 fun SelectionBar(
     modifier: Modifier = Modifier,
     count: Int,
     bytes: Long,
-    onDelete: () -> Unit,
+    onFree: () -> Unit,
 ) {
     Row(
         modifier = modifier
@@ -49,19 +51,20 @@ fun SelectionBar(
             DkMonoCaption(text = FileSize(bytes).formatted())
         }
         DkPrimaryButton(
-            text = stringResource(R.string.action_delete),
+            text = stringResource(R.string.storage_free_action),
             enabled = count > 0,
-            onClick = onDelete,
+            onClick = onFree,
         )
     }
 }
 
-/** Asked only when some of the files have no copy anywhere else yet. */
+/** Asked only when some selected files must stay: says why, and frees the rest. */
 @Composable
-fun DeleteUncopiedDialog(
+fun FreeRefusedDialog(
     modifier: Modifier = Modifier,
-    count: Int,
-    uncopied: Int,
+    freeable: Int,
+    freeableBytes: Long,
+    refusals: Map<RefusalUi, Int>,
     deviceName: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -70,25 +73,34 @@ fun DeleteUncopiedDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        title = { Text(text = pluralStringResource(R.plurals.storage_delete_title, count, count)) },
-        text = {
+        title = {
             Text(
-                text = pluralStringResource(
-                    R.plurals.storage_delete_uncopied,
-                    uncopied,
-                    uncopied,
-                    deviceName,
-                ),
-            )
-        },
-        confirmButton = {
-            DkGhostButton(
-                text = stringResource(R.string.action_delete),
-                onClick = {
-                    onConfirm()
-                    onDismiss()
+                text = if (freeable > 0) {
+                    stringResource(R.string.storage_free_title, FileSize(freeableBytes).formatted())
+                } else {
+                    stringResource(R.string.storage_free_nothing_title)
                 },
             )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(DkSpacing.xs)) {
+                RefusalUi.entries.forEach { refusal ->
+                    val count = refusals[refusal] ?: return@forEach
+                    Text(text = pluralStringResource(refusal.textRes, count, count, deviceName))
+                }
+                Text(text = stringResource(R.string.storage_free_refused_footer))
+            }
+        },
+        confirmButton = {
+            if (freeable > 0) {
+                DkGhostButton(
+                    text = stringResource(R.string.storage_free_action),
+                    onClick = {
+                        onConfirm()
+                        onDismiss()
+                    },
+                )
+            }
         },
         dismissButton = {
             DkGhostButton(text = stringResource(R.string.action_cancel), onClick = onDismiss)
@@ -96,10 +108,18 @@ fun DeleteUncopiedDialog(
     )
 }
 
+private val RefusalUi.textRes: Int
+    get() = when (this) {
+        RefusalUi.NotOnPeer -> R.plurals.storage_free_refused_not_on_peer
+        RefusalUi.PeerDiffers -> R.plurals.storage_free_refused_peer_differs
+        RefusalUi.Unverified -> R.plurals.storage_free_refused_unverified
+        RefusalUi.Pinned -> R.plurals.storage_free_refused_pinned
+    }
+
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 private fun SelectionBarPreview() {
     FServerTheme {
-        SelectionBar(count = 3, bytes = 8_200_000_000, onDelete = {})
+        SelectionBar(count = 3, bytes = 8_200_000_000, onFree = {})
     }
 }

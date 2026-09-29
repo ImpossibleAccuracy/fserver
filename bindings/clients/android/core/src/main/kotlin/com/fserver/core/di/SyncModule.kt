@@ -1,5 +1,7 @@
 package com.fserver.core.di
 
+import android.content.Context
+import com.fserver.core.files.StorageVolumes
 import com.fserver.core.FServerConfig
 import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.sync.SourcesController
@@ -66,7 +68,10 @@ internal val syncModule = module {
     singleOf(::PeerFileOperations)
     singleOf(::IndexPublisher)
     singleOf(::SourceSetupExchange)
-    singleOf(::PeerMetadataExchange)
+    single {
+        val context = get<Context>()
+        PeerMetadataExchange(get(), get()) { StorageVolumes.fromContext(context).volumes }
+    }
 
     // The answering half: one handler per request family behind the listener.
     singleOf(::PeerRequestServer)

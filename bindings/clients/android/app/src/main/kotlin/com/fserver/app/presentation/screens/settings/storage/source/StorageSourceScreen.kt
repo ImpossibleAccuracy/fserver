@@ -38,7 +38,7 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.settings.storage.source.composable.DeleteUncopiedDialog
+import com.fserver.app.presentation.screens.settings.storage.source.composable.FreeRefusedDialog
 import com.fserver.app.presentation.screens.settings.storage.source.composable.SelectionBar
 import com.fserver.app.presentation.screens.settings.storage.source.composable.StorageSourceHeader
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceIntent
@@ -86,7 +86,7 @@ private fun StorageSourceScreenContent(
     onIntent: (StorageSourceIntent) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    var confirmingDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmingFree by rememberSaveable { mutableStateOf(false) }
 
     BackHandler(enabled = state.editing) { onIntent(StorageSourceIntent.EditClosed) }
 
@@ -116,7 +116,7 @@ private fun StorageSourceScreenContent(
                         title = state.label,
                         onBack = navigateUp,
                         actions = {
-                            if (!state.isEmpty && state.exists) {
+                            if (!state.isEmpty && state.exists && state.canFree) {
                                 DkIconButton(
                                     icon = Icons.Outlined.Edit,
                                     contentDescription = stringResource(R.string.action_edit),
@@ -137,11 +137,11 @@ private fun StorageSourceScreenContent(
                 SelectionBar(
                     count = state.selected.size,
                     bytes = state.selectedBytes,
-                    onDelete = {
-                        if (state.selectedWithoutCopy > 0) {
-                            confirmingDelete = true
+                    onFree = {
+                        if (state.selectedRefusals.isNotEmpty()) {
+                            confirmingFree = true
                         } else {
-                            onIntent(StorageSourceIntent.DeleteConfirmed)
+                            onIntent(StorageSourceIntent.FreeConfirmed)
                         }
                     },
                 )
@@ -183,13 +183,14 @@ private fun StorageSourceScreenContent(
         }
     }
 
-    if (confirmingDelete) {
-        DeleteUncopiedDialog(
-            count = state.selected.size,
-            uncopied = state.selectedWithoutCopy,
+    if (confirmingFree) {
+        FreeRefusedDialog(
+            freeable = state.freeable.size,
+            freeableBytes = state.freeableBytes,
+            refusals = state.selectedRefusals,
             deviceName = state.peer.name,
-            onConfirm = { onIntent(StorageSourceIntent.DeleteConfirmed) },
-            onDismiss = { confirmingDelete = false },
+            onConfirm = { onIntent(StorageSourceIntent.FreeConfirmed) },
+            onDismiss = { confirmingFree = false },
         )
     }
 }
@@ -289,6 +290,18 @@ private fun StorageSourceScreenEmptyPreview() {
     FServerTheme {
         StorageSourceScreenContent(
             state = StorageSourceState.SampleOffPhone,
+            onIntent = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun StorageSourceScreenKeeperPreview() {
+    FServerTheme {
+        StorageSourceScreenContent(
+            state = StorageSourceState.SampleKeeper,
             onIntent = {},
             navigateUp = {},
         )

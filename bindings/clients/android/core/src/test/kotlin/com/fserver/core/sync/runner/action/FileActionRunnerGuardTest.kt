@@ -232,6 +232,7 @@ class FileActionRunnerGuardTest {
                 size = FileSize(4),
                 modifiedAt = TestEpoch,
                 hash = ContentHash(hash, "SHA-256"),
+                version = local().metadata.version?.toIndexed(),
                 seenAt = TestEpoch,
             )
         ),

@@ -38,6 +38,7 @@ import com.fserver.app.presentation.designkit.DkSegmentedOption
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.composable.LinkDirectionIcons
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState
+import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.FreeBlockUi
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.SortUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
@@ -78,6 +79,8 @@ fun StorageSourceHeader(
             LinkDirectionIcons(direction = state.direction, deviceKind = state.peer.kind)
             DkCaption(text = state.peer.name)
         }
+
+        state.freeBlock?.let { DkCaption(text = stringResource(it.textRes, state.peer.name)) }
 
         if (!state.isEmpty) {
             Row(
@@ -173,3 +176,9 @@ private fun StorageSourceHeaderPreview() {
         )
     }
 }
+
+private val FreeBlockUi.textRes: Int
+    get() = when (this) {
+        FreeBlockUi.Keeper -> R.string.storage_free_blocked_keeper
+        FreeBlockUi.Inactive -> R.string.storage_free_blocked_inactive
+    }

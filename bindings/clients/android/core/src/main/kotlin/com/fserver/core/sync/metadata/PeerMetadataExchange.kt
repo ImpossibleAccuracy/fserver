@@ -1,9 +1,7 @@
 package com.fserver.core.sync.metadata
 
-import android.content.Context
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
-import com.fserver.core.files.StorageVolumes
 import com.fserver.core.files.storageKind
 import com.fserver.core.files.toOriginPath
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
@@ -24,7 +22,7 @@ import timber.log.Timber
 internal class PeerMetadataExchange(
     private val storage: FServerStorage,
     private val timeProvider: TimeProvider,
-    private val context: Context,
+    private val volumes: () -> List<SourceLocation.Root.Volume>,
 ) {
     /** This device's half of [source], recorded here too. Throws if the index cannot be read. */
     suspend fun describe(source: SourceEntry): SourceMetadataDto {
@@ -46,8 +44,6 @@ internal class PeerMetadataExchange(
 
         return dto
     }
-
-    private fun volumes() = StorageVolumes.fromContext(context).volumes
 
     /** [describe], or null when it fails. */
     suspend fun refresh(source: SourceEntry): SourceMetadataDto? =

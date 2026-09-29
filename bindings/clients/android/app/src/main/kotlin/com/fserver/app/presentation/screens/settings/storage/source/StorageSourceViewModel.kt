@@ -14,6 +14,8 @@ import com.fserver.app.presentation.composable.model.peerOf
 import com.fserver.app.presentation.composable.model.peers
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceIntent
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState
+import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.FreeBlockUi
+import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.RefusalUi
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceState.SortUi
 import com.fserver.app.presentation.screens.settings.storage.source.model.StorageSourceUiEffect
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
@@ -22,12 +24,15 @@ import com.fserver.app.presentation.shared.browser.model.asPreviewFile
 import com.fserver.app.presentation.shared.browser.model.toTree
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
+import com.fserver.core.files.EvictRefusal
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.index.LocalIndexedFile
+import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.model.evictsByHand
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,11 +45,11 @@ import kotlinx.coroutines.launch
 class StorageSourceViewModel(
     private val key: Destination.Settings.StorageSource,
     registeredSources: RegisteredSourcesRepository,
-    filesController: FilesController,
+    private val filesController: FilesController,
     sourcesController: SourcesController,
     devicesRepository: DevicesRepository,
     private val appSettings: AppSettingsStore,
-    reporter: ErrorReporter,
+    private val reporter: ErrorReporter,
 ) : ViewModel() {
     private val effects = Channel<StorageSourceUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -83,6 +88,7 @@ class StorageSourceViewModel(
         val files = here.map(fileOf).sortedWith(editable.sort.comparator)
         val ids = files.mapTo(mutableSetOf()) { it.id }
         val hasFolders = here.any { '/' in it.path }
+        val freeBlock = source.freeBlock()
 
         StorageSourceState(
             isLoading = false,
@@ -100,8 +106,10 @@ class StorageSourceViewModel(
             } else {
                 FileBrowserUi.Tree()
             },
-            editing = editable.selection.active && files.isNotEmpty(),
+            editing = editable.selection.active && files.isNotEmpty() && freeBlock == null,
             selected = editable.selection.ids intersect ids,
+            freeBlock = freeBlock,
+            refusals = here.mapNotNull { entry -> entry.evictRefusal?.let { entry.fileId to it.toUi() } }.toMap(),
         )
     }.stateInScreen(viewModelScope, null)
 
@@ -109,19 +117,15 @@ class StorageSourceViewModel(
         when (intent) {
             is StorageSourceIntent.SortChanged -> editable.update { it.copy(sort = intent.sort) }
             is StorageSourceIntent.GroupingChanged -> setGrouped(intent.grouped)
-            StorageSourceIntent.EditStarted -> editable.update {
-                it.copy(selection = it.selection.copy(active = true))
-            }
+            StorageSourceIntent.EditStarted -> startEdit { it.copy(active = true) }
             StorageSourceIntent.EditClosed -> closeEdit()
-            is StorageSourceIntent.FileLongPressed -> editable.update {
-                it.copy(selection = it.selection.started(intent.id))
-            }
+            is StorageSourceIntent.FileLongPressed -> startEdit { it.started(intent.id) }
 
             is StorageSourceIntent.FileToggled -> editable.update {
                 it.copy(selection = it.selection.toggled(intent.id))
             }
             StorageSourceIntent.AllToggled -> toggleAll()
-            StorageSourceIntent.DeleteConfirmed -> state.value?.selected?.let { delete(it) }
+            StorageSourceIntent.FreeConfirmed -> state.value?.freeable?.let { free(it) }
             is StorageSourceIntent.FileClicked -> open(intent.id)
         }
     }
@@ -133,6 +137,11 @@ class StorageSourceViewModel(
 
     private fun setGrouped(grouped: Boolean) {
         viewModelScope.launch { appSettings.setStorageGroupedByFolder(key.sourceId, grouped) }
+    }
+
+    private fun startEdit(select: (Selection) -> Selection) {
+        if (state.value?.canFree != true) return
+        editable.update { it.copy(selection = select(it.selection)) }
     }
 
     private fun closeEdit() {
@@ -148,10 +157,14 @@ class StorageSourceViewModel(
         editable.update { it.copy(selection = it.selection.copy(ids = selected)) }
     }
 
-    private fun delete(ids: Set<String>) {
-        if (ids.isEmpty()) return
-        // TODO: delete the selected files from this phone through the engine.
+    private fun free(ids: Set<String>) {
         closeEdit()
+        if (ids.isEmpty()) return
+
+        viewModelScope.launch {
+            filesController.evict(key.sourceId, ids)
+                .onFailure { reporter.report(it, "could not evict ${ids.size} files of ${key.sourceId}") }
+        }
     }
 }
 
@@ -167,6 +180,19 @@ private fun SyncFileEntry.toUi(sending: Set<String>): FileBrowserUi.File = asPre
         else -> FileBrowserUi.File.Sync.Waiting
     },
 )
+
+private fun SourceEntry.freeBlock(): FreeBlockUi? = when {
+    evictsByHand -> null
+    status != SourceEntry.Status.Active -> FreeBlockUi.Inactive
+    else -> FreeBlockUi.Keeper
+}
+
+private fun EvictRefusal.toUi(): RefusalUi = when (this) {
+    EvictRefusal.NotHere, EvictRefusal.NotOnPeer -> RefusalUi.NotOnPeer
+    EvictRefusal.PeerDiffers -> RefusalUi.PeerDiffers
+    EvictRefusal.Unverified, EvictRefusal.Unmerged -> RefusalUi.Unverified
+    EvictRefusal.Pinned -> RefusalUi.Pinned
+}
 
 private val SortUi.fileSort: FileSortUi
     get() = when (this) {

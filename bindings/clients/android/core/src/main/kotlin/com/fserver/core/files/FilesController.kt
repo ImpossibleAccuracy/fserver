@@ -16,8 +16,11 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
+import com.fserver.core.sync.fileops.FileEvictor
+import com.fserver.core.sync.model.evictsByHand
 import com.fserver.core.sync.model.evictsLocally
 import com.fserver.core.sync.model.fetchesOnDemand
+import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.transfer.FileDownloader
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
@@ -32,6 +35,8 @@ class FilesController internal constructor(
     private val requirementsChecker: RequirementsChecker,
     private val fileDownloader: FileDownloader,
     private val editor: LocalFileEditor,
+    private val evictor: FileEvictor,
+    private val syncRunner: SyncRunner,
     private val timeProvider: TimeProvider,
     private val coroutineScope: BackgroundScope,
 ) {
@@ -87,7 +92,8 @@ class FilesController internal constructor(
         val source = storage.sources.findById(entry.sourceId)
             ?: throw IllegalArgumentException("Source ${entry.sourceId} is not registered")
 
-        if (!source.fetchesOnDemand) {
+        val evictedByHand = source.evictsByHand && storage.index.findFile(key)?.state is LocalIndexedFile.State.Evicted
+        if (!source.fetchesOnDemand && !evictedByHand) {
             throw SyncException.ModeForbiddenException(
                 "Source ${source.id} fetches nothing on demand under ${source.syncMode.type}"
             )
@@ -119,6 +125,32 @@ class FilesController internal constructor(
     suspend fun delete(sourceId: String, fileId: String) =
         editor.delete(IndexedFileKey(fileId = fileId, sourceId = sourceId))
 
+    /**
+     * Evicts the local bytes of [fileIds] in [sourceId], where [evictsByHand] allows it. A pass runs
+     * first and eviction happens under its lease, against the peer's index as it is now: the peer
+     * cannot evict the same file meanwhile. One with an [EvictRefusal] by then is skipped; nothing is
+     * evicted when the pass fails or cannot run.
+     *
+     * @return the ids actually evicted.
+     */
+    suspend fun evict(sourceId: String, fileIds: Set<String>): Result<Set<String>> = runBackgroundJob {
+        val source = storage.sources.findById(sourceId)
+            ?: throw IllegalArgumentException("Source $sourceId is not registered")
+
+        if (!source.evictsByHand) {
+            throw SyncException.ModeForbiddenException(
+                "Source ${source.id} is not evicted by hand under ${source.syncMode.type} as ${source.role}"
+            )
+        }
+
+        syncRunner.runSourceThen(source) { agreed ->
+            fileIds.filterTo(mutableSetOf()) { fileId ->
+                val row = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = sourceId))
+                row != null && evictor.evict(agreed, fileId, expected = row.hash)
+            }
+        }
+    }
+
     private suspend fun markFetched(key: IndexedFileKey) {
         val present = storage.index.findFile(key)?.state as? LocalIndexedFile.State.Present
             ?: return
@@ -146,9 +178,13 @@ class FilesController internal constructor(
                 result += local.toSyncEntry(
                     remoteState = remote.state,
                     lostOnPeer = local.lostOn(remote),
+                    evictRefusal = local.evictRefusal(remote),
                 )
             } else if (local != null) {
-                result += local.toSyncEntry(lostOnPeer = local.lostOn(remote = null))
+                result += local.toSyncEntry(
+                    lostOnPeer = local.lostOn(remote = null),
+                    evictRefusal = local.evictRefusal(remote = null),
+                )
             } else if (remote != null) {
                 result += remote.toSyncEntry()
             }
@@ -168,6 +204,7 @@ private fun LocalIndexedFile.lostOn(remote: RemoteIndexedFile?): Boolean =
 private fun LocalIndexedFile.toSyncEntry(
     remoteState: LocalIndexedFile.State? = null,
     lostOnPeer: Boolean = false,
+    evictRefusal: EvictRefusal? = EvictRefusal.NotHere,
 ) = SyncFileEntry(
     fileId = fileId,
     sourceId = sourceId,
@@ -179,6 +216,7 @@ private fun LocalIndexedFile.toSyncEntry(
     remoteState = remoteState,
     modifiedAt = modifiedAt,
     lostOnPeer = lostOnPeer,
+    evictRefusal = evictRefusal,
 )
 
 private fun RemoteIndexedFile.toSyncEntry() = SyncFileEntry(
@@ -190,4 +228,5 @@ private fun RemoteIndexedFile.toSyncEntry() = SyncFileEntry(
     localState = null,
     remoteState = state,
     modifiedAt = modifiedAt,
+    evictRefusal = EvictRefusal.NotHere,
 )

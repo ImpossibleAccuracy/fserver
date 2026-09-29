@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner
 
+import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
@@ -38,6 +39,17 @@ internal class SyncRunner(
      */
     suspend fun runSource(sourceId: String, force: Boolean) = mutex.withLock {
         runPass(listOfNotNull(storage.sources.findById(sourceId)), force)
+    }
+
+    /**
+     * One forced pass over [source], then [block] under the same lease - see [SourcePassExecutor.process].
+     * Throws what the pass failed with, and [SyncException.SourceBusyException] when it could not run.
+     */
+    suspend fun <T> runSourceThen(source: SourceEntry, block: suspend (SourceEntry) -> T): T = mutex.withLock {
+        var result: Result<T>? = null
+        passExecutor.process(source, force = true) { result = Result.success(block(it)) }
+
+        result?.getOrThrow() ?: throw SyncException.SourceBusyException("Source ${source.id} pass did not run")
     }
 
     /** [runSource] on the background scope. Waits for a pass already running rather than skipping. */

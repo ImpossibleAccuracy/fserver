@@ -567,14 +567,26 @@
     <string name="storage_selected">%1$d selected</string>
     <string name="storage_select_all">Select all</string>
     <string name="storage_deselect_all">Deselect all</string>
-    <plurals name="storage_delete_title">
-        <item quantity="one">Delete %1$d file?</item>
-        <item quantity="other">Delete %1$d files?</item>
+    <string name="storage_free_nothing_title">Nothing to free up</string>
+    <string name="storage_free_refused_footer">These stay on this phone.</string>
+    <plurals name="storage_free_refused_not_on_peer">
+        <item quantity="one">%1$d isn\'t on %2$s yet</item>
+        <item quantity="other">%1$d aren\'t on %2$s yet</item>
     </plurals>
-    <plurals name="storage_delete_uncopied">
-        <item quantity="one">%1$d of them has no copy on %2$s yet and will be lost for good.</item>
-        <item quantity="other">%1$d of them have no copy on %2$s yet and will be lost for good.</item>
+    <plurals name="storage_free_refused_peer_differs">
+        <item quantity="one">%1$d differs from the copy on %2$s</item>
+        <item quantity="other">%1$d differ from the copy on %2$s</item>
     </plurals>
+    <plurals name="storage_free_refused_unverified">
+        <item quantity="one">%1$d isn\'t checked against %2$s yet</item>
+        <item quantity="other">%1$d aren\'t checked against %2$s yet</item>
+    </plurals>
+    <plurals name="storage_free_refused_pinned">
+        <item quantity="one">%1$d is pinned</item>
+        <item quantity="other">%1$d are pinned</item>
+    </plurals>
+    <string name="storage_free_blocked_keeper">This phone keeps the copy for %1$s. Freeing files here would lose them.</string>
+    <string name="storage_free_blocked_inactive">This link isn\'t active, so %1$s may not keep its copy.</string>
     <string name="storage_source_missing">This link no longer exists.</string>
     <string name="storage_source_empty">No files yet. They show up here after the first sync.</string>
     <plurals name="storage_source_off_phone">
@@ -880,6 +892,7 @@
     <string name="error_source_rejected">The other device turned the source down.</string>
     <string name="error_source_over_limit">The other device has no room for this file under its limits.</string>
     <string name="error_source_mode_forbidden">This source does not allow that on this device.</string>
+    <string name="error_source_busy">The other device is syncing this link right now. Try again in a moment.</string>
     <string name="error_sync_failed">The sync pass did not finish.</string>
     <string name="error_sync_unreachable">The device could not be reached, so the folder did not sync.</string>
     <string name="error_sync_refused">The other device turned the sync down.</string>

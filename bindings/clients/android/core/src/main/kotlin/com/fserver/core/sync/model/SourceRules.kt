@@ -27,6 +27,13 @@ internal val SourceEntry.acceptsPeerWrites: Boolean
 internal val SourceEntry.evictsLocally: Boolean
     get() = role == SourceEntry.Role.Initiator && (syncMode is SyncMode.Offload || syncMode is SyncMode.Host)
 
+/**
+ * The user may evict this device's bytes by hand, once the peer confirmably holds them. Only where
+ * this device drives the source: never on the backup end of a one-way mode.
+ */
+val SourceEntry.evictsByHand: Boolean
+    get() = drivesSync && status == SourceEntry.Status.Active
+
 /** Files this device lacks may be fetched from the peer on demand. */
 val SourceEntry.fetchesOnDemand: Boolean
     get() = when (syncMode) {

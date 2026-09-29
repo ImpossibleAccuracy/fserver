@@ -158,6 +158,9 @@ private fun SyncException.toAppError(): AppError = when (this) {
     is SyncException.ModeForbiddenException ->
         AppError(UiText.of(R.string.error_source_mode_forbidden))
 
+    is SyncException.SourceBusyException ->
+        AppError(UiText.of(R.string.error_source_busy))
+
     is SyncException.MaxRetriesExceededException,
     is SyncException.ActionFailedException,
         -> AppError(UiText.of(R.string.error_sync_failed))

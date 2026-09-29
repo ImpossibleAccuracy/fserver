@@ -8,6 +8,6 @@ sealed interface StorageSourceIntent {
     data class FileLongPressed(val id: String) : StorageSourceIntent
     data class FileToggled(val id: String) : StorageSourceIntent
     data object AllToggled : StorageSourceIntent
-    data object DeleteConfirmed : StorageSourceIntent
+    data object FreeConfirmed : StorageSourceIntent
     data class FileClicked(val id: String) : StorageSourceIntent
 }

@@ -255,6 +255,24 @@ class MirrorUploadStrategyTest {
     }
 
     @Test
+    fun `an eviction under the same version never conflicts with the other side's bytes`() = runTest {
+        val evicted = record(vector = mapOf(A to 1L), content = "x", state = Evicted)
+        val present = record(vector = mapOf(A to 1L), content = "y")
+
+        assertEquals(null, plan(local = evicted, remote = present))
+        assertEquals(null, plan(local = present, remote = evicted))
+    }
+
+    @Test
+    fun `an eviction survives a concurrent deletion on the other side`() = runTest {
+        val evicted = record(vector = mapOf(A to 1L), content = "x", state = Evicted)
+        val deleted = record(vector = mapOf(B to 1L), state = Deleted, origin = B)
+
+        assertEquals(null, plan(local = evicted, remote = deleted))
+        assertEquals(null, plan(local = deleted, remote = evicted))
+    }
+
+    @Test
     fun `evicted on both sides needs nothing`() = runTest {
         val action = plan(
             local = record(vector = mapOf(A to 2L), content = "new", state = Evicted),
