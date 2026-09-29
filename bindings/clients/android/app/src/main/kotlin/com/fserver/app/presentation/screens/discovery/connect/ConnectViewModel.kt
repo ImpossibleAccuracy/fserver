@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.connect
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.composable.model.toPeerUi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.firstAction
@@ -14,19 +16,15 @@ import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
-import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
-import com.fserver.core.storage.TrustedDevicesRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -45,7 +43,6 @@ import kotlinx.coroutines.launch
 class ConnectViewModel(
     private val networkInfoRepository: NetworkInfoRepository,
     private val devicesRepository: DevicesRepository,
-    private val trustedDevicesRepository: TrustedDevicesRepository,
     private val requirementsChecker: RequirementsChecker,
     private val lifecycleController: LifecycleController,
     private val reporter: ErrorReporter,
@@ -82,26 +79,14 @@ class ConnectViewModel(
         networkReport,
     ) { network, report -> network.toCardUi() to report.firstAction }
 
-    /**
-     * Connected, then trusted-but-offline, in one list.
-     *
-     * The offline half is read out of the trust records rather than off the wire, so a device is
-     * listed whether it is around or not; the visible-and-trusted feed only fills in what a trust
-     * record does not store — the kind and the current address.
-     */
+    /** Connected, then the rest of the trusted devices, whether they are around or not. */
     private val knownUi = combine(
         devicesRepository.devices.connected,
         devicesRepository.devices.known,
-        trustedDevicesRepository.devices,
         reconnecting,
-    ) { connected, visibleTrusted, trusted, busyId ->
-        val sessionIds = connected.mapTo(mutableSetOf()) { it.deviceId }
-
-        connected.map { it.toUi(isConnected = true) } +
-                trusted
-                    .distinctBy { it.deviceId }
-                    .filterNot { it.deviceId in sessionIds }
-                    .map { it.toUi(visible = visibleTrusted, isBusy = it.deviceId == busyId) }
+    ) { connected, known, busyId ->
+        connected.map { it.toUi() } +
+                known.filterNot { it.hasSession }.map { it.toUi(isBusy = it.deviceId == busyId) }
     }
 
     private val methodsUi = combine(
@@ -153,11 +138,7 @@ class ConnectViewModel(
             isMethodsOpen = methodsOpen,
             methodSetup = setup,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ConnectState(),
-    )
+    }.stateInScreen(viewModelScope, ConnectState())
 
     init {
         viewModelScope.launch {
@@ -324,26 +305,8 @@ class ConnectViewModel(
 private val searchableTransportKinds: List<TransportKind> =
     TransportKind.entries.filterNot { it == TransportKind.ManualAddress }
 
-private fun ForeignDevice.toUi(isConnected: Boolean = false) = ConnectState.DeviceUi(
-    id = deviceId,
-    name = displayName,
-    kind = kind,
+private fun ForeignDevice.toUi(isBusy: Boolean = false) = ConnectState.DeviceUi(
+    peer = toPeerUi(),
     address = routes.firstOrNull()?.address,
-    isConnected = isConnected,
+    isBusy = isBusy,
 )
-
-/** [visible] is the visible-and-trusted feed: what a trust record cannot say, it fills in. */
-private fun TrustedDevice.toUi(
-    visible: List<ForeignDevice>,
-    isBusy: Boolean,
-): ConnectState.DeviceUi {
-    val live = visible.firstOrNull { it.deviceId == deviceId }
-
-    return ConnectState.DeviceUi(
-        id = deviceId,
-        name = displayName,
-        kind = live?.kind,
-        address = live?.routes?.firstOrNull()?.address,
-        isBusy = isBusy,
-    )
-}

@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.source.list
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.app.presentation.composable.model.peers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.source.list.model.SyncRequestListIntent
@@ -11,7 +14,6 @@ import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -19,12 +21,12 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SyncRequestListViewModel(
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    devicesRepository: DevicesRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
@@ -46,18 +48,15 @@ class SyncRequestListViewModel(
 
     val state: StateFlow<SyncRequestListState> = combine(
         sourcesController.incomingRequests,
+        devicesRepository.peers(),
         trustedDevices.devices,
         answering,
-    ) { requests, devices, isAnswering ->
+    ) { requests, peers, trusted, isAnswering ->
         SyncRequestListState(
-            requests = requests.sortedByDescending { it.receivedAt }.map { it.toUi(devices) },
+            requests = requests.sortedByDescending { it.receivedAt }.map { it.toUi(peers, trusted) },
             isAnswering = isAnswering,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = SyncRequestListState(),
-    )
+    }.stateInScreen(viewModelScope, SyncRequestListState())
 
     fun onIntent(intent: SyncRequestListIntent) {
         when (intent) {

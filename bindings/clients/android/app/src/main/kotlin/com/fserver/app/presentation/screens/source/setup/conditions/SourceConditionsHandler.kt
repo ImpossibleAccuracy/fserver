@@ -1,7 +1,7 @@
 package com.fserver.app.presentation.screens.source.setup.conditions
 
+import com.fserver.app.util.stateInScreen
 import com.fserver.app.R
-import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
@@ -32,7 +32,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
@@ -40,7 +39,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,7 +90,7 @@ class SourceConditionsHandler(
                 progressDetail = local.progressDetail,
                 error = local.error,
             )
-        }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+        }.stateInScreen(scope, null)
 
     fun onIntent(intent: SourceConditionsIntent) {
         when (intent) {

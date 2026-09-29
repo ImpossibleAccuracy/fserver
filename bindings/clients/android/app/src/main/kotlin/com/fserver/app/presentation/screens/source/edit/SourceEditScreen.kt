@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.source.edit
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,11 +40,9 @@ fun SourceEditScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SourceEditUiEffect.NavigateBack -> navigateUp()
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            SourceEditUiEffect.NavigateBack -> navigateUp()
         }
     }
 

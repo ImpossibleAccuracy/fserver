@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.setup.access
 
+import com.fserver.app.util.stateInScreen
 import android.content.Context
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessIntent
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessState
@@ -22,11 +23,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -63,7 +62,7 @@ class SourceAccessHandler(
             progress = local.progress,
             navigation = navigation,
         )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+    }.stateInScreen(scope, null)
 
     fun onIntent(intent: SourceAccessIntent) {
         when (intent) {

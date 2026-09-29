@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser.model
 
+import com.fserver.app.presentation.composable.model.fileName
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.fileExtension
 import com.fserver.app.presentation.composable.model.fileKindOf
@@ -29,7 +30,7 @@ fun List<ScannedFile>.toPreview(
 }
 
 private fun ScannedFile.toPreviewFile(): FileBrowserUi.File {
-    val name = path.substringAfterLast('/')
+    val name = path.fileName()
     val extension = name.fileExtension
     val kind = fileKindOf(name)
 

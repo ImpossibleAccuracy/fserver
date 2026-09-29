@@ -47,7 +47,7 @@ internal class AutoSyncCoordinator(
 
         val job = backgroundScope.launch {
             combine(
-                devicesRepository.devices.all,
+                devicesRepository.devices.visible,
                 networkInfoRepository.networkInfo,
             ) { devices, network ->
                 Sighting(

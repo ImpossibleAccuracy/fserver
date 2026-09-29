@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.settings.storage.main.model
 
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -98,9 +99,9 @@ data class StorageState(
     }
 
     companion object {
-        private val SampleServer = PeerUi("Server", DeviceKind.Nas)
-        private val SamplePc = PeerUi("Home PC", DeviceKind.Desktop)
-        private val SampleLaptop = PeerUi("Laptop", DeviceKind.Laptop)
+        private val SampleServer = PeerUi("server", "Server", DeviceKind.Nas)
+        private val SamplePc = PeerUi("home-pc", "Home PC", DeviceKind.Desktop)
+        private val SampleLaptop = PeerUi("laptop", "Laptop", DeviceKind.Laptop)
         private val SampleCache = AppDataUi(AppDataKindUi.Cache, 3_100_000_000)
         private val SampleDownloaded = AppDataUi(AppDataKindUi.Downloaded, 14_000_000_000, files = 86)
         private val SampleEvictionPreviews = AppDataUi(AppDataKindUi.EvictionPreviews, 48_000_000)

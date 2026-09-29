@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.setup.mode
 
+import com.fserver.app.util.stateInScreen
 import com.fserver.app.presentation.screens.source.setup.mode.model.SourceModeIntent
 import com.fserver.app.presentation.screens.source.setup.mode.model.SourceModeState
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
@@ -10,10 +11,8 @@ import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 class SourceModeHandler(
@@ -49,7 +48,7 @@ class SourceModeHandler(
                     )
             },
         )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+    }.stateInScreen(scope, null)
 
     fun onIntent(intent: SourceModeIntent) {
         when (intent) {

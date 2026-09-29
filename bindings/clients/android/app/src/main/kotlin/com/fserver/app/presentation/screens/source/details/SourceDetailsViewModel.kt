@@ -1,5 +1,13 @@
 package com.fserver.app.presentation.screens.source.details
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.screens.source.shared.model.localPath
+import com.fserver.app.presentation.shared.sync.SyncTrigger
+import com.fserver.app.presentation.composable.model.fileName
+import com.fserver.app.presentation.composable.model.dateLabel
+import com.fserver.app.presentation.composable.model.peers
+import com.fserver.app.presentation.composable.model.peerOf
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
@@ -11,8 +19,6 @@ import com.fserver.app.presentation.screens.source.details.model.SourceDetailsSt
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
-import com.fserver.app.presentation.screens.source.shared.model.latest
-import com.fserver.app.presentation.screens.source.shared.model.readablePath
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
@@ -27,7 +33,6 @@ import com.fserver.core.storage.DeviceIdentityRepository
 import com.fserver.core.storage.FilesTotal
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.SourceFilesTotals
-import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.conflict.FileConflict
@@ -35,18 +40,10 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.drivesSync
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import kotlin.time.Instant
-import java.time.Instant as JavaInstant
 
 class SourceDetailsViewModel(
     private val key: Destination.Files.SourceDetails,
@@ -55,19 +52,18 @@ class SourceDetailsViewModel(
     filesController: FilesController,
     registeredSources: RegisteredSourcesRepository,
     identity: DeviceIdentityRepository,
-    trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
     networkInfoRepository: NetworkInfoRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
-    private val refreshing = MutableStateFlow(false)
+    private val syncTrigger = SyncTrigger(viewModelScope, sourcesController, reporter)
 
     private val effects = Channel<SourceDetailsUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
     private val isSyncing = combine(
-        refreshing,
+        syncTrigger.running,
         sourcesController.progress.pass(key.sourceId),
     ) { refreshing, pass -> refreshing || pass?.isFinished == false }
 
@@ -92,39 +88,26 @@ class SourceDetailsViewModel(
         registeredSources.observeById(key.sourceId),
         registeredSources.observeTotals(key.sourceId),
         environment,
-        trustedDevices.devices,
-        devicesRepository.devices.connected,
+        devicesRepository.peers(),
         isSyncing,
         issues,
-    ) { source, totals, environment, trusted, connected, syncing, issues ->
+    ) { source, totals, environment, peers, syncing, issues ->
         if (source == null) return@combineMany SourceDetailsState(isLoading = false)
-
-        val session = connected.firstOrNull { it.deviceId == source.deviceId }
-        val record = trusted.latest(source.deviceId)
 
         source.toState(
             totals = totals,
             environment = environment,
-            peer = SourceDetailsState.PeerUi(
-                id = source.deviceId,
-                name = session?.displayName ?: record?.displayName ?: source.deviceId,
-                kind = session?.kind ?: record?.metadata?.kind,
-                online = session != null,
-            ),
+            peer = peers.peerOf(source.deviceId),
         ).copy(
             isSyncing = syncing,
             attention = issues.toAttention(source.syncMode),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = SourceDetailsState(),
-    )
+    }.stateInScreen(viewModelScope, SourceDetailsState())
 
     fun onIntent(intent: SourceDetailsIntent) {
         when (intent) {
-            SourceDetailsIntent.RefreshRequested -> sync()
-            SourceDetailsIntent.SendNowClicked -> sync()
+            SourceDetailsIntent.RefreshRequested,
+            SourceDetailsIntent.SendNowClicked -> syncTrigger.run("Sync of ${key.sourceId} failed", key.sourceId)
             SourceDetailsIntent.DeleteConfirmed -> delete()
         }
     }
@@ -135,19 +118,6 @@ class SourceDetailsViewModel(
                 onSuccess = { effects.send(SourceDetailsUiEffect.NavigateBack) },
                 onFailure = { reporter.report(it, "Could not remove source ${key.sourceId}") },
             )
-        }
-    }
-
-    private fun sync() {
-        if (refreshing.value) return
-        refreshing.value = true
-
-        viewModelScope.launch {
-            runCatching { sourcesController.runSync(key.sourceId, force = true) }
-                .exceptionOrNull()
-                ?.let { reporter.report(it, "Sync of ${key.sourceId} failed") }
-
-            refreshing.value = false
         }
     }
 }
@@ -166,8 +136,6 @@ private fun Issues.toAttention(mode: SyncMode): List<SourceDetailsState.Attentio
     }
 }
 
-private fun String.fileName(): String = substringAfterLast('/')
-
 private data class Environment(
     val onMobile: Boolean,
     val self: LocalDevice,
@@ -176,12 +144,12 @@ private data class Environment(
 private fun SourceEntry.toState(
     totals: SourceFilesTotals,
     environment: Environment,
-    peer: SourceDetailsState.PeerUi,
+    peer: PeerUi,
 ): SourceDetailsState {
     val mode = syncMode.toUi()
     val outgoing = drivesSync
     val initiator = role == SourceEntry.Role.Initiator
-    val here = if (initiator) originPath else location.readablePath()
+    val here = localPath()
     val there = if (initiator) null else originPath
 
     val stages = stagesOf(totals, mode, outgoing, hereDetail = here, peerDetail = there)
@@ -279,7 +247,7 @@ private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): 
             )
 
             is SyncMode.AutoUpload -> {
-                mode.ignoreFilesBefore?.let { add(ConditionUi.IgnoreBefore(it.formatted())) }
+                mode.ignoreFilesBefore?.let { add(ConditionUi.IgnoreBefore(it.dateLabel())) }
                 add(ConditionUi.CopiesStay)
             }
 
@@ -301,9 +269,3 @@ private fun conditionsOf(mode: SyncMode, preferences: SourceEntry.Preferences): 
         preferences.fileLimits.maxFiles?.let { add(ConditionUi.MaxFiles(it)) }
         preferences.fileLimits.maxTotalSize?.let { add(ConditionUi.MaxSize(it.bytes)) }
     }
-
-private val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-
-private fun Instant.formatted(): String = dateFormat.format(
-    JavaInstant.ofEpochMilli(toEpochMilliseconds()).atZone(ZoneId.systemDefault())
-)

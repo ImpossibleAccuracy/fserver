@@ -5,23 +5,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
-import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.composable.toUi
-import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.util.stateInScreen
 import com.fserver.core.FServerCore
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -82,11 +80,7 @@ class AppViewModel(
             incomingTransfer = null,
             viewedFile = viewedFile,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = null,
-    )
+    }.stateInScreen(viewModelScope, null)
 
     init {
         viewModelScope.launch {
@@ -100,9 +94,7 @@ class AppViewModel(
             authManager.profile
                 .collect { profile ->
                     val destination = computeStartDestination(profile)
-                    if (!startDestination.compareAndSet(null, destination)) {
-                        // TODO: manually navigate to computed destination
-                    }
+                    startDestination.compareAndSet(null, destination)
                 }
         }
 

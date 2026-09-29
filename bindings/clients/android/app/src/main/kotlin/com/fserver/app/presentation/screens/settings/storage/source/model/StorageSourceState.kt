@@ -3,7 +3,7 @@ package com.fserver.app.presentation.screens.settings.storage.source.model
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
-import com.fserver.app.presentation.screens.settings.storage.main.model.PeerUi
+import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.isMediaCollection
 import com.fserver.common.model.FileSize
@@ -73,7 +73,7 @@ data class StorageSourceState(
             isLoading = false,
             label = "Camera",
             path = "/DCIM",
-            peer = PeerUi("Server", DeviceKind.Nas),
+            peer = PeerUi("server", "Server", DeviceKind.Nas),
             hasFolders = true,
             files = listOf(
                 sampleFile("VID_20260814_1902.mp4", 4_100_000_000),
@@ -93,7 +93,7 @@ data class StorageSourceState(
         val SampleOffPhone = StorageSourceState(
             isLoading = false,
             label = "WhatsApp Media",
-            peer = PeerUi("Server", DeviceKind.Nas),
+            peer = PeerUi("server", "Server", DeviceKind.Nas),
             offPhoneFiles = 7860,
         )
     }

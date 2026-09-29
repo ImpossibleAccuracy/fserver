@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.details.model
 
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
@@ -26,14 +27,6 @@ data class SourceDetailsState(
     val attention: List<AttentionUi> = emptyList(),
     val history: List<HistoryUi> = emptyList(),
 ) {
-    @Immutable
-    data class PeerUi(
-        val id: String = "",
-        val name: String = "",
-        val kind: DeviceKind? = null,
-        val online: Boolean = false,
-    )
-
     @Immutable
     data class SendNowUi(
         val count: Int,

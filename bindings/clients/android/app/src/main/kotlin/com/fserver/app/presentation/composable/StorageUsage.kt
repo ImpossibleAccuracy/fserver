@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.composable
 
+import com.fserver.app.presentation.designkit.DkStatusDot
 import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -142,12 +143,7 @@ private fun LegendItem(text: String, color: Color) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
     ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
+        DkStatusDot(color = color)
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,

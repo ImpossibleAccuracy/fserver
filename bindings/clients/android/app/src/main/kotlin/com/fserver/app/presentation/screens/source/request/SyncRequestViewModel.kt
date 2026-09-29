@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.source.request
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.app.presentation.composable.model.peers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
@@ -20,13 +23,11 @@ import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,6 +35,7 @@ class SyncRequestViewModel(
     private val key: Destination.Source.Request.Details,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
+    devicesRepository: DevicesRepository,
     private val diskUsage: DiskUsageRepository,
     val reporter: ErrorReporter,
 ) : ViewModel() {
@@ -53,11 +55,12 @@ class SyncRequestViewModel(
 
     val state: StateFlow<SyncRequestState?> = combine(
         sourcesController.incomingRequests,
+        devicesRepository.peers(),
         trustedDevices.devices,
         disk,
         editable,
-    ) { requests, devices, disk, local ->
-        val request = requests.firstOrNull { it.sourceId == sourceId }?.toUi(devices)
+    ) { requests, peers, trusted, disk, local ->
+        val request = requests.firstOrNull { it.sourceId == sourceId }?.toUi(peers, trusted)
 
         SyncRequestState(
             request = request,
@@ -69,11 +72,7 @@ class SyncRequestViewModel(
                 ?: SourcePreferencesUi.build(request?.mode ?: SourceModeUi.Sync, SourceRoleUi.Follower),
             isAnswering = local.answering,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = null,
-    )
+    }.stateInScreen(viewModelScope, null)
 
     fun onIntent(intent: SyncRequestIntent) {
         when (intent) {

@@ -1,16 +1,20 @@
 package com.fserver.app.presentation.screens.dashboard
 
+import com.fserver.app.util.stateInScreen
 import android.text.format.DateUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.composable.model.StorageUsageUi
+import com.fserver.app.presentation.composable.model.peerOf
+import com.fserver.app.presentation.composable.model.peers
 import com.fserver.app.presentation.composable.model.direction
 import com.fserver.app.presentation.composable.model.toUi
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
-import com.fserver.app.presentation.screens.source.shared.model.latest
+import com.fserver.app.presentation.screens.source.shared.model.transfersOf
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.shared.error.toAppError
@@ -18,11 +22,8 @@ import com.fserver.app.util.combineMany
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
-import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.FailedContact
-import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.device.model.ReachabilityFailure
-import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
@@ -36,10 +37,8 @@ import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Instant
 
 class DashboardViewModel(
@@ -60,41 +59,37 @@ class DashboardViewModel(
      */
     private val networkRequirements = MutableStateFlow(RequirementReport.Satisfied)
 
-    private val links: Flow<List<DashboardState.LinkUi>> = combineMany(
+    private val links: Flow<List<DashboardState.LinkUi>> = combine(
         registeredSourcesRepository.sources,
         sourcesController.progress.passes,
         sourcesController.progress.transfers,
-        trustedDevicesRepository.devices,
-        devicesRepository.devices.connected,
+        devicesRepository.peers(),
         deviceReachability.failures,
-    ) { sources, passes, transfers, trusted, connected, failures ->
+    ) { sources, passes, transfers, peers, failures ->
         sources
             .sortedBy { it.createdAt }
             .map { source ->
-                val session = connected.firstOrNull { it.deviceId == source.deviceId }
-                val record = trusted.latest(source.deviceId)
+                val peer = peers.peerOf(source.deviceId)
                 val pass = passes.firstOrNull { it.sourceId == source.id }
                 val failure = failures
                     .firstOrNull { it.deviceId == source.deviceId && it.isWarning }
-                    .takeIf { session == null }
+                    .takeUnless { peer.online }
 
                 source.toLinkUi(
                     pass = pass,
-                    files = transfers.filter { it.belongsTo(pass, source.id) },
+                    files = pass?.takeUnless { it.isFinished }.transfersOf(source.id, transfers),
                     failure = failure,
-                    deviceName = session?.displayName ?: record?.displayName ?: source.deviceId,
-                    deviceKind = session?.kind ?: record?.metadata?.kind,
+                    peer = peer,
                 )
             }
     }
 
     private val devices: Flow<List<DashboardState.DeviceUi>> = combine(
-        trustedDevicesRepository.devices,
-        devicesRepository.devices.connected,
+        devicesRepository.peers(),
         registeredSourcesRepository.sources,
         deviceReachability.failures,
-    ) { trusted, connected, sources, failures ->
-        deviceList(trusted, connected, sources, failures)
+    ) { peers, sources, failures ->
+        deviceList(peers, sources, failures)
     }
 
     private val storage: Flow<StorageUsageUi> = combine(
@@ -132,11 +127,7 @@ class DashboardViewModel(
             syncRequestsWaiting = requests.size,
             networkWarning = warning,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = DashboardState(),
-    )
+    }.stateInScreen(viewModelScope, DashboardState())
 
     fun onIntent(intent: DashboardIntent) {
         when (intent) {
@@ -146,12 +137,10 @@ class DashboardViewModel(
 
     /** Only devices some source is paired with: the rest have nothing to show here. */
     private fun deviceList(
-        trusted: List<TrustedDevice>,
-        connected: List<ForeignDevice>,
+        peers: Map<String, PeerUi>,
         sources: List<SourceEntry>,
         failures: List<ReachabilityFailure>,
     ): List<DashboardState.DeviceUi> {
-        val online = connected.associateBy { it.deviceId }
         // Only the failures worth reporting: the rest read as a device that is simply offline.
         val unreachable = failures.filter { it.isWarning }.mapTo(mutableSetOf()) { it.deviceId }
 
@@ -159,19 +148,10 @@ class DashboardViewModel(
             .map { it.deviceId }
             .distinct()
             .map { deviceId ->
-                val record = trusted.latest(deviceId)
-                val session = online[deviceId]
-
-                DashboardState.DeviceUi(
-                    id = deviceId,
-                    name = session?.displayName ?: record?.displayName ?: deviceId,
-                    kind = session?.kind ?: record?.metadata?.kind,
-                    online = session != null,
-                    unreachable = session == null && deviceId in unreachable,
-                    lastSeenLabel = record?.metadata?.lastSeen?.relative(),
-                )
+                val peer = peers.peerOf(deviceId)
+                DashboardState.DeviceUi(peer = peer, unreachable = !peer.online && deviceId in unreachable)
             }
-            .sortedWith(compareByDescending<DashboardState.DeviceUi> { it.online }.thenBy { it.name })
+            .sortedWith(compareByDescending<DashboardState.DeviceUi> { it.peer.online }.thenBy { it.peer.name })
     }
 
     private fun networkWarning(): Flow<DashboardState.NetworkWarningUi?> = combine(
@@ -213,35 +193,31 @@ class DashboardViewModel(
     }
 }
 
-private fun FileTransfer.belongsTo(pass: SourcePass?, sourceId: String): Boolean =
-    pass?.isFinished == false && key.sourceId == sourceId && startedAt >= pass.startedAt
-
 private fun SourceEntry.toLinkUi(
     pass: SourcePass?,
     files: List<FileTransfer>,
     failure: ReachabilityFailure?,
-    deviceName: String,
-    deviceKind: DeviceKind?,
+    peer: PeerUi,
 ): DashboardState.LinkUi {
     val running = pass?.isFinished == false
 
     return DashboardState.LinkUi(
         id = id,
         label = label,
-        deviceName = deviceName,
-        deviceKind = deviceKind,
+        peer = peer,
         mode = syncMode.toUi(),
         direction = direction(),
         status = when {
             running -> DashboardState.LinkStatusUi.Syncing
-            status is SourceEntry.Status.Pending -> DashboardState.LinkStatusUi.Pending
-            status is SourceEntry.Status.Disabled -> DashboardState.LinkStatusUi.Disabled
-            else -> DashboardState.LinkStatusUi.Active
+            else -> when (status) {
+                SourceEntry.Status.Active -> DashboardState.LinkStatusUi.Active
+                SourceEntry.Status.Pending -> DashboardState.LinkStatusUi.Pending
+                is SourceEntry.Status.Disabled -> DashboardState.LinkStatusUi.Disabled
+            }
         },
         statusDetail = when {
             running -> null
-            status is SourceEntry.Status.Disabled -> (status as SourceEntry.Status.Disabled).reason
-            else -> lastSyncedAt?.relative()
+            else -> (status as? SourceEntry.Status.Disabled)?.reason ?: lastSyncedAt?.relative()
         },
         progress = (pass as? SourcePass.Local)?.progress,
         filesDone = files.count { it.state == FileTransfer.State.Completed },

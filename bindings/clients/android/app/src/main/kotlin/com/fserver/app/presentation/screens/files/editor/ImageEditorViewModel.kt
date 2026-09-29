@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.files.editor
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.composable.model.fileName
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,11 +24,9 @@ import com.fserver.core.files.access.SourceFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,11 +44,7 @@ class ImageEditorViewModel(
 
     val state: StateFlow<ImageEditorState> = editable
         .map { it.toPresentation() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = ImageEditorState(),
-        )
+        .stateInScreen(viewModelScope, ImageEditorState())
 
     init {
         load()
@@ -78,7 +74,7 @@ class ImageEditorViewModel(
                     ?: throw IllegalArgumentException("Could not decode ${file.path}")
 
                 Editable(
-                    fileName = file.path.substringAfterLast('/'),
+                    fileName = file.path.fileName(),
                     status = ImageEditorState.StatusUi.Ready,
                     format = format,
                     crop = cropState(src),

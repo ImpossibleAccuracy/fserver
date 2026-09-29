@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.files.model
 
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
@@ -72,8 +73,7 @@ data class FilesState(
     data class SourceUi(
         val id: String,
         val label: String,
-        val deviceName: String,
-        val deviceKind: DeviceKind?,
+        val peer: PeerUi,
     )
 
     @Serializable
@@ -99,8 +99,8 @@ data class FilesState(
         )
 
         val SampleSources = listOf(
-            SourceUi("camera", "Camera", "Server", DeviceKind.Nas),
-            SourceUi("documents", "Documents", "Laptop", DeviceKind.Laptop),
+            SourceUi("camera", "Camera", PeerUi("server", "Server", DeviceKind.Nas)),
+            SourceUi("documents", "Documents", PeerUi("laptop", "Laptop", DeviceKind.Laptop)),
         )
     }
 }

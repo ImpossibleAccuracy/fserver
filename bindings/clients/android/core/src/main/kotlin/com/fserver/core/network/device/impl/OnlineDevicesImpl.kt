@@ -5,6 +5,7 @@ import com.fserver.core.network.device.OnlineDevices
 import com.fserver.core.network.device.impl.mapper.toDomain
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.ForeignDevice
+import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.impl.asTransportKind
 import com.fserver.core.store.FServerStorage
 import com.fserver.net.connection.HandshakeProfile
@@ -18,10 +19,11 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import kotlin.time.toJavaInstant
 
 /**
- * Merges the three things that make a device visible into one snapshot, and hands each of them out
- * separately.
+ * Merges the three things that make a device visible, plus the trust records, into one snapshot,
+ * and hands each of them out separately.
  *
  * Merged rather than exposed raw because the same device shows up in several of them at once - a
  * peer that was discovered, then connected, is one device with two routes, not two entries - and
@@ -56,10 +58,14 @@ internal class OnlineDevicesImpl(
         network.peerDiscovery.peers,
         liveSessions,
         network.requestManager.profiles,
-    ) { peers, sessions, profiles -> merge(peers, sessions, profiles) }
+        storage.trust.devices,
+    ) { peers, sessions, profiles, trusted -> merge(peers, sessions, profiles, trusted) }
 
     override val all: Flow<List<ForeignDevice>> =
         snapshot.map { it.all }.distinctUntilChanged()
+
+    override val visible: Flow<List<ForeignDevice>> =
+        snapshot.map { it.visible }.distinctUntilChanged()
 
     override val connected: Flow<List<ForeignDevice>> =
         snapshot.map { it.connected }.distinctUntilChanged()
@@ -69,6 +75,9 @@ internal class OnlineDevicesImpl(
 
     override val discovered: Flow<List<ForeignDevice>> =
         snapshot.map { it.discovered }.distinctUntilChanged()
+
+    override val offline: Flow<List<ForeignDevice>> =
+        snapshot.map { it.offline }.distinctUntilChanged()
 
     override val known: Flow<List<ForeignDevice>> =
         combine(all, storage.trust.knownDeviceIds) { devices, known ->
@@ -88,7 +97,12 @@ internal class OnlineDevicesImpl(
         peers: List<DiscoveredPeer>,
         sessions: List<PeerSession<*>>,
         profiles: Map<String, HandshakeProfile>,
+        trusted: List<TrustedDevice>,
     ): Snapshot {
+        // Records of one device share their metadata; the store lists the most recent key first.
+        val records = trusted.distinctBy { it.deviceId }.associateBy { it.deviceId }
+        val recordedKind = { deviceId: String -> records[deviceId]?.metadata?.kind }
+
         // Both maps are drained as the stronger claims are answered, so whatever is left over is
         // known by that way and no other.
         val peersByIds = peers.associateByTo(mutableMapOf()) { it.advertised.deviceId }
@@ -101,7 +115,8 @@ internal class OnlineDevicesImpl(
             ForeignDevice(
                 deviceId = session.identity.deviceId,
                 displayName = session.descriptor.displayName,
-                kind = DeviceKind.fromSerialized(session.descriptor.kind),
+                kind = DeviceKind.fromSerialized(session.descriptor.kind)
+                    ?: recordedKind(session.identity.deviceId),
                 routes = listOf(session.route)
                     .plus(peer?.routes ?: emptyList())
                     .distinctBy { it.transport }
@@ -120,7 +135,8 @@ internal class OnlineDevicesImpl(
             ForeignDevice(
                 deviceId = profile.identity.deviceId,
                 displayName = profile.negotiated.peerDescriptor.displayName,
-                kind = DeviceKind.fromSerialized(profile.negotiated.peerDescriptor.kind),
+                kind = DeviceKind.fromSerialized(profile.negotiated.peerDescriptor.kind)
+                    ?: recordedKind(profile.identity.deviceId),
                 routes = listOf(profile.route.toDomain()),
                 foundBy = foundBy.asTransportKind(),
                 lastSeen = Instant.now(),
@@ -133,7 +149,8 @@ internal class OnlineDevicesImpl(
             ForeignDevice(
                 deviceId = peer.advertised.deviceId,
                 displayName = peer.advertised.displayName,
-                kind = DeviceKind.fromSerialized(peer.advertised.kind),
+                kind = DeviceKind.fromSerialized(peer.advertised.kind)
+                    ?: recordedKind(peer.advertised.deviceId),
                 routes = peer.routes.map { it.toDomain() },
                 foundBy = peer.routes.first().transport.asTransportKind(),
                 lastSeen = peer.lastSeen,
@@ -142,10 +159,27 @@ internal class OnlineDevicesImpl(
             )
         }
 
+        val visibleIds = (connected + handshaken + discovered).mapTo(HashSet()) { it.deviceId }
+        val offline = records.values
+            .filterNot { it.deviceId in visibleIds }
+            .map { record ->
+                ForeignDevice(
+                    deviceId = record.deviceId,
+                    displayName = record.displayName,
+                    kind = record.metadata?.kind,
+                    routes = emptyList(),
+                    foundBy = null,
+                    lastSeen = record.metadata?.lastSeen?.toJavaInstant(),
+                    handshake = null,
+                    hasSession = false,
+                )
+            }
+
         return Snapshot(
             connected = connected,
             handshaken = handshaken,
             discovered = discovered,
+            offline = offline,
         )
     }
 
@@ -154,7 +188,9 @@ internal class OnlineDevicesImpl(
         val connected: List<ForeignDevice>,
         val handshaken: List<ForeignDevice>,
         val discovered: List<ForeignDevice>,
+        val offline: List<ForeignDevice>,
     ) {
-        val all: List<ForeignDevice> get() = connected + handshaken + discovered
+        val visible: List<ForeignDevice> get() = connected + handshaken + discovered
+        val all: List<ForeignDevice> get() = visible + offline
     }
 }

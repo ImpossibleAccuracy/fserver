@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.settings.devices
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.model.PeerUi
+import com.fserver.app.presentation.composable.PeerRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,25 +10,18 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
-import com.fserver.app.presentation.designkit.DkIcon
-import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.screens.settings.devices.model.DevicesState
 import com.fserver.app.presentation.theme.FServerTheme
@@ -122,16 +118,14 @@ private fun DeviceSection(
     DkSectionLabel(
         modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
         text = title,
-        trailing = { DkCaption(text = devices.size.toString()) },
+        count = devices.size,
     )
 
     devices.forEachIndexed { index, device ->
-        DkListRow(
-            title = device.name,
+        PeerRow(
+            peer = device.peer,
             subtitle = device.subtitle,
-            leading = { DkThumbnail(icon = device.kind.icon) },
-            trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
-            onClick = { onDeviceClick(device.deviceId) },
+            onClick = { onDeviceClick(device.peer.id) },
         )
         if (index != devices.lastIndex) DkFadingDivider()
     }
@@ -145,24 +139,18 @@ private fun DevicesScreenPreview() {
             state = DevicesState(
                 connected = listOf(
                     DevicesState.DeviceUi(
-                        deviceId = "1",
-                        name = "MacBook-Pro.local",
+                        peer = PeerUi("1", "MacBook-Pro.local", DeviceKind.Laptop, online = true),
                         subtitle = "192.168.1.14:8384",
-                        kind = DeviceKind.Laptop,
                     ),
                     DevicesState.DeviceUi(
-                        deviceId = "2",
-                        name = "HOME-NAS",
+                        peer = PeerUi("2", "HOME-NAS", DeviceKind.Nas, online = true),
                         subtitle = "nas.local:8384",
-                        kind = DeviceKind.Nas,
                     ),
                 ),
                 trusted = listOf(
                     DevicesState.DeviceUi(
-                        deviceId = "3",
-                        name = "STUDIO-PC",
+                        peer = PeerUi("3", "STUDIO-PC", DeviceKind.Desktop),
                         subtitle = null,
-                        kind = DeviceKind.Desktop,
                     ),
                 ),
             ),

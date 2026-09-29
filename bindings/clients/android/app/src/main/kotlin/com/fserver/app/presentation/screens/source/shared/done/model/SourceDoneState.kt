@@ -1,17 +1,16 @@
 package com.fserver.app.presentation.screens.source.shared.done.model
 
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
-import com.fserver.app.presentation.screens.source.shared.model.nameOf
 import com.fserver.app.presentation.screens.source.shared.model.readablePath
 import com.fserver.app.presentation.screens.source.shared.model.titleRes
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.core.files.SourceLocation
-import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 
@@ -40,10 +39,10 @@ data class SourceDoneState(
     data class SummaryRow(@param:StringRes val labelRes: Int, val value: UiText)
 
     companion object {
-        fun of(entry: SourceEntry, devices: List<TrustedDevice>): SourceDoneState {
+        fun of(entry: SourceEntry, peer: PeerUi): SourceDoneState {
             val role = entry.role.toUi()
             val mode = entry.syncMode.toUi()
-            val peerName = devices.nameOf(entry.deviceId)
+            val peerName = peer.name
 
             val summary = buildList {
                 add(SummaryRow(R.string.source_summary_source, UiText.Text(entry.label)))

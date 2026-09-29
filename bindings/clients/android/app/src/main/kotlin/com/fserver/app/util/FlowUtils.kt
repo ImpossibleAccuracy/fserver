@@ -1,5 +1,7 @@
 package com.fserver.app.util
 
+import kotlinx.coroutines.flow.stateIn
+
 // Default `combine` operator in Kotlin Flow supports up to 5 flows.
 
 fun <T1, T2, T3, T4, T5, T6, R> combineMany(
@@ -58,3 +60,13 @@ fun <T1, T2, T3, T4, T5, T6, T7, R> combineMany(
         arr[6] as T7
     )
 }
+
+/** A screen's state: kept 5 s past the last subscriber, so a rotation does not restart it. */
+fun <T> kotlinx.coroutines.flow.Flow<T>.stateInScreen(
+    scope: kotlinx.coroutines.CoroutineScope,
+    initialValue: T,
+): kotlinx.coroutines.flow.StateFlow<T> = stateIn(
+    scope,
+    kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000),
+    initialValue,
+)

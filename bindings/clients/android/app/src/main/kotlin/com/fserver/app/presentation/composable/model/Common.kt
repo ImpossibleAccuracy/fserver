@@ -26,7 +26,11 @@ import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.sync.progress.FileTransfer
 import kotlin.time.Duration
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 @get:StringRes
 val AuthMethod.labelRes: Int
@@ -77,13 +81,21 @@ fun FileSize.formatted(): String {
 
 /** "yesterday", "3 days ago", then a plain date once that stops being useful. */
 @Composable
-fun Instant.formatted(): String = remember(this) {
+fun Instant.formatted(minResolution: Long = DateUtils.DAY_IN_MILLIS): String = remember(this) {
     DateUtils.getRelativeTimeSpanString(
         toEpochMilliseconds(),
         System.currentTimeMillis(),
-        DateUtils.DAY_IN_MILLIS,
+        minResolution,
     ).toString()
 }
+
+private val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+
+/** A plain localized date, "12 Jun 2026". */
+fun Instant.dateLabel(): String = dateFormat.format(toJavaInstant().atZone(ZoneId.systemDefault()))
+
+/** The last path segment. */
+fun String.fileName(): String = substringAfterLast('/')
 
 val FileTransfer.Direction.icon: ImageVector
     get() = when (this) {

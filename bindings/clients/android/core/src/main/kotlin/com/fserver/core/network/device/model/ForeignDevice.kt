@@ -10,7 +10,7 @@ data class ForeignDevice internal constructor(
     val kind: DeviceKind?,
     val routes: List<DeviceRoute>,
     val foundBy: TransportKind?,
-    val lastSeen: Instant,
+    val lastSeen: Instant?,
     val handshake: Handshake?,
     val hasSession: Boolean,
 ) {

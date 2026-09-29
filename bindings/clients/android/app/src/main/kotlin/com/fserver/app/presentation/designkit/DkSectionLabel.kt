@@ -44,6 +44,14 @@ fun DkSectionLabel(
     }
 }
 
+/** A section heading with its item count on the right. */
+@Composable
+fun DkSectionLabel(
+    modifier: Modifier = Modifier,
+    text: String,
+    count: Int,
+) = DkSectionLabel(modifier = modifier, text = text, trailing = { DkCaption(text = count.toString()) })
+
 /** Muted caption used under a title or above a list — the deck's `--color-neutral-600` voice. */
 @Composable
 fun DkCaption(

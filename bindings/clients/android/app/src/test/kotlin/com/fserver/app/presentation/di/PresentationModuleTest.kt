@@ -40,6 +40,7 @@ class PresentationModuleTest {
                 Destination.Files::class,
                 Destination.Files.SourceDetails::class,
                 Destination.Files.SourceEdit::class,
+                Destination.Files.ImageEditor::class,
                 Destination.Settings.DeviceDetails::class,
                 Destination.Settings.PinChange::class,
                 Destination.Settings.StorageSource::class,

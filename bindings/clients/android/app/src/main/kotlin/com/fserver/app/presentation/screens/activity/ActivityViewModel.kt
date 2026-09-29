@@ -1,15 +1,20 @@
 package com.fserver.app.presentation.screens.activity
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.app.presentation.shared.sync.SyncTrigger
+import com.fserver.app.presentation.composable.model.fileName
+import com.fserver.app.presentation.composable.model.peers
+import com.fserver.app.presentation.composable.model.peerOf
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.screens.activity.model.ActivityIntent
 import com.fserver.app.presentation.screens.activity.model.ActivityState
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
-import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.model.FileSize
-import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.conflict.ConflictDecision
@@ -17,38 +22,39 @@ import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.conflict.FileConflict
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.progress.FileTransfer
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ActivityViewModel(
     private val sourcesController: SourcesController,
     private val conflictsController: ConflictsController,
     private val trustedDevices: TrustedDevicesRepository,
+    devicesRepository: DevicesRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
+
+    private val syncTrigger = SyncTrigger(viewModelScope, sourcesController, reporter)
 
     val state: StateFlow<ActivityState> = combine(
         sourcesController.progress.transfers,
         sourcesController.incomingRequests,
+        devicesRepository.peers(),
         trustedDevices.devices,
         conflictsController.pending,
-    ) { transfers, requests, devices, conflicts ->
+    ) { transfers, requests, peers, trusted, conflicts ->
         ActivityState(
             freedLabel = SampleFreed,
             quotaLabel = SampleQuota,
-            syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(devices),
+            syncRequest = requests.maxByOrNull { it.receivedAt }?.toUi(peers, trusted),
             syncRequestsWaiting = requests.size,
-            conflicts = conflicts.map { it.toUi(devices) },
+            conflicts = conflicts.map { it.toUi(peers) },
             running = transfers.map { it.toUi() }.filterNot { it is TransferUi.Completed },
             history = ActivityState.SampleHistory,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ActivityState(
+    }.stateInScreen(
+        viewModelScope,
+        ActivityState(
             freedLabel = SampleFreed,
             quotaLabel = SampleQuota,
             history = ActivityState.SampleHistory,
@@ -58,7 +64,7 @@ class ActivityViewModel(
     fun onIntent(intent: ActivityIntent) {
         when (intent) {
             ActivityIntent.ClearClicked -> sourcesController.progress.clearFinished()
-            is ActivityIntent.RetryClicked -> retry()
+            is ActivityIntent.RetryClicked -> syncTrigger.run("Retry pass failed")
             is ActivityIntent.ConflictKeepMineClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepLocal)
             is ActivityIntent.ConflictKeepTheirsClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepRemote)
             is ActivityIntent.ConflictKeepBothClicked -> resolve(intent.conflictId, ConflictDecision.Choice.KeepBoth)
@@ -77,10 +83,10 @@ class ActivityViewModel(
         }
     }
 
-    private fun FileConflict.toUi(devices: List<TrustedDevice>) = ActivityState.ConflictUi(
+    private fun FileConflict.toUi(peers: Map<String, PeerUi>) = ActivityState.ConflictUi(
         id = uiId,
-        fileName = path.substringAfterLast('/'),
-        peerName = devices.latest(remote.deviceId)?.displayName ?: remote.deviceId,
+        fileName = path.fileName(),
+        peerName = peers.peerOf(remote.deviceId).name,
         change = when {
             local.state is LocalIndexedFile.State.Deleted -> ActivityState.ChangeUi.DeletedHere
             remote.state is LocalIndexedFile.State.Deleted -> ActivityState.ChangeUi.DeletedThere
@@ -94,16 +100,8 @@ class ActivityViewModel(
     private val FileConflict.uiId: String
         get() = "$sourceId/$fileId"
 
-    private fun retry() {
-        viewModelScope.launch {
-            runCatching { sourcesController.runSync() }
-                .exceptionOrNull()
-                ?.let { reporter.report(it, "Retry pass failed") }
-        }
-    }
-
     private fun FileTransfer.toUi(): TransferUi {
-        val fileName = path.substringAfterLast('/')
+        val fileName = path.fileName()
 
         return when (state) {
             FileTransfer.State.Queued -> TransferUi.Queued(

@@ -1,8 +1,11 @@
 package com.fserver.app.presentation.screens.source.details
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
+import com.fserver.app.presentation.designkit.DkStatusDot
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -30,11 +32,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -82,11 +81,9 @@ fun SourceDetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SourceDetailsUiEffect.NavigateBack -> navigateUp()
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            SourceDetailsUiEffect.NavigateBack -> navigateUp()
         }
     }
 
@@ -316,14 +313,7 @@ private fun PeerLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .background(
-                    color = if (state.peer.online) colors.primary else colors.outline,
-                    shape = CircleShape,
-                ),
-        )
+        DkStatusDot(color = if (state.peer.online) colors.primary else colors.outline)
         DkCaption(
             modifier = Modifier.weight(1f),
             text = stringResource(

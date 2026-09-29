@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser.model
 
+import com.fserver.app.presentation.composable.model.fileName
 import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SyncFileEntry
@@ -100,7 +101,7 @@ private fun fileComparator(sort: FileSortUi, ascending: Boolean): Comparator<Fil
 }
 
 fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
-    val name = path.substringAfterLast('/')
+    val name = path.fileName()
     val kind = fileKindOf(name)
     val extension = name.substringAfterLast(".", missingDelimiterValue = "")
 

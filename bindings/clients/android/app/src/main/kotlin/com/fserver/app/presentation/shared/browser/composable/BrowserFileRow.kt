@@ -1,11 +1,8 @@
 package com.fserver.app.presentation.shared.browser.composable
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,6 +15,7 @@ import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkSpacing
+import com.fserver.app.presentation.designkit.DkStatusDot
 import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
 import com.fserver.app.presentation.shared.browser.fileGestures
@@ -50,7 +48,7 @@ internal fun BrowserFileRow(
             .joinToString(" · ")
             .ifEmpty { null },
         subtitleColor = if (sync == FileBrowserUi.File.Sync.Waiting) MaterialTheme.colorScheme.error else null,
-        subtitleLeading = sync?.let { { SyncDot(color = it.color()) } },
+        subtitleLeading = sync?.let { { DkStatusDot(color = it.color()) } },
         leading = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -104,12 +102,3 @@ private fun FileBrowserUi.File.Sync.color(): Color = when (this) {
     FileBrowserUi.File.Sync.Receiving -> MaterialTheme.colorScheme.primary
 }
 
-@Composable
-private fun SyncDot(modifier: Modifier = Modifier, color: Color) {
-    Box(
-        modifier = modifier
-            .size(6.dp)
-            .clip(CircleShape)
-            .background(color),
-    )
-}

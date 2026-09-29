@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.discovery.connect.model
 
+import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.RequirementRowUi
 import com.fserver.app.presentation.permission.RequirementAction
@@ -31,14 +32,15 @@ data class ConnectState(
 
     @Immutable
     data class DeviceUi(
-        val id: String,
-        val name: String,
-        val kind: DeviceKind?,
+        val peer: PeerUi,
         val address: String?,
-        /** A session is up: picking it is the whole interaction, nothing to dial. */
-        val isConnected: Boolean = false,
         val isBusy: Boolean = false,
-    )
+    ) {
+        val id: String get() = peer.id
+
+        /** A session is up: picking it is the whole interaction, nothing to dial. */
+        val isConnected: Boolean get() = peer.online
+    }
 
     /**
      * One search method as the sheet draws it.
@@ -80,32 +82,22 @@ data class ConnectState(
     companion object {
         val SampleKnown = listOf(
             DeviceUi(
-                id = "home-nas",
-                name = "HOME-NAS",
-                kind = DeviceKind.Nas,
+                peer = PeerUi("home-nas", "HOME-NAS", DeviceKind.Nas, online = true),
                 address = "192.168.1.42:8384",
-                isConnected = true,
             ),
             DeviceUi(
-                id = "work-laptop",
-                name = "WORK-LAPTOP",
-                kind = DeviceKind.Laptop,
+                peer = PeerUi("work-laptop", "WORK-LAPTOP", DeviceKind.Laptop, online = true),
                 address = "192.168.1.17:8384",
-                isConnected = true,
             ),
             DeviceUi(
-                id = "studio-pc",
-                name = "STUDIO-PC",
-                kind = DeviceKind.Desktop,
+                peer = PeerUi("studio-pc", "STUDIO-PC", DeviceKind.Desktop),
                 address = null,
             ),
         )
 
         val SampleDiscovered = listOf(
             DeviceUi(
-                id = "macbook",
-                name = "MacBook-Pro.local",
-                kind = DeviceKind.Laptop,
+                peer = PeerUi("macbook", "MacBook-Pro.local", DeviceKind.Laptop),
                 address = "192.168.1.14:8384",
             ),
         )

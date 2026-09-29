@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.settings.devices.model
 
-import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.app.presentation.composable.model.PeerUi
+
 
 /**
  * The two lists are disjoint: a connected device is listed once, under "connected now". Listing it
@@ -14,10 +15,8 @@ data class DevicesState(
     val isEmpty: Boolean get() = connected.isEmpty() && trusted.isEmpty()
 
     data class DeviceUi(
-        val deviceId: String,
-        val name: String,
-        /** Its address while connected; nothing once it is only remembered. */
+        val peer: PeerUi,
+        /** Its address while visible; nothing once it is only remembered. */
         val subtitle: String?,
-        val kind: DeviceKind?,
     )
 }

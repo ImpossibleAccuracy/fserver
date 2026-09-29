@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.files.editor
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,8 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,11 +63,9 @@ fun ImageEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                ImageEditorUiEffect.NavigateBack -> navigateUp()
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            ImageEditorUiEffect.NavigateBack -> navigateUp()
         }
     }
 

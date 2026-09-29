@@ -1,12 +1,14 @@
 package com.fserver.app.presentation.screens.source.edit
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.composable.model.peers
+import com.fserver.app.presentation.composable.model.peerOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.edit.model.SourceEditIntent
 import com.fserver.app.presentation.screens.source.edit.model.SourceEditState
 import com.fserver.app.presentation.screens.source.edit.model.SourceEditUiEffect
-import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
@@ -16,18 +18,15 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.toSy
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.RegisteredSourcesRepository
-import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -35,7 +34,6 @@ class SourceEditViewModel(
     private val key: Destination.Files.SourceEdit,
     private val sourcesController: SourcesController,
     private val registeredSources: RegisteredSourcesRepository,
-    trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
@@ -48,10 +46,9 @@ class SourceEditViewModel(
     val state: StateFlow<SourceEditState> = combine(
         registeredSources.observeById(key.sourceId),
         registeredSources.observeTotals(key.sourceId),
-        trustedDevices.devices,
-        devicesRepository.devices.connected,
+        devicesRepository.peers(),
         editable,
-    ) { source, totals, trusted, connected, local ->
+    ) { source, totals, peers, local ->
         if (source == null) return@combine SourceEditState(isLoading = false)
 
         val initial = SourcePreferencesUi.build(source)
@@ -61,9 +58,7 @@ class SourceEditViewModel(
         SourceEditState(
             isLoading = false,
             label = source.label,
-            peerName = connected.firstOrNull { it.deviceId == source.deviceId }?.displayName
-                ?: trusted.latest(source.deviceId)?.displayName
-                ?: source.deviceId,
+            peerName = peers.peerOf(source.deviceId).name,
             role = source.role.toUi(),
             preferences = preferences,
             sourceFiles = total.count,
@@ -71,11 +66,7 @@ class SourceEditViewModel(
             isChanged = preferences != initial,
             isSaving = local.saving,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = SourceEditState(),
-    )
+    }.stateInScreen(viewModelScope, SourceEditState())
 
     fun onIntent(intent: SourceEditIntent) {
         when (intent) {

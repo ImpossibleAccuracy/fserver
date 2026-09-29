@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.shared.model
 
-import com.fserver.core.network.device.model.TrustedDevice
+import com.fserver.core.sync.progress.FileTransfer
+import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 
@@ -19,12 +20,11 @@ fun SourceEntry.Role.toUi(): SourceRoleUi = when (this) {
     SourceEntry.Role.Follower -> SourceRoleUi.Follower
 }
 
-fun List<TrustedDevice>.latest(deviceId: String): TrustedDevice? =
-    filter { it.deviceId == deviceId }.latest()
+/** Where this device keeps the source: the picked folder, or the one it was given. */
+fun SourceEntry.localPath(): String? =
+    if (role == SourceEntry.Role.Initiator) originPath else location.readablePath()
 
-fun List<TrustedDevice>.latest(): TrustedDevice? = this
-    .filter { it.metadata?.lastSeen != null }
-    .maxByOrNull { it.metadata!!.lastSeen!! }
-
-fun List<TrustedDevice>.nameOf(deviceId: String): String =
-    latest(deviceId)?.displayName ?: deviceId
+/** What this pass has moved for [sourceId] so far. */
+fun SourcePass?.transfersOf(sourceId: String, transfers: List<FileTransfer>): List<FileTransfer> =
+    if (this == null) emptyList()
+    else transfers.filter { it.key.sourceId == sourceId && it.startedAt >= startedAt }

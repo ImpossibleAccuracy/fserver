@@ -1,26 +1,28 @@
 package com.fserver.app.presentation.screens.source.request.shared.model
 
-import com.fserver.app.presentation.screens.source.shared.model.latest
+import com.fserver.app.presentation.composable.model.peerOf
+import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.sync.setup.IncomingSourceRequest
 
 private const val FingerprintGroups = 2
 
-/**
- * [devices] is what puts a name on the asking device: it is trusted by the time it can ask, but
- * it may well be off the network while its request waits here, so the online list is not enough.
- */
-fun IncomingSourceRequest.toUi(devices: List<TrustedDevice>): SyncRequestUi {
-    val device = devices.latest(deviceId)
+/** [trusted] supplies the fingerprint: the asking device is trusted by the time it can ask. */
+fun IncomingSourceRequest.toUi(
+    peers: Map<String, PeerUi>,
+    trusted: List<TrustedDevice>,
+): SyncRequestUi {
+    val peer = peers.peerOf(deviceId)
+    val record = trusted.firstOrNull { it.deviceId == deviceId }
 
     return SyncRequestUi(
         sourceId = sourceId,
-        deviceName = device?.displayName ?: deviceId,
+        deviceName = peer.name,
         label = label,
         mode = syncMode.toUi(),
-        deviceKind = device?.metadata?.kind,
-        fingerprint = device?.fingerprint?.groups?.take(FingerprintGroups)?.joinToString(" "),
+        deviceKind = peer.kind,
+        fingerprint = record?.fingerprint?.groups?.take(FingerprintGroups)?.joinToString(" "),
         // TODO: IncomingSourceRequest does not carry the source's size yet - needs a protocol change.
         files = null,
         bytes = null,

@@ -1,17 +1,15 @@
 package com.fserver.app.presentation.screens.discovery.shared
 
-import androidx.compose.foundation.background
+import com.fserver.app.presentation.designkit.DkStatusDot
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -122,13 +120,9 @@ fun NetworkCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             val live = network != null && network != NetworkCardUi.Offline
 
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .background(
-                        if (live) colors.primary else colors.onSurfaceVariant,
-                        CircleShape,
-                    )
+            DkStatusDot(
+                size = 7.dp,
+                color = if (live) colors.primary else colors.onSurfaceVariant,
             )
 
             Text(

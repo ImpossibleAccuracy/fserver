@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.files
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
+import com.fserver.app.presentation.composable.SelectionTopBar
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -18,7 +22,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -29,13 +32,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -84,11 +84,9 @@ fun FilesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fileOpener = LocalFileOpener.current
 
-    LaunchedEffect(Unit) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                is FilesUiEffect.OpenFile -> fileOpener.open(effect.file)
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            is FilesUiEffect.OpenFile -> fileOpener.open(effect.file)
         }
     }
 
@@ -139,7 +137,16 @@ private fun FilesScreenContent(
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
             ) { editing ->
                 if (editing) {
-                    SelectionTopBar(state = state, onIntent = onIntent, onFileAction = onFileAction)
+                    SelectionTopBar(
+                        title = stringResource(R.string.files_selected, state.selected.size),
+                        onClose = { onIntent(FilesIntent.EditClosed) },
+                        actions = {
+                            FileActionsMenu(
+                                actions = state.selectionActions,
+                                onAction = { onFileAction(it, state.selected) },
+                            )
+                        },
+                    )
                 } else {
                     DkTopBar(
                         title = opened?.name ?: stringResource(R.string.files_title),
@@ -215,28 +222,6 @@ private fun FilesScreenContent(
             onDismiss = { showFilters = false },
         )
     }
-}
-
-@Composable
-private fun SelectionTopBar(
-    modifier: Modifier = Modifier,
-    state: FilesState,
-    onIntent: (FilesIntent) -> Unit,
-    onFileAction: (FilesState.FileActionUi, Set<String>) -> Unit,
-) {
-    DkTopBar(
-        modifier = modifier,
-        title = stringResource(R.string.files_selected, state.selected.size),
-        onBack = { onIntent(FilesIntent.EditClosed) },
-        backIcon = Icons.Default.Close,
-        backLabel = stringResource(R.string.action_close),
-        actions = {
-            FileActionsMenu(
-                actions = state.selectionActions,
-                onAction = { onFileAction(it, state.selected) },
-            )
-        },
-    )
 }
 
 @Composable

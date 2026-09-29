@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.settings.storage.source
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
+import com.fserver.app.presentation.composable.SelectionTopBar
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -14,14 +18,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -63,11 +63,9 @@ fun StorageSourceScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fileOpener = LocalFileOpener.current
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                is StorageSourceUiEffect.OpenFile -> fileOpener.open(effect.file)
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            is StorageSourceUiEffect.OpenFile -> fileOpener.open(effect.file)
         }
     }
 
@@ -100,7 +98,19 @@ private fun StorageSourceScreenContent(
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
             ) { editing ->
                 if (editing) {
-                    SelectionTopBar(state = state, onIntent = onIntent)
+                    SelectionTopBar(
+                        title = stringResource(R.string.storage_selected, state.selected.size),
+                        onClose = { onIntent(StorageSourceIntent.EditClosed) },
+                        actions = {
+                            DkGhostButton(
+                                text = stringResource(
+                                    if (state.allSelected) R.string.storage_deselect_all
+                                    else R.string.storage_select_all
+                                ),
+                                onClick = { onIntent(StorageSourceIntent.AllToggled) },
+                            )
+                        },
+                    )
                 } else {
                     DkTopBar(
                         title = state.label,
@@ -182,29 +192,6 @@ private fun StorageSourceScreenContent(
             onDismiss = { confirmingDelete = false },
         )
     }
-}
-
-@Composable
-private fun SelectionTopBar(
-    modifier: Modifier = Modifier,
-    state: StorageSourceState,
-    onIntent: (StorageSourceIntent) -> Unit,
-) {
-    DkTopBar(
-        modifier = modifier,
-        title = stringResource(R.string.storage_selected, state.selected.size),
-        onBack = { onIntent(StorageSourceIntent.EditClosed) },
-        backIcon = Icons.Default.Close,
-        backLabel = stringResource(R.string.action_close),
-        actions = {
-            DkGhostButton(
-                text = stringResource(
-                    if (state.allSelected) R.string.storage_deselect_all else R.string.storage_select_all
-                ),
-                onClick = { onIntent(StorageSourceIntent.AllToggled) },
-            )
-        },
-    )
 }
 
 @Composable

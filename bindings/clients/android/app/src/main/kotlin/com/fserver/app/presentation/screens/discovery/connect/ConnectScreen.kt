@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.discovery.connect
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.PeerRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,13 +35,11 @@ import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInlineSpinner
-import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
 import com.fserver.app.presentation.designkit.DkTagStyle
-import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.permission.RequirementResolver
@@ -174,7 +173,7 @@ private fun ConnectScreenContent(
                     DkSectionLabel(
                         modifier = blockPadding,
                         text = stringResource(R.string.connect_known_label),
-                        trailing = { DkCaption(text = state.known.size.toString()) },
+                        count = state.known.size,
                     )
                 }
 
@@ -191,7 +190,7 @@ private fun ConnectScreenContent(
                     DkSectionLabel(
                         modifier = blockPadding,
                         text = stringResource(R.string.connect_discovered_label),
-                        trailing = { DkCaption(text = state.discovered.size.toString()) },
+                        count = state.discovered.size,
                     )
                 }
 
@@ -257,14 +256,13 @@ private fun KnownDeviceRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    DkListRow(
+    PeerRow(
         modifier = modifier,
-        title = device.name,
+        peer = device.peer,
         subtitle = device.address ?: stringResource(R.string.connect_reconnect_hint),
         subtitleStyle = if (device.address != null) DkType.mono else null,
         dimmed = !device.isConnected,
         onClick = if (device.isBusy) null else onClick,
-        leading = { DkThumbnail(icon = device.kind.icon) },
         trailing = {
             when {
                 device.isBusy -> DkInlineSpinner()
@@ -286,15 +284,13 @@ private fun DiscoveredDeviceRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    DkListRow(
+    PeerRow(
         modifier = modifier,
-        title = device.name,
+        peer = device.peer,
         subtitle = device.address ?: stringResource(R.string.connect_connect_hint),
         subtitleStyle = if (device.address != null) DkType.mono else null,
         dimmed = true,
         onClick = onClick,
-        leading = { DkThumbnail(icon = device.kind.icon) },
-        trailing = { DkIcon(icon = Icons.AutoMirrored.Filled.KeyboardArrowRight) },
     )
 }
 

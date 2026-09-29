@@ -1,6 +1,10 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.core.network.NetworkController
+import com.fserver.core.network.auth.AuthMethod
+import com.fserver.core.network.device.model.DeviceKind
+import com.fserver.core.network.device.model.DeviceMetadata
+import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
@@ -70,6 +74,44 @@ class OnlineDevicesImplTest {
 
         assertTrue(devices.connected.first().isEmpty())
     }
+
+    @Test
+    fun `a trusted device out of sight is offline, not visible`() = runTest {
+        trust(PeerId, kind = DeviceKind.Laptop)
+
+        val offline = devices.offline.first().single()
+
+        assertEquals(PeerId, offline.deviceId)
+        assertEquals(DeviceKind.Laptop, offline.kind)
+        assertTrue(devices.visible.first().isEmpty())
+        assertEquals(listOf(PeerId), devices.all.first().map { it.deviceId })
+    }
+
+    @Test
+    fun `a trusted device with a session is connected, not offline`() = runTest {
+        trust(PeerId, kind = DeviceKind.Laptop)
+        sessions.value = listOf(FakePeerSession(identity = peerIdentity(PeerId)).apply { markReady() })
+
+        assertTrue(devices.offline.first().isEmpty())
+        assertEquals(listOf(PeerId), devices.all.first().map { it.deviceId })
+    }
+
+    private suspend fun trust(deviceId: String, kind: DeviceKind?) = storage.trust.upsert(
+        TrustedDevice(
+            deviceId = deviceId,
+            displayName = deviceId,
+            publicKey = "key-of-$deviceId".toByteArray(),
+            method = AuthMethod.ConfirmFingerprint,
+            strength = "strong",
+            metadata = DeviceMetadata(
+                kind = kind,
+                dictionaryId = null,
+                dictionaryVersion = null,
+                lastSeen = null,
+                lastNetworkId = null,
+            ),
+        ),
+    )
 
     private class OpenSessions(
         override val sessions: StateFlow<List<PeerSession<FileServerMessages>>>,

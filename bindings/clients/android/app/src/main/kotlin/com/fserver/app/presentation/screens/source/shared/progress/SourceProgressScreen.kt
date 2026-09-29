@@ -1,12 +1,12 @@
 package com.fserver.app.presentation.screens.source.shared.progress
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -17,7 +17,6 @@ import com.fserver.app.presentation.designkit.DkActionBar
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkScaffold
-import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
@@ -39,11 +38,9 @@ fun SourceProgressScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SourceProgressUiEffect.NavigateToDone -> navigateToDone()
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            SourceProgressUiEffect.NavigateToDone -> navigateToDone()
         }
     }
 

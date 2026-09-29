@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.source.request
 
+import androidx.compose.runtime.getValue
+import com.fserver.app.presentation.composable.ObserveEffects
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -24,8 +26,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,12 +72,10 @@ fun SyncRequestScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    LaunchedEffect(viewModel.uiEffects) {
-        viewModel.uiEffects.collect { effect ->
-            when (effect) {
-                SyncRequestUiEffect.Declined -> navigateUp()
-                is SyncRequestUiEffect.Accepted -> navigateToSource(effect.sourceId)
-            }
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            SyncRequestUiEffect.Declined -> navigateUp()
+            is SyncRequestUiEffect.Accepted -> navigateToSource(effect.sourceId)
         }
     }
 

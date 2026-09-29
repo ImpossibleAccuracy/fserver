@@ -76,10 +76,10 @@ private fun LinkRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                LinkDirectionIcons(direction = link.direction, deviceKind = link.deviceKind)
+                LinkDirectionIcons(direction = link.direction, deviceKind = link.peer.kind)
                 Text(
                     modifier = Modifier.weight(1f, fill = false),
-                    text = link.deviceName,
+                    text = link.peer.name,
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.onSurface,
                     maxLines = 1,

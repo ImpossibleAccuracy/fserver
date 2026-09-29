@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.device.details
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.composable.model.dateLabel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.composable.model.labelRes
@@ -7,24 +9,16 @@ import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsIntent
 import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsState
 import com.fserver.app.presentation.screens.device.details.model.DeviceDetailsUiEffect
-import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.storage.TrustedDevicesRepository
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import kotlin.time.Instant
-import java.time.Instant as JavaInstant
 
 /**
  * One device: its live session, and what the last completed handshake left behind.
@@ -51,7 +45,7 @@ class DeviceDetailsViewModel(
         trustedKeys,
     ) { device, knownRoute, trusted ->
         // Records of one device share their metadata, so any key of it answers for the device.
-        val record = trusted.latest()
+        val record = trusted.firstOrNull()
 
         DeviceDetailsState(
             name = device?.displayName ?: record?.displayName.orEmpty(),
@@ -59,17 +53,13 @@ class DeviceDetailsViewModel(
             address = device?.routes?.firstOrNull()?.address ?: knownRoute?.address,
             fingerprintGroups = device?.handshake?.fingerprint?.split(" ")
                 ?: record?.fingerprint?.groups.orEmpty(),
-            lastSeen = record?.metadata?.lastSeen?.formatted(),
+            lastSeen = record?.metadata?.lastSeen?.dateLabel(),
             methodLabel = record?.method?.labelRes,
             protocolVersion = device?.handshake?.protocolVersion,
             isTrusted = record != null,
             isRouteKnown = knownRoute != null,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = DeviceDetailsState(),
-    )
+    }.stateInScreen(viewModelScope, DeviceDetailsState())
 
     fun onIntent(intent: DeviceDetailsIntent) {
         when (intent) {
@@ -105,9 +95,3 @@ class DeviceDetailsViewModel(
         effects.send(DeviceDetailsUiEffect.NavigateBack)
     }
 }
-
-private val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-
-private fun Instant.formatted(): String = dateFormat.format(
-    JavaInstant.ofEpochMilli(toEpochMilliseconds()).atZone(ZoneId.systemDefault())
-)

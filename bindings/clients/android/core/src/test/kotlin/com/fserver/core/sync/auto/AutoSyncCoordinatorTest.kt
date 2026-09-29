@@ -148,10 +148,12 @@ class AutoSyncCoordinatorTest {
         private val devices = MutableSharedFlow<List<ForeignDevice>>(replay = 1, extraBufferCapacity = 1)
 
         override val all: Flow<List<ForeignDevice>> = devices
+        override val visible: Flow<List<ForeignDevice>> = devices
 
         override val connected: Flow<List<ForeignDevice>> = emptyFlow()
         override val handshaken: Flow<List<ForeignDevice>> = emptyFlow()
         override val discovered: Flow<List<ForeignDevice>> = emptyFlow()
+        override val offline: Flow<List<ForeignDevice>> = emptyFlow()
         override val known: Flow<List<ForeignDevice>> = emptyFlow()
         override val unknown: Flow<List<ForeignDevice>> = emptyFlow()
 

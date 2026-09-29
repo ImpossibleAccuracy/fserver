@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.files.composable
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -20,10 +22,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -111,8 +111,8 @@ fun FilesFilterSheet(
                 sources.forEach { source ->
                     SourceRow(
                         title = source.label,
-                        subtitle = source.deviceName,
-                        icon = source.deviceKind.icon,
+                        subtitle = source.peer.name,
+                        icon = source.peer.kind.icon,
                         selected = source.id == draftSourceId,
                         onClick = { draftSourceId = source.id },
                     )

@@ -1,5 +1,10 @@
 package com.fserver.app.presentation.screens.files
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.app.presentation.shared.selection.Selection
+import com.fserver.app.presentation.shared.sync.SyncTrigger
+import com.fserver.app.presentation.composable.model.peers
+import com.fserver.app.presentation.composable.model.peerOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
@@ -8,7 +13,6 @@ import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
-import com.fserver.app.presentation.screens.source.shared.model.latest
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
 import com.fserver.app.presentation.shared.browser.model.asPreviewFile
@@ -19,7 +23,6 @@ import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.RegisteredSourcesRepository
-import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.drivesSync
@@ -43,7 +46,6 @@ import kotlinx.coroutines.launch
 class FilesViewModel(
     key: Destination.Files,
     private val sourcesController: SourcesController,
-    private val trustedDevicesRepository: TrustedDevicesRepository,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
     private val devicesRepository: DevicesRepository,
     private val filesController: FilesController,
@@ -64,7 +66,7 @@ class FilesViewModel(
     private val editable = MutableStateFlow(
         Editable(selectedSourceId = key.sourceId, filter = key.filter)
     )
-    private val refreshing = MutableStateFlow(false)
+    private val syncTrigger = SyncTrigger(viewModelScope, sourcesController, reporter)
 
     private val entries: StateFlow<FilesState.FeedUi?> = editable
         .map { Query(it.filter, it.selectedSourceId, it.sort, it.sortAscending) }
@@ -101,29 +103,16 @@ class FilesViewModel(
         )
 
     private val sources: Flow<List<FilesState.SourceUi>> = combine(
-        trustedDevicesRepository.devices,
-        devicesRepository.devices.connected,
+        devicesRepository.peers(),
         registeredSourcesRepository.sources,
-    ) { trusted, connected, sources ->
-        val online = connected.associateBy { it.deviceId }
-
+    ) { peers, sources ->
         sources
-            .map { source ->
-                val record = trusted.latest(source.deviceId)
-                val session = online[source.deviceId]
-
-                FilesState.SourceUi(
-                    id = source.id,
-                    label = source.label,
-                    deviceName = session?.displayName ?: record?.displayName ?: source.deviceId,
-                    deviceKind = session?.kind ?: record?.metadata?.kind,
-                )
-            }
+            .map { FilesState.SourceUi(id = it.id, label = it.label, peer = peers.peerOf(it.deviceId)) }
             .sortedBy { it.label }
     }
 
     private val isSyncing: Flow<Boolean> = combine(
-        refreshing,
+        syncTrigger.running,
         sourcesController.progress.passes,
     ) { isRefreshing, passes ->
         isRefreshing || passes.any { !it.isFinished }
@@ -144,14 +133,10 @@ class FilesViewModel(
             sort = edit.sort,
             sortAscending = edit.sortAscending,
             isSyncing = syncing,
-            editing = edit.editing,
-            selected = edit.selected,
+            editing = edit.selection.active,
+            selected = edit.selection.ids,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = FilesState(),
-    )
+    }.stateInScreen(viewModelScope, FilesState())
 
     fun onIntent(intent: FilesIntent) {
         when (intent) {
@@ -159,7 +144,7 @@ class FilesViewModel(
                 it.copy(selectedSourceId = intent.sourceId, filter = intent.filter)
             }
 
-            FilesIntent.RefreshRequested -> runSync()
+            FilesIntent.RefreshRequested -> syncTrigger.run("Sync from the files screen failed")
 
             is FilesIntent.EntryClicked -> openEntry(intent.entryId)
 
@@ -180,10 +165,12 @@ class FilesViewModel(
             }
 
             is FilesIntent.EntryLongPressed -> editable.update {
-                it.copy(editing = true, selected = it.selected + intent.entryId)
+                it.copy(selection = it.selection.started(intent.entryId))
             }
 
-            is FilesIntent.EntryToggled -> editable.update { it.toggled(intent.entryId) }
+            is FilesIntent.EntryToggled -> editable.update {
+                it.copy(selection = it.selection.toggled(intent.entryId, closeWhenEmpty = true))
+            }
 
             FilesIntent.EditClosed -> closeEdit()
 
@@ -217,7 +204,7 @@ class FilesViewModel(
         }
     }
 
-    private fun closeEdit() = editable.update { it.copy(editing = false, selected = emptySet()) }
+    private fun closeEdit() = editable.update { it.copy(selection = Selection()) }
 
     private fun entryOf(entryId: String): SyncFileEntry? =
         filesController.overallContent.value.find { it.fileId == entryId }
@@ -227,19 +214,6 @@ class FilesViewModel(
             val file = entryOf(entryId) ?: return@launch
 
             filesProviderHandler.onItemClick(file)
-        }
-    }
-
-    private fun runSync() {
-        if (refreshing.value) return
-        refreshing.value = true
-
-        viewModelScope.launch {
-            runCatching { sourcesController.runSync() }
-                .exceptionOrNull()
-                ?.let { reporter.report(it, "Sync from the files screen failed") }
-
-            refreshing.value = false
         }
     }
 
@@ -257,14 +231,8 @@ class FilesViewModel(
         val openedPath: String? = null,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,
-        val editing: Boolean = false,
-        val selected: Set<String> = emptySet(),
-    ) {
-        fun toggled(entryId: String): Editable {
-            val next = if (entryId in selected) selected - entryId else selected + entryId
-            return copy(selected = next, editing = next.isNotEmpty())
-        }
-    }
+        val selection: Selection = Selection(),
+    )
 }
 
 private fun SyncFileEntry.toUi(downloading: Set<String>): FileBrowserUi.File = asPreviewFile().copy(

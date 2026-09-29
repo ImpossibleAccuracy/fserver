@@ -4,12 +4,16 @@ import com.fserver.core.network.device.model.ForeignDevice
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Every device this process can currently see, split by *how* it is seen.
- * The splits are disjoint - a device appears in exactly one of [connected], [handshaken] and [discovered].
+ * Every device this process can see or remembers, split by *how* it is known.
+ * The splits are disjoint - a device appears in exactly one of [connected], [handshaken],
+ * [discovered] and [offline].
  */
 interface OnlineDevices {
-    /** Every visible device, whatever the claim behind it - the union of the three splits. */
+    /** Every device, visible or trusted - the union of the four splits. */
     val all: Flow<List<ForeignDevice>>
+
+    /** Every device reachable right now - [connected], [handshaken] and [discovered] together. */
+    val visible: Flow<List<ForeignDevice>>
 
     /** A session is up: requests can be sent without dialing anything. */
     val connected: Flow<List<ForeignDevice>>
@@ -23,15 +27,18 @@ interface OnlineDevices {
     /** Heard over discovery only. Nothing about it has been verified. */
     val discovered: Flow<List<ForeignDevice>>
 
+    /** Trusted but not visible: built from the trust record, with no routes. */
+    val offline: Flow<List<ForeignDevice>>
+
     /**
-     * Visible *and* trusted - the intersection a "reconnect" affordance is made of,
-     * since these are the devices that need no code comparison.
+     * Trusted, visible or not - the devices a "reconnect" affordance is made of,
+     * since these need no code comparison.
      */
     val known: Flow<List<ForeignDevice>>
 
     /** Visible and never trusted: reaching one of these costs the user a code comparison. */
     val unknown: Flow<List<ForeignDevice>>
 
-    /** The device with [id], or null once it is no longer visible. */
+    /** The device with [id], or null once it is neither visible nor trusted. */
     fun device(id: String): Flow<ForeignDevice?>
 }

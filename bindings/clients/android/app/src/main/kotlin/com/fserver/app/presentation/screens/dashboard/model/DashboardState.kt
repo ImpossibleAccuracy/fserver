@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.dashboard.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
+import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.composable.model.StorageUsageUi
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
@@ -24,15 +25,14 @@ data class DashboardState(
         get() = links.isNotEmpty()
 
     val onlineDevices: Int
-        get() = devices.count { it.online }
+        get() = devices.count { it.peer.online }
 
     /** One source, read as "what goes where". */
     @Immutable
     data class LinkUi(
         val id: String,
         val label: String,
-        val deviceName: String,
-        val deviceKind: DeviceKind?,
+        val peer: PeerUi,
         val mode: SourceModeUi,
         val direction: LinkDirectionUi,
         val status: LinkStatusUi,
@@ -57,14 +57,11 @@ data class DashboardState(
 
     enum class NetworkKindUi { WiFi, Mobile, Wired, Other }
 
+    /** [unreachable]: offline, and the last attempts to reach it failed. */
     @Immutable
     data class DeviceUi(
-        val id: String,
-        val name: String,
-        val kind: DeviceKind?,
-        val online: Boolean,
+        val peer: PeerUi,
         val unreachable: Boolean = false,
-        val lastSeenLabel: String? = null,
     )
 
     /**
@@ -82,6 +79,10 @@ data class DashboardState(
     }
 
     companion object {
+        private val SampleLaptop = PeerUi("laptop", "Laptop", DeviceKind.Laptop, online = true)
+        private val SampleServer = PeerUi("server", "Server", DeviceKind.Nas, online = true)
+        private val SamplePc = PeerUi("home-pc", "Home PC", DeviceKind.Desktop)
+
         val Sample = DashboardState(
             isLoading = false,
             storage = StorageUsageUi.Sample,
@@ -89,8 +90,7 @@ data class DashboardState(
                 LinkUi(
                     id = "camera",
                     label = "Camera",
-                    deviceName = "Server",
-                    deviceKind = DeviceKind.Nas,
+                    peer = SampleServer,
                     mode = SourceModeUi.AutoUpload,
                     direction = LinkDirectionUi.Outgoing,
                     status = LinkStatusUi.Syncing,
@@ -101,8 +101,7 @@ data class DashboardState(
                 LinkUi(
                     id = "documents",
                     label = "Documents",
-                    deviceName = "Laptop",
-                    deviceKind = DeviceKind.Laptop,
+                    peer = SampleLaptop,
                     mode = SourceModeUi.Sync,
                     direction = LinkDirectionUi.Mirror,
                     status = LinkStatusUi.Active,
@@ -112,8 +111,7 @@ data class DashboardState(
                 LinkUi(
                     id = "whatsapp",
                     label = "WhatsApp Media",
-                    deviceName = "Server",
-                    deviceKind = DeviceKind.Nas,
+                    peer = SampleServer,
                     mode = SourceModeUi.Offload,
                     direction = LinkDirectionUi.Outgoing,
                     status = LinkStatusUi.Disabled,
@@ -122,8 +120,7 @@ data class DashboardState(
                 LinkUi(
                     id = "downloads",
                     label = "Downloads",
-                    deviceName = "Home PC",
-                    deviceKind = DeviceKind.Desktop,
+                    peer = SamplePc,
                     mode = SourceModeUi.AutoUpload,
                     direction = LinkDirectionUi.Incoming,
                     status = LinkStatusUi.Active,
@@ -133,15 +130,9 @@ data class DashboardState(
             network = NetworkUi(NetworkKindUi.WiFi, "Home_5G"),
             discovering = true,
             devices = listOf(
-                DeviceUi("laptop", "Laptop", DeviceKind.Laptop, online = true),
-                DeviceUi("server", "Server", DeviceKind.Nas, online = true),
-                DeviceUi(
-                    id = "home-pc",
-                    name = "Home PC",
-                    kind = DeviceKind.Desktop,
-                    online = false,
-                    lastSeenLabel = "yesterday",
-                ),
+                DeviceUi(SampleLaptop),
+                DeviceUi(SampleServer),
+                DeviceUi(SamplePc),
             ),
             syncRequestsWaiting = 3,
         )

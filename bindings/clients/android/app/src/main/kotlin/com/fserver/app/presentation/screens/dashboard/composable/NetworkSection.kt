@@ -1,12 +1,13 @@
 package com.fserver.app.presentation.screens.dashboard.composable
 
+import com.fserver.app.presentation.designkit.DkStatusDot
+import android.text.format.DateUtils
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.composable.model.icon
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
@@ -48,7 +49,6 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
 import com.fserver.app.presentation.theme.FServerTheme
 
-private val StatusDot = 6.dp
 
 /** The link this phone is on, and every device a source is paired with. */
 @Composable
@@ -79,7 +79,7 @@ fun NetworkSection(
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
-                DeviceRow(device = device, onClick = { onDeviceClick(device.id) })
+                DeviceRow(device = device, onClick = { onDeviceClick(device.peer.id) })
             }
         }
     }
@@ -149,7 +149,7 @@ private fun NetworkCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
             ) {
-                StatusDot(
+                DkStatusDot(
                     color = if (online > 0) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -176,7 +176,8 @@ private fun DeviceRow(
     onClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    val offline = !device.online
+    val peer = device.peer
+    val offline = !peer.online
 
     Row(
         modifier = Modifier
@@ -188,31 +189,33 @@ private fun DeviceRow(
     ) {
         Icon(
             modifier = Modifier.size(18.dp),
-            imageVector = device.kind.icon,
+            imageVector = peer.kind.icon,
             contentDescription = null,
             tint = if (offline) colors.outline else colors.onSurfaceVariant,
         )
         Text(
             modifier = Modifier.weight(1f),
-            text = device.name,
+            text = peer.name,
             style = MaterialTheme.typography.bodyLarge,
             color = if (offline) colors.onSurfaceVariant else colors.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        StatusDot(
+        DkStatusDot(
             color = when {
                 device.unreachable -> colors.error
-                device.online -> colors.primary
+                peer.online -> colors.primary
                 else -> colors.outline
             },
         )
         Text(
             text = when {
-                device.online -> stringResource(R.string.device_state_online)
+                peer.online -> stringResource(R.string.device_state_online)
                 device.unreachable -> stringResource(R.string.files_device_unreachable_state)
-                device.lastSeenLabel != null ->
-                    stringResource(R.string.dashboard_device_last_seen, device.lastSeenLabel)
+                peer.lastSeen != null -> stringResource(
+                    R.string.dashboard_device_last_seen,
+                    peer.lastSeen.formatted(DateUtils.MINUTE_IN_MILLIS),
+                )
 
                 else -> stringResource(R.string.device_state_offline)
             },
@@ -266,16 +269,6 @@ private fun NetworkBadge(icon: ImageVector, breathing: Boolean = false) {
             tint = MaterialTheme.colorScheme.primary,
         )
     }
-}
-
-@Composable
-private fun StatusDot(color: Color) {
-    Box(
-        modifier = Modifier
-            .size(StatusDot)
-            .clip(CircleShape)
-            .background(color),
-    )
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.settings.onetimecode
 
+import com.fserver.app.util.stateInScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.settings.onetimecode.model.OneTimeCodeIntent
@@ -8,13 +9,11 @@ import com.fserver.core.network.auth.PairingCodes
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -34,11 +33,7 @@ class OneTimeCodeViewModel(
                 else -> flowOf(code.toPresentation())
             }
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = OneTimeCodeState(),
-        )
+        .stateInScreen(viewModelScope, OneTimeCodeState())
 
     init {
         if (pairingCodes.state.value !is CodeState.Active) pairingCodes.issue()

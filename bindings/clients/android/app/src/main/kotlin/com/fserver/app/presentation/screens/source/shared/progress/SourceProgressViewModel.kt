@@ -1,40 +1,41 @@
 package com.fserver.app.presentation.screens.source.shared.progress
 
+import com.fserver.app.util.stateInScreen
+import com.fserver.core.network.device.DevicesRepository
+import com.fserver.app.presentation.screens.source.shared.model.transfersOf
+import com.fserver.app.presentation.shared.sync.SyncTrigger
+import com.fserver.app.presentation.composable.model.peers
+import com.fserver.app.presentation.composable.model.peerOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
-import com.fserver.app.presentation.screens.source.shared.model.nameOf
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressState
 import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressUiEffect
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.storage.RegisteredSourcesRepository
-import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SourceProgressViewModel(
     private val key: Destination.Source.Progress,
     private val sourcesRepository: RegisteredSourcesRepository,
     private val sourcesController: SourcesController,
-    private val trustedDevices: TrustedDevicesRepository,
+    devicesRepository: DevicesRepository,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val effects = Channel<SourceProgressUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
 
-    private var syncJob: Job? = null
+    private val syncTrigger = SyncTrigger(viewModelScope, sourcesController, reporter)
 
     private val entry = sourcesRepository.observeById(key.sourceId)
 
@@ -48,16 +49,14 @@ class SourceProgressViewModel(
         entry,
         pass,
         transfers,
-        trustedDevices.devices,
+        devicesRepository.peers(),
         indexing,
-    ) { source, pass, transfers, devices, indexing ->
+    ) { source, pass, transfers, peers, indexing ->
         source ?: return@combine SourceProgressState()
 
         val local = pass as? SourcePass.Local
         val refusal = (source.status as? SourceEntry.Status.Disabled)?.reason
-        val moving = transfers.filter {
-            it.key.sourceId == key.sourceId && pass != null && it.startedAt >= pass.startedAt
-        }
+        val moving = pass.transfersOf(key.sourceId, transfers)
 
         SourceProgressState(
             role = source.role.toUi(),
@@ -66,7 +65,7 @@ class SourceProgressViewModel(
                 pass != null -> SourceProgressState.Phase.Syncing
                 else -> SourceProgressState.Phase.Waiting
             },
-            peerName = devices.nameOf(source.deviceId),
+            peerName = peers.peerOf(source.deviceId).name,
             sourceLabel = source.label,
             progress = local?.progress,
             actionsPlanned = local?.actionsPlanned ?: 0,
@@ -81,29 +80,15 @@ class SourceProgressViewModel(
             filesSkipped = local?.filesSkipped ?: 0,
             reason = refusal,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = SourceProgressState(),
-    )
+    }.stateInScreen(viewModelScope, SourceProgressState())
 
     init {
-        startSync()
+        syncTrigger.run("First pass failed")
 
         viewModelScope.launch {
             pass.collect { pass ->
                 if (pass?.isFinished == true) effects.send(SourceProgressUiEffect.NavigateToDone)
             }
-        }
-    }
-
-    private fun startSync() {
-        if (syncJob != null) return
-
-        syncJob = viewModelScope.launch {
-            runCatching { sourcesController.runSync() }
-                .exceptionOrNull()
-                ?.let { reporter.report(it, "First pass failed") }
         }
     }
 }

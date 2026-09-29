@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.setup.pick
 
+import com.fserver.app.util.stateInScreen
 import android.content.Context
 import com.fserver.app.presentation.screens.source.setup.access.DevSourceBucket
 import com.fserver.app.presentation.screens.source.setup.pick.model.SourcePickIntent
@@ -12,10 +13,8 @@ import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,7 +33,7 @@ class SourcePickHandler(
                 unavailable = it.blocked.keys,
             )
         }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), SourcePickState())
+        .stateInScreen(scope, SourcePickState())
 
     init {
         scope.launch { checkBlockers() }
