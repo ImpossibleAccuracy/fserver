@@ -1,6 +1,8 @@
 package com.fserver.files.fs.impl.local
 
 import android.content.Context
+import android.media.MediaScannerConnection
+import android.os.Environment
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.task.ProgressTask
@@ -32,6 +34,8 @@ internal class DirectoryFileSystem(
     private val root: File,
     /** Removes the directories a deleted or moved file leaves empty, up to [root]. */
     private val pruneEmptyDirs: Boolean = false,
+    /** Runs once a file has appeared or gone, for an index kept beside the disk. */
+    private val onFileChanged: (File) -> Unit = {},
 ) : FileSystem {
 
     override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> =
@@ -61,6 +65,8 @@ internal class DirectoryFileSystem(
     private fun open(file: File): FsFile = LocalFile(file, ::confine, ::onChanged)
 
     private fun onChanged(file: File) {
+        onFileChanged(file)
+
         if (!pruneEmptyDirs || file.exists()) return
 
         // delete() refuses a directory that still holds anything, which ends the walk.
@@ -138,6 +144,19 @@ internal class DirectoryFileSystem(
          */
         fun internal(context: Context, bucket: String): DirectoryFileSystem =
             DirectoryFileSystem(File(internalRoot(context), bucket))
+
+        /**
+         * `Download/<directory>` on the primary volume, before scoped storage: plain files behind
+         * `WRITE_EXTERNAL_STORAGE`, each reported to the media scanner so other apps see it.
+         */
+        fun legacyDownloads(context: Context, directory: String): DirectoryFileSystem {
+            @Suppress("DEPRECATION")
+            val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+
+            return DirectoryFileSystem(File(downloads, directory)) { file ->
+                MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
+            }
+        }
 
         /** The directory every [internal] bucket sits in. */
         fun internalRoot(context: Context): File = File(context.filesDir, SourcesDirectory)

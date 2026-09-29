@@ -21,9 +21,10 @@ import java.io.FileNotFoundException
 /**
  * An in-memory MediaStore for [MediaFileSystemTest], with bytes in [root].
  *
- * Models only what the backend leans on: `RELATIVE_PATH` under a directory MediaStore owns, the
- * rename of a colliding name, and a row another app owns refusing to be touched. The two
- * selections it understands are the two the backend sends.
+ * Models only what the backends lean on: `RELATIVE_PATH` under a directory MediaStore owns, the
+ * rename of a colliding name, a row another app owns refusing to be touched, the Downloads
+ * collection holding only `Download/`, and a pending row hidden from every query but by its id.
+ * The selections it understands are the ones the backends send.
  */
 class FakeMediaProvider : ContentProvider() {
 
@@ -35,10 +36,15 @@ class FakeMediaProvider : ContentProvider() {
         val mimeType: String,
         val file: File,
         val foreign: Boolean,
+        val pending: Boolean = false,
     )
 
     private val rows = mutableListOf<Row>()
     private var nextId = 1L
+
+    /** Every row, pending ones included. */
+    val rowCount: Int
+        get() = rows.size
 
     private val root: File
         get() = File(requireNotNull(context).cacheDir, "fake-media")
@@ -54,17 +60,19 @@ class FakeMediaProvider : ContentProvider() {
     ): Cursor {
         val matched = when {
             idOf(uri) != null -> rows.filter { it.id == idOf(uri) }
-            selection == null -> rows.filter { inCollection(uri, it) }
+            selection == null -> listed(uri)
 
             selection == "${FileColumns.RELATIVE_PATH} = ? AND ${FileColumns.DISPLAY_NAME} = ?" ->
-                rows.filter {
-                    inCollection(uri, it) &&
+                listed(uri).filter {
                         it.relativePath == selectionArgs!![0] &&
                         it.name == selectionArgs[1]
                 }
 
             selection == "${FileColumns.MEDIA_TYPE} IN (?, ?, ?)" ->
-                rows.filter { inCollection(uri, it) && mediaTypeOf(it).toString() in selectionArgs!! }
+                listed(uri).filter { mediaTypeOf(it).toString() in selectionArgs!! }
+
+            selection == "${FileColumns.RELATIVE_PATH} LIKE ? ESCAPE '\\'" ->
+                listed(uri).filter { likeRegex(selectionArgs!![0]).matches(it.relativePath) }
 
             else -> error("Selection not modelled: $selection")
         }
@@ -84,6 +92,9 @@ class FakeMediaProvider : ContentProvider() {
         require(relativePath.substringBefore('/') in OwnedDirectories) {
             "Primary directory ${relativePath.substringBefore('/')} not allowed"
         }
+        require(!isDownloads(uri) || relativePath.startsWith("Download/")) {
+            "Downloads collection only holds Download/, not $relativePath"
+        }
 
         val name = freeName(volume, relativePath, values.getAsString(FileColumns.DISPLAY_NAME))
         val file = File(root, "$volume/$relativePath$name").apply {
@@ -91,7 +102,16 @@ class FakeMediaProvider : ContentProvider() {
             createNewFile()
         }
 
-        val row = Row(nextId++, volume, relativePath, name, mimeType, file, foreign = false)
+        val row = Row(
+            id = nextId++,
+            volume = volume,
+            relativePath = relativePath,
+            name = name,
+            mimeType = mimeType,
+            file = file,
+            foreign = false,
+            pending = values.getAsInteger(FileColumns.IS_PENDING) == 1,
+        )
         rows += row
 
         return ContentUris.withAppendedId(uri, row.id)
@@ -109,12 +129,20 @@ class FakeMediaProvider : ContentProvider() {
         val row = rows[index]
         if (row.foreign) throw SecurityException("${row.name} is owned by another app")
 
-        val name = values!!.getAsString(FileColumns.DISPLAY_NAME) ?: return 0
-        val renamed = freeName(row.volume, row.relativePath, name)
-        val file = File(row.file.parentFile, renamed)
+        var updated = row
 
-        row.file.renameTo(file)
-        rows[index] = row.copy(name = renamed, file = file)
+        values!!.getAsString(FileColumns.DISPLAY_NAME)?.let { name ->
+            val renamed = freeName(row.volume, row.relativePath, name)
+            val file = File(row.file.parentFile, renamed)
+
+            row.file.renameTo(file)
+            updated = updated.copy(name = renamed, file = file)
+        }
+
+        values.getAsInteger(FileColumns.IS_PENDING)?.let { updated = updated.copy(pending = it == 1) }
+
+        if (updated == row) return 0
+        rows[index] = updated
 
         return 1
     }
@@ -176,6 +204,7 @@ class FakeMediaProvider : ContentProvider() {
         FileColumns.DISPLAY_NAME -> row.name
         FileColumns.MIME_TYPE -> row.mimeType
         FileColumns.MEDIA_TYPE -> mediaTypeOf(row)
+        FileColumns.IS_PENDING -> if (row.pending) 1 else 0
         // Seconds, as MediaStore keeps it.
         FileColumns.DATE_MODIFIED -> row.file.lastModified() / 1000
         else -> null
@@ -188,13 +217,35 @@ class FakeMediaProvider : ContentProvider() {
         else -> FileColumns.MEDIA_TYPE_NONE
     }
 
-    /** `content://media/<volume>/file[/<id>]`. */
+    /** Rows a query without an id sees: never a pending one. */
+    private fun listed(uri: Uri): List<Row> = rows.filter { !it.pending && inCollection(uri, it) }
+
+    /** `content://media/<volume>/<file|downloads>[/<id>]`. */
     private fun volumeOf(uri: Uri): String = uri.pathSegments[0]
+
+    private fun isDownloads(uri: Uri): Boolean = uri.pathSegments.getOrNull(1) == "downloads"
+
+    /** A LIKE pattern with `\` as its escape, case-insensitive as SQLite's is for ASCII. */
+    private fun likeRegex(pattern: String): Regex {
+        val regex = StringBuilder()
+        var i = 0
+        while (i < pattern.length) {
+            when (val c = pattern[i]) {
+                '\\' -> regex.append(Regex.escape(pattern[++i].toString()))
+                '%' -> regex.append(".*")
+                '_' -> regex.append('.')
+                else -> regex.append(Regex.escape(c.toString()))
+            }
+            i++
+        }
+        return Regex(regex.toString(), RegexOption.IGNORE_CASE)
+    }
 
     private fun idOf(uri: Uri): Long? = uri.pathSegments.getOrNull(2)?.toLongOrNull()
 
     private fun inCollection(uri: Uri, row: Row): Boolean =
-        volumeOf(uri) == MediaStore.VOLUME_EXTERNAL || volumeOf(uri) == row.volume
+        (volumeOf(uri) == MediaStore.VOLUME_EXTERNAL || volumeOf(uri) == row.volume) &&
+            (!isDownloads(uri) || row.relativePath.startsWith("Download/"))
 
     companion object {
         private val OwnedDirectories = setOf(

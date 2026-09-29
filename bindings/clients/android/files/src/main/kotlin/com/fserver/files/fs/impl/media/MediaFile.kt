@@ -29,6 +29,8 @@ import kotlin.time.Instant
 internal class MediaFile(
     private val context: Context,
     private val uri: Uri,
+    /** Names the owning source's scan reports; a rename to any other is refused. */
+    private val acceptsName: (String) -> Boolean = ::isMediaName,
 ) : FsFile, StreamTarget {
     override val locator: String = uri.toString()
 
@@ -45,7 +47,7 @@ internal class MediaFile(
     ): FsFile = withContext(Dispatchers.IO) {
         val name = nameOf(newName)
 
-        if (!isMediaName(name)) throw FileSystemException.InvalidPath(newName)
+        if (!acceptsName(name)) throw FileSystemException.InvalidPath(newName)
 
         val (volume, relativePath, original) = context.contentResolver
             .query(

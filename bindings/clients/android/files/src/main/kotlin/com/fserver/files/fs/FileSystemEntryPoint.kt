@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.fserver.files.fs.impl.local.DirectoryFileSystem
 import com.fserver.files.fs.impl.local.RootFileSystem
+import com.fserver.files.fs.impl.media.DownloadsFileSystem
 import com.fserver.files.fs.impl.media.LegacyMediaFileSystem
 import com.fserver.files.fs.impl.media.MediaFileSystem
 import com.fserver.files.fs.impl.tree.TreeFileSystem
@@ -29,6 +30,13 @@ internal class FileSystemEntryPoint(
             MediaFileSystem(context)
         } else {
             LegacyMediaFileSystem(context)
+        }
+
+        // Same split: MediaStore.Downloads arrived with scoped storage.
+        is FileSystemSource.Downloads -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            DownloadsFileSystem(context, source.directory)
+        } else {
+            DirectoryFileSystem.legacyDownloads(context, source.directory)
         }
     }
 }

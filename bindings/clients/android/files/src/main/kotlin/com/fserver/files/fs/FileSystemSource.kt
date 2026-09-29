@@ -27,16 +27,30 @@ sealed interface FileSystemSource {
     data object Media : FileSystemSource
 
     /**
+     * One [directory] under the public Downloads folder of the primary volume. Any file type, unlike
+     * [Media]; no storage permission on Android 10+, where only rows this app wrote are visible.
+     */
+    data class Downloads(val directory: String) : FileSystemSource {
+        init {
+            requireSingleSegment(directory)
+        }
+    }
+
+    /**
      * App-private storage, scoped to one [bucket] directory under it.
      *
      * One bucket per hosted source, so two peers storing a same-named file here stay apart.
      */
     data class Internal(val bucket: String) : FileSystemSource {
         init {
-            require(bucket.isNotBlank()) { "Bucket cannot be blank" }
-            require(bucket.none { it == '/' || it == '\\' } && bucket != "." && bucket != "..") {
-                "Bucket must be a single directory name: $bucket"
-            }
+            requireSingleSegment(bucket)
         }
+    }
+}
+
+private fun requireSingleSegment(name: String) {
+    require(name.isNotBlank()) { "Directory name cannot be blank" }
+    require(name.none { it == '/' || it == '\\' } && name != "." && name != "..") {
+        "Must be a single directory name: $name"
     }
 }

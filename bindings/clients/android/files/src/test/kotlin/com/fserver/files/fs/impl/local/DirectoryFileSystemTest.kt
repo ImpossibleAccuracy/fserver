@@ -44,6 +44,18 @@ class DirectoryFileSystemTest {
     }
 
     @Test
+    fun `every file that appears or goes is reported`() = runTest {
+        val changed = mutableListOf<String>()
+        val watched = DirectoryFileSystem(root) { changed += it.relativeTo(root).path }
+
+        val file = watched.createFile("a.txt")
+        watched.place(watched.createFile("b.txt"), "c.txt")
+        file.delete()
+
+        assertEquals(listOf("a.txt", "b.txt", "b.txt", "c.txt", "a.txt"), changed)
+    }
+
+    @Test
     fun `a path that walks out of the source is refused`() = runTest {
         val failure = runCatching { fs.createFile("../outside/evil.txt") }.exceptionOrNull()
 
