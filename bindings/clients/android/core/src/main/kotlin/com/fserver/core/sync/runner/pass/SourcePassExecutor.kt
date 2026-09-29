@@ -1,12 +1,16 @@
 package com.fserver.core.sync.runner.pass
 
+import com.fserver.common.exception.NetworkException
 import com.fserver.common.exception.SyncException
+import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.conflict.settledDecisions
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalChangesIndexer
 import com.fserver.core.sync.index.toFileRecord
+import com.fserver.core.sync.lease.HeldLease
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.limits.limit
 import com.fserver.core.sync.model.SourceEntry
@@ -76,12 +80,13 @@ internal class SourcePassExecutor(
         var passReported = false
 
         try {
-            leaseNegotiator.runWithLease(source) { agreed ->
+            leaseNegotiator.runWithLease(source) { lease ->
+                val agreed = lease.source
                 progress.localPassStarted(source.id)
                 passReported = true
 
                 try {
-                    syncSource(agreed)
+                    syncSource(lease)
                 } catch (e: Exception) {
                     progress.localPassFinished(source.id, e)
                     throw e
@@ -112,7 +117,8 @@ internal class SourcePassExecutor(
      * and the first round only hashes files that are already known locally.
      * Later rounds re-read the index and plan from it, until all files are hashed or a maximum number of rounds is reached.
      */
-    private suspend fun syncSource(source: SourceEntry) {
+    private suspend fun syncSource(lease: HeldLease) {
+        val source = lease.source
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
         val skipped = mutableSetOf<FileId>()
@@ -127,7 +133,10 @@ internal class SourcePassExecutor(
 
             val snapshot = FilesSnapshot(
                 local = local.map { it.toFileRecord() },
-                remote = remoteFetcher.fetchIndex(source),
+                remote = reconnecting(
+                    lease,
+                    errors
+                ) { runCatchingCancellable { remoteFetcher.fetchIndex(source) } }.getOrThrow(),
             )
 
             Timber.d("Source ${source.id} snapshot round $round: ${snapshot.local.size} local files, ${snapshot.remote.size} remote files")
@@ -158,7 +167,12 @@ internal class SourcePassExecutor(
             progress.localPassSkipped(source.id, skipped.size)
 
             for (action in runnable) {
-                val failure = actionRunner.execute(source, action).exceptionOrNull()
+                val failure = reconnecting(lease, errors) {
+                    actionRunner.execute(
+                        source,
+                        action
+                    )
+                }.exceptionOrNull()
 
                 // The peer's limits turned it down: skipped like our own, not failed.
                 if (failure is SyncException.OverLimitException) {
@@ -194,6 +208,46 @@ internal class SourcePassExecutor(
         throw failure
     }
 
+    /**
+     * Runs [block], and again over a renewed lease if the link to the peer dropped under it.
+     * Ends the pass, with [errors] so far, when the link cannot be brought back.
+     */
+    private suspend fun <T> reconnecting(
+        lease: HeldLease,
+        errors: List<Throwable>,
+        block: suspend () -> Result<T>,
+    ): Result<T> {
+        val source = lease.source
+        var result = block()
+
+        repeat(MaxReconnects + 1) { attempt ->
+            val lost = result.exceptionOrNull()?.takeIf { it.isLinkLoss() } ?: return result
+
+            val renewed = attempt < MaxReconnects && runCatchingCancellable {
+                Timber.w(lost, "Source ${source.id}: link to ${source.deviceId} lost, reconnecting")
+                lease.renew()
+            }.onFailure {
+                Timber.w(
+                    it,
+                    "Source ${source.id}: could not reconnect to ${source.deviceId}"
+                )
+            }.isSuccess
+
+            if (!renewed) {
+                val aborted = SyncException.ActionFailedException(
+                    "Source ${source.id} pass aborted: lost ${source.deviceId}",
+                    lost
+                )
+                errors.forEach(aborted::addSuppressed)
+                throw aborted
+            }
+
+            result = block()
+        }
+
+        return result
+    }
+
     private suspend fun dropSettledDecisions(source: SourceEntry, plan: UploadDecisions) {
         val stored = storage.conflictDecisions.forSource(source.id)
         if (stored.isEmpty()) return
@@ -201,11 +255,28 @@ internal class SourcePassExecutor(
         for (decision in settledDecisions(source, plan, stored)) {
             // TODO: history entry - "your choice on <file> was overtaken" (resolved on the peer, or edited since).
             Timber.i("Dropping decision on ${decision.fileId} in source ${source.id}: no longer conflicts")
-            storage.conflictDecisions.remove(IndexedFileKey(fileId = decision.fileId, sourceId = source.id))
+            storage.conflictDecisions.remove(
+                IndexedFileKey(
+                    fileId = decision.fileId,
+                    sourceId = source.id
+                )
+            )
         }
     }
 
     private companion object {
         const val MaxRounds = 3
+
+        /** Renewals per call: a link that keeps dropping right after one is not coming back. */
+        const val MaxReconnects = 2
     }
+}
+
+/** The session to the peer is gone, or could not be opened again. */
+private fun Throwable.isLinkLoss(): Boolean = generateSequence(this) { it.cause }.any {
+    it is NetworkException.SessionClosed ||
+            it is NetworkException.SessionLinkLost ||
+            it is NetworkException.Transport ||
+            it is NetworkException.NoRoute ||
+            it is DeviceUnreachableException
 }

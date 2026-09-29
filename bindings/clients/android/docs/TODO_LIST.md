@@ -21,24 +21,15 @@ RequirementsChecker:
 
 Sync (see `../../../docs/HLC.md`):
 
-- LWW drops the losing content, and `KeepBoth` is not implemented: nothing goes to `.conflicts/`;
 - A user edit made while an incoming file is being received is overwritten. Before the rename,
   compare the on-disk hash with the index;
-- With equal HLC and author but different vectors, both sides consider themselves the winner:
-  `compareHlc` uses `>=`;
 - A conflict where the winning side is evicted is never resolved, and repeats every pass;
-- The scanner skips no ignore patterns (`~$*`, `*.swp`, `.~lock.*#`, `*.tmp`, `.DS_Store`,
-  `.conflicts/`), and does not skip upload temp files (`<name>.temp`) either;
-- There is no FS watcher (debounce, stability check); changes are found only by the scan in a pass;
 - Clock skew is only logged: no offset estimate at handshake (NTP-style) and no diagnostics.
   In host/public mode the physical time does not come from the server;
-- Renames are not detected: fileId comes from the path, so a rename is a deletion plus a new
-  file, and the bytes are sent again.
 
 Idea:
 
 - Implement actions logging into database;
-- Add "trash" to keep files before final deletion.
 - Short targeted discovery session as the last resort, once every cheaper route has failed:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.
@@ -46,7 +37,6 @@ Idea:
 
 Major:
 - add QR connection via OutOfBandKeyAuthMethod
-- impl network scanner SPI
 - no compatibility with different hashers (e.g. SHA-256 vs BLAKE3) - need to add a selection based on already used hash info
 
 ## Net

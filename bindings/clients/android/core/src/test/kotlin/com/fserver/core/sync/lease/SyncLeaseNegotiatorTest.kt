@@ -1,5 +1,6 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.common.exception.SyncException
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
@@ -171,7 +172,7 @@ class SyncLeaseNegotiatorTest {
         }
         var ranWith: SyncMode? = null
 
-        negotiator.runWithLease(source) { ranWith = it.syncMode }
+        negotiator.runWithLease(source) { ranWith = it.source.syncMode }
 
         assertEquals(ask, ranWith)
         assertEquals(ask, storage.sources.findById(SourceId)?.syncMode)
@@ -228,6 +229,39 @@ class SyncLeaseNegotiatorTest {
         assertNotNull(storage.sources.metadataOf(SourceId, PeerId))
         // Not sent, but still kept here for this device's own screens.
         assertNotNull(storage.sources.metadataOf(SourceId, LocalId))
+    }
+
+    @Test
+    fun `a renewed lease keeps its id and is handed back over the new session`() = runTest {
+        val first = session { granted(it) }
+        lateinit var second: FakePeerSession
+
+        negotiator.runWithLease(source) { lease ->
+            second = session { granted(it) }
+            lease.renew()
+        }
+
+        val acquired = first.requested.single() as FileServerMessages.AcquireSyncLease.Request
+        val renewed = second.requested.single() as FileServerMessages.AcquireSyncLease.Request
+        assertEquals(acquired.leaseId, renewed.leaseId)
+
+        assertTrue(first.sent.isEmpty())
+        assertTrue(second.sent.single() is FileServerMessages.AcquireSyncLease.ReleaseLease)
+    }
+
+    @Test
+    fun `a renewal the peer denies fails`() = runTest {
+        session { granted(it) }
+
+        val failure = runCatching {
+            negotiator.runWithLease(source) { lease ->
+                session { FileServerMessages.AcquireSyncLease.Denied(SourceId, "syncing there") }
+                lease.renew()
+            }
+        }.exceptionOrNull()
+
+        assertTrue(failure is SyncException.SourceBusyException)
+        assertNotNull(registry.beginAcquire(SourceId))
     }
 
     private fun granted(

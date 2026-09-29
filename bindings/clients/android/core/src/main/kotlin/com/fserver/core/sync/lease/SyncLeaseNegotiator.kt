@@ -1,5 +1,6 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.common.exception.SyncException
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
@@ -33,20 +34,19 @@ internal class SyncLeaseNegotiator(
 ) {
     /**
      * Runs [block] only if both devices agree we hold [source] and run it under the same mode.
-     * Skips - never queues - otherwise. [block] gets the source as agreed, which is [source] with
-     * the initiator's mode adopted if ours was stale.
+     * Skips - never queues - otherwise. [block] gets the lease, carrying the source as agreed.
      *
      * How [block] went travels back with the lease: the peer sees the lease returned whether the
      * pass worked or not, so without this a failed pass reads there exactly like a clean one.
      * Cancellation is not reported - it is this device being told to stop, not the source failing.
      */
-    suspend fun runWithLease(source: SourceEntry, block: suspend (SourceEntry) -> Unit) {
+    suspend fun runWithLease(source: SourceEntry, block: suspend (HeldLease) -> Unit) {
         val lease = acquire(source, adopt = true) ?: return
 
         var failure: SyncFailureReason? = null
 
         try {
-            block(lease.source)
+            block(lease)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -170,9 +170,30 @@ internal class SyncLeaseNegotiator(
     }
 
     /** Held over the session it was granted on: that is where the release has to go back. */
-    private class Lease(
-        val session: PeerSession<FileServerMessages>,
+    private inner class Lease(
+        var session: PeerSession<FileServerMessages>,
         val id: String,
-        val source: SourceEntry,
-    )
+        override val source: SourceEntry,
+    ) : HeldLease {
+        override suspend fun renew() {
+            val fresh = peers.connectToDevice(source)
+
+            // Same id: the peer grants its holder again, and our registry still holds it.
+            val response = fresh.request(
+                FileServerMessages.AcquireSyncLease.Request(
+                    sourceId = source.id,
+                    leaseId = id,
+                    syncMode = source.syncMode.toDto(),
+                    metadata = metadata.forLease(source),
+                )
+            ).getOrThrow()
+
+            if (response !is FileServerMessages.AcquireSyncLease.Granted) {
+                throw SyncException.SourceBusyException("${source.deviceId} did not grant source ${source.id} back: $response")
+            }
+
+            session = fresh
+            Timber.i("Source ${source.id}: lease renewed over a new session with ${source.deviceId}")
+        }
+    }
 }
