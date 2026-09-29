@@ -5,14 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.screens.source.setup.access.SourceAccessHandler
 import com.fserver.app.presentation.screens.source.setup.conditions.SourceConditionsHandler
+import com.fserver.app.presentation.screens.source.setup.done.SourceDoneHandler
 import com.fserver.app.presentation.screens.source.setup.mode.SourceModeHandler
 import com.fserver.app.presentation.screens.source.setup.pick.SourcePickHandler
+import com.fserver.app.presentation.screens.source.setup.progress.SourceProgressHandler
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.requirement.RequirementsChecker
+import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -29,6 +32,7 @@ class SourceSetupViewModel(
     private val filesController: FilesController,
     private val devicesRepository: DevicesRepository,
     private val sourcesController: SourcesController,
+    private val sourcesRepository: RegisteredSourcesRepository,
     private val requirementsChecker: RequirementsChecker,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
@@ -73,6 +77,22 @@ class SourceSetupViewModel(
         flow = editable,
         scope = viewModelScope,
         reporter = reporter,
+    )
+
+    val progress = SourceProgressHandler(
+        sourcesRepository = sourcesRepository,
+        sourcesController = sourcesController,
+        devicesRepository = devicesRepository,
+        reporter = reporter,
+        flow = editable,
+        scope = viewModelScope,
+    )
+
+    val done = SourceDoneHandler(
+        sourcesRepository = sourcesRepository,
+        devicesRepository = devicesRepository,
+        flow = editable,
+        scope = viewModelScope,
     )
 
     fun start(kind: SourceKindUi, targetDeviceId: String? = null) {

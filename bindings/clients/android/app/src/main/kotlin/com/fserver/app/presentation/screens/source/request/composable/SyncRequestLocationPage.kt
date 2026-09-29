@@ -35,6 +35,7 @@ fun SyncRequestLocationPage(
     state: SyncRequestState,
     onIntent: (SyncRequestIntent) -> Unit,
     onPickFolder: () -> Unit,
+    onPickDirectory: () -> Unit,
 ) {
     val peerName = state.request?.deviceName.orEmpty()
 
@@ -55,7 +56,7 @@ fun SyncRequestLocationPage(
         SourceChoiceRow(
             title = stringResource(R.string.sync_request_location_internal_title),
             description = stringResource(R.string.sync_request_location_internal_subtitle),
-            selected = !state.isFolderSelected,
+            selected = state.location == HostLocationUi.AppStorage,
             recommended = true,
             onSelect = { onIntent(SyncRequestIntent.AppStorageSelected) },
         )
@@ -74,11 +75,29 @@ fun SyncRequestLocationPage(
             },
         ) {
             if (state.folder != null) {
-                PickedFolder(folder = state.folder, onChange = onPickFolder)
+                PickedFolder(label = state.folder.label, onChange = onPickFolder)
             }
         }
 
-        if (state.isFolderSelected && state.folderHasFiles) {
+        SourceChoiceRow(
+            title = stringResource(R.string.sync_request_location_device_title),
+            description = stringResource(R.string.sync_request_location_device_subtitle),
+            selected = state.isDirectorySelected,
+            navigates = state.directory == null,
+            onSelect = {
+                if (state.directory == null) {
+                    onPickDirectory()
+                } else {
+                    onIntent(SyncRequestIntent.DirectorySelected)
+                }
+            },
+        ) {
+            if (state.directory != null) {
+                PickedFolder(label = state.directory.label, onChange = onPickDirectory)
+            }
+        }
+
+        if (state.location.hasFiles) {
             DkInfoBox(text = stringResource(R.string.sync_request_location_folder_not_empty, peerName))
         }
     }
@@ -87,7 +106,7 @@ fun SyncRequestLocationPage(
 @Composable
 private fun PickedFolder(
     modifier: Modifier = Modifier,
-    folder: HostLocationUi.Folder,
+    label: String,
     onChange: () -> Unit,
 ) {
     Row(
@@ -96,7 +115,7 @@ private fun PickedFolder(
         horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
         DkIcon(icon = Icons.Default.Folder)
-        DkMonoCaption(modifier = Modifier.weight(1f), text = folder.label)
+        DkMonoCaption(modifier = Modifier.weight(1f), text = label)
         DkGhostButton(
             text = stringResource(R.string.sync_request_location_folder_change),
             onClick = onChange,
@@ -107,17 +126,17 @@ private fun PickedFolder(
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 private fun SyncRequestLocationPagePreview() {
-    val folder = HostLocationUi.Folder(uri = "content://tree", label = "/Documents/Projects")
+    val folder = HostLocationUi.Folder(uri = "content://tree", label = "/Documents/Projects", hasFiles = true)
 
     FServerTheme {
         SyncRequestLocationPage(
             state = SyncRequestState.Sample.copy(
                 location = folder,
                 folder = folder,
-                folderHasFiles = true,
             ),
             onIntent = {},
             onPickFolder = {},
+            onPickDirectory = {},
         )
     }
 }

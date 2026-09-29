@@ -2,7 +2,7 @@ package com.fserver.files
 
 import android.content.Context
 import com.fserver.files.fs.FileSystem
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FileSystemEntryPoint
 import com.fserver.files.fs.impl.local.DirectoryFileSystem

@@ -658,6 +658,10 @@
     <string name="sync_request_location_folder_title">Folder on this device</string>
     <string name="sync_request_location_folder_subtitle">Reachable from any app. Picked in the system dialog.</string>
     <string name="sync_request_location_folder_change">Change</string>
+    <string name="sync_request_location_device_title">Folder anywhere on the device</string>
+    <string name="sync_request_location_device_subtitle">Browse the device itself. Needs all-files access.</string>
+    <string name="sync_request_location_device_scanning">Reading the device…</string>
+    <string name="sync_request_location_device_failed">Access was granted, but reading the device broke partway. Try again, or keep it in app storage.</string>
     <string name="sync_request_location_folder_not_empty">This folder already has files. What %1$s sends lands next to them.</string>
     <string name="sync_request_location_disk_needed">Needed ≈ %1$s</string>
     <string name="sync_request_location_disk_free">%1$s free</string>

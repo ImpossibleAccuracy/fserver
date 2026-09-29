@@ -9,4 +9,5 @@ data class SourceSetupState(
     val source: PickedSourceUi? = null,
     val mode: SourceModeUi? = null,
     val targetDeviceId: String? = null,
+    val sourceId: String? = null,
 )

@@ -12,7 +12,7 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundFile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber

@@ -14,12 +14,12 @@ import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FsFile
-import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.scan.ScanProgress
 import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.mimeTypeOf
-import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.scan.scanTask
 import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext

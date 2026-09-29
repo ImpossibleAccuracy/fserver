@@ -6,13 +6,17 @@ import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.core.files.scan.DirectoryScanProgress
 
 @Immutable
 data class SyncRequestState(
     val request: SyncRequestUi? = null,
     val location: HostLocationUi = HostLocationUi.AppStorage,
     val folder: HostLocationUi.Folder? = null,
-    val folderHasFiles: Boolean = false,
+    val directory: HostLocationUi.Directory? = null,
+    val picker: DirectoryPickerUi? = null,
     val disk: DiskUi? = null,
     val preferences: SourcePreferencesUi = SourcePreferencesUi(),
     val isAnswering: Boolean = false,
@@ -21,7 +25,21 @@ data class SyncRequestState(
 
     val isFolderSelected: Boolean get() = location is HostLocationUi.Folder
 
+    val isDirectorySelected: Boolean get() = location is HostLocationUi.Directory
+
     val canAnswer: Boolean get() = request != null && !isAnswering
+
+    @Immutable
+    data class DirectoryPickerUi(
+        val phase: Phase = Phase.Scanning,
+        val progress: DirectoryScanProgress? = null,
+        val preview: FileBrowserUi? = null,
+        val navigation: FileBrowserNavigation? = null,
+    ) {
+        val canConfirm: Boolean get() = navigation?.opened != null
+
+        enum class Phase { Scanning, Browsing, Denied, Failed }
+    }
 
     @Immutable
     data class DiskUi(

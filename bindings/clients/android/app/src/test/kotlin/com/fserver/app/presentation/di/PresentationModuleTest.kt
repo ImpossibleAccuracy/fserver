@@ -44,8 +44,6 @@ class PresentationModuleTest {
                 Destination.Settings.DeviceDetails::class,
                 Destination.Settings.PinChange::class,
                 Destination.Settings.StorageSource::class,
-                Destination.Source.Done::class,
-                Destination.Source.Progress::class,
                 Destination.Source.Request.Details::class,
             ),
         )

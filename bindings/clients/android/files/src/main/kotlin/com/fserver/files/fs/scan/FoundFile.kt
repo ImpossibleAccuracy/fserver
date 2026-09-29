@@ -1,4 +1,4 @@
-package com.fserver.files.fs
+package com.fserver.files.fs.scan
 
 import com.fserver.common.model.FileSize
 import kotlin.time.Instant

@@ -1,4 +1,4 @@
-package com.fserver.files.fs
+package com.fserver.files.fs.scan
 
 data class ScanProgress(
     val scannedFiles: Int,

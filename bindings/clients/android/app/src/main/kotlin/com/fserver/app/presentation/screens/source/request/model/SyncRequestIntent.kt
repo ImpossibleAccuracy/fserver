@@ -15,6 +15,14 @@ sealed interface SyncRequestIntent {
 
     data object FolderSelected : SyncRequestIntent
 
+    data class DeviceAccessAnswered(val granted: Boolean) : SyncRequestIntent
+
+    data object DirectorySelected : SyncRequestIntent
+
+    data object DirectoryConfirmed : SyncRequestIntent
+
+    data object DirectoryPickCancelled : SyncRequestIntent
+
     data class PreferencesChanged(val intent: SourcePreferencesIntent) : SyncRequestIntent
 
     data object Accepted : SyncRequestIntent

@@ -18,9 +18,9 @@ fun EntryProviderScope<Destination>.sourceConditionsEntry(
             handler = flow.conditions,
             // Everything answered goes with it: the source is registered from here on, and none
             // of those screens has a question left to ask.
-            navigateToProgress = { sourceId ->
+            navigateToProgress = {
                 navigator.navigate(
-                    screen = Destination.Source.Progress(sourceId),
+                    screen = Destination.Source.Setup.Progress,
                     dropping = { it.isAnsweredSourceSetupScreen },
                 )
             },

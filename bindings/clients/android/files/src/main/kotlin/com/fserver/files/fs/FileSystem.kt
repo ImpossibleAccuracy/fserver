@@ -2,6 +2,10 @@ package com.fserver.files.fs
 
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
+import com.fserver.common.task.map
+import com.fserver.files.fs.scan.FoundFile
+import com.fserver.files.fs.scan.ScanProgress
+import com.fserver.files.fs.scan.ScanTree
 
 /**
  * One [FileSystemSource] opened for work. The source is bound here, so callers pass paths and
@@ -12,6 +16,13 @@ import com.fserver.common.task.ProgressTask
 interface FileSystem {
     /** Walk the source, reporting files as they turn up. */
     fun scan(): ProgressTask<ScanProgress, List<FoundFile>>
+
+    /**
+     * [scan], plus the directories walked through - for picking a folder, where an empty one is
+     * as good an answer as a full one. Backends without a folder tree of their own report none.
+     */
+    fun scanTree(): ProgressTask<ScanProgress, ScanTree> =
+        scan().map(progressMapper = { it }, resultMapper = { ScanTree(it, emptyList()) })
 
     /** True when a file exists at [path], same shape as [createFile] takes - and refuses. */
     suspend fun fileExists(path: String): Boolean

@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.done
+package com.fserver.app.presentation.screens.source.setup.done
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,24 +33,20 @@ import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkValueRow
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.screens.source.shared.done.model.SourceDoneState
+import com.fserver.app.presentation.screens.source.setup.done.model.SourceDoneState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.theme.FServerTheme
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun SourceDoneScreen(
     modifier: Modifier = Modifier,
-    key: Destination.Source.Done,
-    viewModel: SourceDoneViewModel = koinViewModel { parametersOf(key) },
+    handler: SourceDoneHandler,
     navigateToFiles: () -> Unit,
     navigateToSourcePick: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     SourceDoneContent(
         modifier = modifier,

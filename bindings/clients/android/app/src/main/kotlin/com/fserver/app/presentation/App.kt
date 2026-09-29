@@ -61,8 +61,8 @@ import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntr
 import com.fserver.app.presentation.screens.source.setup.conditions.sourceConditionsEntry
 import com.fserver.app.presentation.screens.source.setup.mode.sourceModeEntry
 import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
-import com.fserver.app.presentation.screens.source.shared.done.sourceDoneEntry
-import com.fserver.app.presentation.screens.source.shared.progress.sourceProgressEntry
+import com.fserver.app.presentation.screens.source.setup.done.sourceDoneEntry
+import com.fserver.app.presentation.screens.source.setup.progress.sourceProgressEntry
 import com.fserver.app.presentation.shared.error.ErrorHandler
 import com.fserver.app.presentation.shared.viewer.FileViewerHost
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener

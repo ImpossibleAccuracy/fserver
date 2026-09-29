@@ -1,6 +1,5 @@
-package com.fserver.app.presentation.screens.source.shared.progress
+package com.fserver.app.presentation.screens.source.setup.progress
 
-import androidx.compose.runtime.getValue
 import com.fserver.app.presentation.composable.ObserveEffects
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,31 +17,27 @@ import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkTopBar
-import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
 import com.fserver.app.presentation.screens.source.shared.composable.SourceProgressStep
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
-import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressState
-import com.fserver.app.presentation.screens.source.shared.progress.model.SourceProgressUiEffect
+import com.fserver.app.presentation.screens.source.setup.progress.model.SourceProgressState
+import com.fserver.app.presentation.screens.source.setup.progress.model.SourceProgressUiEffect
 import com.fserver.app.presentation.theme.FServerTheme
-import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun SourceProgressScreen(
     modifier: Modifier = Modifier,
-    key: Destination.Source.Progress,
-    viewModel: SourceProgressViewModel = koinViewModel { parametersOf(key) },
+    handler: SourceProgressHandler,
     navigateToDone: () -> Unit,
     closeFlow: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
-    ObserveEffects(viewModel.uiEffects) { effect ->
+    ObserveEffects(handler.effects) { effect ->
         when (effect) {
             SourceProgressUiEffect.NavigateToDone -> navigateToDone()
         }
     }
+
+    val state = handler.state.collectAsStateWithLifecycle().value ?: return
 
     SourceProgressContent(
         modifier = modifier,

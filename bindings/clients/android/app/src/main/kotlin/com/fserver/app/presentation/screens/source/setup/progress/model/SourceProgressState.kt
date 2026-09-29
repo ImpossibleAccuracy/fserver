@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.progress.model
+package com.fserver.app.presentation.screens.source.setup.progress.model
 
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi

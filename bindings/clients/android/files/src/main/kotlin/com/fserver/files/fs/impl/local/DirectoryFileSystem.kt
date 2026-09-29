@@ -6,11 +6,14 @@ import com.fserver.common.model.FileSize
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
 import com.fserver.files.fs.FileSystem
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundDirectory
+import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FsFile
-import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.scan.ScanProgress
+import com.fserver.files.fs.scan.ScanTree
 import com.fserver.files.fs.impl.isUnder
-import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.scan.scanTask
+import com.fserver.files.fs.scan.treeScanTask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -31,7 +34,10 @@ internal class DirectoryFileSystem(
     private val pruneEmptyDirs: Boolean = false,
 ) : FileSystem {
 
-    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> =
+        scanTask { onFileFound -> scanFiles(onFileFound, onDirectoryFound = null) }
+
+    override fun scanTree(): ProgressTask<ScanProgress, ScanTree> = treeScanTask(::scanFiles)
 
     override suspend fun createFile(path: String): FsFile =
         open(createLocalFile(resolve(path), path, ::onChanged))
@@ -66,6 +72,7 @@ internal class DirectoryFileSystem(
 
     private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
+        onDirectoryFound: ((FoundDirectory) -> Unit)?,
     ) = withContext(Dispatchers.IO) {
         // Nothing hosted here yet: the directory is created by the first file that arrives.
         if (!root.exists()) return@withContext
@@ -73,6 +80,18 @@ internal class DirectoryFileSystem(
 
         for (item in root.walkTopDown()) {
             currentCoroutineContext().ensureActive()
+
+            if (item.isDirectory && item != root) {
+                onDirectoryFound?.invoke(
+                    FoundDirectory(
+                        path = SourcePaths.canonical(
+                            volume = null,
+                            path = item.relativeTo(root).invariantSeparatorsPath,
+                        ),
+                        locator = item.absolutePath,
+                    )
+                )
+            }
 
             if (!item.isFile) continue
 

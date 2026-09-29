@@ -6,11 +6,14 @@ import com.fserver.common.task.ProgressTask
 import com.fserver.common.utils.SourcePaths
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundDirectory
+import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FsFile
-import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.scan.ScanProgress
+import com.fserver.files.fs.scan.ScanTree
 import com.fserver.files.fs.impl.isUnder
-import com.fserver.files.fs.impl.scanTask
+import com.fserver.files.fs.scan.scanTask
+import com.fserver.files.fs.scan.treeScanTask
 import com.fserver.files.fs.impl.segmentsOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -25,7 +28,10 @@ internal class RootFileSystem(
     private val source: FileSystemSource.Root,
 ) : FileSystem {
 
-    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> = scanTask(::scanFiles)
+    override fun scan(): ProgressTask<ScanProgress, List<FoundFile>> =
+        scanTask { onFileFound -> scanFiles(onFileFound, onDirectoryFound = null) }
+
+    override fun scanTree(): ProgressTask<ScanProgress, ScanTree> = treeScanTask(::scanFiles)
 
     override suspend fun createFile(path: String): FsFile =
         open(createLocalFile(resolve(path), path))
@@ -50,15 +56,17 @@ internal class RootFileSystem(
 
     private suspend fun scanFiles(
         onFileFound: (FoundFile) -> Unit,
+        onDirectoryFound: ((FoundDirectory) -> Unit)?,
     ) = coroutineScope {
         for (volume in source.volumes) {
-            launch { scanVolume(volume, onFileFound) }
+            launch { scanVolume(volume, onFileFound, onDirectoryFound) }
         }
     }
 
     private suspend fun scanVolume(
         volume: FileSystemSource.Root.Volume,
         onFileFound: (FoundFile) -> Unit,
+        onDirectoryFound: ((FoundDirectory) -> Unit)?,
     ) = withContext(Dispatchers.IO) {
         val root = File(volume.path)
 
@@ -67,6 +75,18 @@ internal class RootFileSystem(
 
         for (item in root.walkTopDown()) {
             currentCoroutineContext().ensureActive()
+
+            if (item.isDirectory && item != root) {
+                onDirectoryFound?.invoke(
+                    FoundDirectory(
+                        path = SourcePaths.canonical(
+                            volume = volume.id,
+                            path = item.relativeTo(root).invariantSeparatorsPath,
+                        ),
+                        locator = item.absolutePath,
+                    )
+                )
+            }
 
             if (!item.isFile) continue
 

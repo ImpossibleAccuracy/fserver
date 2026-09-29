@@ -8,7 +8,7 @@ import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.access.LocalFileEditor
 import com.fserver.core.files.access.SourceFile
 import com.fserver.core.files.scan.DirectoryScanProgress
-import com.fserver.core.files.scan.ScannedFile
+import com.fserver.core.files.scan.ScannedContent
 import com.fserver.core.files.scan.toCore
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
@@ -41,16 +41,14 @@ class FilesController internal constructor(
     private val coroutineScope: BackgroundScope,
 ) {
     /** Scan the given directory and load the content of the files. */
-    suspend fun loadContent(directory: SourceLocation): ProgressTask<DirectoryScanProgress, List<ScannedFile>> {
+    suspend fun loadContent(directory: SourceLocation): ProgressTask<DirectoryScanProgress, ScannedContent> {
         requirementsChecker.ensureSourceReachable(directory)
 
         return node.openSource(directory.toFiles())
-            .scan()
+            .scanTree()
             .map(
                 progressMapper = { it.toCore() },
-                resultMapper = { list ->
-                    list.map { it.toCore() }
-                },
+                resultMapper = { it.toCore() },
             )
     }
 

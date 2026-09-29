@@ -46,13 +46,17 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.composable.SyncRequestDetailsPage
+import com.fserver.app.presentation.screens.source.request.composable.SyncRequestDirectoryPicker
 import com.fserver.app.presentation.screens.source.request.composable.SyncRequestLocationPage
 import com.fserver.app.presentation.screens.source.request.composable.SyncRequestPreferencesPage
 import com.fserver.app.presentation.screens.source.request.composable.SyncRequestTopBar
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestIntent
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestState
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestUiEffect
+import com.fserver.app.presentation.screens.source.setup.access.SourceAccessGrant
+import com.fserver.app.presentation.screens.source.setup.access.rememberSourceAccessRequester
 import com.fserver.app.presentation.screens.source.shared.composable.SourceAccessFailure
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import kotlinx.coroutines.launch
@@ -69,7 +73,7 @@ fun SyncRequestScreen(
     navigateToSource: (String) -> Unit,
     navigateUp: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val loaded by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     ObserveEffects(viewModel.uiEffects) { effect ->
@@ -95,14 +99,29 @@ fun SyncRequestScreen(
         )
     }
 
-    state?.let { state ->
+    val deviceAccess = rememberSourceAccessRequester { grant ->
+        viewModel.onIntent(SyncRequestIntent.DeviceAccessAnswered(grant == SourceAccessGrant.AllFiles))
+    }
+    val requestDeviceAccess = { deviceAccess.request(SourceKindUi.WholeDevice) }
+
+    val state = loaded ?: return
+
+    Box(modifier = modifier) {
         SyncRequestContent(
-            modifier = modifier,
             state = state,
             onIntent = viewModel::onIntent,
             onPickFolder = { folderLauncher.launch(null) },
+            onPickDirectory = requestDeviceAccess,
             navigateUp = navigateUp,
         )
+
+        state.picker?.let { picker ->
+            SyncRequestDirectoryPicker(
+                picker = picker,
+                onIntent = viewModel::onIntent,
+                onRequestAccess = requestDeviceAccess,
+            )
+        }
     }
 }
 
@@ -112,6 +131,7 @@ private fun SyncRequestContent(
     state: SyncRequestState,
     onIntent: (SyncRequestIntent) -> Unit,
     onPickFolder: () -> Unit,
+    onPickDirectory: () -> Unit,
     navigateUp: () -> Unit,
     initialStep: Step = Step.Details,
 ) {
@@ -190,6 +210,7 @@ private fun SyncRequestContent(
                     state = state,
                     onIntent = onIntent,
                     onPickFolder = onPickFolder,
+                    onPickDirectory = onPickDirectory,
                 )
 
                 Step.Preferences -> SyncRequestPreferencesPage(state = state, onIntent = onIntent)
@@ -379,6 +400,7 @@ private fun SyncRequestDetailsPreview() {
             state = SyncRequestState.Sample,
             onIntent = {},
             onPickFolder = {},
+            onPickDirectory = {},
             navigateUp = {},
         )
     }
@@ -392,6 +414,7 @@ private fun SyncRequestLocationPreview() {
             state = SyncRequestState.Sample,
             onIntent = {},
             onPickFolder = {},
+            onPickDirectory = {},
             navigateUp = {},
             initialStep = Step.Location,
         )
@@ -406,6 +429,7 @@ private fun SyncRequestPreferencesPreview() {
             state = SyncRequestState.Sample,
             onIntent = {},
             onPickFolder = {},
+            onPickDirectory = {},
             navigateUp = {},
             initialStep = Step.Preferences,
         )
@@ -420,6 +444,7 @@ private fun SyncRequestGonePreview() {
             state = SyncRequestState(),
             onIntent = {},
             onPickFolder = {},
+            onPickDirectory = {},
             navigateUp = {},
         )
     }

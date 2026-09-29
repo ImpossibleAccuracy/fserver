@@ -12,9 +12,9 @@ val Destination.isSourceScreen: Boolean
             this is Destination.Source.Setup.Access ||
             this is Destination.Source.Setup.Mode ||
             this is Destination.Source.Setup.Conditions ||
-            this is Destination.Source.Request.Details ||
-            this is Destination.Source.Progress ||
-            this is Destination.Source.Done
+            this is Destination.Source.Setup.Progress ||
+            this is Destination.Source.Setup.Done ||
+            this is Destination.Source.Request.Details
 
 /**
  * Leaves the flow entirely, back to whatever screen it was started from.
@@ -30,8 +30,7 @@ fun AppNavigator.closeSourceFlow() {
 
 /**
  * Back to the pick, dropping whatever half-finished flow stood above it. Falls back to pushing
- * the pick when it is not on the stack at all — the process-death case, and the one the done
- * screen takes when the source was a peer's rather than this device's.
+ * the pick when it is not on the stack at all — the process-death case.
  */
 fun AppNavigator.popToSourcePick() {
     if (!popTo { it is Destination.Source.Setup.Pick }) {

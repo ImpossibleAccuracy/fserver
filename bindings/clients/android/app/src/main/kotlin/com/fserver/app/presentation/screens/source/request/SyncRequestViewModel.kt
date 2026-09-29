@@ -3,6 +3,7 @@ package com.fserver.app.presentation.screens.source.request
 import com.fserver.app.util.stateInScreen
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.app.presentation.composable.model.peers
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.presentation.model.Destination
@@ -11,7 +12,12 @@ import com.fserver.app.presentation.screens.source.request.model.SyncRequestStat
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestUiEffect
 import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.readablePath
+import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
+import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.toPreview
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
@@ -20,8 +26,14 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.toPr
 import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.disk.DiskUsageRepository
+import com.fserver.core.files.FilesController
+import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.StorageVolumes
+import com.fserver.core.files.scan.DirectoryScanProgress
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +46,8 @@ import kotlinx.coroutines.launch
 
 class SyncRequestViewModel(
     private val key: Destination.Source.Request.Details,
+    private val context: Context,
+    private val filesController: FilesController,
     private val sourcesController: SourcesController,
     private val trustedDevices: TrustedDevicesRepository,
     devicesRepository: DevicesRepository,
@@ -44,6 +58,8 @@ class SyncRequestViewModel(
     private val editable = MutableStateFlow(Editable())
 
     private val sourceId = key.sourceId
+
+    private var scanJob: Job? = null
 
     private val effects = Channel<SyncRequestUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -67,7 +83,8 @@ class SyncRequestViewModel(
             request = request,
             location = local.location,
             folder = local.folder,
-            folderHasFiles = local.folderHasFiles,
+            directory = local.directory,
+            picker = local.picker?.toUi(),
             disk = disk,
             preferences = (local.preferences
                 ?: SourcePreferencesUi.build(request?.mode ?: SourceModeUi.Sync, SourceRoleUi.Follower))
@@ -86,6 +103,15 @@ class SyncRequestViewModel(
             SyncRequestIntent.FolderSelected ->
                 editable.update { it.copy(location = it.folder ?: it.location) }
 
+            is SyncRequestIntent.DeviceAccessAnswered -> answerDeviceAccess(intent.granted)
+
+            SyncRequestIntent.DirectorySelected ->
+                editable.update { it.copy(location = it.directory ?: it.location) }
+
+            SyncRequestIntent.DirectoryConfirmed -> confirmDirectory()
+
+            SyncRequestIntent.DirectoryPickCancelled -> cancelDirectoryPick()
+
             is SyncRequestIntent.PreferencesChanged -> changePreferences(intent)
 
             SyncRequestIntent.Accepted -> accept()
@@ -98,11 +124,70 @@ class SyncRequestViewModel(
     }
 
     private fun pickFolder(intent: SyncRequestIntent.FolderPicked) {
-        val folder = HostLocationUi.Folder(uri = intent.uri, label = intent.label)
-        editable.update {
-            it.copy(location = folder, folder = folder, folderHasFiles = intent.hasFiles)
+        val folder = HostLocationUi.Folder(uri = intent.uri, label = intent.label, hasFiles = intent.hasFiles)
+        editable.update { it.copy(location = folder, folder = folder) }
+    }
+
+    private fun answerDeviceAccess(granted: Boolean) {
+        if (granted) scanDevice()
+        else editable.update { it.copy(picker = Picker(phase = SyncRequestState.DirectoryPickerUi.Phase.Denied)) }
+    }
+
+    private fun scanDevice() {
+        scanJob?.cancel()
+        editable.update { it.copy(picker = Picker()) }
+
+        scanJob = viewModelScope.launch {
+            try {
+                val root = StorageVolumes.fromContext(context)
+                val task = filesController.loadContent(directory = root)
+
+                task.progress.collect { progress -> updatePicker { it.copy(progress = progress) } }
+
+                val tree = task.result().getOrThrow().toPreview(SourceKindUi.WholeDevice, root.volumes)
+                updatePicker { it.copy(phase = SyncRequestState.DirectoryPickerUi.Phase.Browsing, preview = tree) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                reporter.report(e, "Could not read the device for a host folder")
+                updatePicker { it.copy(phase = SyncRequestState.DirectoryPickerUi.Phase.Failed) }
+            }
         }
     }
+
+    private fun confirmDirectory() {
+        val opened = editable.value.picker?.opened ?: return
+        val directory = HostLocationUi.Directory(
+            path = opened.path,
+            label = SourceLocation.Directory(opened.path).readablePath() ?: opened.path,
+            hasFiles = opened.files > 0,
+        )
+
+        editable.update { it.copy(location = directory, directory = directory, picker = null) }
+    }
+
+    private fun cancelDirectoryPick() {
+        scanJob?.cancel()
+        editable.update { it.copy(picker = null) }
+    }
+
+    private fun updatePicker(transform: (Picker) -> Picker) =
+        editable.update { it.copy(picker = it.picker?.let(transform)) }
+
+    private fun Picker.toUi() = SyncRequestState.DirectoryPickerUi(
+        phase = phase,
+        progress = progress,
+        preview = preview,
+        navigation = if (phase == SyncRequestState.DirectoryPickerUi.Phase.Browsing) {
+            FileBrowserNavigation(
+                opened = opened,
+                onOpen = { entry -> updatePicker { it.copy(opened = entry) } },
+                onUp = { updatePicker { it.copy(opened = (it.preview as? FileBrowserUi.Tree)?.parentOf(it.opened)) } },
+            )
+        } else {
+            null
+        },
+    )
 
     private fun decline() =
         answer(SyncRequestUiEffect.Declined, "Could not decline source $sourceId") {
@@ -141,8 +226,16 @@ class SyncRequestViewModel(
     private data class Editable(
         val location: HostLocationUi = HostLocationUi.AppStorage,
         val folder: HostLocationUi.Folder? = null,
-        val folderHasFiles: Boolean = false,
+        val directory: HostLocationUi.Directory? = null,
+        val picker: Picker? = null,
         val preferences: SourcePreferencesUi? = null,
         val answering: Boolean = false,
+    )
+
+    private data class Picker(
+        val phase: SyncRequestState.DirectoryPickerUi.Phase = SyncRequestState.DirectoryPickerUi.Phase.Scanning,
+        val progress: DirectoryScanProgress? = null,
+        val preview: FileBrowserUi? = null,
+        val opened: FileBrowserUi.Directory? = null,
     )
 }

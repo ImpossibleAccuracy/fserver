@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.progress.model
+package com.fserver.app.presentation.screens.source.setup.progress.model
 
 sealed interface SourceProgressUiEffect {
     data object NavigateToDone : SourceProgressUiEffect

@@ -59,8 +59,7 @@ sealed interface Destination : NavKey {
      * Everything that happens to a source, both halves of it.
      *
      * [Setup] is this device asking a peer to host one of its folders; [Request] is answering the
-     * same ask from the other side. They converge on [Progress] and [Done], which are keyed by the
-     * source id alone and so read the same whichever half opened them.
+     * same ask from the other side.
      */
     @Serializable
     data object Source {
@@ -96,6 +95,17 @@ sealed interface Destination : NavKey {
             /** Whatever the chosen mode still needs to know, then the work before it is on. */
             @Serializable
             data class Conditions(val kind: SourceKindUi, val mode: SourceModeUi) : Destination
+
+            /**
+             * Registered, and waiting: first on the peer, then on the first pass. Neither is the
+             * user's to drive, so this screen only offers to leave.
+             */
+            @Serializable
+            data object Progress : Destination
+
+            /** What was just turned on, in four lines. */
+            @Serializable
+            data object Done : Destination
         }
 
         /**
@@ -115,17 +125,6 @@ sealed interface Destination : NavKey {
             @Serializable
             data class Details(val sourceId: String) : Destination
         }
-
-        /**
-         * Registered, and waiting: first on the peer, then on the first pass. Neither is the
-         * user's to drive, so this screen only offers to leave.
-         */
-        @Serializable
-        data class Progress(val sourceId: String) : Destination
-
-        /** What was just turned on, in four lines. */
-        @Serializable
-        data class Done(val sourceId: String) : Destination
     }
 
     /**

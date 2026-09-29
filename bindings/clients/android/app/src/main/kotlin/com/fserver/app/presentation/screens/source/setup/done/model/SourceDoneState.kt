@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.source.shared.done.model
+package com.fserver.app.presentation.screens.source.setup.done.model
 
 import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.composable.model.binaryToDecimal

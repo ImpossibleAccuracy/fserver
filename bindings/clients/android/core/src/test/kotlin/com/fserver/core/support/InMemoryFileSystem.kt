@@ -3,10 +3,10 @@ package com.fserver.core.support
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
 import com.fserver.files.fs.FileSystem
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsWriter
-import com.fserver.files.fs.ScanProgress
+import com.fserver.files.fs.scan.ScanProgress
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlin.time.Instant

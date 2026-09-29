@@ -169,7 +169,8 @@ class SourceConditionsHandler(
         }
 
         editable.update { it.copy(preparing = false) }
-        effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
+        flow.update { it.copy(sourceId = entry.id) }
+        effectChannel.send(SourceConditionsUiEffect.NavigateToProgress)
     }
 
     private suspend fun awaitInitialIndexing(sourceId: String) {

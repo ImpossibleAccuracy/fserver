@@ -180,7 +180,8 @@ class SourceAccessHandler(
                     editable.update { it.copy(progress = progress) }
                 }
 
-                val files = task.result().getOrThrow()
+                val content = task.result().getOrThrow()
+                val files = content.files
 
                 editable.update {
                     it.copy(
@@ -188,7 +189,7 @@ class SourceAccessHandler(
                         files = files.size,
                         bytes = FileSize(files.sumOf { file -> file.size.bytes }),
                         preview = if (previewFiles) {
-                            files.toPreview(kind, volumesOf(target))
+                            content.toPreview(kind, volumesOf(target))
                         } else {
                             null
                         },

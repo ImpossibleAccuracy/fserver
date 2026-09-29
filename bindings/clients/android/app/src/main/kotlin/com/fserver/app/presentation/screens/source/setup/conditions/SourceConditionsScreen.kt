@@ -53,7 +53,7 @@ import com.fserver.app.presentation.theme.FServerTheme
 @Composable
 fun SourceConditionsScreen(
     handler: SourceConditionsHandler,
-    navigateToProgress: (String) -> Unit,
+    navigateToProgress: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state = handler.state.collectAsStateWithLifecycle().value ?: return
@@ -61,7 +61,7 @@ fun SourceConditionsScreen(
     LaunchedEffect(handler.effects) {
         handler.effects.collect { effect ->
             when (effect) {
-                is SourceConditionsUiEffect.NavigateToProgress -> navigateToProgress(effect.sourceId)
+                SourceConditionsUiEffect.NavigateToProgress -> navigateToProgress()
             }
         }
     }

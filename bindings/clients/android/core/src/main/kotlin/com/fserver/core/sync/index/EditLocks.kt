@@ -1,6 +1,6 @@
 package com.fserver.core.sync.index
 
-import com.fserver.files.fs.FoundFile
+import com.fserver.files.fs.scan.FoundFile
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 

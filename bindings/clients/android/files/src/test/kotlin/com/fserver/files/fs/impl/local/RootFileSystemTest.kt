@@ -61,6 +61,21 @@ class RootFileSystemTest {
     }
 
     @Test
+    fun `a tree scan reports empty directories too, volume-led like files`() = runTest {
+        File(primary, "DCIM").mkdirs()
+        File(primary, "DCIM/a.jpg").writeText("a")
+        File(card, "Backups/empty").mkdirs()
+
+        val tree = fs.scanTree().result().getOrThrow()
+
+        assertEquals(setOf("primary/DCIM/a.jpg"), tree.files.map { it.path }.toSet())
+        assertEquals(
+            setOf("primary/DCIM", "1A2B-3C4D/Backups", "1A2B-3C4D/Backups/empty"),
+            tree.directories.map { it.path }.toSet(),
+        )
+    }
+
+    @Test
     fun `a file is created on the volume its path names, with its directories`() = runTest {
         val file = fs.createFile("1A2B-3C4D/photos/2024/a.jpg")
 

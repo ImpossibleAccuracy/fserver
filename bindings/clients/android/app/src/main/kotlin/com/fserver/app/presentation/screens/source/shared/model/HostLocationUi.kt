@@ -7,15 +7,32 @@ import kotlinx.serialization.Serializable
  * Where the files arriving for an accepted source are written.
  *
  * App-private storage is the default because it needs no grant and no folder of the user's is
- * touched. A folder is the opt-out, and only one the user picked in the system dialog.
+ * touched. A folder is the opt-out: one picked in the system dialog, or one browsed to on the
+ * device itself under the all-files grant.
  */
 @Serializable
 sealed interface HostLocationUi {
-    @Serializable
-    data object AppStorage : HostLocationUi
+    /** Something is already there, so what the peer sends lands next to it. */
+    val hasFiles: Boolean
 
     @Serializable
-    data class Folder(val uri: String, val label: String) : HostLocationUi
+    data object AppStorage : HostLocationUi {
+        override val hasFiles: Boolean get() = false
+    }
+
+    @Serializable
+    data class Folder(
+        val uri: String,
+        val label: String,
+        override val hasFiles: Boolean = false,
+    ) : HostLocationUi
+
+    @Serializable
+    data class Directory(
+        val path: String,
+        val label: String,
+        override val hasFiles: Boolean = false,
+    ) : HostLocationUi
 }
 
 /**
@@ -25,4 +42,5 @@ sealed interface HostLocationUi {
 fun HostLocationUi.toLocation(sourceId: String): SourceLocation.Hostable = when (this) {
     HostLocationUi.AppStorage -> SourceLocation.Internal(bucket = sourceId)
     is HostLocationUi.Folder -> SourceLocation.Tree(path = uri)
+    is HostLocationUi.Directory -> SourceLocation.Directory(path = path)
 }
