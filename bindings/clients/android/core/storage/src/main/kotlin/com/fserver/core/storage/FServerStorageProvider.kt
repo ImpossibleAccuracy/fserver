@@ -17,6 +17,7 @@ import com.fserver.core.storage.internal.RemoteIndexStoreImpl
 import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
 import com.fserver.core.storage.internal.SyncStoreImpl
+import com.fserver.core.storage.internal.OneShotTransfersStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
 import com.fserver.core.storage.internal.UploadStagingStoreImpl
 import com.fserver.core.store.FServerStorage
@@ -30,6 +31,7 @@ import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
 import com.fserver.core.store.sync.UploadStagingStore
+import com.fserver.core.store.oneshot.OneShotTransfersStore
 import com.fserver.core.util.TimeProvider
 import kotlinx.coroutines.CoroutineScope
 
@@ -79,6 +81,7 @@ class FServerStorageProvider private constructor(
     private val syncStore by lazy { SyncStoreImpl(dataStore) }
     private val uploadStagingStore by lazy { UploadStagingStoreImpl(database) }
     private val conflictDecisionsStore by lazy { ConflictDecisionsStoreImpl(database) }
+    private val oneShotTransfersStore by lazy { OneShotTransfersStoreImpl(database) }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
@@ -87,6 +90,8 @@ class FServerStorageProvider private constructor(
     val trustedDevices: TrustedDevicesRepository get() = trustStore
 
     val fileSources: RegisteredSourcesRepository get() = sourcesStore
+
+    val oneShotTransfers: OneShotTransfersRepository get() = oneShotTransfersStore
 
     fun asStorage(): FServerStorage = Storage()
 
@@ -101,6 +106,7 @@ class FServerStorageProvider private constructor(
         override val preferences: SyncStore get() = syncStore
         override val uploads: UploadStagingStore get() = uploadStagingStore
         override val conflictDecisions: ConflictDecisionsStore get() = conflictDecisionsStore
+        override val oneShotTransfers: OneShotTransfersStore get() = oneShotTransfersStore
     }
 
     /**

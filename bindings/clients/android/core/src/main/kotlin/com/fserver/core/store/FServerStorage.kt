@@ -10,6 +10,7 @@ import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
 import com.fserver.core.store.sync.UploadStagingStore
+import com.fserver.core.store.oneshot.OneShotTransfersStore
 
 /**
  * Everything the engine persists, handed in by the host.
@@ -45,4 +46,7 @@ interface FServerStorage {
 
     /** Sync settings shared by every source. */
     val preferences: SyncStore
+
+    /** One-shot transfers, outside any source. */
+    val oneShotTransfers: OneShotTransfersStore
 }

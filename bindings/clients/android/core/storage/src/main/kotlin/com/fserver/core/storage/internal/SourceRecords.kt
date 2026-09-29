@@ -28,6 +28,7 @@ internal object SourceRecords {
     const val OwnerSource = "source"
     const val OwnerTombstone = "source_tombstone"
     const val OwnerRequest = "source_request"
+    const val OwnerOneShotTransfer = "one_shot_transfer"
 
     const val Location = "location"
     const val Mode = "mode"

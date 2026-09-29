@@ -19,6 +19,7 @@ import com.fserver.core.store.sync.SourceRequestsStore
 import com.fserver.core.store.sync.SourcesStore
 import com.fserver.core.store.sync.SyncStore
 import com.fserver.core.store.sync.UploadStagingStore
+import com.fserver.core.store.oneshot.OneShotTransfersStore
 import com.fserver.core.sync.conflict.ConflictDecision
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.index.IndexedFileKey
@@ -30,6 +31,8 @@ import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.StagedUpload
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.setup.IncomingSourceRequest
+import com.fserver.core.oneshot.model.OneShotTransfer
+import com.fserver.core.oneshot.model.OneShotTransferFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +64,7 @@ internal class FakeStorage(
     override val preferences: FakeSyncStore = FakeSyncStore()
     override val uploads: FakeUploadStagingStore = FakeUploadStagingStore()
     override val conflictDecisions: FakeConflictDecisionsStore = FakeConflictDecisionsStore()
+    override val oneShotTransfers: FakeOneShotTransfersStore = FakeOneShotTransfersStore()
 }
 
 @OptIn(FServerStorageApi::class)
@@ -356,5 +360,63 @@ internal class FakeConflictDecisionsStore : ConflictDecisionsStore {
 
     override suspend fun remove(key: IndexedFileKey) {
         rows.update { it - key }
+    }
+}
+
+/** Mirrors the SQL backend's "finished is final" and "ids are never overwritten" rules. */
+@OptIn(FServerStorageApi::class)
+internal class FakeOneShotTransfersStore : OneShotTransfersStore {
+    val rows = MutableStateFlow<Map<String, OneShotTransfer>>(emptyMap())
+
+    override suspend fun find(id: String): OneShotTransfer? = rows.value[id]
+
+    override suspend fun unfinished(): List<OneShotTransfer> =
+        rows.value.values.filter { !it.status.isFinished }.sortedBy { it.createdAt }
+
+    override suspend fun insert(transfer: OneShotTransfer): Boolean {
+        if (transfer.id in rows.value) return false
+
+        rows.update { it + (transfer.id to transfer) }
+        return true
+    }
+
+    override suspend fun updateStatus(id: String, status: OneShotTransfer.Status, at: Instant): Boolean =
+        modify(id) { it.copy(status = status, finishedAt = at.takeIf { status.isFinished }) }
+
+    override suspend fun accept(id: String, destination: SourceLocation.Hostable): Boolean {
+        val transfer = rows.value[id] ?: return false
+        if (transfer.direction !is OneShotTransfer.Direction.Incoming) return false
+        if (transfer.status != OneShotTransfer.Status.Pending) return false
+
+        return modify(id) {
+            it.copy(
+                direction = OneShotTransfer.Direction.Incoming(destination),
+                status = OneShotTransfer.Status.Active,
+            )
+        }
+    }
+
+    override suspend fun updateFile(transferId: String, file: OneShotTransferFile) {
+        modify(transferId) { transfer ->
+            transfer.copy(files = transfer.files.map { if (it.index == file.index) file else it })
+        }
+    }
+
+    override suspend fun checkpoint(transferId: String, index: Int, committedBytes: Long) {
+        modify(transferId) { transfer ->
+            transfer.copy(
+                files = transfer.files.map {
+                    if (it.index == index) it.copy(committedBytes = committedBytes) else it
+                },
+            )
+        }
+    }
+
+    private fun modify(id: String, change: (OneShotTransfer) -> OneShotTransfer): Boolean {
+        val transfer = rows.value[id] ?: return false
+        if (transfer.status.isFinished) return false
+
+        rows.update { it + (id to change(transfer)) }
+        return true
     }
 }

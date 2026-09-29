@@ -12,7 +12,7 @@
 --
 -- A renamed or dropped field is a schema migration, not something read-time code repairs.
 CREATE TABLE attribute (
-    -- 'source' | 'source_tombstone'
+    -- 'source' | 'source_tombstone' | 'source_request' | 'one_shot_transfer'
     owner      TEXT NOT NULL,
     ownerId    TEXT NOT NULL,
     type       TEXT NOT NULL,

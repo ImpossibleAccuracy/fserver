@@ -1,0 +1,112 @@
+-- One-shot transfers (outside any source), both directions. An incoming one's destination is split the way a source's
+-- location is: discriminator here, fields in `attribute` under the 'transfer' owner.
+--
+-- Rows in 'Pending' or 'Active' are unfinished; every other status is final, and the updates below
+-- refuse to move a row out of one.
+CREATE TABLE oneShotTransfer (
+    -- Chosen by the sender. Both sides hold the transfer under it.
+    id                TEXT    NOT NULL PRIMARY KEY,
+    peerDeviceId      TEXT    NOT NULL,
+    peerName          TEXT    NOT NULL,
+    -- Outgoing | Incoming
+    direction         TEXT    NOT NULL,
+    -- Tree | Directory | Internal. Null while an incoming transfer is unanswered, always for outgoing.
+    destination       TEXT,
+    -- Pending | Active | Completed | Declined | Cancelled | Failed
+    status            TEXT    NOT NULL,
+    failureReason     TEXT,
+    createdAtEpochMs  INTEGER NOT NULL,
+    finishedAtEpochMs INTEGER
+);
+
+CREATE TABLE oneShotTransferFile (
+    transferId     TEXT    NOT NULL REFERENCES oneShotTransfer(id) ON DELETE CASCADE,
+    position       INTEGER NOT NULL,
+    name           TEXT    NOT NULL,
+    size           INTEGER NOT NULL,
+    mimeType       TEXT,
+    locator        TEXT,
+    committedBytes INTEGER NOT NULL,
+    -- Pending | Completed | Failed
+    status         TEXT    NOT NULL,
+    failureReason  TEXT,
+    PRIMARY KEY (transferId, position)
+);
+
+CREATE TRIGGER oneShotTransferAttributeCleanup
+AFTER DELETE ON oneShotTransfer
+BEGIN
+    DELETE FROM attribute
+    WHERE owner = 'one_shot_transfer' AND ownerId = old.id;
+END;
+
+selectAll:
+SELECT *
+FROM oneShotTransfer
+ORDER BY createdAtEpochMs DESC;
+
+selectById:
+SELECT *
+FROM oneShotTransfer
+WHERE id = ?;
+
+selectUnfinished:
+SELECT *
+FROM oneShotTransfer
+WHERE status IN ('Pending', 'Active')
+ORDER BY createdAtEpochMs ASC;
+
+selectAllFiles:
+SELECT *
+FROM oneShotTransferFile
+ORDER BY transferId, position;
+
+selectFilesOf:
+SELECT *
+FROM oneShotTransferFile
+WHERE transferId IN ?
+ORDER BY transferId, position;
+
+insert:
+INSERT OR IGNORE INTO oneShotTransfer(
+    id, peerDeviceId, peerName, direction, destination, status, failureReason,
+    createdAtEpochMs, finishedAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertFile:
+INSERT INTO oneShotTransferFile(
+    transferId, position, name, size, mimeType, locator, committedBytes, status, failureReason
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateStatus:
+UPDATE oneShotTransfer
+SET status = :status, failureReason = :failureReason, finishedAtEpochMs = :finishedAtEpochMs
+WHERE id = :id AND status IN ('Pending', 'Active');
+
+accept:
+UPDATE oneShotTransfer
+SET status = 'Active', destination = :destination
+WHERE id = :id AND direction = 'Incoming' AND status = 'Pending';
+
+updateFile:
+UPDATE oneShotTransferFile
+SET locator = :locator, committedBytes = :committedBytes, status = :status,
+    failureReason = :failureReason
+WHERE transferId = :transferId AND position = :position
+  AND transferId IN (SELECT id FROM oneShotTransfer WHERE status IN ('Pending', 'Active'));
+
+checkpoint:
+UPDATE oneShotTransferFile
+SET committedBytes = :committedBytes
+WHERE transferId = :transferId AND position = :position
+  AND transferId IN (SELECT id FROM oneShotTransfer WHERE status IN ('Pending', 'Active'));
+
+deleteFinished:
+DELETE FROM oneShotTransfer
+WHERE id = ? AND status NOT IN ('Pending', 'Active');
+
+deleteAllFinished:
+DELETE FROM oneShotTransfer
+WHERE status NOT IN ('Pending', 'Active');
