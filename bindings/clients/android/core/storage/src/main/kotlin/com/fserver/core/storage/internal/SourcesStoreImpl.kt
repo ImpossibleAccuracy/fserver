@@ -271,6 +271,7 @@ internal class SourcesStoreImpl(
                 evicted = FilesTotal(it.evictedFiles.toInt(), FileSize(it.evictedBytes)),
                 peer = FilesTotal(it.peerFiles.toInt(), FileSize(it.peerBytes)),
                 matched = FilesTotal(it.matchedFiles.toInt(), FileSize(it.matchedBytes)),
+                incoming = FilesTotal(it.incomingFiles.toInt(), FileSize(it.incomingBytes)),
             )
         }
 

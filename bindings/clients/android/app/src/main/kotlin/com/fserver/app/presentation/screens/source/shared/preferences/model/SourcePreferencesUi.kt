@@ -104,8 +104,6 @@ data class SourcePreferencesUi(
         const val BytesInMb = 1024L * 1024
         const val BytesInGb = 1024L * BytesInMb
 
-        // TODO: build works pretty bad, need to refactor the whole thing
-
         /** Defaults for a new source of [mode], as seen from [role]. */
         fun build(mode: SourceModeUi, role: SourceRoleUi): SourcePreferencesUi {
             val initiator = role == SourceRoleUi.Initiator

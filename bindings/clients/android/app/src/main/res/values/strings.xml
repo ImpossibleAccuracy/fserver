@@ -930,10 +930,12 @@
     <string name="source_details_stage_here">On this phone</string>
     <string name="source_details_stage_outgoing">Waiting to send</string>
     <string name="source_details_stage_outgoing_to">Waiting to send to %1$s</string>
+    <string name="source_details_stage_incoming_from">Waiting to receive from %1$s</string>
     <string name="source_details_stage_matched">In sync</string>
     <string name="source_details_stage_peer">On %1$s</string>
     <string name="source_details_stage_evicted">Removed from phone</string>
     <string name="source_details_stage_changed_here">Changed here</string>
+    <string name="source_details_stage_changed_on">Changed on %1$s</string>
     <string name="source_details_stage_same_both">Same on both sides</string>
     <string name="source_details_stage_no_wifi">No Wi-Fi</string>
     <string name="source_details_stage_only_on">Only on %1$s</string>

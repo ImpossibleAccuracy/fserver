@@ -113,4 +113,17 @@ SELECT
         WHERE l.sourceId = :sourceId AND l.state = 'Present' AND r.state = 'Present') AS matchedFiles,
     (SELECT coalesce(sum(l.size), 0) FROM indexedFile l JOIN remoteIndexedFile r
             ON r.sourceId = l.sourceId AND r.fileId = l.fileId
-        WHERE l.sourceId = :sourceId AND l.state = 'Present' AND r.state = 'Present') AS matchedBytes;
+        WHERE l.sourceId = :sourceId AND l.state = 'Present' AND r.state = 'Present') AS matchedBytes,
+    -- Missing here, or changed on the peer while untouched here since the last pass.
+    (SELECT count(*) FROM remoteIndexedFile r JOIN source s ON s.id = r.sourceId
+        LEFT JOIN indexedFile l ON l.sourceId = r.sourceId AND l.fileId = r.fileId
+        WHERE r.sourceId = :sourceId AND r.state = 'Present' AND (l.fileId IS NULL
+            OR (l.state = 'Present' AND l.processedAtEpochMs <= coalesce(s.lastSyncedAtEpochMs, -1)
+                AND l.hashValue IS NOT NULL AND r.hashValue IS NOT NULL
+                AND l.hashValue != r.hashValue))) AS incomingFiles,
+    (SELECT coalesce(sum(r.size), 0) FROM remoteIndexedFile r JOIN source s ON s.id = r.sourceId
+        LEFT JOIN indexedFile l ON l.sourceId = r.sourceId AND l.fileId = r.fileId
+        WHERE r.sourceId = :sourceId AND r.state = 'Present' AND (l.fileId IS NULL
+            OR (l.state = 'Present' AND l.processedAtEpochMs <= coalesce(s.lastSyncedAtEpochMs, -1)
+                AND l.hashValue IS NOT NULL AND r.hashValue IS NOT NULL
+                AND l.hashValue != r.hashValue))) AS incomingBytes;

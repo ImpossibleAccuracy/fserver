@@ -62,10 +62,10 @@ data class SourceDetailsState(
         val detail: UiText? = null,
     ) {
         val isWaiting: Boolean
-            get() = count > 0 && kind == StageKindUi.Outgoing
+            get() = count > 0 && (kind == StageKindUi.Outgoing || kind == StageKindUi.Incoming)
     }
 
-    enum class StageKindUi { Here, Outgoing, Matched, Peer, Evicted }
+    enum class StageKindUi { Here, Outgoing, Matched, Incoming, Peer, Evicted }
 
     @Immutable
     sealed interface AttentionUi {
@@ -143,6 +143,7 @@ data class SourceDetailsState(
                 StageUi(StageKindUi.Here, 1208, 2_400_000_000, UiText.Text("Documents")),
                 StageUi(StageKindUi.Outgoing, 3),
                 StageUi(StageKindUi.Matched, 1203),
+                StageUi(StageKindUi.Incoming, 5),
                 StageUi(StageKindUi.Peer, 1211, 2_400_000_000, UiText.Text("~/Documents")),
             ),
             attention = listOf(

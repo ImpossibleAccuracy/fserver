@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Smartphone
@@ -207,6 +208,7 @@ private fun StageUi.icon(state: SourceDetailsState): ImageVector = when (kind) {
     StageKindUi.Here -> Icons.Default.Smartphone
     StageKindUi.Outgoing -> Icons.Default.ArrowDownward
     StageKindUi.Matched -> Icons.Default.Check
+    StageKindUi.Incoming -> Icons.Default.ArrowUpward
     StageKindUi.Peer -> state.peer.kind.icon
     StageKindUi.Evicted -> Icons.Default.DeleteOutline
 }
@@ -224,6 +226,7 @@ private fun StageUi.title(state: SourceDetailsState): String {
         }
 
         StageKindUi.Matched -> stringResource(R.string.source_details_stage_matched)
+        StageKindUi.Incoming -> stringResource(R.string.source_details_stage_incoming_from, state.peer.name)
         StageKindUi.Peer -> stringResource(R.string.source_details_stage_peer, state.peer.name)
         StageKindUi.Evicted -> stringResource(R.string.source_details_stage_evicted)
     }
@@ -240,6 +243,7 @@ private fun StageUi.subtitle(state: SourceDetailsState): String? {
         }
 
         StageKindUi.Matched -> stringResource(R.string.source_details_stage_same_both)
+        StageKindUi.Incoming -> stringResource(R.string.source_details_stage_changed_on, state.peer.name)
         StageKindUi.Evicted -> stringResource(
             R.string.source_details_stage_only_on,
             state.peer.name
@@ -256,7 +260,8 @@ private fun StageUi.subtitle(state: SourceDetailsState): String? {
 private val StageKindUi.badgeRes: Int
     get() = when (this) {
         StageKindUi.Here -> R.string.source_details_badge_local
-        StageKindUi.Outgoing -> R.string.source_details_badge_waiting
+        StageKindUi.Outgoing,
+        StageKindUi.Incoming -> R.string.source_details_badge_waiting
         StageKindUi.Matched -> R.string.source_details_badge_matched
         StageKindUi.Peer -> R.string.source_details_badge_remote
         StageKindUi.Evicted -> R.string.source_details_badge_freed

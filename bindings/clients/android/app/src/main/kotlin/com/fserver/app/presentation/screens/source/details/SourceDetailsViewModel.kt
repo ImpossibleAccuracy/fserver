@@ -231,6 +231,7 @@ private fun stagesOf(
             here,
             pending,
             totals.matched.stage(StageKindUi.Matched),
+            totals.incoming.stage(StageKindUi.Incoming),
             peer
         )
 
