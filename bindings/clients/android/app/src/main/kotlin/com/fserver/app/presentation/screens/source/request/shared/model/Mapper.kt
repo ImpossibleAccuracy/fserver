@@ -2,6 +2,7 @@ package com.fserver.app.presentation.screens.source.request.shared.model
 
 import com.fserver.app.presentation.composable.model.peerOf
 import com.fserver.app.presentation.composable.model.PeerUi
+import com.fserver.app.presentation.screens.source.shared.model.storageLabel
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.sync.setup.IncomingSourceRequest
@@ -23,8 +24,8 @@ fun IncomingSourceRequest.toUi(
         mode = syncMode.toUi(),
         deviceKind = peer.kind,
         fingerprint = record?.fingerprint?.groups?.take(FingerprintGroups)?.joinToString(" "),
-        // TODO: IncomingSourceRequest does not carry the source's size yet - needs a protocol change.
-        files = null,
-        bytes = null,
+        originPath = metadata.storageLabel(),
+        files = metadata.usage.files,
+        bytes = metadata.usage.bytes,
     )
 }

@@ -250,7 +250,7 @@ private fun StageUi.subtitle(state: SourceDetailsState): String? {
     val showSize = !sync || kind == StageKindUi.Here || kind == StageKindUi.Peer
     val size = bytes?.takeIf { it > 0 && showSize }?.let { FileSize(it).formatted() }
 
-    return listOfNotNull(detail, reason, size).joinToString(" · ").ifEmpty { null }
+    return listOfNotNull(detail?.asString(), reason, size).joinToString(" · ").ifEmpty { null }
 }
 
 private val StageKindUi.badgeRes: Int

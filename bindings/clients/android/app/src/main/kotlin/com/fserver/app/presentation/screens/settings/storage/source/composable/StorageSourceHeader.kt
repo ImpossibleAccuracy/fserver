@@ -64,7 +64,7 @@ fun StorageSourceHeader(
             state.path?.let {
                 DkMonoCaption(
                     modifier = Modifier.padding(start = DkSpacing.sm, bottom = DkSpacing.xs),
-                    text = it,
+                    text = it.asString(),
                 )
             }
         }

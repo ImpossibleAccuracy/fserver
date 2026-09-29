@@ -2,7 +2,8 @@ package com.fserver.app.presentation.screens.settings.storage.source
 
 import com.fserver.app.util.stateInScreen
 import com.fserver.app.presentation.shared.selection.Selection
-import com.fserver.app.presentation.screens.source.shared.model.localPath
+import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.storageLabel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
@@ -70,7 +71,8 @@ class StorageSourceViewModel(
         devicesRepository.peers(),
         appSettings.storageGroupedByFolder(key.sourceId),
         editable,
-    ) { source, entries, transfers, peers, grouped, editable ->
+        registeredSources.metadata,
+    ) { source, entries, transfers, peers, grouped, editable, metadata ->
         if (source == null) return@combineMany null
 
         val sending = transfers
@@ -85,7 +87,7 @@ class StorageSourceViewModel(
         StorageSourceState(
             isLoading = false,
             label = source.label,
-            path = source.localPath(),
+            path = metadata.ownHalfOf(source)?.storageLabel(),
             peer = peers.peerOf(source.deviceId),
             direction = source.direction(),
             offPhoneFiles = entries.size - here.size,

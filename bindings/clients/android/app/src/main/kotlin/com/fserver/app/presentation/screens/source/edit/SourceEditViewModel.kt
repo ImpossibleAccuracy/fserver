@@ -14,6 +14,9 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.Sour
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
+import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.peerHalfOf
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toSyncMode
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.network.device.DevicesRepository
@@ -48,11 +51,16 @@ class SourceEditViewModel(
         registeredSources.observeTotals(key.sourceId),
         devicesRepository.peers(),
         editable,
-    ) { source, totals, peers, local ->
+        registeredSources.metadata,
+    ) { source, totals, peers, local, metadata ->
         if (source == null) return@combine SourceEditState(isLoading = false)
 
         val initial = SourcePreferencesUi.build(source)
-        val preferences = local.preferences ?: initial
+        val halves = listOfNotNull(metadata.ownHalfOf(source), metadata.peerHalfOf(source))
+        val floor = { p: SourcePreferencesUi ->
+            p.withFloor(files = halves.maxOfOrNull { it.usage.files }, bytes = halves.maxOfOrNull { it.usage.bytes })
+        }
+        val preferences = floor(local.preferences ?: initial)
         val total = if (source.role == SourceEntry.Role.Initiator) totals.here else totals.peer
 
         SourceEditState(
@@ -63,7 +71,7 @@ class SourceEditViewModel(
             preferences = preferences,
             sourceFiles = total.count,
             sourceBytes = total.size.bytes,
-            isChanged = preferences != initial,
+            isChanged = preferences != floor(initial),
             isSaving = local.saving,
         )
     }.stateInScreen(viewModelScope, SourceEditState())

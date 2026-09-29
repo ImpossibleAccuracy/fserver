@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.source.shared.model
 
+import com.fserver.app.R
+import com.fserver.app.presentation.model.UiText
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.model.SourceEntry
@@ -20,9 +23,23 @@ fun SourceEntry.Role.toUi(): SourceRoleUi = when (this) {
     SourceEntry.Role.Follower -> SourceRoleUi.Follower
 }
 
-/** Where this device keeps the source: the picked folder, or the one it was given. */
-fun SourceEntry.localPath(): String? =
-    if (role == SourceEntry.Role.Initiator) originPath else location.readablePath()
+/** This device's half of [source]: of its two devices, the one that is not the peer. */
+fun List<PeerSourceMetadata>.ownHalfOf(source: SourceEntry): PeerSourceMetadata? =
+    firstOrNull { it.sourceId == source.id && it.deviceId != source.deviceId }
+
+fun List<PeerSourceMetadata>.peerHalfOf(source: SourceEntry): PeerSourceMetadata? =
+    firstOrNull { it.sourceId == source.id && it.deviceId == source.deviceId }
+
+/** The half the files come from. Null on a one-way follower, which the initiator never reports to. */
+fun List<PeerSourceMetadata>.initiatorHalfOf(source: SourceEntry): PeerSourceMetadata? =
+    if (source.role == SourceEntry.Role.Initiator) ownHalfOf(source) else peerHalfOf(source)
+
+/** Where the device keeps the files, as a person reads it. */
+fun PeerSourceMetadata.storageLabel(): UiText? = when (storageKind) {
+    PeerSourceMetadata.StorageKind.Folder -> storagePath?.let(UiText::Text)
+    PeerSourceMetadata.StorageKind.AppStorage -> UiText.of(R.string.sync_request_location_internal_title)
+    PeerSourceMetadata.StorageKind.Media -> UiText.of(R.string.source_summary_location_media)
+}
 
 /** What this pass has moved for [sourceId] so far. */
 fun SourcePass?.transfersOf(sourceId: String, transfers: List<FileTransfer>): List<FileTransfer> =

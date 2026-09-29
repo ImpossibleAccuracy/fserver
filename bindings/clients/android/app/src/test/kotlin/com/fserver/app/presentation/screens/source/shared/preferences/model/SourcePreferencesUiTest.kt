@@ -100,11 +100,32 @@ class SourcePreferencesUiTest {
         assertEquals(10, preset.limits?.sizePresetGb)
     }
 
+    @Test
+    fun `limits never start below what the source holds`() {
+        val base = SourcePreferencesUi.build(SourceModeUi.Sync, SourceRoleUi.Follower)
+
+        val floored = base.withFloor(files = 1_208, bytes = 5L * SourcePreferencesUi.BytesInGb + 1)
+        val limits = checkNotNull(floored.limits)
+
+        assertEquals(1_300, limits.maxFiles)
+        assertEquals(6, limits.maxSizeGb)
+        assertEquals(listOf(10), limits.sizePresets)
+
+        val stepped = floored.reduce(SourcePreferencesIntent.MaxFilesStepped(-5))
+        assertEquals(1_300, stepped.limits?.maxFiles)
+    }
+
+    @Test
+    fun `an unknown size leaves the defaults alone`() {
+        val base = SourcePreferencesUi.build(SourceModeUi.Sync, SourceRoleUi.Follower)
+
+        assertEquals(base, base.withFloor(files = null, bytes = null))
+    }
+
     private fun entry(mode: SyncMode, preferences: SourceEntry.Preferences) = SourceEntry(
         id = "s",
         deviceId = "d",
         location = SourceLocation.Internal(bucket = "s"),
-        originPath = "/",
         syncMode = mode,
         preferences = preferences,
         role = SourceEntry.Role.Initiator,

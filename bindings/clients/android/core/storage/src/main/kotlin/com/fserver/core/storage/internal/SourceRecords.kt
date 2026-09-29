@@ -2,6 +2,7 @@ package com.fserver.core.storage.internal
 
 import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
@@ -160,6 +161,9 @@ internal object SourceRecords {
             lastSyncedAt = lastSyncedAtEpochMs?.let(Instant::fromEpochMilliseconds),
         )
     }
+
+    fun storageKindOf(kind: String): PeerSourceMetadata.StorageKind? =
+        PeerSourceMetadata.StorageKind.entries.firstOrNull { it.name == kind }
 
     /** Rebuilds a tombstone's location, or null when it cannot be read. */
     fun locationOf(

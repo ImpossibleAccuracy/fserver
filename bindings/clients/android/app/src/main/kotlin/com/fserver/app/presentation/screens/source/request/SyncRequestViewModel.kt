@@ -17,6 +17,7 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
 import com.fserver.app.presentation.screens.source.shared.model.toLocation
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.storage.TrustedDevicesRepository
@@ -68,8 +69,9 @@ class SyncRequestViewModel(
             folder = local.folder,
             folderHasFiles = local.folderHasFiles,
             disk = disk,
-            preferences = local.preferences
-                ?: SourcePreferencesUi.build(request?.mode ?: SourceModeUi.Sync, SourceRoleUi.Follower),
+            preferences = (local.preferences
+                ?: SourcePreferencesUi.build(request?.mode ?: SourceModeUi.Sync, SourceRoleUi.Follower))
+                .withFloor(request?.files, request?.bytes),
             isAnswering = local.answering,
         )
     }.stateInScreen(viewModelScope, null)

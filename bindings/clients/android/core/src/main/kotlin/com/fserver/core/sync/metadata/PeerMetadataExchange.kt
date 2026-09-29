@@ -1,10 +1,14 @@
 package com.fserver.core.sync.metadata
 
+import android.content.Context
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.StorageVolumes
+import com.fserver.core.files.storageKind
 import com.fserver.core.files.toOriginPath
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.toDomain
+import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.limits.usedPercent
 import com.fserver.core.sync.model.SourceEntry
@@ -20,13 +24,14 @@ import timber.log.Timber
 internal class PeerMetadataExchange(
     private val storage: FServerStorage,
     private val timeProvider: TimeProvider,
-    private val volumes: () -> List<SourceLocation.Root.Volume>,
+    private val context: Context,
 ) {
     /** This device's half of [source], recorded here too. Throws if the index cannot be read. */
     suspend fun describe(source: SourceEntry): SourceMetadataDto {
         val usage = storage.index.presentUsage(source.id)
 
         val dto = SourceMetadataDto(
+            storageKind = source.location.storageKind().toDto(),
             storagePath = source.location.toOriginPath(volumes()),
             files = usage.files,
             bytes = usage.bytes,
@@ -41,6 +46,8 @@ internal class PeerMetadataExchange(
 
         return dto
     }
+
+    private fun volumes() = StorageVolumes.fromContext(context).volumes
 
     /** [describe], or null when it fails. */
     suspend fun refresh(source: SourceEntry): SourceMetadataDto? =

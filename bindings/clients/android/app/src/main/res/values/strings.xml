@@ -960,11 +960,8 @@
     <string name="source_details_conflicts_body">These files changed on both sides. They stay out of sync until you pick which version to keep.</string>
     <string name="source_details_conflicts_resolve">Resolve</string>
     <string name="source_details_peer_full_title">%1$s is almost full</string>
-    <string name="source_details_peer_full_free">%1$s free of %2$s.</string>
-    <plurals name="source_details_peer_full_days">
-        <item quantity="one">At the current pace that lasts about %1$d day — then the source stops and files stay on the phone.</item>
-        <item quantity="other">At the current pace that lasts about %1$d days — then the source stops and files stay on the phone.</item>
-    </plurals>
+    <!-- "92% of the limits Server set for this source is used: 3400 files, 18 GB. …" -->
+    <string name="source_details_peer_full_used">%1$d%% of the limits %2$s set for this source is used: %3$s, %4$s. Once they are reached, new files stop going there.</string>
     <string name="source_details_full_history">Full history in Activity ›</string>
 
     <!-- "IMG_2210.jpg · 4.2 MB" — a value and what qualifies it, on one line -->

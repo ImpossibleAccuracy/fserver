@@ -15,7 +15,9 @@ CREATE TABLE sourceRequest (
     mode              TEXT    NOT NULL,
     receivedAtEpochMs INTEGER NOT NULL,
     -- The asking side's half as it reported it with the latest ask.
-    peerStoragePath       TEXT    NOT NULL,
+    -- Folder | AppStorage | Media
+    peerStorageKind       TEXT    NOT NULL,
+    peerStoragePath       TEXT,
     peerFiles             INTEGER NOT NULL,
     peerBytes             INTEGER NOT NULL,
     peerUpdatedAtEpochMs  INTEGER NOT NULL
@@ -42,9 +44,9 @@ WHERE sourceId = ?;
 upsert:
 INSERT OR REPLACE INTO sourceRequest(
     sourceId, deviceId, label, mode, receivedAtEpochMs,
-    peerStoragePath, peerFiles, peerBytes, peerUpdatedAtEpochMs
+    peerStorageKind, peerStoragePath, peerFiles, peerBytes, peerUpdatedAtEpochMs
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 delete:
 DELETE FROM sourceRequest

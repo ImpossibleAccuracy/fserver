@@ -52,6 +52,7 @@ internal class SourceRequestsStoreImpl(
                 label = request.label,
                 mode = SourceRecords.discriminatorOf(request.syncMode),
                 receivedAtEpochMs = request.receivedAt.toEpochMilliseconds(),
+                peerStorageKind = request.metadata.storageKind.name,
                 peerStoragePath = request.metadata.storagePath,
                 peerFiles = request.metadata.usage.files.toLong(),
                 peerBytes = request.metadata.usage.bytes,
@@ -113,6 +114,7 @@ private fun List<DBSourceRequest>.assemble(
             metadata = PeerSourceMetadata(
                 sourceId = row.sourceId,
                 deviceId = row.deviceId,
+                storageKind = SourceRecords.storageKindOf(row.peerStorageKind) ?: return@mapNotNull null,
                 storagePath = row.peerStoragePath,
                 usage = SourceUsage(files = row.peerFiles.toInt(), bytes = row.peerBytes),
                 // Not kept for an ask: the asker's limits say nothing about whether to accept it.

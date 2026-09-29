@@ -3,7 +3,9 @@
 CREATE TABLE sourceMetadata (
     sourceId          TEXT    NOT NULL,
     deviceId          TEXT    NOT NULL,
-    storagePath       TEXT    NOT NULL,
+    -- Folder | AppStorage | Media
+    storageKind       TEXT    NOT NULL,
+    storagePath       TEXT,
     files             INTEGER NOT NULL,
     bytes             INTEGER NOT NULL,
     usedPercent       REAL,
@@ -28,8 +30,8 @@ FROM sourceMetadata
 WHERE sourceId = ?;
 
 upsert:
-INSERT OR REPLACE INTO sourceMetadata(sourceId, deviceId, storagePath, files, bytes, usedPercent, updatedAtEpochMs)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO sourceMetadata(sourceId, deviceId, storageKind, storagePath, files, bytes, usedPercent, updatedAtEpochMs)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteBySource:
 DELETE FROM sourceMetadata

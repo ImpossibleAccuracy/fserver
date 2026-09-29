@@ -31,6 +31,7 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.AttentionUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
+import kotlin.math.roundToInt
 
 /**
  * Something that stops the source until the user acts. Drawn in the alert colour with its one
@@ -91,16 +92,13 @@ fun AttentionCard(
                 )
                 DkProgressBar(progress = attention.usedFraction)
                 Body(
-                    text = listOfNotNull(
-                        stringResource(
-                            R.string.source_details_peer_full_free,
-                            FileSize(attention.freeBytes).formatted(),
-                            FileSize(attention.totalBytes).formatted(),
-                        ),
-                        attention.daysLeft?.let {
-                            pluralStringResource(R.plurals.source_details_peer_full_days, it, it)
-                        },
-                    ).joinToString(" "),
+                    text = stringResource(
+                        R.string.source_details_peer_full_used,
+                        attention.usedPercent.roundToInt(),
+                        peerName,
+                        pluralStringResource(R.plurals.storage_files, attention.files, attention.files),
+                        FileSize(attention.bytes).formatted(),
+                    ),
                 )
             }
         }
@@ -161,7 +159,7 @@ private fun AttentionCardPreview() {
                 onResolveConflicts = {},
             )
             AttentionCard(
-                attention = AttentionUi.PeerAlmostFull(38_000_000_000, 480_000_000_000, 5),
+                attention = AttentionUi.PeerAlmostFull(usedPercent = 92f, files = 8940, bytes = 36_000_000_000),
                 peerName = "Server",
                 onResolveConflicts = {},
             )

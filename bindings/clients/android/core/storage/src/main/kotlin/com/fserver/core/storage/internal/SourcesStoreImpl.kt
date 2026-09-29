@@ -158,6 +158,7 @@ internal class SourcesStoreImpl(
         metadataDao.upsert(
             sourceId = metadata.sourceId,
             deviceId = metadata.deviceId,
+            storageKind = metadata.storageKind.name,
             storagePath = metadata.storagePath,
             files = metadata.usage.files.toLong(),
             bytes = metadata.usage.bytes,
@@ -281,10 +282,10 @@ internal class SourcesStoreImpl(
     override val metadata: Flow<List<PeerSourceMetadata>> = metadataDao.selectAll()
         .asFlow()
         .mapToList(Dispatchers.IO)
-        .map { rows -> rows.map { it.toDomain() } }
+        .map { rows -> rows.mapNotNull { it.toDomain() } }
 
     override suspend fun metadata(sourceId: String): List<PeerSourceMetadata> =
-        metadataDao.selectBySource(sourceId).executeAsList().map { it.toDomain() }
+        metadataDao.selectBySource(sourceId).executeAsList().mapNotNull { it.toDomain() }
 
     override suspend fun rename(id: String, label: String) {
         dao.updateLabel(label = label, id = id)
@@ -335,9 +336,11 @@ private fun List<DBSource>.assemble(attributes: List<DBAttribute>): List<SourceE
     }
 }
 
-private fun DBSourceMetadata.toDomain(): PeerSourceMetadata = PeerSourceMetadata(
+/** Null for a kind this build does not know: informational, so dropping it costs nothing. */
+private fun DBSourceMetadata.toDomain(): PeerSourceMetadata? = PeerSourceMetadata(
     sourceId = sourceId,
     deviceId = deviceId,
+    storageKind = SourceRecords.storageKindOf(storageKind) ?: return null,
     storagePath = storagePath,
     usage = SourceUsage(files = files.toInt(), bytes = bytes),
     usedPercent = usedPercent?.toFloat(),

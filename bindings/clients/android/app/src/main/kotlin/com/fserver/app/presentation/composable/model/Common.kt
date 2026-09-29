@@ -25,6 +25,8 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.sync.progress.FileTransfer
+import kotlin.math.pow
+import kotlin.math.roundToLong
 import kotlin.time.Duration
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -77,6 +79,20 @@ fun FileSize.formatted(): String {
     return remember(this) {
         Formatter.formatShortFileSize(context, bytes)
     }
+}
+
+/**
+ * Limits are stored in binary units (1 GB = 1024³ B), but [formatted] prints SI units.
+ * Rescales so a binary "2 GB" prints as "2 GB" rather than "2.1 GB".
+ */
+fun FileSize.binaryToDecimal(): FileSize {
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < 4) {
+        value /= 1024
+        unit++
+    }
+    return FileSize((value * 1000.0.pow(unit)).roundToLong())
 }
 
 /** "yesterday", "3 days ago", then a plain date once that stops being useful. */

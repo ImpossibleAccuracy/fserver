@@ -1,6 +1,8 @@
 package com.fserver.app.presentation.screens.source.shared.done.model
 
 import com.fserver.app.presentation.composable.model.PeerUi
+import com.fserver.app.presentation.composable.model.binaryToDecimal
+import com.fserver.common.model.FileSize
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.fserver.app.R
@@ -115,7 +117,7 @@ data class SourceDoneState(
                 UiText.Resource(R.string.source_summary_rule_older, listOf(days))
 
             is SyncMode.Offload.EvictPolicy.LargerThanBytes ->
-                UiText.Size(R.string.source_summary_rule_larger, bytes)
+                UiText.Size(R.string.source_summary_rule_larger, FileSize(bytes).binaryToDecimal().bytes)
         }
     }
 }

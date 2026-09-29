@@ -12,6 +12,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.binaryToDecimal
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTag
@@ -61,7 +62,7 @@ private fun ConditionUi.label(): String = when (this) {
     is ConditionUi.EvictOlderThan -> stringResource(R.string.source_details_condition_evict_older, days)
     is ConditionUi.EvictLargerThan -> stringResource(
         R.string.source_details_condition_evict_larger,
-        FileSize(bytes).formatted(),
+        FileSize(bytes).binaryToDecimal().formatted(),
     )
 
     is ConditionUi.OnConflict -> stringResource(
@@ -77,7 +78,7 @@ private fun ConditionUi.label(): String = when (this) {
 
     is ConditionUi.MaxSize -> stringResource(
         R.string.source_details_condition_max_size,
-        FileSize(bytes).formatted(),
+        FileSize(bytes).binaryToDecimal().formatted(),
     )
 }
 

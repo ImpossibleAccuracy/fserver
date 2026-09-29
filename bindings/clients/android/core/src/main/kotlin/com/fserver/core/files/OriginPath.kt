@@ -1,13 +1,12 @@
 package com.fserver.core.files
 
 import com.fserver.common.utils.SourcePaths
-
-/** What [SourceLocation.Media] reports as its path: it addresses a collection, not a directory. */
-private const val MediaPath = "Media"
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 
 /**
  * The directory this source points at, as a person reads it - what
- * [com.fserver.core.sync.model.SourceEntry.originPath] is stamped with when a source is registered.
+ * [PeerSourceMetadata.storagePath] reports. Null where there is no directory a person could find:
+ * app-private storage and the media library.
  *
  * Relative to its storage volume ("DCIM/Camera", not "/storage/emulated/0/DCIM/Camera"): the mount
  * point is local to this device and means nothing to the peer. [volumes] are the ones mounted here.
@@ -17,11 +16,18 @@ private const val MediaPath = "Media"
  */
 internal fun SourceLocation.Persistable.toOriginPath(
     volumes: List<SourceLocation.Root.Volume>,
-): String = when (this) {
+): String? = when (this) {
     is SourceLocation.Tree -> SourcePaths.readable(path).trim('/')
     is SourceLocation.Directory -> path.relativeToVolume(volumes)
-    is SourceLocation.Internal -> bucket
-    SourceLocation.Media -> MediaPath
+    is SourceLocation.Internal,
+    SourceLocation.Media -> null
+}
+
+internal fun SourceLocation.Persistable.storageKind(): PeerSourceMetadata.StorageKind = when (this) {
+    is SourceLocation.Tree,
+    is SourceLocation.Directory -> PeerSourceMetadata.StorageKind.Folder
+    is SourceLocation.Internal -> PeerSourceMetadata.StorageKind.AppStorage
+    SourceLocation.Media -> PeerSourceMetadata.StorageKind.Media
 }
 
 /** [this] with the longest volume mount point it sits under cut off; a volume root is its id. */

@@ -16,6 +16,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.fserver.app.R
+import com.fserver.app.presentation.composable.model.binaryToDecimal
 import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkChoiceBar
@@ -156,7 +157,7 @@ private fun EvictionFields(
                 ValueStepper(
                     label = stringResource(
                         R.string.conditions_criterion_size_value,
-                        FileSize(eviction.largerThanBytes).formatted(),
+                        FileSize(eviction.largerThanBytes).binaryToDecimal().formatted(),
                     ),
                     enabled = eviction.criterion == EvictCriterionUi.LargerThan,
                     onStep = { onIntent(SourcePreferencesIntent.SizeThresholdStepped(it)) },
@@ -286,7 +287,7 @@ private fun SizeLimitFields(
         verticalArrangement = Arrangement.spacedBy(DkSpacing.sm),
     ) {
         DkChoiceBar(
-            options = SourcePreferencesUi.SizePresetsGb.map { gb ->
+            options = limits.sizePresets.map { gb ->
                 DkSegmentedOption<Int?>(
                     value = gb,
                     label = stringResource(R.string.conditions_limit_size_value, gb),

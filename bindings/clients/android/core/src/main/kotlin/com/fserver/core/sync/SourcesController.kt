@@ -3,6 +3,7 @@ package com.fserver.core.sync
 import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.ensureSourceReachable
 import com.fserver.core.requirement.RequirementsChecker
@@ -16,9 +17,14 @@ import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.util.TimeProvider
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The registry of synced sources, and the one way a host changes it.
@@ -35,7 +41,11 @@ class SourcesController internal constructor(
     private val requirementsChecker: RequirementsChecker,
     private val sessionProgressReporter: SyncProgressReporter,
     private val localIndexer: LocalChangesIndexer,
+    private val backgroundScope: BackgroundScope,
 ) {
+    /** Initial scan-then-ask per new source, cancelled if the source is removed before it ends. */
+    private val introductions = ConcurrentHashMap<String, Job>()
+
     /** Every source a peer has asked this device to host, oldest first. */
     val incomingRequests: Flow<List<IncomingSourceRequest>> get() = sourceSetup.pending
 
@@ -79,6 +89,9 @@ class SourcesController internal constructor(
     /**
      * Registers a new [location] + [syncMode] pair, persists it, and asks [deviceId] to register
      * the other half - a source neither side can sync until both hold a record under the same id.
+     *
+     * Returns once registered. The ask carries the source's size, so it goes out after an initial
+     * scan in the background, followed through [SyncProgressRepository.indexing].
      */
     suspend fun addSource(
         location: SourceLocation.Selectable,
@@ -111,18 +124,27 @@ class SourcesController internal constructor(
         storage.sources.upsert(source)
 
         Timber.i("Registered new source ${source.id} at $location for $deviceId, asking it to host")
-
-        // The ask carries the source's size, so it is scanned first. A failed scan still asks.
-        runCatchingCancellable { localIndexer.refresh(source) }
-            .exceptionOrNull()
-            ?.let { Timber.w(it, "Could not index source ${source.id} before asking $deviceId") }
-
-        // Best effort: peer may be off network right now, and the source is registered either way
-        runCatchingCancellable { sourceSetup.requestRemote(source) }
-            .exceptionOrNull()
-            ?.let { Timber.w(it, "Could not ask $deviceId to host source ${source.id}") }
+        introduce(source)
 
         source
+    }
+
+    private fun introduce(source: SourceEntry) {
+        val job = backgroundScope.launch(start = CoroutineStart.LAZY) {
+            // A failed scan still asks.
+            runCatchingCancellable { localIndexer.refresh(source) }
+                .exceptionOrNull()
+                ?.let { Timber.w(it, "Could not index source ${source.id} before asking ${source.deviceId}") }
+
+            // Best effort: peer may be off network right now, and the source is registered either way
+            runCatchingCancellable { sourceSetup.requestRemote(source) }
+                .exceptionOrNull()
+                ?.let { Timber.w(it, "Could not ask ${source.deviceId} to host source ${source.id}") }
+        }
+
+        introductions[source.id] = job
+        job.invokeOnCompletion { introductions.remove(source.id, job) }
+        job.start()
     }
 
     /**
@@ -200,6 +222,8 @@ class SourcesController internal constructor(
      * Nothing on disk is touched - unregistering is not eviction and never a user delete.
      */
     suspend fun removeSource(id: String): Result<Unit> = runBackgroundJob {
+        // A scan still running would write index rows back after the delete, and ask for a gone source.
+        introductions[id]?.cancelAndJoin()
         storage.sources.delete(id)
 
         // TODO: notify peer about removal

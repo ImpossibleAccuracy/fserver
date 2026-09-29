@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler
 
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.toDto
@@ -164,9 +165,9 @@ class SyncLeaseHandlerTest {
 
         val granted = answer(OwnerId, metadata = reported).only<FileServerMessages.AcquireSyncLease.Granted>()
 
-        assertEquals(SourceId, granted.metadata?.storagePath)
+        assertEquals(SourceMetadataDto.StorageKind.AppStorage, granted.metadata?.storageKind)
         assertEquals(reported.storagePath, storage.sources.metadataOf(SourceId, OwnerId)?.storagePath)
-        assertEquals(SourceId, storage.sources.metadataOf(SourceId, LocalId)?.storagePath)
+        assertEquals(PeerSourceMetadata.StorageKind.AppStorage, storage.sources.metadataOf(SourceId, LocalId)?.storageKind)
     }
 
     @Test

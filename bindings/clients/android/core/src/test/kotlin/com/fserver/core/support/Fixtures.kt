@@ -49,7 +49,7 @@ internal fun sourceMetadataDto(
     files: Int = 3,
     bytes: Long = 300,
     usedPercent: Float? = null,
-): SourceMetadataDto = SourceMetadataDto(storagePath, files, bytes, usedPercent)
+): SourceMetadataDto = SourceMetadataDto(SourceMetadataDto.StorageKind.Folder, storagePath, files, bytes, usedPercent)
 
 internal fun fileDto(
     id: String = "file-1",

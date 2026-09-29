@@ -2,10 +2,13 @@ package com.fserver.app.presentation.screens.files.shared
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.locations
+import com.fserver.app.presentation.screens.source.shared.model.initiatorHalfOf
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
+import com.fserver.core.sync.metadata.PeerSourceMetadata
+import com.fserver.core.sync.model.SourceEntry
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,13 +44,15 @@ class FilesProviderHandler(
     ): Flow<List<SyncFileEntry>> = combine(
         filesController.overallContent.debounce(50.milliseconds),
         registeredSourcesRepository.sources,
-    ) { entries, sources ->
+        registeredSourcesRepository.metadata,
+    ) { entries, sources, metadata ->
         val sourcesByIds = sources.associateBy { it.id }
+        val origins = sources.associate { it.id to it.originRoot(metadata) }
 
         // Two sources registered against the same directory would otherwise pour their files into
         // one folder: the label each was registered under keeps them apart.
         val sharedOrigins = sources
-            .groupBy { it.originPath }
+            .groupBy { origins.getValue(it.id) }
             .filterValues { it.size > 1 }
             .values
             .flatMapTo(mutableSetOf()) { group -> group.map { it.id } }
@@ -60,9 +65,10 @@ class FilesProviderHandler(
                 if (!rooted) return@map it
 
                 val source = sourcesByIds[it.sourceId]!!
+                val origin = origins.getValue(source.id)
                 val root = when (source.id) {
-                    in sharedOrigins -> "${source.originPath}/${source.label}"
-                    else -> source.originPath
+                    in sharedOrigins -> "$origin/${source.label}"
+                    else -> origin
                 }
 
                 it.copy(path = "$root/${it.path}")
@@ -85,3 +91,6 @@ class FilesProviderHandler(
         }
     }
 }
+
+private fun SourceEntry.originRoot(metadata: List<PeerSourceMetadata>): String =
+    metadata.initiatorHalfOf(this)?.storagePath ?: label

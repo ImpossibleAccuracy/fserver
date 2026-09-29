@@ -98,7 +98,7 @@ private fun StorageScreenContent(
 
             if (state.isLoading) return@LazyColumn
 
-            if (state.freeableBytes > 0) {
+            if (state.showsFreeUp) {
                 item(key = "free") {
                     FreeUpCard(
                         modifier = Modifier.padding(
@@ -201,7 +201,9 @@ private fun LazyListScope.appDataSection(
     totalBytes: Long,
 ) {
     item(key = "app-label") {
-        SectionHeader(text = stringResource(R.string.storage_app_data), bytes = totalBytes)
+        SectionHeader(
+            text = stringResource(R.string.storage_app_data),
+            bytes = totalBytes.takeIf { appData.size > 1 })
     }
 
     itemsIndexed(appData, key = { _, data -> "app-${data.kind}" }) { index, data ->

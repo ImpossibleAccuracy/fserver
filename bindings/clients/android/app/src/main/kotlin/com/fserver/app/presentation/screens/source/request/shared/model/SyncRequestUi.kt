@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.screens.source.request.shared.model
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.core.network.device.model.DeviceKind
 
@@ -18,6 +19,8 @@ data class SyncRequestUi(
     val deviceKind: DeviceKind? = null,
     /** Leading groups of the asking device's key fingerprint; null when its key is not on record. */
     val fingerprint: String? = null,
+    /** Where the asking side keeps the files. */
+    val originPath: UiText? = null,
     /** How much the peer is about to send; null while the ask does not say. */
     val files: Int? = null,
     val bytes: Long? = null,

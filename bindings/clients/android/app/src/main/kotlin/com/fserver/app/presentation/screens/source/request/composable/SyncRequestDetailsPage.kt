@@ -47,7 +47,11 @@ fun SyncRequestDetailsPage(
     ) {
         DkCard(modifier = Modifier.padding(horizontal = DkSpacing.screenPadding)) {
             SourceEndpoints(
-                origin = SourceEndpointUi(name = request.deviceName, deviceKind = request.deviceKind),
+                origin = SourceEndpointUi(
+                    name = request.deviceName,
+                    detail = request.originPath,
+                    deviceKind = request.deviceKind,
+                ),
                 target = SourceEndpointUi(
                     name = stringResource(R.string.sync_request_route_this_device),
                     deviceKind = DeviceKind.Phone,

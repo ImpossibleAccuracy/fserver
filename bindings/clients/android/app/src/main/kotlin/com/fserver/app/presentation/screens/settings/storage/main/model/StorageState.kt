@@ -29,6 +29,15 @@ data class StorageState(
     val freeableBytes: Long
         get() = freeable.sumOf { it.bytes }
 
+    val showsFreeUp: Boolean
+        get() {
+            val bytes = freeableBytes
+            if (bytes <= 0) return false
+            val usage = usage ?: return true
+            return bytes * 100 >= usage.totalBytes * FreeUpMinDiskPercent ||
+                bytes * 100 >= usage.freeBytes * FreeUpMinFreePercent
+        }
+
     val defaultFreeSelection: Set<String>
         get() = freeable.filter { it.selectedByDefault }.mapTo(mutableSetOf()) { it.key }
 
@@ -99,6 +108,9 @@ data class StorageState(
     }
 
     companion object {
+        private const val FreeUpMinDiskPercent = 1
+        private const val FreeUpMinFreePercent = 10
+
         private val SampleServer = PeerUi("server", "Server", DeviceKind.Nas)
         private val SamplePc = PeerUi("home-pc", "Home PC", DeviceKind.Desktop)
         private val SampleLaptop = PeerUi("laptop", "Laptop", DeviceKind.Laptop)

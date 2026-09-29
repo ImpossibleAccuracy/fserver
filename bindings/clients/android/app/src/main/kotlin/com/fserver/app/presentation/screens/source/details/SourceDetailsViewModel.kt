@@ -1,7 +1,10 @@
 package com.fserver.app.presentation.screens.source.details
 
 import com.fserver.app.util.stateInScreen
-import com.fserver.app.presentation.screens.source.shared.model.localPath
+import com.fserver.app.presentation.model.UiText
+import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.peerHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.storageLabel
 import com.fserver.app.presentation.shared.sync.SyncTrigger
 import com.fserver.app.presentation.composable.model.fileName
 import com.fserver.app.presentation.composable.model.dateLabel
@@ -36,6 +39,7 @@ import com.fserver.core.storage.SourceFilesTotals
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.conflict.FileConflict
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.drivesSync
@@ -91,16 +95,18 @@ class SourceDetailsViewModel(
         devicesRepository.peers(),
         isSyncing,
         issues,
-    ) { source, totals, environment, peers, syncing, issues ->
+        registeredSources.metadata,
+    ) { source, totals, environment, peers, syncing, issues, metadata ->
         if (source == null) return@combineMany SourceDetailsState(isLoading = false)
 
         source.toState(
             totals = totals,
             environment = environment,
             peer = peers.peerOf(source.deviceId),
+            metadata = metadata,
         ).copy(
             isSyncing = syncing,
-            attention = issues.toAttention(source.syncMode),
+            attention = issues.toAttention(source.syncMode) + peerFullness(source, metadata),
         )
     }.stateInScreen(viewModelScope, SourceDetailsState())
 
@@ -136,6 +142,20 @@ private fun Issues.toAttention(mode: SyncMode): List<SourceDetailsState.Attentio
     }
 }
 
+private const val PeerAlmostFullPercent = 90f
+
+private fun peerFullness(
+    source: SourceEntry,
+    metadata: List<PeerSourceMetadata>,
+): List<SourceDetailsState.AttentionUi> {
+    if (!source.drivesSync) return emptyList()
+
+    val peer = metadata.peerHalfOf(source) ?: return emptyList()
+    val used = peer.usedPercent?.takeIf { it >= PeerAlmostFullPercent } ?: return emptyList()
+
+    return listOf(SourceDetailsState.AttentionUi.PeerAlmostFull(used, peer.usage.files, peer.usage.bytes))
+}
+
 private data class Environment(
     val onMobile: Boolean,
     val self: LocalDevice,
@@ -145,12 +165,13 @@ private fun SourceEntry.toState(
     totals: SourceFilesTotals,
     environment: Environment,
     peer: PeerUi,
+    metadata: List<PeerSourceMetadata>,
 ): SourceDetailsState {
     val mode = syncMode.toUi()
     val outgoing = drivesSync
     val initiator = role == SourceEntry.Role.Initiator
-    val here = localPath()
-    val there = if (initiator) null else originPath
+    val here = metadata.ownHalfOf(this)?.storageLabel()
+    val there = metadata.peerHalfOf(this)?.storageLabel()
 
     val stages = stagesOf(totals, mode, outgoing, hereDetail = here, peerDetail = there)
     val waiting = stages.firstOrNull { it.kind == StageKindUi.Outgoing }
@@ -163,7 +184,6 @@ private fun SourceEntry.toState(
         detail = here,
         deviceKind = environment.self.kind ?: DeviceKind.Phone,
     )
-    // TODO: the initiator does not know where the peer stores the source - show that folder once the setup exchange reports it.
     val other = SourceEndpointUi(
         name = peer.name,
         detail = there,
@@ -199,8 +219,8 @@ private fun stagesOf(
     totals: SourceFilesTotals,
     mode: SourceModeUi,
     outgoing: Boolean,
-    hereDetail: String?,
-    peerDetail: String?,
+    hereDetail: UiText?,
+    peerDetail: UiText?,
 ): List<StageUi> {
     val here = totals.here.stage(StageKindUi.Here, hereDetail)
     val peer = totals.peer.stage(StageKindUi.Peer, peerDetail)
@@ -227,7 +247,7 @@ private fun stagesOf(
     }
 }
 
-private fun FilesTotal.stage(kind: StageKindUi, detail: String? = null) = StageUi(
+private fun FilesTotal.stage(kind: StageKindUi, detail: UiText? = null) = StageUi(
     kind = kind,
     count = count,
     bytes = size.bytes,

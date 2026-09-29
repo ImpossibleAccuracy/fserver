@@ -22,6 +22,7 @@ import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.model.ForeignDevice
 import com.fserver.core.network.info.model.PeerLocator
 import com.fserver.core.requirement.RequirementsChecker
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -53,6 +54,8 @@ class PairingViewModel(
 
     private val effects = Channel<PairingUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
+
+    private val finished = AtomicBoolean(false)
 
     private val editable = MutableStateFlow(Editable())
     private val selectedMethod = MutableStateFlow<AuthMethod?>(null)
@@ -86,8 +89,7 @@ class PairingViewModel(
         knownDeviceId?.let { id ->
             viewModelScope.launch {
                 devicesRepository.devices.device(id).filterNotNull().first { it.hasSession }
-                ensureLoggedIn()
-                effects.send(PairingUiEffect.NavigateNext)
+                finish()
             }
         }
     }
@@ -101,10 +103,7 @@ class PairingViewModel(
                 val connected = connect()
                 editable.update { it.copy(isConnecting = false) }
 
-                if (connected) {
-                    ensureLoggedIn()
-                    effects.send(PairingUiEffect.NavigateNext)
-                }
+                if (connected) finish()
             }
 
             is PairingIntent.UpdateSecret -> editable.update { it.copy(secret = intent.secret) }
@@ -159,8 +158,11 @@ class PairingViewModel(
         }
     }
 
-    private suspend fun ensureLoggedIn() {
+    private suspend fun finish() {
+        if (!finished.compareAndSet(false, true)) return
+
         authManager.ensureLoggedIn()
+        effects.send(PairingUiEffect.NavigateNext)
     }
 
     /**

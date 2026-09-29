@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.source.details.model
 
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
@@ -58,7 +59,7 @@ data class SourceDetailsState(
         val kind: StageKindUi,
         val count: Int,
         val bytes: Long? = null,
-        val detail: String? = null,
+        val detail: UiText? = null,
     ) {
         val isWaiting: Boolean
             get() = count > 0 && kind == StageKindUi.Outgoing
@@ -71,13 +72,12 @@ data class SourceDetailsState(
         data class Conflicts(val count: Int, val fileNames: List<String>) : AttentionUi
         data class LostOnPeer(val count: Int, val fileNames: List<String>) : AttentionUi
         data class PeerAlmostFull(
-            val freeBytes: Long,
-            val totalBytes: Long,
-            val daysLeft: Int?,
+            val usedPercent: Float,
+            val files: Int,
+            val bytes: Long,
         ) : AttentionUi {
             val usedFraction: Float
-                get() = if (totalBytes <= 0) 0f
-                else ((totalBytes - freeBytes).toFloat() / totalBytes).coerceIn(0f, 1f)
+                get() = (usedPercent / 100f).coerceIn(0f, 1f)
         }
     }
 
@@ -105,7 +105,7 @@ data class SourceDetailsState(
             mode = SourceModeUi.AutoUpload,
             origin = SourceEndpointUi(
                 name = "Pixel 8",
-                detail = "DCIM/Camera",
+                detail = UiText.Text("DCIM/Camera"),
                 deviceKind = DeviceKind.Phone
             ),
             target = SourceEndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
@@ -115,9 +115,9 @@ data class SourceDetailsState(
                 ConditionUi.CopiesStay,
             ),
             stages = listOf(
-                StageUi(StageKindUi.Here, 3432, 19_100_000_000, "Camera"),
+                StageUi(StageKindUi.Here, 3432, 19_100_000_000, UiText.Text("Camera")),
                 StageUi(StageKindUi.Outgoing, 14, 212_000_000),
-                StageUi(StageKindUi.Peer, 3398, 18_200_000_000, "/Photos/Phone"),
+                StageUi(StageKindUi.Peer, 3398, 18_200_000_000, UiText.Text("/Photos/Phone")),
             ),
             sendNow = SendNowUi(count = 14, bytes = 212_000_000),
             history = SampleHistory,
@@ -129,7 +129,7 @@ data class SourceDetailsState(
             mode = SourceModeUi.Sync,
             origin = SourceEndpointUi(
                 name = "Pixel 8",
-                detail = "Documents",
+                detail = UiText.Text("Documents"),
                 deviceKind = DeviceKind.Phone
             ),
             target = SourceEndpointUi(name = "Laptop", deviceKind = DeviceKind.Laptop),
@@ -140,10 +140,10 @@ data class SourceDetailsState(
                 ConditionUi.MaxFiles(1000),
             ),
             stages = listOf(
-                StageUi(StageKindUi.Here, 1208, 2_400_000_000, "Documents"),
+                StageUi(StageKindUi.Here, 1208, 2_400_000_000, UiText.Text("Documents")),
                 StageUi(StageKindUi.Outgoing, 3),
                 StageUi(StageKindUi.Matched, 1203),
-                StageUi(StageKindUi.Peer, 1211, 2_400_000_000, "~/Documents"),
+                StageUi(StageKindUi.Peer, 1211, 2_400_000_000, UiText.Text("~/Documents")),
             ),
             attention = listOf(
                 AttentionUi.Conflicts(2, listOf("Lease.docx", "Budget 2026.xlsx")),
@@ -160,7 +160,7 @@ data class SourceDetailsState(
             mode = SourceModeUi.Offload,
             origin = SourceEndpointUi(
                 name = "Pixel 8",
-                detail = "WhatsApp/Media",
+                detail = UiText.Text("WhatsApp/Media"),
                 deviceKind = DeviceKind.Phone
             ),
             target = SourceEndpointUi(name = "Server", deviceKind = DeviceKind.Nas),
@@ -172,14 +172,14 @@ data class SourceDetailsState(
             stages = listOf(
                 StageUi(StageKindUi.Here, 1120, 4_600_000_000),
                 StageUi(StageKindUi.Outgoing, 40, 1_300_000_000),
-                StageUi(StageKindUi.Peer, 8940, 36_000_000_000, "/Backup/WhatsApp"),
+                StageUi(StageKindUi.Peer, 8940, 36_000_000_000, UiText.Text("/Backup/WhatsApp")),
                 StageUi(StageKindUi.Evicted, 7860, 31_000_000_000),
             ),
             attention = listOf(
                 AttentionUi.PeerAlmostFull(
-                    freeBytes = 38_000_000_000,
-                    totalBytes = 480_000_000_000,
-                    daysLeft = 5,
+                    usedPercent = 92f,
+                    files = 8940,
+                    bytes = 36_000_000_000,
                 ),
             ),
         )

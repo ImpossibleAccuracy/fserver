@@ -1,5 +1,6 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.toDto
@@ -206,9 +207,9 @@ class SyncLeaseNegotiatorTest {
 
         negotiator.runWithLease(source) { }
 
-        assertEquals(SourceId, asked?.metadata?.storagePath)
+        assertEquals(SourceMetadataDto.StorageKind.AppStorage, asked?.metadata?.storageKind)
         assertEquals(reported.storagePath, storage.sources.metadataOf(SourceId, PeerId)?.storagePath)
-        assertEquals(SourceId, storage.sources.metadataOf(SourceId, LocalId)?.storagePath)
+        assertEquals(PeerSourceMetadata.StorageKind.AppStorage, storage.sources.metadataOf(SourceId, LocalId)?.storageKind)
     }
 
     @Test

@@ -12,6 +12,7 @@ import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetu
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toSyncMode
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
@@ -28,16 +29,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -83,7 +85,7 @@ class SourceConditionsHandler(
                 },
                 targetName = device?.displayName ?: "",
                 sourceLabel = shared.source?.label ?: "",
-                preferences = local.preferencesFor(mode),
+                preferences = local.preferencesFor(mode, shared),
                 sourceFiles = shared.source?.files,
                 sourceBytes = shared.source?.bytes?.bytes,
                 progress = local.progress,
@@ -125,7 +127,7 @@ class SourceConditionsHandler(
     private fun changePreferences(intent: SourcePreferencesIntent) {
         val mode = flow.value.mode ?: return
         editable.update {
-            it.copy(preferences = it.preferencesFor(mode).reduce(intent), preferencesMode = mode)
+            it.copy(preferences = it.preferencesFor(mode, flow.value).reduce(intent), preferencesMode = mode)
         }
     }
 
@@ -135,7 +137,7 @@ class SourceConditionsHandler(
         }
 
         val mode = flow.value.mode
-        val preferences = mode?.let { editable.value.preferencesFor(it) }
+        val preferences = mode?.let { editable.value.preferencesFor(it, flow.value) }
         val syncMode = mode?.let { preferences?.toSyncMode(it) }
 
         if (preferences == null || syncMode == null) {
@@ -160,7 +162,7 @@ class SourceConditionsHandler(
 
         try {
             currentCoroutineContext().ensureActive()
-            index(entry.id)
+            awaitInitialIndexing(entry.id)
         } catch (e: CancellationException) {
             withContext(NonCancellable) { sourcesController.removeSource(entry.id) }
             throw e
@@ -170,17 +172,15 @@ class SourceConditionsHandler(
         effectChannel.send(SourceConditionsUiEffect.NavigateToProgress(entry.id))
     }
 
-    private suspend fun index(sourceId: String) = coroutineScope {
-        val watcher = launch {
-            sourcesController.progress.indexing(sourceId)
-                .filterNotNull()
-                .collect { run -> editable.update { it.withIndexing(run) } }
+    private suspend fun awaitInitialIndexing(sourceId: String) {
+        val run = sourcesController.progress.indexing(sourceId)
+            .filterNotNull()
+            .onEach { run -> editable.update { it.withIndexing(run) } }
+            .first { it.isFinished }
+
+        if (run.stage == IndexingProgress.Stage.Failed) {
+            reporter.report(IllegalStateException("Initial indexing of $sourceId failed"), "Could not index the new source")
         }
-
-        sourcesController.index(sourceId)
-            .onFailure { reporter.report(it, "Could not index the new source") }
-
-        watcher.cancel()
     }
 
     private fun Editable.withIndexing(run: IndexingProgress): Editable {
@@ -214,9 +214,9 @@ class SourceConditionsHandler(
         val error: UiText? = null,
     )
 
-    private fun Editable.preferencesFor(mode: SourceModeUi): SourcePreferencesUi =
-        preferences?.takeIf { preferencesMode == mode }
-            ?: SourcePreferencesUi.build(mode, SourceRoleUi.Initiator)
+    private fun Editable.preferencesFor(mode: SourceModeUi, shared: SourceSetupState): SourcePreferencesUi =
+        (preferences?.takeIf { preferencesMode == mode } ?: SourcePreferencesUi.build(mode, SourceRoleUi.Initiator))
+            .withFloor(shared.source?.files, shared.source?.bytes?.bytes)
 }
 
 private const val BytesPerGb = 1_000_000_000.0

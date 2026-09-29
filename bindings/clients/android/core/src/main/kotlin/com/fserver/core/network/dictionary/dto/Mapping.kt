@@ -130,8 +130,21 @@ internal fun SourceMetadataDto.toDomain(
 ): PeerSourceMetadata = PeerSourceMetadata(
     sourceId = sourceId,
     deviceId = deviceId,
+    storageKind = storageKind.toDomain(),
     storagePath = storagePath,
     usage = SourceUsage(files = files, bytes = bytes),
     usedPercent = usedPercent,
     updatedAt = updatedAt,
 )
+
+internal fun PeerSourceMetadata.StorageKind.toDto(): SourceMetadataDto.StorageKind = when (this) {
+    PeerSourceMetadata.StorageKind.Folder -> SourceMetadataDto.StorageKind.Folder
+    PeerSourceMetadata.StorageKind.AppStorage -> SourceMetadataDto.StorageKind.AppStorage
+    PeerSourceMetadata.StorageKind.Media -> SourceMetadataDto.StorageKind.Media
+}
+
+internal fun SourceMetadataDto.StorageKind.toDomain(): PeerSourceMetadata.StorageKind = when (this) {
+    SourceMetadataDto.StorageKind.Folder -> PeerSourceMetadata.StorageKind.Folder
+    SourceMetadataDto.StorageKind.AppStorage -> PeerSourceMetadata.StorageKind.AppStorage
+    SourceMetadataDto.StorageKind.Media -> PeerSourceMetadata.StorageKind.Media
+}

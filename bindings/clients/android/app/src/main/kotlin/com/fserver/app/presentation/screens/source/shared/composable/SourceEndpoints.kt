@@ -95,7 +95,7 @@ private fun Endpoint(
         )
         endpoint.detail?.let {
             Text(
-                text = it,
+                text = it.asString(),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.onSurfaceVariant,
                 textAlign = textAlign,

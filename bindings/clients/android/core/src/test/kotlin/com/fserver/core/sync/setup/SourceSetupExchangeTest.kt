@@ -1,5 +1,6 @@
 package com.fserver.core.sync.setup
 
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.SyncModeDto
@@ -258,7 +259,10 @@ class SourceSetupExchangeTest {
         val asker = storage.sources.metadataOf(SourceId, OwnerId)
         assertEquals("/DCIM/Camera", asker?.storagePath)
         assertEquals(SourceUsage(files = 3, bytes = 300), asker?.usage)
-        assertEquals(SourceId, storage.sources.metadataOf(SourceId, storage.identity.localDevice().deviceId)?.storagePath)
+        assertEquals(
+            PeerSourceMetadata.StorageKind.AppStorage,
+            storage.sources.metadataOf(SourceId, storage.identity.localDevice().deviceId)?.storageKind,
+        )
     }
 
     @Test

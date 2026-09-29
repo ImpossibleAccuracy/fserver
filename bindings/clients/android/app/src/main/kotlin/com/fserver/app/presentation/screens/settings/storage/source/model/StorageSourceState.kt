@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.settings.storage.source.model
 
+import com.fserver.app.presentation.model.UiText
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
@@ -14,7 +15,7 @@ data class StorageSourceState(
     val isLoading: Boolean = true,
     val exists: Boolean = true,
     val label: String = "",
-    val path: String? = null,
+    val path: UiText? = null,
     val peer: PeerUi = PeerUi(),
     val direction: LinkDirectionUi = LinkDirectionUi.Outgoing,
     val offPhoneFiles: Int = 0,
@@ -72,7 +73,7 @@ data class StorageSourceState(
         val Sample = StorageSourceState(
             isLoading = false,
             label = "Camera",
-            path = "/DCIM",
+            path = UiText.Text("/DCIM"),
             peer = PeerUi("server", "Server", DeviceKind.Nas),
             hasFolders = true,
             files = listOf(

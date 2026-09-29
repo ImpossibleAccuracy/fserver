@@ -16,6 +16,7 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.Sour
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinLargerThanMb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinMaxFiles
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.MinMaxSizeGb
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.BytesInGb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.SizePresetsGb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.build
 import com.fserver.common.model.FileSize
@@ -48,11 +49,17 @@ data class SourcePreferencesUi(
         val maxSizeGb: Int = DefaultMaxSizeGb,
         /** The size came from the stepper rather than one of [SizePresetsGb]. */
         val customSize: Boolean = false,
+        /** Floors set by what the source already holds - see [withFloor]. */
+        val minFiles: Int = MinMaxFiles,
+        val minSizeGb: Int = MinMaxSizeGb,
     ) {
         val maxSizeBytes: Long get() = maxSizeGb.toLong() * BytesInGb
 
+        /** Presets the floor still allows. */
+        val sizePresets: List<Int> get() = SizePresetsGb.filter { it >= minSizeGb }
+
         /** The choice bar's value: a preset, or null for a custom size. */
-        val sizePresetGb: Int? get() = maxSizeGb.takeIf { !customSize && it in SizePresetsGb }
+        val sizePresetGb: Int? get() = maxSizeGb.takeIf { !customSize && it in sizePresets }
     }
 
     @Immutable
@@ -172,14 +179,14 @@ fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferenc
 
         is SourcePreferencesIntent.LimitFilesToggled -> updateLimits { copy(limitFiles = intent.enabled) }
         is SourcePreferencesIntent.MaxFilesStepped -> updateLimits {
-            copy(maxFiles = stepped(maxFiles, intent.steps, MaxFilesStep, MinMaxFiles, MaxMaxFiles))
+            copy(maxFiles = stepped(maxFiles, intent.steps, MaxFilesStep, minFiles, MaxMaxFiles))
         }
 
         is SourcePreferencesIntent.LimitSizeToggled -> updateLimits { copy(limitSize = intent.enabled) }
         is SourcePreferencesIntent.SizePresetSelected -> updateLimits {
             when (val gb = intent.gb) {
                 null -> copy(customSize = true)
-                else -> copy(customSize = false, maxSizeGb = gb)
+                else -> copy(customSize = false, maxSizeGb = gb.coerceAtLeast(minSizeGb))
             }
         }
 
@@ -189,7 +196,7 @@ fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferenc
                     maxSizeGb,
                     intent.steps,
                     MaxSizeStepGb,
-                    MinMaxSizeGb,
+                    minSizeGb,
                     MaxMaxSizeGb
                 )
             )
@@ -220,6 +227,23 @@ fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferenc
             )
         }
     }
+
+/**
+ * Keeps the limits from starting out below what the source already holds: [files] and [bytes] are
+ * the most either side is known to hold, null when neither says.
+ */
+fun SourcePreferencesUi.withFloor(files: Int?, bytes: Long?): SourcePreferencesUi = updateLimits {
+    val filesFloor = files?.let { roundUp(it, MaxFilesStep) }?.coerceIn(MinMaxFiles, MaxMaxFiles) ?: MinMaxFiles
+    val sizeFloor = bytes?.let { roundUp(it, BytesInGb) / BytesInGb }?.toInt()?.coerceIn(MinMaxSizeGb, MaxMaxSizeGb)
+        ?: MinMaxSizeGb
+
+    copy(
+        minFiles = filesFloor,
+        maxFiles = maxFiles.coerceAtLeast(filesFloor),
+        minSizeGb = sizeFloor,
+        maxSizeGb = maxSizeGb.coerceAtLeast(sizeFloor),
+    )
+}
 
 fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
     deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
@@ -276,6 +300,10 @@ private fun SourcePreferencesUi.updateLimits(
 private fun SourcePreferencesUi.updateEviction(
     block: SourcePreferencesUi.EvictionUi.() -> SourcePreferencesUi.EvictionUi,
 ) = copy(eviction = eviction?.block())
+
+private fun roundUp(value: Int, step: Int): Int = (value + step - 1) / step * step
+
+private fun roundUp(value: Long, step: Long): Long = (value + step - 1) / step * step
 
 private fun stepped(current: Int, steps: Int, step: Int, min: Int, max: Int): Int =
     (current + steps * step).coerceIn(min, max)

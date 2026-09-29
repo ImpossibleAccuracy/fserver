@@ -52,7 +52,7 @@ class FileServerDictionaryTest {
             sourceId = "5f7c0f2e",
             label = "DCIM/Projects",
             syncMode = SyncModeDto.Mirror(),
-            metadata = SourceMetadataDto(storagePath = "DCIM/Projects", files = 2, bytes = 2048, usedPercent = 12.5f),
+            metadata = SourceMetadataDto(storageKind = SourceMetadataDto.StorageKind.Folder, storagePath = "DCIM/Projects", files = 2, bytes = 2048, usedPercent = 12.5f),
         )
 
         val encoded = codec.encode(message)
