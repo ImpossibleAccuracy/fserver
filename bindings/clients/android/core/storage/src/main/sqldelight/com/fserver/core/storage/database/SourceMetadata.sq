@@ -1,0 +1,36 @@
+-- Each device's half of a source as it last reported it: this device's own and the peer's.
+-- Informational only - nothing the engine decides reads it.
+CREATE TABLE sourceMetadata (
+    sourceId          TEXT    NOT NULL,
+    deviceId          TEXT    NOT NULL,
+    storagePath       TEXT    NOT NULL,
+    files             INTEGER NOT NULL,
+    bytes             INTEGER NOT NULL,
+    usedPercent       REAL,
+    updatedAtEpochMs  INTEGER NOT NULL,
+    PRIMARY KEY (sourceId, deviceId)
+);
+
+CREATE TRIGGER sourceMetadataCleanup
+AFTER DELETE ON source
+BEGIN
+    DELETE FROM sourceMetadata
+    WHERE sourceId = old.id;
+END;
+
+selectAll:
+SELECT *
+FROM sourceMetadata;
+
+selectBySource:
+SELECT *
+FROM sourceMetadata
+WHERE sourceId = ?;
+
+upsert:
+INSERT OR REPLACE INTO sourceMetadata(sourceId, deviceId, storagePath, files, bytes, usedPercent, updatedAtEpochMs)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteBySource:
+DELETE FROM sourceMetadata
+WHERE sourceId = ?;

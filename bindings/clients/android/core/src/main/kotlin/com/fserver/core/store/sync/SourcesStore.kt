@@ -2,6 +2,7 @@ package com.fserver.core.store.sync
 
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.store.FServerStorageApi
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
@@ -36,9 +37,12 @@ interface SourcesStore {
     /** Replaces [id]'s preferences, leaving the rest of the record alone. */
     suspend fun updatePreferences(id: String, preferences: SourceEntry.Preferences)
 
+    /** Inserts, or replaces the report carrying the same source and device ids. */
+    suspend fun recordMetadata(metadata: PeerSourceMetadata)
+
     /**
-     * Drops the source and every [LocalIndexedFile] recorded against it, leaving a [SourceTombstone]
-     * behind.
+     * Drops the source, its [PeerSourceMetadata] and every [LocalIndexedFile] recorded against it,
+     * leaving a [SourceTombstone] behind.
      *
      * The tombstone is not optional bookkeeping: it is the only thing that later tells the peer to
      * stop asking for the id, so an implementation that drops the source silently strands the

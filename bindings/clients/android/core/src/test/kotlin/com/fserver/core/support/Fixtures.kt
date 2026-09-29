@@ -4,9 +4,13 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.FileRecordDto
+import com.fserver.core.network.dictionary.dto.SourceMetadataDto
+import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.metadata.PeerMetadataExchange
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
+import com.fserver.core.util.TimeProvider
 import com.fserver.net.security.identity.PeerIdentity
 import kotlin.time.Instant
 
@@ -20,7 +24,6 @@ internal fun sourceEntry(
     id: String = "source-1",
     deviceId: String = "device-peer",
     location: SourceLocation.Persistable = SourceLocation.Internal(bucket = id),
-    originPath: String = "/Source",
     syncMode: SyncMode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins),
     role: SourceEntry.Role = SourceEntry.Role.Follower,
     status: SourceEntry.Status = SourceEntry.Status.Active,
@@ -30,13 +33,23 @@ internal fun sourceEntry(
     id = id,
     deviceId = deviceId,
     location = location,
-    originPath = originPath,
     syncMode = syncMode,
     role = role,
     status = status,
     label = label,
     createdAt = createdAt,
 )
+
+/** Reports sources off [storage] with no mounted volumes: paths come out volume-relative as-is. */
+internal fun peerMetadataExchange(storage: FServerStorage, clock: TimeProvider): PeerMetadataExchange =
+    PeerMetadataExchange(storage, clock) { emptyList() }
+
+internal fun sourceMetadataDto(
+    storagePath: String = "/DCIM/Camera",
+    files: Int = 3,
+    bytes: Long = 300,
+    usedPercent: Float? = null,
+): SourceMetadataDto = SourceMetadataDto(storagePath, files, bytes, usedPercent)
 
 internal fun fileDto(
     id: String = "file-1",

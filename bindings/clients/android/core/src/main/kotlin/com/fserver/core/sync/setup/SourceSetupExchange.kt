@@ -6,8 +6,10 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.metadata.PeerMetadataExchange
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceRemovedReason
+import com.fserver.core.sync.model.receivesMetadata
 import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.util.TimeProvider
 import com.fserver.net.security.identity.PeerIdentity
@@ -26,6 +28,7 @@ internal class SourceSetupExchange(
     private val storage: FServerStorage,
     private val peers: PeerConnector,
     private val timeProvider: TimeProvider,
+    private val metadata: PeerMetadataExchange,
 ) {
     /** Every ask waiting on this device's user, oldest first. */
     val pending: Flow<List<IncomingSourceRequest>> = storage.sourceRequests.pending()
@@ -37,8 +40,8 @@ internal class SourceSetupExchange(
                 FileServerMessages.ConfigureSource.Request(
                     sourceId = source.id,
                     label = source.label,
-                    originPath = source.originPath,
                     syncMode = source.syncMode.toDto(),
+                    metadata = metadata.describe(source),
                 )
             )
             .getOrThrow()
@@ -60,7 +63,12 @@ internal class SourceSetupExchange(
 
             runCatchingCancellable { requestRemote(current) }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "Could not re-ask ${current.deviceId} to host source ${current.id}") }
+                ?.let {
+                    Timber.w(
+                        it,
+                        "Could not re-ask ${current.deviceId} to host source ${current.id}"
+                    )
+                }
         }
     }
 
@@ -107,15 +115,20 @@ internal class SourceSetupExchange(
         // A re-ask refreshes what is parked, but keeps its place in the queue.
         val parked = storage.sourceRequests.findById(message.sourceId)
             ?.takeIf { it.deviceId == peer.deviceId }
+        val now = timeProvider.now()
 
         storage.sourceRequests.upsert(
             IncomingSourceRequest(
                 sourceId = message.sourceId,
                 deviceId = peer.deviceId,
                 label = message.label,
-                originPath = message.originPath,
+                metadata = message.metadata.toDomain(
+                    sourceId = message.sourceId,
+                    deviceId = peer.deviceId,
+                    updatedAt = now
+                ),
                 syncMode = message.syncMode.toDomain(),
-                receivedAt = parked?.receivedAt ?: timeProvider.now(),
+                receivedAt = parked?.receivedAt ?: now,
             )
         )
     }
@@ -141,8 +154,6 @@ internal class SourceSetupExchange(
             id = request.sourceId,
             deviceId = request.deviceId,
             location = location,
-            // The asker's path, not ours: it is what the source is, and this side only hosts it.
-            originPath = request.originPath,
             syncMode = request.syncMode,
             preferences = preferences,
             role = SourceEntry.Role.Follower,
@@ -154,6 +165,11 @@ internal class SourceSetupExchange(
 
         storage.sources.upsert(source)
         storage.sourceRequests.delete(sourceId)
+
+        // Kept only where the peer goes on reporting: a one-way follower would hold a snapshot
+        // that never updates.
+        if (source.receivesMetadata) metadata.record(request.metadata)
+        metadata.refresh(source)
 
         answer(
             deviceId = request.deviceId,

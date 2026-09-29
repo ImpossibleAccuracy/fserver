@@ -1,12 +1,15 @@
 package com.fserver.core.sync.server.handler
 
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
+import com.fserver.core.support.peerMetadataExchange
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceMetadataDto
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.lease.SyncModeReconciler
 import com.fserver.core.sync.model.SourceEntry
@@ -35,7 +38,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true))
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true), peerMetadataExchange(storage, clock))
 
     @Before
     fun setUp() = runBlocking {
@@ -155,13 +158,54 @@ class SyncLeaseHandlerTest {
         answer(OwnerId, syncMode = SyncMode.Host).only<FileServerMessages.AcquireSyncLease.Granted>()
     }
 
+    @Test
+    fun `a mirror grant records the requester's half and reports ours back`() = runTest {
+        val reported = sourceMetadataDto()
+
+        val granted = answer(OwnerId, metadata = reported).only<FileServerMessages.AcquireSyncLease.Granted>()
+
+        assertEquals(SourceId, granted.metadata?.storagePath)
+        assertEquals(reported.storagePath, storage.sources.metadataOf(SourceId, OwnerId)?.storagePath)
+        assertEquals(SourceId, storage.sources.metadataOf(SourceId, LocalId)?.storagePath)
+    }
+
+    @Test
+    fun `a one-way follower reports its half with the grant`() = runTest {
+        storage.sources.upsert(sourceEntry(id = SourceId, deviceId = OwnerId, syncMode = SyncMode.Host))
+
+        val granted = answer(OwnerId, syncMode = SyncMode.Host).only<FileServerMessages.AcquireSyncLease.Granted>()
+
+        assertNotNull(granted.metadata)
+    }
+
+    @Test
+    fun `a one-way follower ignores metadata its initiator should not have sent`() = runTest {
+        storage.sources.upsert(sourceEntry(id = SourceId, deviceId = OwnerId, syncMode = SyncMode.Host))
+
+        answer(OwnerId, syncMode = SyncMode.Host, metadata = sourceMetadataDto())
+            .only<FileServerMessages.AcquireSyncLease.Granted>()
+
+        assertNull(storage.sources.metadataOf(SourceId, OwnerId))
+    }
+
+    @Test
+    fun `a denied request records nothing`() = runTest {
+        val local = checkNotNull(registry.beginAcquire(SourceId))
+        registry.confirmLocal(SourceId, local)
+
+        answer(OwnerId, metadata = sourceMetadataDto()).only<FileServerMessages.AcquireSyncLease.Denied>()
+
+        assertNull(storage.sources.metadataOf(SourceId, OwnerId))
+    }
+
     private suspend fun answer(
         deviceId: String,
         leaseId: String = "lease-1",
         syncMode: SyncMode = sourceEntry().syncMode,
+        metadata: SourceMetadataDto? = null,
     ): FakePeerSession.Replies {
         val replies = FakePeerSession.Replies()
-        val request = FileServerMessages.AcquireSyncLease.Request(SourceId, leaseId, syncMode.toDto())
+        val request = FileServerMessages.AcquireSyncLease.Request(SourceId, leaseId, syncMode.toDto(), metadata)
 
         handler.answer(
             event = PeerSession.Inbound(request, replies.channel),

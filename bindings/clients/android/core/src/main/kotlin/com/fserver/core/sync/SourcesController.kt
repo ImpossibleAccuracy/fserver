@@ -1,13 +1,10 @@
 package com.fserver.core.sync
 
-import android.content.Context
 import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
-import com.fserver.core.files.StorageVolumes
 import com.fserver.core.files.ensureSourceReachable
-import com.fserver.core.files.toOriginPath
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.LocalChangesIndexer
@@ -31,7 +28,6 @@ import java.util.UUID
  * is registered is a UI concern and lives on `RegisteredSourcesRepository` in `:core:storage`.
  */
 class SourcesController internal constructor(
-    private val context: Context,
     private val storage: FServerStorage,
     private val syncRunner: SyncRunner,
     private val sourceSetup: SourceSetupExchange,
@@ -103,7 +99,6 @@ class SourcesController internal constructor(
             id = UUID.randomUUID().toString(),
             deviceId = deviceId,
             location = location,
-            originPath = location.toOriginPath(StorageVolumes.fromContext(context).volumes),
             syncMode = syncMode,
             preferences = preferences,
             // Asking is what makes this side the initiator, and one-way modes travel from here.
@@ -116,6 +111,11 @@ class SourcesController internal constructor(
         storage.sources.upsert(source)
 
         Timber.i("Registered new source ${source.id} at $location for $deviceId, asking it to host")
+
+        // The ask carries the source's size, so it is scanned first. A failed scan still asks.
+        runCatchingCancellable { localIndexer.refresh(source) }
+            .exceptionOrNull()
+            ?.let { Timber.w(it, "Could not index source ${source.id} before asking $deviceId") }
 
         // Best effort: peer may be off network right now, and the source is registered either way
         runCatchingCancellable { sourceSetup.requestRemote(source) }

@@ -4,6 +4,7 @@ import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.metadata.PeerMetadataExchange
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.SyncFailureReason
 import com.fserver.core.sync.progress.toSyncFailure
@@ -28,6 +29,7 @@ internal class SyncLeaseNegotiator(
     private val registry: SyncLeaseRegistry,
     private val peers: PeerConnector,
     private val modes: SyncModeReconciler,
+    private val metadata: PeerMetadataExchange,
 ) {
     /**
      * Runs [block] only if both devices agree we hold [source] and run it under the same mode.
@@ -81,6 +83,7 @@ internal class SyncLeaseNegotiator(
                     sourceId = source.id,
                     leaseId = leaseId,
                     syncMode = source.syncMode.toDto(),
+                    metadata = metadata.forLease(source),
                 )
             ).getOrThrow()
         } catch (e: CancellationException) {
@@ -95,6 +98,7 @@ internal class SyncLeaseNegotiator(
                 // The peer granted us the source, but a request of its own may have taken it over
                 // here in the meantime - it wins ties on device id, and it is already running.
                 if (registry.confirmLocal(source.id, leaseId)) {
+                    metadata.recordFromPeer(source, response.metadata)
                     Lease(session, leaseId, source)
                 } else {
                     Timber.i("Source ${source.id} skipped: ${source.deviceId} claimed it first")

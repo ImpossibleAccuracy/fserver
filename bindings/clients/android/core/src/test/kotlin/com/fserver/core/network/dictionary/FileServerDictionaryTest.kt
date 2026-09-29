@@ -1,6 +1,7 @@
 package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
+import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -50,8 +51,8 @@ class FileServerDictionaryTest {
         val message = FileServerMessages.ConfigureSource.Request(
             sourceId = "5f7c0f2e",
             label = "DCIM/Projects",
-            originPath = "/DCIM/Projects",
             syncMode = SyncModeDto.Mirror(),
+            metadata = SourceMetadataDto(storagePath = "DCIM/Projects", files = 2, bytes = 2048, usedPercent = 12.5f),
         )
 
         val encoded = codec.encode(message)

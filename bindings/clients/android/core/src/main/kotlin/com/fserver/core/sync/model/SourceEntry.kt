@@ -19,8 +19,6 @@ data class SourceEntry(
     val deviceId: String,
     /** What to walk. */
     val location: SourceLocation.Persistable,
-    /** The initiator's directory as a person reads it. */
-    val originPath: String,
     /** What to do with the files found there. */
     val syncMode: SyncMode,
     /** How and when a pass runs. [syncMode] says what it does. */

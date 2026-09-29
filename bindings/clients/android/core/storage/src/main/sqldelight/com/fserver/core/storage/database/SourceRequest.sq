@@ -11,10 +11,14 @@ CREATE TABLE sourceRequest (
     sourceId          TEXT    NOT NULL PRIMARY KEY,
     deviceId          TEXT    NOT NULL,
     label             TEXT    NOT NULL,
-    originPath        TEXT    NOT NULL,
     -- Mirror | AutoUpload | Offload
     mode              TEXT    NOT NULL,
-    receivedAtEpochMs INTEGER NOT NULL
+    receivedAtEpochMs INTEGER NOT NULL,
+    -- The asking side's half as it reported it with the latest ask.
+    peerStoragePath       TEXT    NOT NULL,
+    peerFiles             INTEGER NOT NULL,
+    peerBytes             INTEGER NOT NULL,
+    peerUpdatedAtEpochMs  INTEGER NOT NULL
 );
 
 CREATE TRIGGER sourceRequestAttributeCleanup
@@ -36,8 +40,11 @@ FROM sourceRequest
 WHERE sourceId = ?;
 
 upsert:
-INSERT OR REPLACE INTO sourceRequest(sourceId, deviceId, label, originPath, mode, receivedAtEpochMs)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO sourceRequest(
+    sourceId, deviceId, label, mode, receivedAtEpochMs,
+    peerStoragePath, peerFiles, peerBytes, peerUpdatedAtEpochMs
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 delete:
 DELETE FROM sourceRequest

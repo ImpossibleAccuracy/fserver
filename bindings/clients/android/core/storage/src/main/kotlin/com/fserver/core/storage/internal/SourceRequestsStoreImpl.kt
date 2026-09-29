@@ -4,6 +4,8 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.SourceRequestsStore
+import com.fserver.core.sync.limits.SourceUsage
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.setup.IncomingSourceRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -48,9 +50,12 @@ internal class SourceRequestsStoreImpl(
                 sourceId = request.sourceId,
                 deviceId = request.deviceId,
                 label = request.label,
-                originPath = request.originPath,
                 mode = SourceRecords.discriminatorOf(request.syncMode),
                 receivedAtEpochMs = request.receivedAt.toEpochMilliseconds(),
+                peerStoragePath = request.metadata.storagePath,
+                peerFiles = request.metadata.usage.files.toLong(),
+                peerBytes = request.metadata.usage.bytes,
+                peerUpdatedAtEpochMs = request.metadata.updatedAt.toEpochMilliseconds(),
             )
 
             attributeDao.deleteByOwnerId(
@@ -105,7 +110,15 @@ private fun List<DBSourceRequest>.assemble(
             sourceId = row.sourceId,
             deviceId = row.deviceId,
             label = row.label,
-            originPath = row.originPath,
+            metadata = PeerSourceMetadata(
+                sourceId = row.sourceId,
+                deviceId = row.deviceId,
+                storagePath = row.peerStoragePath,
+                usage = SourceUsage(files = row.peerFiles.toInt(), bytes = row.peerBytes),
+                // Not kept for an ask: the asker's limits say nothing about whether to accept it.
+                usedPercent = null,
+                updatedAt = Instant.fromEpochMilliseconds(row.peerUpdatedAtEpochMs),
+            ),
             syncMode = mode,
             receivedAt = Instant.fromEpochMilliseconds(row.receivedAtEpochMs),
         )

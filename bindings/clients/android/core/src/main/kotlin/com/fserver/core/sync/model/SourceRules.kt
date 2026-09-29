@@ -11,6 +11,14 @@ val SourceEntry.drivesSync: Boolean
 internal val SourceEntry.peerDrivesSync: Boolean
     get() = syncMode is SyncMode.Mirror || role == SourceEntry.Role.Follower
 
+/** This device reports it's half to the peer before a pass: the side a pass runs against tells the one running it. */
+internal val SourceEntry.sharesMetadata: Boolean
+    get() = peerDrivesSync
+
+/** The peer reports it's half to this device: the other end of [sharesMetadata]. */
+internal val SourceEntry.receivesMetadata: Boolean
+    get() = drivesSync
+
 /** The peer may change the files this device holds for the source: push, overwrite, delete. */
 internal val SourceEntry.acceptsPeerWrites: Boolean
     get() = peerDrivesSync

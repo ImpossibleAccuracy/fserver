@@ -13,6 +13,7 @@ import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
+import com.fserver.core.support.peerMetadataExchange
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.fileops.FileDeleter
 import com.fserver.core.sync.fileops.FileEvictor
@@ -238,7 +239,7 @@ class PeerRequestServerTest {
         server = PeerRequestServer(
             network = network,
             leaseRegistry = registry,
-            sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock),
+            sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock, peerMetadataExchange(storage, clock)),
             fetchFiles = fetchFiles,
             publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
             leases = SyncLeaseHandler(
@@ -247,6 +248,7 @@ class PeerRequestServerTest {
                 registry,
                 SyncModeReconciler(storage),
                 PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock),
+                peerMetadataExchange(storage, clock),
             ),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),

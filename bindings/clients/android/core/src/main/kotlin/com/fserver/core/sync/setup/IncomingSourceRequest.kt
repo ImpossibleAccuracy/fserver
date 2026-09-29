@@ -1,5 +1,6 @@
 package com.fserver.core.sync.setup
 
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SyncMode
 import kotlin.time.Instant
 
@@ -13,8 +14,8 @@ data class IncomingSourceRequest(
     val deviceId: String,
     /** Display name the asking side registered. */
     val label: String,
-    /** The asking side's directory as a person reads it. Kept verbatim, never re-derived here. */
-    val originPath: String,
+    /** The asking side's half as it reported it with the ask. Informational only. */
+    val metadata: PeerSourceMetadata,
     /** What the asking side runs the source under. */
     val syncMode: SyncMode,
     val receivedAt: Instant,

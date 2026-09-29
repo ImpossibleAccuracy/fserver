@@ -5,6 +5,8 @@ import com.fserver.common.model.FileSize
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.index.toIndexed
+import com.fserver.core.sync.limits.SourceUsage
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
@@ -119,3 +121,17 @@ private fun FileRecordDto.State.toDomain(): FileRecord.State = when (this) {
 
     is FileRecordDto.State.Deleted -> FileRecord.State.Deleted(deletedAt)
 }
+
+/** [deviceId] is who sent it, never a field of the message: a peer only reports its own half. */
+internal fun SourceMetadataDto.toDomain(
+    sourceId: String,
+    deviceId: String,
+    updatedAt: Instant,
+): PeerSourceMetadata = PeerSourceMetadata(
+    sourceId = sourceId,
+    deviceId = deviceId,
+    storagePath = storagePath,
+    usage = SourceUsage(files = files, bytes = bytes),
+    usedPercent = usedPercent,
+    updatedAt = updatedAt,
+)

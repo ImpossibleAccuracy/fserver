@@ -1,5 +1,6 @@
 package com.fserver.core.support
 
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.auth.OfferedAuthMethod
 import com.fserver.core.network.device.model.FailedContact
@@ -241,9 +242,19 @@ internal class FakeSourcesStore(
         entries[id]?.let { entries[id] = it.copy(preferences = preferences) }
     }
 
+    private val metadata = mutableMapOf<Pair<String, String>, PeerSourceMetadata>()
+
+    override suspend fun recordMetadata(metadata: PeerSourceMetadata) {
+        this.metadata[metadata.sourceId to metadata.deviceId] = metadata
+    }
+
+    /** What [deviceId] last reported about [sourceId]. */
+    fun metadataOf(sourceId: String, deviceId: String): PeerSourceMetadata? = metadata[sourceId to deviceId]
+
     override suspend fun delete(id: String) {
         val removed = entries.remove(id) ?: return
         index.clearProcessed(id)
+        metadata.keys.removeAll { it.first == id }
         tombstones[id] = SourceTombstone(
             sourceId = id,
             deviceId = removed.deviceId,

@@ -1,6 +1,7 @@
 package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.dto.FileRecordDto
+import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.SyncFailureReason
@@ -47,12 +48,16 @@ internal sealed interface FileServerMessages {
     /** Asks the peer to hold the pass over [Request.sourceId] while we run ours. */
     @Serializable
     sealed interface AcquireSyncLease : FileServerMessages {
-        /** Request a lease for [sourceId]. [syncMode] is the requester's, checked against the peer's before a grant. */
+        /**
+         * Request a lease for [sourceId]. [syncMode] is the requester's, checked against the peer's before a grant.
+         * [metadata] is the requester's half, sent only where it reports it - see `sharesMetadata`.
+         */
         @Serializable
         data class Request(
             val sourceId: String,
             val leaseId: String,
             val syncMode: SyncModeDto,
+            val metadata: SourceMetadataDto? = null,
         ) : AcquireSyncLease
 
         /** Gives [leaseId] back. Fire and forget: the holder's TTL and session end cover a lost one. */
@@ -63,10 +68,12 @@ internal sealed interface FileServerMessages {
             val failure: SyncFailureReason? = null,
         ) : FileServerMessages
 
+        /** [metadata] is the granting side's half, same rule as [Request.metadata]. */
         @Serializable
         data class Granted(
             val sourceId: String,
             val leaseId: String,
+            val metadata: SourceMetadataDto? = null,
         ) : AcquireSyncLease, Response
 
         /** [Request] refused for now: the source is already being synced, or is not ours to ask for. */
@@ -106,16 +113,15 @@ internal sealed interface FileServerMessages {
     sealed interface ConfigureSource : FileServerMessages {
         /**
          * @property sourceId chosen by the sender. Both halves of a source answer to the same id.
-         * @property originPath the sender's directory as a person reads it. Stored verbatim - it
-         * says where the files come from, not where the receiver puts them.
          * @property syncMode what the sender runs the source under.
+         * @property metadata the sender's half. Informational only.
          */
         @Serializable
         data class Request(
             val sourceId: String,
             val label: String,
-            val originPath: String,
             val syncMode: SyncModeDto,
+            val metadata: SourceMetadataDto,
         ) : ConfigureSource
 
         /** The receiving user's answer. A rejection is final: the asking side drops its half. */

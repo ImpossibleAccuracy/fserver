@@ -28,7 +28,8 @@ class CoreModuleTest {
             storage = storageStub(),
         )
 
-        module.verify()
+        // Function0: lambdas handed in by a `single { }` block, which verify cannot see through.
+        module.verify(extraTypes = listOf(Function0::class))
     }
 
     /** A proxy rather than a fake: the store SPI is closed to subclassing outside a backend. */

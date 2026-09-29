@@ -1,12 +1,15 @@
 package com.fserver.core.sync.lease
 
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
+import com.fserver.core.support.peerMetadataExchange
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceMetadataDto
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
@@ -38,7 +41,7 @@ class SyncLeaseNegotiatorTest {
     private val peers = mockk<PeerConnector>()
 
     private val source = sourceEntry(id = SourceId, deviceId = PeerId)
-    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage))
+    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage), peerMetadataExchange(storage, clock))
 
     @Before
     fun setUp() = runBlocking {
@@ -192,10 +195,48 @@ class SyncLeaseNegotiatorTest {
         assertNotNull(registry.beginAcquire(SourceId))
     }
 
-    private fun granted(request: FileServerMessages): FileServerMessages =
+    @Test
+    fun `a mirror lease reports our half and records the peer's`() = runTest {
+        val reported = sourceMetadataDto()
+        var asked: FileServerMessages.AcquireSyncLease.Request? = null
+        session { request ->
+            asked = request as FileServerMessages.AcquireSyncLease.Request
+            granted(request, reported)
+        }
+
+        negotiator.runWithLease(source) { }
+
+        assertEquals(SourceId, asked?.metadata?.storagePath)
+        assertEquals(reported.storagePath, storage.sources.metadataOf(SourceId, PeerId)?.storagePath)
+        assertEquals(SourceId, storage.sources.metadataOf(SourceId, LocalId)?.storagePath)
+    }
+
+    @Test
+    fun `a one-way initiator asks without reporting its half`() = runTest {
+        val initiator = source.copy(role = SourceEntry.Role.Initiator, syncMode = SyncMode.Host)
+        storage.sources.upsert(initiator)
+        var asked: FileServerMessages.AcquireSyncLease.Request? = null
+        session { request ->
+            asked = request as FileServerMessages.AcquireSyncLease.Request
+            granted(request, sourceMetadataDto())
+        }
+
+        negotiator.runWithLease(initiator) { }
+
+        assertNull(asked?.metadata)
+        assertNotNull(storage.sources.metadataOf(SourceId, PeerId))
+        // Not sent, but still kept here for this device's own screens.
+        assertNotNull(storage.sources.metadataOf(SourceId, LocalId))
+    }
+
+    private fun granted(
+        request: FileServerMessages,
+        metadata: SourceMetadataDto? = null,
+    ): FileServerMessages =
         FileServerMessages.AcquireSyncLease.Granted(
             sourceId = SourceId,
             leaseId = (request as FileServerMessages.AcquireSyncLease.Request).leaseId,
+            metadata = metadata,
         )
 
     private fun session(

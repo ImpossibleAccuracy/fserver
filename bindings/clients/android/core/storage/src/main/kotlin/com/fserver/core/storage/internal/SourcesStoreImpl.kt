@@ -8,6 +8,8 @@ import com.fserver.core.files.SourceLocation
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.store.sync.SourcesStore
+import com.fserver.core.sync.limits.SourceUsage
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SourceTombstone
 import com.fserver.core.sync.model.SyncMode
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import com.fserver.core.storage.database.Attribute as DBAttribute
 import com.fserver.core.storage.database.Source as DBSource
+import com.fserver.core.storage.database.SourceMetadata as DBSourceMetadata
 
 /**
  * Sources over two tables: the `source` row for what every source has, `attribute` for the fields
@@ -41,6 +44,7 @@ internal class SourcesStoreImpl(
     private val dao = database.sourceQueries
     private val attributeDao = database.attributeQueries
     private val tombstoneDao = database.sourceTombstoneQueries
+    private val metadataDao = database.sourceMetadataQueries
 
     // ---------------- SourcesStore: what the engine calls ----------------
 
@@ -79,7 +83,6 @@ internal class SourcesStoreImpl(
                 deviceId = source.deviceId,
                 role = source.role.name,
                 label = source.label,
-                originPath = source.originPath,
                 createdAtEpochMs = source.createdAt.toEpochMilliseconds(),
                 lastSyncedAtEpochMs = source.lastSyncedAt?.toEpochMilliseconds(),
                 location = SourceRecords.discriminatorOf(source.location),
@@ -151,6 +154,18 @@ internal class SourcesStoreImpl(
         }
     }
 
+    override suspend fun recordMetadata(metadata: PeerSourceMetadata) {
+        metadataDao.upsert(
+            sourceId = metadata.sourceId,
+            deviceId = metadata.deviceId,
+            storagePath = metadata.storagePath,
+            files = metadata.usage.files.toLong(),
+            bytes = metadata.usage.bytes,
+            usedPercent = metadata.usedPercent?.toDouble(),
+            updatedAtEpochMs = metadata.updatedAt.toEpochMilliseconds(),
+        )
+    }
+
     override suspend fun delete(id: String) {
         val removed = findById(id)
 
@@ -181,12 +196,13 @@ internal class SourcesStoreImpl(
                 }
             }
 
-            // The trigger on `source` covers this too; done here as well so the rows go even if a
+            // The trigger on `source` covers these too; done here as well so the rows go even if a
             // migration rebuilt the table and dropped its triggers with it.
             attributeDao.deleteByOwnerId(
                 owner = SourceRecords.OwnerSource,
                 ownerId = id,
             )
+            metadataDao.deleteBySource(id)
             dao.delete(id)
         }
 
@@ -262,6 +278,14 @@ internal class SourcesStoreImpl(
 
     override val remoteOnly: Flow<FilesTotal> = remoteIndex.observeRemoteOnly()
 
+    override val metadata: Flow<List<PeerSourceMetadata>> = metadataDao.selectAll()
+        .asFlow()
+        .mapToList(Dispatchers.IO)
+        .map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun metadata(sourceId: String): List<PeerSourceMetadata> =
+        metadataDao.selectBySource(sourceId).executeAsList().map { it.toDomain() }
+
     override suspend fun rename(id: String, label: String) {
         dao.updateLabel(label = label, id = id)
     }
@@ -301,7 +325,6 @@ private fun List<DBSource>.assemble(attributes: List<DBAttribute>): List<SourceE
             deviceId = row.deviceId,
             role = row.role,
             label = row.label,
-            originPath = row.originPath,
             createdAtEpochMs = row.createdAtEpochMs,
             lastSyncedAtEpochMs = row.lastSyncedAtEpochMs,
             location = row.location,
@@ -311,3 +334,12 @@ private fun List<DBSource>.assemble(attributes: List<DBAttribute>): List<SourceE
         )
     }
 }
+
+private fun DBSourceMetadata.toDomain(): PeerSourceMetadata = PeerSourceMetadata(
+    sourceId = sourceId,
+    deviceId = deviceId,
+    storagePath = storagePath,
+    usage = SourceUsage(files = files.toInt(), bytes = bytes),
+    usedPercent = usedPercent?.toFloat(),
+    updatedAt = Instant.fromEpochMilliseconds(updatedAtEpochMs),
+)

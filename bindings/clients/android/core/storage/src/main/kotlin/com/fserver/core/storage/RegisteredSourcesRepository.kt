@@ -1,6 +1,7 @@
 package com.fserver.core.storage
 
 import com.fserver.common.model.FileSize
+import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import kotlinx.coroutines.flow.Flow
 
@@ -20,6 +21,12 @@ interface RegisteredSourcesRepository {
     /** Files a peer holds that are not on this device: never fetched, or evicted. */
     val remoteOnly: Flow<FilesTotal>
 
+    /**
+     * Every source's metadata: this device's own half and the peer's, one entry per device that
+     * has reported. Informational only.
+     */
+    val metadata: Flow<List<PeerSourceMetadata>>
+
     fun observeById(id: String): Flow<SourceEntry?>
 
     /**
@@ -30,6 +37,9 @@ interface RegisteredSourcesRepository {
 
     /** Where the source's files stand, counted in the database. */
     fun observeTotals(id: String): Flow<SourceFilesTotals>
+
+    /** [metadata] of [sourceId] alone: up to two entries, this device's and the peer's. */
+    suspend fun metadata(sourceId: String): List<PeerSourceMetadata>
 
     /** Display name only; what the source points at and may do are not the UI's to change. */
     suspend fun rename(id: String, label: String)

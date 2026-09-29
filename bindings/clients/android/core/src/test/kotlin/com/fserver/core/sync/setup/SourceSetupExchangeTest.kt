@@ -7,7 +7,10 @@ import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.peerIdentity
+import com.fserver.core.support.peerMetadataExchange
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceMetadataDto
+import com.fserver.core.sync.limits.SourceUsage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.remote.PeerConnector
 import io.mockk.coEvery
@@ -34,7 +37,7 @@ class SourceSetupExchangeTest {
     private val peers = mockk<PeerConnector>()
 
     private val ownerSession = FakePeerSession(identity = peerIdentity(OwnerId))
-    private val exchange = SourceSetupExchange(storage, peers, clock)
+    private val exchange = SourceSetupExchange(storage, peers, clock, peerMetadataExchange(storage, clock))
 
     @Before
     fun setUp() {
@@ -246,11 +249,32 @@ class SourceSetupExchangeTest {
         assertEquals(source, storage.sources.findById(SourceId))
     }
 
-    private fun request() = FileServerMessages.ConfigureSource.Request(
+    @Test
+    fun `an accepted source keeps what the asker reported about its half`() = runTest {
+        exchange.onRequest(peerIdentity(OwnerId), request())
+
+        exchange.accept(SourceId, SourceLocation.Internal(bucket = SourceId))
+
+        val asker = storage.sources.metadataOf(SourceId, OwnerId)
+        assertEquals("/DCIM/Camera", asker?.storagePath)
+        assertEquals(SourceUsage(files = 3, bytes = 300), asker?.usage)
+        assertEquals(SourceId, storage.sources.metadataOf(SourceId, storage.identity.localDevice().deviceId)?.storagePath)
+    }
+
+    @Test
+    fun `a one-way follower does not keep the asker's report, which would never update`() = runTest {
+        exchange.onRequest(peerIdentity(OwnerId), request(syncMode = SyncModeDto.Host))
+
+        exchange.accept(SourceId, SourceLocation.Internal(bucket = SourceId))
+
+        assertNull(storage.sources.metadataOf(SourceId, OwnerId))
+    }
+
+    private fun request(syncMode: SyncModeDto = SyncModeDto.Mirror()) = FileServerMessages.ConfigureSource.Request(
         sourceId = SourceId,
         label = "Peer's photos",
-        originPath = "/DCIM/Camera",
-        syncMode = SyncModeDto.Mirror(),
+        syncMode = syncMode,
+        metadata = sourceMetadataDto(),
     )
 
     private fun decision(): FileServerMessages.ConfigureSource.Decision =

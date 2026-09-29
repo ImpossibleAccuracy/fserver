@@ -7,6 +7,7 @@ import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.lease.SyncModeReconciler
+import com.fserver.core.sync.metadata.PeerMetadataExchange
 import com.fserver.core.sync.model.peerDrivesSync
 import com.fserver.core.sync.runner.pass.PassCompletion
 import com.fserver.core.sync.server.ResolvedIncomingSource
@@ -22,6 +23,7 @@ internal class SyncLeaseHandler(
     private val leaseRegistry: SyncLeaseRegistry,
     private val modes: SyncModeReconciler,
     private val completion: PassCompletion,
+    private val metadata: PeerMetadataExchange,
 ) {
     suspend fun answer(
         event: PeerSession.Inbound<FileServerMessages>,
@@ -83,12 +85,14 @@ internal class SyncLeaseHandler(
                 if (held) {
                     // Adopted only once granted: a denial means a pass here still runs the old mode.
                     if (verdict == SyncModeReconciler.Verdict.AdoptPeer) modes.adopt(source, requested)
+                    metadata.recordFromPeer(source, message.metadata)
 
                     Timber.i("Granted sync lease for source ${message.sourceId} to ${session.identity.deviceId}")
                     reply(
                         FileServerMessages.AcquireSyncLease.Granted(
                             sourceId = message.sourceId,
                             leaseId = message.leaseId,
+                            metadata = metadata.forLease(source),
                         )
                     )
                 } else {

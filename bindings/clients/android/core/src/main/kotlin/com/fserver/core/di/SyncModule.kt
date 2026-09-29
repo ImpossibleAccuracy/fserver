@@ -18,6 +18,7 @@ import com.fserver.core.sync.index.SourceIndexLocks
 import com.fserver.core.sync.lease.SyncLeaseNegotiator
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.lease.SyncModeReconciler
+import com.fserver.core.sync.metadata.PeerMetadataExchange
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.remote.IndexPublisher
 import com.fserver.core.sync.remote.PeerConnector
@@ -65,6 +66,7 @@ internal val syncModule = module {
     singleOf(::PeerFileOperations)
     singleOf(::IndexPublisher)
     singleOf(::SourceSetupExchange)
+    singleOf(::PeerMetadataExchange)
 
     // The answering half: one handler per request family behind the listener.
     singleOf(::PeerRequestServer)
