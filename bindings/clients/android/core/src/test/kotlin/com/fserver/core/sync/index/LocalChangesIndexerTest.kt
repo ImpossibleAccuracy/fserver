@@ -2,6 +2,7 @@ package com.fserver.core.sync.index
 
 import android.content.ContextWrapper
 import com.fserver.common.model.ContentHash
+import com.fserver.common.utils.SourcePaths
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.support.FakeRequirementsChecker
 import com.fserver.core.support.FakeStorage
@@ -28,6 +29,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.security.MessageDigest
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * The local half of a pass: what the disk holds, turned into the rows a plan is made from.
@@ -354,6 +357,75 @@ class LocalChangesIndexerTest {
         assertEquals(SourcePass.Local.Stage.Hashing, (progress.pass(SourceId).first() as SourcePass.Local).stage)
     }
 
+    @Test
+    fun `temp, lock and service files are not indexed`() = runTest {
+        write("photo.jpg", "one")
+        write("report.docx.tmp", "x")
+        write("~\$report.docx", "x")
+        write(".nomedia", "")
+        write("DCIM/.thumbnails/1.jpg", "x")
+        write(".trashed-1700000000-old.jpg", "x")
+        write("clip.fserver-part.mp4", "x")
+
+        assertEquals(listOf("photo.jpg"), indexer.refresh(source).map { it.path })
+    }
+
+    @Test
+    fun `an indexed file that is now ignored is not turned into a tombstone`() = runTest {
+        write("photo.jpg", "one")
+        val photo = indexer.refresh(source).single()
+        // Indexed before the rule existed.
+        storage.index.markProcessed(
+            listOf(photo.copy(id = "nomedia", fileId = SourcePaths.fileId(".nomedia"), path = ".nomedia")),
+        )
+
+        val indexed = indexer.refresh(source).single { it.path == ".nomedia" }
+
+        // A tombstone would delete the peer's copy.
+        assertTrue(indexed.state is LocalIndexedFile.State.Present)
+    }
+
+    @Test
+    fun `an edit under an editor's lock waits for the lock to go`() = runTest {
+        val file = write("report.docx", "one")
+        indexer.refresh(source)
+
+        val lock = lock("~\$port.docx")
+        write("report.docx", "one plus more")
+        file.setLastModified(file.lastModified() + 60_000)
+        assertEquals(VersionVector(mapOf(LocalId to 1L)), indexer.refresh(source).single().version?.vector)
+
+        lock.delete()
+        assertEquals(VersionVector(mapOf(LocalId to 2L)), indexer.refresh(source).single().version?.vector)
+    }
+
+    @Test
+    fun `a locked file missing mid-save is not a deletion`() = runTest {
+        val file = write("report.odt", "one")
+        indexer.refresh(source)
+
+        lock(".~lock.report.odt#")
+        file.delete()
+
+        assertTrue(indexer.refresh(source).single().state is LocalIndexedFile.State.Present)
+    }
+
+    @Test
+    fun `a new file under a lock is not indexed yet`() = runTest {
+        write("notes.txt", "draft")
+        lock(".#notes.txt")
+
+        assertTrue(indexer.refresh(source).isEmpty())
+    }
+
+    @Test
+    fun `a lock older than the limit holds nothing`() = runTest {
+        write("report.docx", "one")
+        lock("~\$report.docx", age = EditLocks.MaxAge + 1.minutes)
+
+        assertEquals(listOf("report.docx"), indexer.refresh(source).map { it.path })
+    }
+
     private suspend fun hashed(file: LocalIndexedFile): LocalIndexedFile {
         index.hasher.hashFile(source, file)
         return storage.index.findFile(key(file))!!
@@ -366,6 +438,9 @@ class LocalChangesIndexerTest {
             parentFile?.mkdirs()
             writeText(contents)
         }
+
+    private fun lock(name: String, age: Duration = Duration.ZERO): File =
+        write(name, "").apply { setLastModified((clock.now() - age).toEpochMilliseconds()) }
 
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

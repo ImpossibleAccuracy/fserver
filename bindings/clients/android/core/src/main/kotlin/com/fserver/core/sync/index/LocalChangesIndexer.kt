@@ -34,7 +34,7 @@ internal class LocalChangesIndexer(
 
     /**
      * Re-scan [source] and bring the index in line with what is on disk, then hash the files that
-     * may be renames (see [renameCandidates]). Reports its own progress.
+     * may be renamed (see [renameCandidates]). Reports its own progress.
      *
      * Serialized per source: a local pass and a peer's index request both land here, and two
      * scans writing the same rows interleave into double-bumped version vectors.
@@ -60,35 +60,51 @@ internal class LocalChangesIndexer(
      *
      * @return whether anything was hashed
      */
-    private suspend fun hashRenameCandidates(source: SourceEntry): Boolean = renameHashLockFor(source).withLock {
-        val candidates = renameCandidates(store.index.processedFiles(source.id))
-        if (candidates.isEmpty()) return@withLock false
+    private suspend fun hashRenameCandidates(source: SourceEntry): Boolean =
+        renameHashLockFor(source).withLock {
+            val candidates = renameCandidates(store.index.processedFiles(source.id))
+            if (candidates.isEmpty()) return@withLock false
 
-        candidates.forEachIndexed { done, row ->
-            progress.indexingHashing(source.id, done, candidates.size)
+            candidates.forEachIndexed { done, row ->
+                progress.indexingHashing(source.id, done, candidates.size)
 
-            runCatchingCancellable { hasher.hashFile(source, row) }
-                .onFailure { Timber.w(it, "Could not hash rename candidate ${row.path} in source ${source.id}") }
+                runCatchingCancellable { hasher.hashFile(source, row) }
+                    .onFailure {
+                        Timber.w(
+                            it,
+                            "Could not hash rename candidate ${row.path} in source ${source.id}"
+                        )
+                    }
+            }
+            progress.indexingHashing(source.id, candidates.size, candidates.size)
+
+            true
         }
-        progress.indexingHashing(source.id, candidates.size, candidates.size)
-
-        true
-    }
 
     private suspend fun runRefresh(source: SourceEntry): List<LocalIndexedFile> {
         requirementsChecker.ensureSourceReachable(source.location)
 
         val currentTime = timeProvider.now()
 
-        val savedState = store.index.processedFiles(source.id)
-        val savedByPath = savedState
+        val scan = node.openSource(source.location.toFiles()).scan()
+        scan.progress.collect {
+            progress.indexingScanned(source.id, it.scannedFiles, it.scannedSizeBytes)
+        }
+        val scanned = scan.result().getOrThrow()
+
+        // A file open in an editor waits for the lock to go: every save would be a version, and a
+        // save's rename dance would look like a deletion.
+        val locks = EditLocks.of(scanned, currentTime)
+        fun skipped(path: String) = IgnoredPaths.isIgnored(path) || locks.isHeld(path)
+
+        val actualState = scanned.filterNot { skipped(it.path) }
+
+        // A skipped row keeps what it had. An ignored one indexed before the rule existed would
+        // otherwise become a tombstone and delete the peer's copy.
+        val savedByPath = store.index.processedFiles(source.id)
+            .filterNot { skipped(it.path) }
             .associateBy { it.path }
             .toMutableMap()
-
-        // TODO: filter out temp files
-        val scan = node.openSource(source.location.toFiles()).scan()
-        scan.progress.collect { progress.indexingScanned(source.id, it.scannedFiles, it.scannedSizeBytes) }
-        val actualState = scan.result().getOrThrow()
 
         val new = mutableListOf<FoundFile>()
         val changed = mutableMapOf<LocalIndexedFile, FoundFile>()
