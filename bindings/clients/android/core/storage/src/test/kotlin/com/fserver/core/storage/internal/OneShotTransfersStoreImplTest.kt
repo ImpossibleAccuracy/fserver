@@ -42,7 +42,8 @@ class OneShotTransfersStoreImplTest {
         )
 
         val transfers = listOf(
-            transfer("out", direction = OneShotTransfer.Direction.Outgoing),
+            transfer("out", direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Tree("content://tree/primary%3ADCIM"))),
+            transfer("out-media", direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Media)),
             transfer("in-pending", direction = OneShotTransfer.Direction.Incoming(null)),
             transfer(
                 "failed",
@@ -85,7 +86,7 @@ class OneShotTransfersStoreImplTest {
 
     @Test
     fun `finished is final`() = runTest {
-        store.insert(transfer("t", direction = OneShotTransfer.Direction.Outgoing))
+        store.insert(transfer("t", direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Media)))
         val end = Instant.fromEpochMilliseconds(5_000)
 
         assertTrue(store.updateStatus("t", OneShotTransfer.Status.Cancelled, end))
@@ -101,7 +102,7 @@ class OneShotTransfersStoreImplTest {
 
     @Test
     fun `only final statuses stamp an end`() = runTest {
-        store.insert(transfer("t", direction = OneShotTransfer.Direction.Outgoing))
+        store.insert(transfer("t", direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Media)))
 
         store.updateStatus("t", OneShotTransfer.Status.Active, Instant.fromEpochMilliseconds(5_000))
 
@@ -112,7 +113,7 @@ class OneShotTransfersStoreImplTest {
     fun `accept takes only a pending incoming transfer`() = runTest {
         val destination = SourceLocation.Internal("inbox")
         store.insert(transfer("in"))
-        store.insert(transfer("out", direction = OneShotTransfer.Direction.Outgoing))
+        store.insert(transfer("out", direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Media)))
         store.insert(transfer("cancelled"))
         store.updateStatus("cancelled", OneShotTransfer.Status.Cancelled, Instant.fromEpochMilliseconds(1))
 

@@ -6,7 +6,7 @@ data class OneShotTransferFile(
     /** Display name the sender reported. Never a path to write to as is. */
     val name: String,
     val size: Long,
-    /** Outgoing: what the sender reads. Incoming: where it is written; null until created. */
+    /** Outgoing: what the sender reads in the transfer's origin. Incoming: where it is written; null until created. */
     val locator: String?,
     /** `[0, committedBytes)` is flushed on the receiving side. */
     val committedBytes: Long = 0,

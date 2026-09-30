@@ -1,6 +1,9 @@
 package com.fserver.core.oneshot.impl
 
+import com.fserver.common.exception.TransferException
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.scan.ScannedContent
+import com.fserver.core.oneshot.model.OneShotTransferFile
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.OneShotFileDto
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -11,17 +14,16 @@ import com.fserver.core.support.peerIdentity
 import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.files.FilesNode
 import com.fserver.common.model.FileSize
-import com.fserver.common.task.progressTask
 import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
-import com.fserver.files.fs.scan.FoundFile
 import io.mockk.every
 import kotlin.time.Instant
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -44,6 +46,7 @@ class OneShotExchangeTest {
     private val node = mockk<FilesNode>()
     private val sender = mockk<OneShotSender>(relaxed = true)
     private val staging = mockk<OneShotStaging>(relaxed = true)
+    private val outbox = mockk<OneShotOutbox>(relaxed = true)
     private val background = TestScope()
 
     private val ownerSession = FakePeerSession(identity = peerIdentity(OwnerId))
@@ -54,6 +57,7 @@ class OneShotExchangeTest {
         peers = peers,
         sender = sender,
         staging = staging,
+        outbox = outbox,
         timeProvider = clock,
         backgroundScope = background,
     )
@@ -61,27 +65,48 @@ class OneShotExchangeTest {
     @Before
     fun setUp() {
         coEvery { peers.connectToDevice(any<String>()) } returns ownerSession
-        // What a scan of the shared uris reports: the provider's names and sizes.
-        every { node.openSource(any()) } answers {
-            val shared = firstArg<FileSystemSource.Shared>()
-            mockk<FileSystem> {
-                every { scan() } returns progressTask {
-                    shared.uris.map { FoundFile(path = "photo.jpg", locator = it, size = FileSize(10), lastModified = Instant.DISTANT_PAST) }
-                }
-            }
+        // The origin still holds every file but a gone one.
+        every { node.openSource(any<FileSystemSource>()) } returns mockk<FileSystem> {
+            coEvery { openFile(any()) } answers { if (firstArg<String>() == GoneLocator) null else mockk() }
         }
     }
 
     @Test
     fun `a new transfer is recorded and offered with what the files are`() = runTest {
-        val transfer = exchange.create(OwnerId, listOf("content://a/1", "content://a/2"))
+        val transfer = exchange.create(OwnerId, Origin, listOf(scanned("DCIM/photo.jpg", "/1"), scanned("a.txt", "/2")))
         background.advanceUntilIdle()
 
-        assertEquals(OneShotTransfer.Status.Pending, storage.oneShotTransfers.find(transfer.id)?.status)
+        val recorded = storage.oneShotTransfers.find(transfer.id)!!
+        assertEquals(OneShotTransfer.Status.Pending, recorded.status)
+        assertEquals(OneShotTransfer.Direction.Outgoing(Origin), recorded.direction)
+        assertEquals(listOf("/1", "/2"), recorded.files.map { it.locator })
+
         val offer = ownerSession.sent.single() as FileServerMessages.OneShot.Offer
         assertEquals(transfer.id, offer.transferId)
         assertEquals(listOf(0, 1), offer.files.map { it.index })
         assertEquals("photo.jpg", offer.files.first().name)
+    }
+
+    @Test
+    fun `a file already gone fails the transfer before it is recorded`() = runTest {
+        assertThrows(TransferException.FileNotFoundException::class.java) {
+            runBlocking { exchange.create(OwnerId, Origin, listOf(scanned("a.txt", "/1"), scanned("b.txt", GoneLocator))) }
+        }
+        assertTrue(storage.oneShotTransfers.unfinished().isEmpty())
+    }
+
+    @Test
+    fun `shared files are sent from their copies in the outbox`() = runTest {
+        coEvery { outbox.fill(any(), listOf("content://a/1")) } answers {
+            listOf(OneShotTransferFile(index = 0, name = "photo.jpg", size = 10, locator = "copy"))
+        }
+
+        val transfer = exchange.createShared(OwnerId, listOf("content://a/1"))
+
+        val recorded = storage.oneShotTransfers.find(transfer.id)!!
+        assertEquals(OneShotTransfer.Direction.Outgoing(OneShotOutbox.Location), recorded.direction)
+        assertEquals("copy", recorded.files.single().locator)
+        coVerify { outbox.fill(transfer.id, any()) }
     }
 
     @Test
@@ -178,7 +203,7 @@ class OneShotExchangeTest {
 
         exchange.onOffer(peerIdentity(OwnerId), offer())
 
-        assertEquals(OneShotTransfer.Direction.Outgoing, storage.oneShotTransfers.find(TransferId)!!.direction)
+        assertEquals(OneShotTransfer.Direction.Outgoing(Origin), storage.oneShotTransfers.find(TransferId)!!.direction)
     }
 
     @Test
@@ -202,6 +227,7 @@ class OneShotExchangeTest {
 
         assertEquals(OneShotTransfer.Status.Cancelled, storage.oneShotTransfers.find(TransferId)!!.status)
         coVerify { sender.stop(TransferId) }
+        coVerify { outbox.release(match { it.id == TransferId }) }
         assertTrue(ownerSession.sent.single() is FileServerMessages.OneShot.Cancel)
     }
 
@@ -216,6 +242,14 @@ class OneShotExchangeTest {
         verify { sender.start("active") }
     }
 
+    private fun scanned(path: String, locator: String) = ScannedContent.File(
+        path = path,
+        directory = path.substringBeforeLast('/', missingDelimiterValue = ""),
+        locator = locator,
+        size = FileSize(10),
+        lastModified = Instant.DISTANT_PAST,
+    )
+
     private fun offer(files: List<OneShotFileDto> = listOf(dto(0))) =
         FileServerMessages.OneShot.Offer(TransferId, senderName = "Owner", files = files)
 
@@ -226,10 +260,10 @@ class OneShotExchangeTest {
         OneShotTransfer(
             id = id,
             peer = OneShotTransfer.Peer(OwnerId, "Owner"),
-            direction = OneShotTransfer.Direction.Outgoing,
+            direction = OneShotTransfer.Direction.Outgoing(Origin),
             status = status,
             files = listOf(
-                com.fserver.core.oneshot.model.OneShotTransferFile(
+                OneShotTransferFile(
                     index = 0, name = "photo.jpg", size = 10, locator = "content://a/1",
                 ),
             ),
@@ -237,6 +271,8 @@ class OneShotExchangeTest {
         )
 
     private companion object {
+        val Origin = SourceLocation.Media
+        const val GoneLocator = "/gone"
         const val OwnerId = "device-owner"
         const val StrangerId = "device-stranger"
         const val TransferId = "transfer-1"

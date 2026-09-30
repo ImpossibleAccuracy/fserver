@@ -3,6 +3,8 @@ package com.fserver.core.files.gc
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.scan.toFiles
+import com.fserver.core.oneshot.impl.OneShotOutbox
 import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
 import com.fserver.core.oneshot.model.OneShotTransfer
 import com.fserver.core.store.FServerStorage
@@ -56,6 +58,7 @@ internal class GarbageCollector(
         collectStaleUploads(now)
         collectOrphanStagedFiles(now)
         collectOneShotStaging()
+        collectOneShotOutbox(now)
         collectExpiredFetches(now)
     }
 
@@ -108,6 +111,28 @@ internal class GarbageCollector(
 
             Timber.i("Dropping staging of finished transfer $transferId")
             openOrNull(file.locator)?.delete()
+        }
+    }
+
+    /** Drops outbox copies of transfers that ended, or were never recorded. */
+    private suspend fun collectOneShotOutbox(now: Instant) {
+        val outbox = node.openSource(OneShotOutbox.Location.toFiles())
+        val unfinished = storage.oneShotTransfers.unfinished().mapTo(HashSet()) { it.id }
+
+        for (file in outbox.scan().result().getOrThrow()) {
+            val transferId = OneShotOutbox.transferIdOf(file.path)
+
+            val keep = when {
+                transferId == null -> false
+                transferId in unfinished -> true
+                storage.oneShotTransfers.find(transferId) != null -> false
+                // No row yet: a transfer between copying its files and recording itself.
+                else -> now - file.lastModified < OrphanGrace
+            }
+            if (keep) continue
+
+            Timber.i("Dropping outbox copy ${file.path}")
+            runCatchingCancellable { outbox.openFile(file.locator)?.delete() }
         }
     }
 

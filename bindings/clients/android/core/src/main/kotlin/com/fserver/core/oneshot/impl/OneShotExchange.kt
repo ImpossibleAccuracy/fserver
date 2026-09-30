@@ -1,8 +1,12 @@
 package com.fserver.core.oneshot.impl
 
+import com.fserver.common.exception.TransferException
+import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.files.scan.ScannedContent
+import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.OneShotFileDto
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -10,7 +14,6 @@ import com.fserver.core.oneshot.model.OneShotTransferFile
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
-import com.fserver.files.fs.FileSystemSource
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.net.security.identity.PeerIdentity
@@ -20,7 +23,7 @@ import java.util.UUID
 
 /**
  * Setting a one-shot transfer up and tearing it down, both sides: offer, answer, cancel. Bytes are
- * [OneShotSender]'s and `OneShotUploadHandler`'s.
+ * [OneShotSender]'s and `OneShotUploadTarget`'s.
  *
  * Every message names a peer-chosen transfer id, so each is checked against the peer the transfer
  * was recorded with before it changes anything - a device may only touch its own transfers.
@@ -31,40 +34,75 @@ internal class OneShotExchange(
     private val peers: PeerConnector,
     private val sender: OneShotSender,
     private val staging: OneShotStaging,
+    private val outbox: OneShotOutbox,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
 ) {
     private val store get() = storage.oneShotTransfers
 
-    /** Records an outgoing transfer of the shared [locators] and offers it to [deviceId]. */
-    suspend fun create(deviceId: String, locators: List<String>): OneShotTransfer {
-        require(locators.isNotEmpty()) { "Nothing to send" }
-        require(locators.size <= MaxFiles) { "At most $MaxFiles files per transfer" }
+    /**
+     * Records an outgoing transfer of [files], all found in [origin], and offers it to [deviceId].
+     * Fails on any file already gone: better now, in front of the user, than mid-transfer.
+     */
+    suspend fun create(
+        deviceId: String,
+        origin: SourceLocation.Persistable,
+        files: List<ScannedContent.File>,
+    ): OneShotTransfer {
+        requireSendable(files.map { it.locator })
 
-        require(locators.toSet().size == locators.size) { "The same file twice" }
+        val fs = node.openSource(origin.toFiles())
+        for (file in files) {
+            fs.openFile(file.locator) ?: throw TransferException.FileNotFoundException("${file.path} is gone")
+        }
 
-        // Fails on any uri already unreadable: better now, in front of the user, than mid-transfer.
-        val found = node.openSource(FileSystemSource.Shared(locators)).scan().result().getOrThrow()
-
-        val files = found.mapIndexed { index, file ->
+        val transferFiles = files.mapIndexed { index, file ->
             OneShotTransferFile(
                 index = index,
-                name = file.path,
+                name = file.path.substringAfterLast('/'),
                 size = file.size.bytes,
                 locator = file.locator,
             )
         }
 
+        return record(IdGenerator.nextId, deviceId, origin, transferFiles)
+    }
+
+    /** [create] for the `content://` [uris] another app shared, sent from copies in [OneShotOutbox]. */
+    suspend fun createShared(deviceId: String, uris: List<String>): OneShotTransfer {
+        requireSendable(uris)
+
+        val id = IdGenerator.nextId
+        val files = outbox.fill(id, uris)
+
+        return record(id, deviceId, OneShotOutbox.Location, files)
+    }
+
+    private fun requireSendable(locators: List<String>) {
+        require(locators.isNotEmpty()) { "Nothing to send" }
+        require(locators.size <= MaxFiles) { "At most $MaxFiles files per transfer" }
+        require(locators.toSet().size == locators.size) { "The same file twice" }
+    }
+
+    private suspend fun record(
+        id: String,
+        deviceId: String,
+        origin: SourceLocation.Persistable,
+        files: List<OneShotTransferFile>,
+    ): OneShotTransfer {
         val transfer = OneShotTransfer(
-            id = UUID.randomUUID().toString(),
+            id = id,
             peer = OneShotTransfer.Peer(deviceId = deviceId, displayName = peerName(deviceId)),
-            direction = OneShotTransfer.Direction.Outgoing,
+            direction = OneShotTransfer.Direction.Outgoing(origin),
             status = OneShotTransfer.Status.Pending,
             files = files,
             createdAt = timeProvider.now(),
         )
 
-        check(store.insert(transfer)) { "Transfer id ${transfer.id} is taken" }
+        if (!store.insert(transfer)) {
+            outbox.release(transfer)
+            error("Transfer id $id is taken")
+        }
 
         // Best effort: the peer may be away, and the offer goes again when it is back.
         backgroundScope.launch { offer(transfer) }
@@ -78,7 +116,7 @@ internal class OneShotExchange(
      */
     suspend fun resume(deviceId: String? = null) {
         val outgoing = store.unfinished().filter {
-            it.direction == OneShotTransfer.Direction.Outgoing &&
+            it.direction is OneShotTransfer.Direction.Outgoing &&
                     (deviceId == null || it.peer.deviceId == deviceId)
         }
 
@@ -97,7 +135,7 @@ internal class OneShotExchange(
 
         if (existing != null) {
             if (existing.peer.deviceId != peer.deviceId ||
-                existing.direction == OneShotTransfer.Direction.Outgoing
+                existing.direction is OneShotTransfer.Direction.Outgoing
             ) {
                 Timber.w("Device ${peer.deviceId} offered transfer ${message.transferId}, which is not its to offer")
                 return
@@ -169,7 +207,7 @@ internal class OneShotExchange(
     /** Sends an accepted outgoing transfer again, after the link or the peer failed it. */
     suspend fun retry(transferId: String) {
         val transfer = store.find(transferId) ?: throw IllegalArgumentException("No transfer $transferId")
-        require(transfer.direction == OneShotTransfer.Direction.Outgoing) { "Only the sender drives a transfer" }
+        require(transfer.direction is OneShotTransfer.Direction.Outgoing) { "Only the sender drives a transfer" }
 
         when (transfer.status) {
             OneShotTransfer.Status.Pending -> offer(transfer)
@@ -184,6 +222,7 @@ internal class OneShotExchange(
 
         if (!message.accepted) {
             store.updateStatus(transfer.id, OneShotTransfer.Status.Declined, timeProvider.now())
+            outbox.release(transfer)
             return
         }
 
@@ -208,7 +247,10 @@ internal class OneShotExchange(
 
     private suspend fun stopLocally(transfer: OneShotTransfer) {
         when (transfer.direction) {
-            OneShotTransfer.Direction.Outgoing -> sender.stop(transfer.id)
+            is OneShotTransfer.Direction.Outgoing -> {
+                sender.stop(transfer.id)
+                outbox.release(transfer)
+            }
             // Its uploads live in the peer's session and stop at their next request, which is
             // answered Stopped; what they staged goes now.
             is OneShotTransfer.Direction.Incoming -> staging.discard(transfer.id)
@@ -253,7 +295,7 @@ internal class OneShotExchange(
         val transfer = store.find(transferId)
 
         if (transfer == null ||
-            transfer.direction != OneShotTransfer.Direction.Outgoing ||
+            transfer.direction !is OneShotTransfer.Direction.Outgoing ||
             transfer.peer.deviceId != peer.deviceId
         ) {
             Timber.w("Device ${peer.deviceId} answered for transfer $transferId, which is not its to answer")

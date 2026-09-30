@@ -19,7 +19,7 @@ import com.fserver.core.storage.database.OneShotTransfer as DBOneShotTransfer
 import com.fserver.core.storage.database.OneShotTransferFile as DBOneShotTransferFile
 
 /**
- * `transfer` + `transferFile` rows, with an incoming destination in `attribute` rows through
+ * `transfer` + `transferFile` rows, with the transfer's location in `attribute` rows through
  * [SourceRecords]. "Finished is final" is enforced in the SQL, so a race between a cancel and the
  * engine's last write cannot resurrect a transfer.
  */
@@ -53,14 +53,17 @@ internal class OneShotTransfersStoreImpl(
         load(dao.selectUnfinished().executeAsList())
 
     override suspend fun insert(transfer: OneShotTransfer): Boolean = database.transactionWithResult {
-        val destination = (transfer.direction as? OneShotTransfer.Direction.Incoming)?.destination
+        val location = when (val direction = transfer.direction) {
+            is OneShotTransfer.Direction.Outgoing -> direction.origin
+            is OneShotTransfer.Direction.Incoming -> direction.destination
+        }
 
         val inserted = dao.insert(
             id = transfer.id,
             peerDeviceId = transfer.peer.deviceId,
             peerName = transfer.peer.displayName,
             direction = OneShotTransferRecords.discriminatorOf(transfer.direction),
-            destination = destination?.let { SourceRecords.discriminatorOf(it) },
+            location = location?.let { SourceRecords.discriminatorOf(it) },
             status = OneShotTransferRecords.discriminatorOf(transfer.status),
             failureReason = (transfer.status as? OneShotTransfer.Status.Failed)?.reason,
             createdAtEpochMs = transfer.createdAt.toEpochMilliseconds(),
@@ -69,7 +72,7 @@ internal class OneShotTransfersStoreImpl(
 
         if (!inserted) return@transactionWithResult false
 
-        destination?.let { writeDestination(transfer.id, it) }
+        location?.let { writeLocation(transfer.id, it) }
 
         for (file in transfer.files) {
             dao.insertFile(
@@ -105,7 +108,7 @@ internal class OneShotTransfersStoreImpl(
             id = id,
         ).value > 0
 
-        if (accepted) writeDestination(id, destination)
+        if (accepted) writeLocation(id, destination)
 
         accepted
     }
@@ -135,10 +138,10 @@ internal class OneShotTransfersStoreImpl(
         dao.deleteAllFinished()
     }
 
-    private fun writeDestination(id: String, destination: SourceLocation.Hostable) {
+    private fun writeLocation(id: String, location: SourceLocation.Persistable) {
         attributeDao.deleteByOwnerId(owner = SourceRecords.OwnerOneShotTransfer, ownerId = id)
 
-        for (attribute in SourceRecords.locationAttributesOf(destination)) {
+        for (attribute in SourceRecords.locationAttributesOf(location)) {
             attributeDao.insert(
                 owner = SourceRecords.OwnerOneShotTransfer,
                 ownerId = id,

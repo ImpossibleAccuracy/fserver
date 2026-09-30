@@ -1,6 +1,7 @@
 package com.fserver.core.oneshot.impl
 
 import com.fserver.common.exception.FileSystemException
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -15,6 +16,7 @@ import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.transfer.FilePusher
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.files.fs.FileSystem
+import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FsFile
 import kotlinx.coroutines.flow.first
 import com.fserver.files.fs.FsWriter
@@ -55,15 +57,15 @@ class OneShotSenderTest {
 
     private val progress = SyncProgressReporter(clock)
     private val pusher = FilePusher(progress)
-    private val sender = OneShotSender(storage, node, peers, pusher, clock, background)
+    private val sender = OneShotSender(storage, node, peers, pusher, OneShotOutbox(node), clock, background)
 
     init {
         coEvery { peers.connectToDevice(PeerId) } returns session
     }
 
-    /** The shared uris, as the Shared backend would open them. */
+    /** The transfer's origin, holding [file]. */
     private fun shares(file: FsFile) {
-        every { node.openSource(any()) } returns mockk<FileSystem> {
+        every { node.openSource(any<FileSystemSource>()) } returns mockk<FileSystem> {
             coEvery { openFile(any()) } returns file
         }
     }
@@ -161,7 +163,7 @@ class OneShotSenderTest {
     private fun active() = OneShotTransfer(
         id = TransferId,
         peer = OneShotTransfer.Peer(PeerId, "Peer"),
-        direction = OneShotTransfer.Direction.Outgoing,
+        direction = OneShotTransfer.Direction.Outgoing(SourceLocation.Media),
         status = OneShotTransfer.Status.Active,
         files = listOf(
             OneShotTransferFile(index = 0, name = "a.bin", size = Content.size.toLong(), locator = "content://a/1"),

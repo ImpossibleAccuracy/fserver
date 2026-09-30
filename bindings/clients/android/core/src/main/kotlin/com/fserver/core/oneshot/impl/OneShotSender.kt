@@ -5,6 +5,7 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -14,7 +15,6 @@ import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.sync.transfer.FilePusher
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
-import com.fserver.files.fs.FileSystemSource
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -34,6 +34,7 @@ internal class OneShotSender(
     private val node: FilesNode,
     private val peers: PeerConnector,
     private val pusher: FilePusher,
+    private val outbox: OneShotOutbox,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
 ) {
@@ -60,11 +61,11 @@ internal class OneShotSender(
 
     private suspend fun send(transferId: String) {
         val transfer = store.find(transferId) ?: return
-        if (transfer.direction != OneShotTransfer.Direction.Outgoing) return
+        val direction = transfer.direction as? OneShotTransfer.Direction.Outgoing ?: return
         if (transfer.status != OneShotTransfer.Status.Active) return
 
         val session = peers.connectToDevice(transfer.peer.deviceId)
-        val fs = node.openSource(FileSystemSource.Shared(transfer.files.mapNotNull { it.locator }))
+        val fs = node.openSource(direction.origin.toFiles())
 
         for (file in transfer.files.filter { it.status == OneShotTransferFile.Status.Pending }) {
             val key = UploadKey.OneShot(transferId, file.index)
@@ -83,9 +84,10 @@ internal class OneShotSender(
             } catch (e: TransferException.UploadStoppedException) {
                 Timber.i("Device ${transfer.peer.deviceId} stopped transfer $transferId: ${e.message}")
                 store.updateStatus(transferId, OneShotTransfer.Status.Failed(e.message.orEmpty()), timeProvider.now())
+                outbox.release(transfer)
                 return
             } catch (e: FileSystemException) {
-                // The grant on the shared uri is gone, or the file is: nothing to retry with.
+                // The file is gone from the origin: nothing to retry with.
                 val reason = e.message ?: "Cannot read the file anymore"
                 pusher.abandon(session, key, reason)
                 OneShotTransferFile.Status.Failed(reason)
@@ -105,5 +107,6 @@ internal class OneShotSender(
 
         val settled = store.find(transferId)?.let { settledStatus(it.files) } ?: return
         store.updateStatus(transferId, settled, timeProvider.now())
+        outbox.release(transfer)
     }
 }

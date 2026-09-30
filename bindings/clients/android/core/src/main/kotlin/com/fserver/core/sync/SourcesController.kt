@@ -1,6 +1,7 @@
 package com.fserver.core.sync
 
 import com.fserver.common.exception.SyncException
+import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
@@ -109,7 +110,7 @@ class SourcesController internal constructor(
         ensureNoDuplicate(syncMode, location)
 
         val source = SourceEntry(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.nextId,
             deviceId = deviceId,
             location = location,
             syncMode = syncMode,

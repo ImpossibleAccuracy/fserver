@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
+import com.fserver.common.utils.IdGenerator
 import timber.log.Timber
 import java.util.UUID
 
@@ -22,7 +23,7 @@ class BackgroundPlayback(private val context: Context) {
     fun newSession(player: Player): MediaSession {
         val builder = MediaSession.Builder(context, player)
             // Unique: the closing viewer's session outlives the next one's creation by an animation.
-            .setId(UUID.randomUUID().toString())
+            .setId(IdGenerator.nextId)
         context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
             builder.setSessionActivity(
                 PendingIntent.getActivity(context, 0, launch, PendingIntent.FLAG_IMMUTABLE),

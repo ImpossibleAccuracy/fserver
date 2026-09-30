@@ -44,7 +44,7 @@ import java.security.MessageDigest
  * through, over a real destination and staging directory. The
  * transfer id, the index, the name, the offsets and the hash all come from the peer.
  */
-class UploadTargetTest {
+class OneShotUploadTargetTest {
 
     @get:Rule
     val temp = TemporaryFolder()

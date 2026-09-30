@@ -34,7 +34,8 @@ data class OneShotTransfer(
     data class Peer(val deviceId: String, val displayName: String)
 
     sealed interface Direction {
-        data object Outgoing : Direction
+        /** Every file's locator is in [origin]: one source per transfer. */
+        data class Outgoing(val origin: SourceLocation.Persistable) : Direction
 
         /** [destination] is null until this device's user accepts. */
         data class Incoming(val destination: SourceLocation.Hostable?) : Direction

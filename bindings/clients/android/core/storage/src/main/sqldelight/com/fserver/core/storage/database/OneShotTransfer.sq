@@ -1,5 +1,5 @@
--- One-shot transfers (outside any source), both directions. An incoming one's destination is split the way a source's
--- location is: discriminator here, fields in `attribute` under the 'transfer' owner.
+-- One-shot transfers (outside any source), both directions. Their location - an outgoing one's origin, an incoming
+-- one's destination - is split the way a source's is: discriminator here, fields in `attribute` under the 'transfer' owner.
 --
 -- Rows in 'Pending' or 'Active' are unfinished; every other status is final, and the updates below
 -- refuse to move a row out of one.
@@ -10,8 +10,8 @@ CREATE TABLE oneShotTransfer (
     peerName          TEXT    NOT NULL,
     -- Outgoing | Incoming
     direction         TEXT    NOT NULL,
-    -- Tree | Directory | Internal. Null while an incoming transfer is unanswered, always for outgoing.
-    destination       TEXT,
+    -- Outgoing: where its files are read from. Incoming: where they are written, null while unanswered.
+    location          TEXT,
     -- Pending | Active | Completed | Declined | Cancelled | Failed
     status            TEXT    NOT NULL,
     failureReason     TEXT,
@@ -68,7 +68,7 @@ ORDER BY transferId, position;
 
 insert:
 INSERT OR IGNORE INTO oneShotTransfer(
-    id, peerDeviceId, peerName, direction, destination, status, failureReason,
+    id, peerDeviceId, peerName, direction, location, status, failureReason,
     createdAtEpochMs, finishedAtEpochMs
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -86,7 +86,7 @@ WHERE id = :id AND status IN ('Pending', 'Active');
 
 accept:
 UPDATE oneShotTransfer
-SET status = 'Active', destination = :destination
+SET status = 'Active', location = :destination
 WHERE id = :id AND direction = 'Incoming' AND status = 'Pending';
 
 updateFile:

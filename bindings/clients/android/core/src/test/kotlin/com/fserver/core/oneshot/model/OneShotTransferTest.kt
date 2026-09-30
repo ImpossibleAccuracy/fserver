@@ -20,13 +20,13 @@ class OneShotTransferTest {
             transfer(OneShotTransfer.Direction.Incoming(null), status)
         }
         transfer(OneShotTransfer.Direction.Incoming(SourceLocation.Internal("inbox")), OneShotTransfer.Status.Active)
-        transfer(OneShotTransfer.Direction.Outgoing, OneShotTransfer.Status.Completed)
+        transfer(OneShotTransfer.Direction.Outgoing(SourceLocation.Media), OneShotTransfer.Status.Completed)
     }
 
     @Test
     fun `file indices are unique`() {
         assertThrows(IllegalArgumentException::class.java) {
-            transfer(OneShotTransfer.Direction.Outgoing, OneShotTransfer.Status.Pending, files = listOf(file(0), file(0)))
+            transfer(OneShotTransfer.Direction.Outgoing(SourceLocation.Media), OneShotTransfer.Status.Pending, files = listOf(file(0), file(0)))
         }
     }
 

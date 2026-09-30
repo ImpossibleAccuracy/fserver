@@ -23,7 +23,7 @@ internal object OneShotTransferRecords {
     private const val Failed = "Failed"
 
     fun discriminatorOf(direction: OneShotTransfer.Direction): String = when (direction) {
-        OneShotTransfer.Direction.Outgoing -> Outgoing
+        is OneShotTransfer.Direction.Outgoing -> Outgoing
         is OneShotTransfer.Direction.Incoming -> Incoming
     }
 
@@ -51,9 +51,12 @@ internal object OneShotTransferRecords {
         id = row.id,
         peer = OneShotTransfer.Peer(deviceId = row.peerDeviceId, displayName = row.peerName),
         direction = when (row.direction) {
-            Outgoing -> OneShotTransfer.Direction.Outgoing
+            Outgoing -> OneShotTransfer.Direction.Outgoing(
+                origin = locationOf(row.id, requireNotNull(row.location) { "outgoing without origin" }, attributes),
+            )
+
             Incoming -> OneShotTransfer.Direction.Incoming(
-                destination = row.destination?.let { destinationOf(row.id, it, attributes) },
+                destination = row.location?.let { destinationOf(row.id, it, attributes) },
             )
 
             else -> error("unknown direction '${row.direction}'")
@@ -72,16 +75,21 @@ internal object OneShotTransferRecords {
         finishedAt = row.finishedAtEpochMs?.let(Instant::fromEpochMilliseconds),
     )
 
+    private fun locationOf(
+        id: String,
+        discriminator: String,
+        attributes: SourceRecords.Reader,
+    ): SourceLocation.Persistable =
+        SourceRecords.locationOf(id, discriminator, attributes)
+            ?: error("location '$discriminator' is unreadable")
+
     private fun destinationOf(
         id: String,
         discriminator: String,
         attributes: SourceRecords.Reader,
-    ): SourceLocation.Hostable {
-        val location = SourceRecords.locationOf(id, discriminator, attributes)
-
-        return location as? SourceLocation.Hostable
-            ?: error("destination '$discriminator' is unreadable or not hostable")
-    }
+    ): SourceLocation.Hostable =
+        locationOf(id, discriminator, attributes) as? SourceLocation.Hostable
+            ?: error("destination '$discriminator' is not hostable")
 
     private fun fileOf(row: DBOneShotTransferFile) = OneShotTransferFile(
         index = row.position.toInt(),
