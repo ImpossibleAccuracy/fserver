@@ -5,6 +5,8 @@ import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FileSystemEntryPoint
+import com.fserver.files.fs.ReadableFileSystem
+import com.fserver.files.fs.ReadableSource
 import com.fserver.files.fs.impl.local.DirectoryFileSystem
 import java.io.File
 
@@ -32,6 +34,8 @@ class FilesNode private constructor(
         get() = DirectoryFileSystem.internalRoot(context)
 
     fun openSource(source: FileSystemSource): FileSystem = fileSystem.open(source)
+
+    fun openSource(source: ReadableSource): ReadableFileSystem = fileSystem.open(source)
 
     /**
      * App-private scratch space for bytes on their way into a source. It is cache: the system may

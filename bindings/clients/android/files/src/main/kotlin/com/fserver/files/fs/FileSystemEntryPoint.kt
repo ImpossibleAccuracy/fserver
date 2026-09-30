@@ -12,13 +12,18 @@ import com.fserver.files.fs.impl.tree.TreeFileSystem
 import java.io.File
 
 /**
- * Binds a [FileSystemSource] to the backend that can serve it — the only place that knows which kinds
+ * Binds a [ReadableSource] to the backend that can serve it — the only place that knows which kinds
  * exist. Adding a kind is a new [FileSystem] impl plus a branch here; the operations on
  * [FileSystem] stay branch-free.
  */
 internal class FileSystemEntryPoint(
     private val context: Context,
 ) {
+    fun open(source: ReadableSource): ReadableFileSystem = when (source) {
+        is FileSystemSource -> open(source)
+        is ReadableSource.Shared -> SharedFileSystem(context, source.uris)
+    }
+
     fun open(source: FileSystemSource): FileSystem = when (source) {
         is FileSystemSource.Root -> RootFileSystem(source)
         is FileSystemSource.Tree -> TreeFileSystem(context, source)
@@ -32,8 +37,6 @@ internal class FileSystemEntryPoint(
         } else {
             LegacyMediaFileSystem(context)
         }
-
-        is FileSystemSource.Shared -> SharedFileSystem(context, source.uris)
 
         // Same split: MediaStore.Downloads arrived with scoped storage.
         is FileSystemSource.Downloads -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

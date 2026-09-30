@@ -8,12 +8,12 @@ import com.fserver.files.fs.scan.ScanProgress
 import com.fserver.files.fs.scan.ScanTree
 
 /**
- * One [FileSystemSource] opened for work. The source is bound here, so callers pass paths and
- * locators only and never learn which backend serves them.
+ * One [ReadableSource] opened for reading. The source is bound here, so callers pass locators
+ * only and never learn which backend serves them.
  *
  * Get one from [FileSystemEntryPoint.open].
  */
-interface FileSystem {
+interface ReadableFileSystem {
     /** Walk the source, reporting files as they turn up. */
     fun scan(): ProgressTask<ScanProgress, List<FoundFile>>
 
@@ -24,15 +24,18 @@ interface FileSystem {
     fun scanTree(): ProgressTask<ScanProgress, ScanTree> =
         scan().map(progressMapper = { it }, resultMapper = { ScanTree(it, emptyList()) })
 
-    /** True when a file exists at [path], same shape as [createFile] takes - and refuses. */
-    suspend fun fileExists(path: String): Boolean
-
     /**
      * The file at [locator], or null when there is none.
      *
      * @throws FileSystemException.InvalidPath when [locator] is outside this source, or names something that is not a file.
      */
     suspend fun openFile(locator: String): FsFile?
+}
+
+/** One [FileSystemSource] opened for work: a [ReadableFileSystem] that also takes files in. */
+interface FileSystem : ReadableFileSystem {
+    /** True when a file exists at [path], same shape as [createFile] takes - and refuses. */
+    suspend fun fileExists(path: String): Boolean
 
     /**
      * Create a file at [path].

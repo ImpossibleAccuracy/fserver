@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import com.fserver.common.exception.FileSystemException
-import com.fserver.files.fs.impl.BytesFile
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -66,8 +65,6 @@ class SharedFileSystemTest {
         assertEquals(Content.toList(), file.read().use { it.readBytes() }.toList())
         assertFalse(file.delete())
         assertTrue(runCatching { file.rename("x") }.exceptionOrNull() is FileSystemException.RenameRejected)
-        assertTrue(runCatching { fs.createFile("x") }.exceptionOrNull() is FileSystemException.InvalidPath)
-        assertTrue(runCatching { fs.place(BytesFile("x"), "x") }.exceptionOrNull() is FileSystemException.InvalidPath)
     }
 
     private fun fs(vararg uris: String) = SharedFileSystem(context, uris.toList())

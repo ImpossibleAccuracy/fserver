@@ -1,6 +1,17 @@
 package com.fserver.files.fs
 
-sealed interface FileSystemSource {
+/** Where files can be read from. Only its [FileSystemSource] kind takes files in as well. */
+sealed interface ReadableSource {
+    /**
+     * Files other apps handed over by `content://` uri - a share sheet, a picker. Read-only, and
+     * readable only while the grant that came with each uri lasts: for a share sheet, until the
+     * receiving task is gone. A scan reports each under its display name, which may repeat.
+     */
+    data class Shared(val uris: List<String>) : ReadableSource
+}
+
+/** A [ReadableSource] that also takes files in - see [FileSystem]. */
+sealed interface FileSystemSource : ReadableSource {
     /** Whole storage volumes. Counterpart to [Tree], which is scoped to one directory. */
     data class Root(val volumes: List<Volume>) : FileSystemSource {
         init {
@@ -35,13 +46,6 @@ sealed interface FileSystemSource {
             requireSingleSegment(directory)
         }
     }
-
-    /**
-     * Files other apps handed over by `content://` uri - a share sheet, a picker. Read-only, and
-     * readable only while the grant that came with each uri lasts: for a share sheet, until the
-     * receiving task is gone. A scan reports each under its display name, which may repeat.
-     */
-    data class Shared(val uris: List<String>) : FileSystemSource
 
     /**
      * App-private storage, scoped to one [bucket] directory under it.

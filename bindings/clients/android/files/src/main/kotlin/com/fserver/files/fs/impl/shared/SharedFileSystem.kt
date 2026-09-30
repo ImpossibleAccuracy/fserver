@@ -9,9 +9,9 @@ import androidx.core.net.toUri
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.task.ProgressTask
-import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.ReadableFileSystem
 import com.fserver.files.fs.impl.readProviderFile
 import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.scan.ScanProgress
@@ -24,13 +24,13 @@ import java.io.InputStream
 import kotlin.time.Instant
 
 /**
- * The `content://` uris another app shared - see [com.fserver.files.fs.FileSystemSource.Shared].
+ * The `content://` uris another app shared - see [com.fserver.files.fs.ReadableSource.Shared].
  * Only those uris open, and nothing here writes: the files belong to whoever shared them.
  */
 internal class SharedFileSystem(
     private val context: Context,
     uris: List<String>,
-) : FileSystem {
+) : ReadableFileSystem {
     private val uris: Set<String> = uris.toSet()
 
     init {
@@ -48,18 +48,10 @@ internal class SharedFileSystem(
         }
     }
 
-    override suspend fun fileExists(path: String): Boolean = false
-
     override suspend fun openFile(locator: String): FsFile? {
         if (locator !in uris) throw FileSystemException.InvalidPath(locator)
         return SharedFile(context, locator.toUri())
     }
-
-    override suspend fun createFile(path: String): FsFile = throw FileSystemException.InvalidPath(path)
-
-    override suspend fun checkPath(path: String) = throw FileSystemException.InvalidPath(path)
-
-    override suspend fun place(file: FsFile, path: String): FsFile = throw FileSystemException.InvalidPath(path)
 
     private fun describe(locator: String): FoundFile {
         val uri = locator.toUri()
