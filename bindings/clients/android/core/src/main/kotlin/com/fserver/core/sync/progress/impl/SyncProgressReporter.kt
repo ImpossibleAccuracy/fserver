@@ -3,10 +3,12 @@ package com.fserver.core.sync.progress.impl
 import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.FileTransferKey
 import com.fserver.core.sync.progress.IndexingProgress
+import com.fserver.core.sync.progress.OneShotFileTransfer
 import com.fserver.core.sync.progress.SourcePass
 import com.fserver.core.sync.progress.SyncFailureReason
 import com.fserver.core.sync.progress.SyncProgressRepository
 import com.fserver.core.sync.progress.toSyncFailure
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileAction
 import kotlinx.coroutines.flow.Flow
@@ -22,12 +24,40 @@ internal class SyncProgressReporter(
     timeProvider: TimeProvider,
 ) : SyncProgressRepository {
     private val passState = PassTracker(timeProvider)
-    private val transferState = TransferTracker(timeProvider)
+    private val transferState = TransferTracker<FileTransferKey, FileTransfer>(timeProvider) { key, entry ->
+        FileTransfer(
+            key = key,
+            path = entry.path,
+            totalBytes = entry.totalBytes,
+            transferredBytes = entry.transferredBytes,
+            state = entry.state,
+            startedAt = entry.startedAt,
+            updatedAt = entry.updatedAt,
+        )
+    }
+    private val oneShotState = TransferTracker<OneShotKey, OneShotFileTransfer>(timeProvider) { key, entry ->
+        OneShotFileTransfer(
+            transferId = key.transferId,
+            index = key.index,
+            direction = key.direction,
+            name = entry.path,
+            totalBytes = entry.totalBytes,
+            transferredBytes = entry.transferredBytes,
+            state = entry.state,
+            startedAt = entry.startedAt,
+            updatedAt = entry.updatedAt,
+        )
+    }
     private val indexingState = IndexingTracker(timeProvider)
 
     override val passes: Flow<List<SourcePass>> get() = passState.passes
 
     override val transfers: Flow<List<FileTransfer>> get() = transferState.transfers
+
+    override val oneShotTransfers: Flow<List<OneShotFileTransfer>> get() = oneShotState.transfers
+
+    override fun oneShot(transferId: String): Flow<List<OneShotFileTransfer>> =
+        oneShotState.transfers { it.transferId == transferId }
 
     override fun pass(sourceId: String): Flow<SourcePass?> = passState.pass(sourceId)
 
@@ -36,6 +66,7 @@ internal class SyncProgressReporter(
     override fun clearFinished() {
         passState.clearFinished()
         transferState.clearFinished()
+        oneShotState.clearFinished()
         indexingState.clearFinished()
     }
 
@@ -136,18 +167,42 @@ internal class SyncProgressReporter(
         failure: SyncFailureReason? = null,
     ) = passState.remoteFinished(sourceId, stage, failure)
 
-    fun transferStarted(key: FileTransferKey, path: String, totalBytes: Long) =
-        transferState.started(key, path, totalBytes)
+    // One upload, whichever kind of key it moves under: a source's file or a one-shot's.
 
-    fun transferAdvanced(key: FileTransferKey, transferredBytes: Long) =
-        transferState.advanced(key, transferredBytes)
+    fun uploadStarted(direction: FileTransfer.Direction, key: UploadKey, path: String, totalBytes: Long) =
+        when (key) {
+            is UploadKey.Source -> transferState.started(key.toTransferKey(direction), path, totalBytes)
+            is UploadKey.OneShot -> oneShotState.started(key.toOneShotKey(direction), path, totalBytes)
+        }
 
-    fun transferCompleted(key: FileTransferKey) = transferState.completed(key)
+    fun uploadAdvanced(direction: FileTransfer.Direction, key: UploadKey, transferredBytes: Long) = when (key) {
+        is UploadKey.Source -> transferState.advanced(key.toTransferKey(direction), transferredBytes)
+        is UploadKey.OneShot -> oneShotState.advanced(key.toOneShotKey(direction), transferredBytes)
+    }
 
-    fun transferFailed(key: FileTransferKey, failure: Throwable?) = transferState.failed(key, failure)
+    fun uploadCompleted(direction: FileTransfer.Direction, key: UploadKey) = when (key) {
+        is UploadKey.Source -> transferState.completed(key.toTransferKey(direction))
+        is UploadKey.OneShot -> oneShotState.completed(key.toOneShotKey(direction))
+    }
 
-    /** The receiver declined the file for its limits: no bytes moved, so it is dropped rather than failed. */
-    fun transferSkipped(key: FileTransferKey) = transferState.skipped(key)
+    fun uploadFailed(direction: FileTransfer.Direction, key: UploadKey, failure: Throwable?) = when (key) {
+        is UploadKey.Source -> transferState.failed(key.toTransferKey(direction), failure)
+        is UploadKey.OneShot -> oneShotState.failed(key.toOneShotKey(direction), failure)
+    }
+
+    /** No bytes moved - the receiver declined it, or the sender gave it up - so it is dropped, not failed. */
+    fun uploadSkipped(direction: FileTransfer.Direction, key: UploadKey) = when (key) {
+        is UploadKey.Source -> transferState.skipped(key.toTransferKey(direction))
+        is UploadKey.OneShot -> oneShotState.skipped(key.toOneShotKey(direction))
+    }
+
+    private data class OneShotKey(val direction: FileTransfer.Direction, val transferId: String, val index: Int)
+
+    private fun UploadKey.Source.toTransferKey(direction: FileTransfer.Direction) =
+        FileTransferKey(direction, sourceId, fileId)
+
+    private fun UploadKey.OneShot.toOneShotKey(direction: FileTransfer.Direction) =
+        OneShotKey(direction, transferId, index)
 
     private fun transferKey(sourceId: String, action: FileAction): FileTransferKey? = when (action) {
         is FileAction.Upload -> FileTransferKey.outgoing(sourceId, action.id.value)

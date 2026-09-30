@@ -87,7 +87,6 @@ internal object OneShotTransferRecords {
         index = row.position.toInt(),
         name = row.name,
         size = row.size,
-        mimeType = row.mimeType,
         locator = row.locator,
         committedBytes = row.committedBytes,
         status = when (row.status) {

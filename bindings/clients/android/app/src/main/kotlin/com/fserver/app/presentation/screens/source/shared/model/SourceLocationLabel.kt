@@ -13,6 +13,7 @@ import com.fserver.core.files.SourceLocation
 fun SourceLocation.readablePath(): String? = when (this) {
     is SourceLocation.Tree -> SourcePaths.readable(path)
     is SourceLocation.Directory -> SourcePaths.readable(path)
+    is SourceLocation.Downloads -> "/Download/$directory"
     is SourceLocation.Internal,
     is SourceLocation.Root,
     SourceLocation.Media -> null

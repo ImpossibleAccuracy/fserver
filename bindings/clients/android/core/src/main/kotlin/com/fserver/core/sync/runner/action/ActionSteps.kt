@@ -10,7 +10,7 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.remote.PeerConnector
 import com.fserver.core.sync.remote.PeerFileOperations
 import com.fserver.core.sync.transfer.FileDownloader
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
 
@@ -21,13 +21,13 @@ internal class ActionSteps(
     private val connector: PeerConnector,
     private val indexWriter: LocalIndexWriter,
     private val peerFiles: PeerFileOperations,
-    private val fileUploader: FileUploader,
+    private val sourceUploader: SourceUploader,
     private val fileDownloader: FileDownloader,
     private val fileDeleter: FileDeleter,
 ) {
     /** @return hash of the bytes sent */
     suspend fun upload(source: SourceEntry, file: FileRecord, version: FileVersion?): ContentHash =
-        fileUploader.uploadFile(
+        sourceUploader.uploadFile(
             file = file,
             version = version,
             source = source,

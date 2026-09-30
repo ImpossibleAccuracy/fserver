@@ -3,11 +3,8 @@ package com.fserver.core.sync.server.handler.upload
 import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.StageTimer
 import com.fserver.common.utils.runCatchingCancellable
-import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
-import com.fserver.files.fs.FileSystem
-import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CoroutineScope
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
@@ -21,42 +18,39 @@ import kotlin.time.Instant
  */
 internal class SessionUploads(
     private val scope: CoroutineScope,
-    private val staging: UploadStaging,
     private val progress: SyncProgressReporter,
 ) {
-    val inFlight: MutableMap<IndexedFileKey, UploadContext> = ConcurrentHashMap()
+    val inFlight: MutableMap<UploadKey, UploadContext> = ConcurrentHashMap()
 
     /** One buffer for the whole session, so a peer cannot multiply it by opening more uploads. */
     val buffered = AtomicInteger(0)
 
     val collector = StageTimer("session-collector")
 
-    /** Begins an upload, or resumes the one [file] has staged. */
-    suspend fun start(
-        source: SourceEntry,
-        file: FileRecord,
-        deviceId: String,
-        fs: FileSystem,
-        startedAt: Instant,
-    ): UploadContext {
-        val key = IndexedFileKey(fileId = file.id.value, sourceId = source.id)
-
+    /**
+     * Makes room for [key] before its target opens staging: refused past [MaxConcurrentUploads],
+     * and a second Init for the same file parks the first attempt, so the target recalls it like any other.
+     */
+    suspend fun reserve(key: UploadKey) {
         if (!inFlight.containsKey(key) && inFlight.size >= MaxConcurrentUploads) {
             throw TransferException.TooManyUploadsException(MaxConcurrentUploads)
         }
 
-        // A second Init for the same file: park the first attempt, then recall it like any other.
         inFlight.remove(key)?.let { park(it) }
+    }
 
-        val opened = staging.open(key, deviceId, file)
-
+    /** Begins an upload into what its target [staged], resuming from what that holds. */
+    suspend fun start(
+        key: UploadKey,
+        staged: UploadTarget.Opening.Staged,
+        startedAt: Instant,
+    ): UploadContext {
         val started = UploadContext(
-            file = file,
             key = key,
-            fs = fs,
-            staging = opened.file,
-            out = opened.file.openWriter(),
-            committed = opened.committed,
+            landing = staged.landing,
+            staging = staged.staging,
+            out = staged.staging.openWriter(),
+            committed = staged.committed,
             startedAt = startedAt,
             buffered = buffered,
             progress = progress,
@@ -91,8 +85,8 @@ internal class SessionUploads(
         val flushed = runCatchingCancellable { upload.flush() }
         upload.close()
 
-        flushed.mapCatching { staging.checkpoint(upload.key, it) }
-            .onFailure { Timber.w(it, "Cannot checkpoint the upload of ${upload.file.path}") }
+        flushed.mapCatching { upload.landing.checkpoint(it) }
+            .onFailure { Timber.w(it, "Cannot checkpoint the upload of ${upload.landing.path}") }
     }
 
     companion object {

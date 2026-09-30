@@ -19,13 +19,15 @@ internal fun SourceLocation.Persistable.toOriginPath(
 ): String? = when (this) {
     is SourceLocation.Tree -> SourcePaths.readable(path).trim('/')
     is SourceLocation.Directory -> path.relativeToVolume(volumes)
+    is SourceLocation.Downloads -> "Download/$directory"
     is SourceLocation.Internal,
     SourceLocation.Media -> null
 }
 
 internal fun SourceLocation.Persistable.storageKind(): PeerSourceMetadata.StorageKind = when (this) {
     is SourceLocation.Tree,
-    is SourceLocation.Directory -> PeerSourceMetadata.StorageKind.Folder
+    is SourceLocation.Directory,
+    is SourceLocation.Downloads -> PeerSourceMetadata.StorageKind.Folder
     is SourceLocation.Internal -> PeerSourceMetadata.StorageKind.AppStorage
     SourceLocation.Media -> PeerSourceMetadata.StorageKind.Media
 }

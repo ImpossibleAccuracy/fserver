@@ -178,6 +178,8 @@ private fun TransferException.toAppError(): AppError = when (this) {
     is TransferException.TooManyUploadsException,
     is TransferException.PendingChunksOverflowException,
         -> AppError(UiText.of(R.string.error_transfer_busy))
+
+    is TransferException.UploadStoppedException -> AppError(UiText.of(R.string.error_transfer_stopped))
 }
 
 private fun FileSystemException.toAppError(): AppError = when (this) {

@@ -41,11 +41,13 @@ import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.SyncRequestHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
+import com.fserver.core.sync.server.handler.upload.source.SourceUploadTarget
 import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.setup.SourceSetupExchange
 import com.fserver.core.sync.transfer.FileDownloader
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.FilePusher
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.core.sync.version.HybridLogicalClock
 import org.koin.core.module.dsl.singleOf
@@ -85,11 +87,13 @@ internal val syncModule = module {
     singleOf(::SyncRequestHandler)
     singleOf(::FileOperationHandler)
     singleOf(::FileUploadHandler)
+    singleOf(::SourceUploadTarget)
     singleOf(::UploadAdmission)
     singleOf(::UploadStaging)
 
     // Moving bytes, and changing files in place, for either half.
-    singleOf(::FileUploader)
+    singleOf(::FilePusher)
+    singleOf(::SourceUploader)
     singleOf(::FileDownloader)
     singleOf(::RequestedDownloads)
     single { FileEvictor(get(), get(), get(), get<FServerConfig>().evictionPreviewer) }

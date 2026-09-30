@@ -20,7 +20,6 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.remote.PeerFileOperations
 import com.fserver.core.sync.transfer.FileDownloader
-import com.fserver.core.sync.transfer.FileUploader
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
@@ -59,7 +58,7 @@ class FileActionRunnerConflictTest {
         connector = mockk(relaxed = true),
         indexWriter = writer,
         peerFiles = peerFiles,
-        fileUploader = mockk(relaxed = true),
+        sourceUploader = mockk(relaxed = true),
         fileDownloader = downloader,
         fileDeleter = FileDeleter(storage, node, writer),
     )

@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server.handler.upload
 
 import com.fserver.common.exception.SyncException
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.sync.FileIndexStore
 import com.fserver.core.sync.index.IndexedFileKey
@@ -37,9 +38,10 @@ internal class UploadAdmission(
         val budget = FileBudget(limits, storage.index.presentUsage(source.id))
 
         // At most MaxConcurrentUploads of them, so a lookup each is cheap.
-        uploads.inFlight.values
-            .filter { it.key.sourceId == source.id && it.key != key }
-            .forEach { budget.admit(it.key, it.file.metadata.size) }
+        for (upload in uploads.inFlight.values) {
+            val other = (upload.key as? UploadKey.Source)?.toIndexed() ?: continue
+            if (other.sourceId == source.id && other != key) budget.admit(other, upload.landing.size)
+        }
 
         return budget.admit(key, file.metadata.size)
     }

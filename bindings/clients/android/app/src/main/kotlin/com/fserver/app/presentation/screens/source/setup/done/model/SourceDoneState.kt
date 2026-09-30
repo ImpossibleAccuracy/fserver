@@ -84,7 +84,8 @@ data class SourceDoneState(
 
             SourceLocation.Media -> UiText.Resource(R.string.source_summary_location_media)
             is SourceLocation.Tree,
-            is SourceLocation.Directory -> readablePath()?.let(UiText::Text)
+            is SourceLocation.Directory,
+            is SourceLocation.Downloads -> readablePath()?.let(UiText::Text)
 
             is SourceLocation.Root -> null
         }

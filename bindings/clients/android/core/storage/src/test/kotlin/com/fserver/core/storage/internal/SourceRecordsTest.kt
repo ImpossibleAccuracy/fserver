@@ -23,6 +23,7 @@ class SourceRecordsTest {
             SourceLocation.Media,
             SourceLocation.Directory("/storage/emulated/0/Pictures"),
             SourceLocation.Internal("inbox"),
+            SourceLocation.Downloads("FServer"),
         )
 
         val modes = listOf(

@@ -17,7 +17,7 @@ import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.model.acceptsPeerWrites
 import com.fserver.core.sync.model.peerDrivesSync
 import com.fserver.core.sync.server.SourceAuthorizer
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
 
@@ -28,7 +28,7 @@ internal class FileOperationHandler(
     private val localHasher: LocalFileHasher,
     private val indexWriter: LocalIndexWriter,
     private val fileDeleter: FileDeleter,
-    private val fileUploader: FileUploader,
+    private val sourceUploader: SourceUploader,
     private val fileMover: FileMover,
 ) {
     suspend fun handle(
@@ -89,7 +89,7 @@ internal class FileOperationHandler(
                 // for it, which is not necessarily the one the source normally syncs over.
                 val record = file.toFileRecord()
 
-                fileUploader.uploadFile(
+                sourceUploader.uploadFile(
                     file = record,
                     version = operation.version?.toFiles() ?: record.metadata.version,
                     source = source,

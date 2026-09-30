@@ -10,6 +10,8 @@ import com.fserver.core.network.auth.PairingCodes
 import com.fserver.core.network.device.DeviceReachability
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.info.NetworkInfoRepository
+import com.fserver.core.oneshot.OneShotTransfersController
+import com.fserver.core.oneshot.impl.OneShotExchange
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
@@ -19,6 +21,9 @@ import com.fserver.core.sync.server.handler.upload.UploadStaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import com.fserver.common.utils.runCatchingCancellable
+import timber.log.Timber
 import kotlinx.coroutines.runBlocking
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
@@ -95,6 +100,12 @@ class FServerCore private constructor(
     val conflicts: ConflictsController by lazy { koin.get() }
 
     /**
+     * Sending files to a device once, outside any source, and answering what devices send here.
+     * The history is `OneShotTransfersRepository`'s.
+     */
+    val oneShotTransfers: OneShotTransfersController by lazy { koin.get() }
+
+    /**
      * Starts answering what peers ask of this device - index requests, transfers, deletes.
      *
      * Refuses while the OS is withholding what a listener needs, so the host can put the fix in
@@ -150,6 +161,12 @@ class FServerCore private constructor(
 
             // Uploads a previous process left staged and nobody came back for.
             koin.get<GarbageCollector>().collectGarbageAsync()
+
+            // Offers and sends a previous process did not get to finish.
+            config.backgroundScope.launch {
+                runCatchingCancellable { koin.get<OneShotExchange>().resume() }
+                    .onFailure { Timber.w(it, "Could not resume one-shot transfers") }
+            }
 
             return FServerCore(
                 koin = koin,

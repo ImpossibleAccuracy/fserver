@@ -7,6 +7,7 @@ import com.fserver.files.fs.impl.local.RootFileSystem
 import com.fserver.files.fs.impl.media.DownloadsFileSystem
 import com.fserver.files.fs.impl.media.LegacyMediaFileSystem
 import com.fserver.files.fs.impl.media.MediaFileSystem
+import com.fserver.files.fs.impl.shared.SharedFileSystem
 import com.fserver.files.fs.impl.tree.TreeFileSystem
 import java.io.File
 
@@ -31,6 +32,8 @@ internal class FileSystemEntryPoint(
         } else {
             LegacyMediaFileSystem(context)
         }
+
+        is FileSystemSource.Shared -> SharedFileSystem(context, source.uris)
 
         // Same split: MediaStore.Downloads arrived with scoped storage.
         is FileSystemSource.Downloads -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

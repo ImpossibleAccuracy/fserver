@@ -912,6 +912,7 @@
     <string name="error_file_missing">The file is no longer there.</string>
     <string name="error_transfer_corrupted">The file arrived damaged and was discarded.</string>
     <string name="error_transfer_busy">Too many transfers at once. Try again in a moment.</string>
+    <string name="error_transfer_stopped">The receiving device stopped the transfer.</string>
     <string name="error_path_invalid">That location cannot be used.</string>
     <string name="error_file_exists">A file with that name is already there.</string>
     <string name="error_file_create_failed">The file could not be created.</string>

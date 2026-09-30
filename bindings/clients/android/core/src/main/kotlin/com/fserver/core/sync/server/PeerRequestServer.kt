@@ -8,6 +8,7 @@ import com.fserver.core.network.TransportKind
 import com.fserver.core.network.device.impl.DevicesRepositoryImpl
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.RemoteOperation
+import com.fserver.core.oneshot.impl.OneShotExchange
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.lease.SyncLeaseRegistry
 import com.fserver.core.sync.server.handler.FetchFilesHandler
@@ -55,6 +56,7 @@ internal class PeerRequestServer(
     private val syncRequests: SyncRequestHandler,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
+    private val oneShot: OneShotExchange,
     private val devicesRepository: DevicesRepositoryImpl,
     private val requirementsChecker: RequirementsChecker,
     private val backgroundScope: BackgroundScope,
@@ -136,6 +138,12 @@ internal class PeerRequestServer(
             }
 
             devicesRepository.recordReached(session)
+
+            // A peer back online may be owed an offer or the rest of a transfer.
+            backgroundScope.launch {
+                runCatchingCancellable { oneShot.resume(peer.deviceId) }
+                    .onFailure { Timber.w(it, "Could not resume transfers to ${peer.deviceId}") }
+            }
 
             val job = backgroundScope.launch {
                 try {
@@ -255,6 +263,15 @@ internal class PeerRequestServer(
 
             is FileServerMessages.OperationWithConfirmation.Request ->
                 answer(event, message, session)
+
+            is FileServerMessages.OneShot.Offer ->
+                oneShot.onOffer(session.identity, message)
+
+            is FileServerMessages.OneShot.Decision ->
+                oneShot.onDecision(session.identity, message)
+
+            is FileServerMessages.OneShot.Cancel ->
+                oneShot.onCancel(session.identity, message)
         }
     }
 

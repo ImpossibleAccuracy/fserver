@@ -1,6 +1,7 @@
 package com.fserver.core.requirement.impl
 
 import android.Manifest
+import android.os.Build
 import android.annotation.SuppressLint
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.TransportKind
@@ -107,6 +108,15 @@ internal fun sourceRequirementRules(
     is SourceLocation.Tree -> RequirementRules()
 
     SourceLocation.Media -> RequirementRules(permissions = mediaPermissions(sdkInt))
+
+    // MediaStore.Downloads takes an app's own files unasked; before it, a plain file write did.
+    is SourceLocation.Downloads -> RequirementRules(
+        permissions = if (sdkInt < Build.VERSION_CODES.Q) {
+            listOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            emptyList()
+        },
+    )
 
     is SourceLocation.Root,
     is SourceLocation.Directory -> RequirementRules(

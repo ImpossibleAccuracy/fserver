@@ -5,6 +5,7 @@ import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.support.FakePeerSession
 import com.fserver.core.support.FakeRequirementsChecker
@@ -30,10 +31,12 @@ import com.fserver.core.sync.server.handler.PublishIndexHandler
 import com.fserver.core.sync.server.handler.SyncLeaseHandler
 import com.fserver.core.sync.server.handler.SyncRequestHandler
 import com.fserver.core.sync.server.handler.upload.FileUploadHandler
+import com.fserver.core.sync.server.handler.upload.source.SourceUploadTarget
 import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.setup.SourceSetupExchange
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.FilePusher
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
@@ -170,7 +173,7 @@ class PeerRequestServerTest {
 
         session.deliver(
             FileServerMessages.Upload.Init(
-                sourceId = SourceId,
+                key = UploadKey.Source(sourceId = SourceId, fileId = FileIdValue),
                 file = fileDto(id = FileIdValue, sourceId = SourceId, path = FileName, size = 100),
             ),
             replies.channel,
@@ -178,7 +181,7 @@ class PeerRequestServerTest {
         awaitReply(replies)
 
         session.deliver(
-            FileServerMessages.UploadChunk(SourceId, FileIdValue, 0, "half a file".toByteArray())
+            FileServerMessages.UploadChunk(UploadKey.Source(SourceId, FileIdValue), 0, "half a file".toByteArray())
         )
         val key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
         awaitTrue { File(temp.root, "staging/$SourceId/$FileIdValue/data").length() == 11L }
@@ -258,23 +261,27 @@ class PeerRequestServerTest {
                 localHasher = index.hasher,
                 indexWriter = index.writer,
                 fileDeleter = FileDeleter(storage, node, index.writer),
-                fileUploader = FileUploader(
+                sourceUploader = SourceUploader(
                 index.writer,
                 PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
                 node,
-                progress,
+                FilePusher(progress),
             ),
                 fileMover = FileMover(storage, node, index.writer),
             ),
             uploads = FileUploadHandler(
-                authorizer(),
-                UploadAdmission(storage, RequestedDownloads()),
-                index.writer,
-                node,
-                staging,
-                clock,
-                progress,
+                sources = SourceUploadTarget(
+                    authorizer(),
+                    UploadAdmission(storage, RequestedDownloads()),
+                    index.writer,
+                    node,
+                    staging,
+                ),
+                oneShots = mockk(relaxed = true),
+                timeProvider = clock,
+                progress = progress,
             ),
+            oneShot = mockk(relaxed = true),
             devicesRepository = mockk(relaxed = true),
             requirementsChecker = FakeRequirementsChecker(),
             backgroundScope = background,

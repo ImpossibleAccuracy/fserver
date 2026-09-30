@@ -24,7 +24,7 @@ import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.remote.PeerFileOperations
 import com.fserver.core.sync.transfer.FileDownloader
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
@@ -52,7 +52,7 @@ class FileActionRunnerGuardTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val node = FilesNode.create(ContextWrapper(null))
-    private val uploader = mockk<FileUploader>(relaxed = true)
+    private val uploader = mockk<SourceUploader>(relaxed = true)
     private val downloader = mockk<FileDownloader>(relaxed = true)
 
     private val writer = LocalIndex(storage, node, clock).writer
@@ -61,7 +61,7 @@ class FileActionRunnerGuardTest {
         connector = mockk(relaxed = true),
         indexWriter = writer,
         peerFiles = peerFiles,
-        fileUploader = uploader,
+        sourceUploader = uploader,
         fileDownloader = downloader,
         fileDeleter = FileDeleter(storage, node, writer),
     )

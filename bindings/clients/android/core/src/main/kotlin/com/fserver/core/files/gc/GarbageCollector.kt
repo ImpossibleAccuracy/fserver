@@ -3,6 +3,8 @@ package com.fserver.core.files.gc
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
+import com.fserver.core.oneshot.model.OneShotTransfer
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
@@ -53,6 +55,7 @@ internal class GarbageCollector(
         val now = timeProvider.now()
         collectStaleUploads(now)
         collectOrphanStagedFiles(now)
+        collectOneShotStaging()
         collectExpiredFetches(now)
     }
 
@@ -85,8 +88,26 @@ internal class GarbageCollector(
             // Young ones may be an upload between creating its file and writing its row.
             if (orphan.locator in known || now - orphan.lastModified < OrphanGrace) continue
 
+            // Owned by the transfer's record, not a staged-upload row: collectOneShotStaging's call.
+            if (OneShotStaging.transferIdOf(orphan.path) != null) continue
+
             Timber.i("Dropping orphan staged file ${orphan.path}")
             openOrNull(orphan.locator)?.delete()
+        }
+    }
+
+    /** Drops one-shot staging of any transfer that is no longer receiving. */
+    private suspend fun collectOneShotStaging() {
+        val receiving = storage.oneShotTransfers.unfinished()
+            .filter { it.direction is OneShotTransfer.Direction.Incoming && it.status == OneShotTransfer.Status.Active }
+            .mapTo(HashSet()) { it.id }
+
+        for (file in staging.scan().result().getOrThrow()) {
+            val transferId = OneShotStaging.transferIdOf(file.path) ?: continue
+            if (transferId in receiving) continue
+
+            Timber.i("Dropping staging of finished transfer $transferId")
+            openOrNull(file.locator)?.delete()
         }
     }
 

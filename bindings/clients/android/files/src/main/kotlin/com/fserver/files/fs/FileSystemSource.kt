@@ -37,6 +37,13 @@ sealed interface FileSystemSource {
     }
 
     /**
+     * Files other apps handed over by `content://` uri - a share sheet, a picker. Read-only, and
+     * readable only while the grant that came with each uri lasts: for a share sheet, until the
+     * receiving task is gone. A scan reports each under its display name, which may repeat.
+     */
+    data class Shared(val uris: List<String>) : FileSystemSource
+
+    /**
      * App-private storage, scoped to one [bucket] directory under it.
      *
      * One bucket per hosted source, so two peers storing a same-named file here stay apart.

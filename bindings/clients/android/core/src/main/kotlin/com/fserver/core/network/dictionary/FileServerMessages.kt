@@ -1,9 +1,10 @@
 package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.dto.FileRecordDto
+import com.fserver.core.network.dictionary.dto.OneShotFileDto
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
-import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.SyncFailureReason
 import kotlinx.serialization.Serializable
 
@@ -142,53 +143,71 @@ internal sealed interface FileServerMessages {
 
     /**
      * Pushes one file: [Init], then [UploadChunk]s, then [Complete], with [Status] between chunks.
+     * The same for every [UploadKey] - a file of a source, or of a one-shot transfer; only where the
+     * receiver puts it differs.
      *
      * The receiver stages the bytes and keeps them across a dropped session, so every request is
      * answered with [Received] - where to send from - and a sender resumes instead of restarting.
      */
     @Serializable
     sealed interface Upload : FileServerMessages {
-        val key: IndexedFileKey
+        val key: UploadKey
 
-        /** Opens the upload, or picks up the one this file already has staged. */
+        /**
+         * Opens the upload, or picks up the one this file already has staged. [file] describes it
+         * for a source; a one-shot file was described by its offer, and carries none.
+         */
         @Serializable
         data class Init(
-            val sourceId: String,
-            val file: FileRecordDto,
-        ) : Upload {
-            override val key: IndexedFileKey get() = IndexedFileKey(fileId = file.id, sourceId = sourceId)
-        }
+            override val key: UploadKey,
+            val file: FileRecordDto? = null,
+        ) : Upload
 
         /** Asks how far the receiver got. [Failed] means the upload is gone: [Init] it again. */
         @Serializable
-        data class Status(override val key: IndexedFileKey) : Upload
+        data class Status(override val key: UploadKey) : Upload
 
         /** All chunks sent. Answered [Completed], or [Received] when bytes are missing. */
         @Serializable
         data class Complete(
-            override val key: IndexedFileKey,
+            override val key: UploadKey,
             val hash: String,
             val algorithm: String,
+        ) : Upload
+
+        /** The sender gives up on this file - it cannot read it anymore. Answered [Completed]. */
+        @Serializable
+        data class Abandon(
+            override val key: UploadKey,
+            val reason: String,
         ) : Upload
 
         /** The receiver durably holds `[0, offset)`: the sender goes on from [offset]. */
         @Serializable
         data class Received(
-            override val key: IndexedFileKey,
+            override val key: UploadKey,
             val offset: Long,
         ) : Upload, Response
 
-        /** The file is in place and indexed. */
+        /** The file is in place - or, answering [Init], already was. */
         @Serializable
-        data class Completed(override val key: IndexedFileKey) : Upload, Response
+        data class Completed(override val key: UploadKey) : Upload, Response
 
         /** Answers [Init]: the receiver's own file limits have no room for this new file. Skip it, do not retry. */
         @Serializable
-        data class OverLimit(override val key: IndexedFileKey) : Upload, Response
+        data class OverLimit(override val key: UploadKey) : Upload, Response
 
+        /** This attempt failed: [Init] again. */
         @Serializable
         data class Failed(
-            override val key: IndexedFileKey,
+            override val key: UploadKey,
+            val reason: String,
+        ) : Upload, Response
+
+        /** Whatever the key belongs to takes nothing more - a one-shot transfer cancelled or settled. Stop. */
+        @Serializable
+        data class Stopped(
+            override val key: UploadKey,
             val reason: String,
         ) : Upload, Response
     }
@@ -200,11 +219,43 @@ internal sealed interface FileServerMessages {
      */
     @Serializable
     class UploadChunk(
-        val sourceId: String,
-        val fileId: String,
+        val key: UploadKey,
         val offset: Long,
         val bytes: ByteArray,
     ) : FileServerMessages
+
+    /**
+     * A one-shot transfer's setup, outside any source. Not request/[Response] pairs, same reason as
+     * [ConfigureSource]: the answer waits on the receiving user, and a cancel on either one.
+     */
+    @Serializable
+    sealed interface OneShot : FileServerMessages {
+        /**
+         * @property transferId chosen by the sender. Both sides hold the transfer under it.
+         * @property senderName for display only: unauthenticated, never identity.
+         */
+        @Serializable
+        data class Offer(
+            val transferId: String,
+            val senderName: String,
+            val files: List<OneShotFileDto>,
+        ) : OneShot
+
+        /** The receiving user's answer. Final either way. */
+        @Serializable
+        data class Decision(
+            val transferId: String,
+            val accepted: Boolean,
+            val reason: String? = null,
+        ) : OneShot
+
+        /** Either side stopped it. Final. */
+        @Serializable
+        data class Cancel(
+            val transferId: String,
+            val reason: String? = null,
+        ) : OneShot
+    }
 
     /** Runs [Request.instance] on the peer and reports back under [Request.operationId]. */
     @Serializable

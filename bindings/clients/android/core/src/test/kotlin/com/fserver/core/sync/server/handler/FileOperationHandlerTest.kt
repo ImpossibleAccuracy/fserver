@@ -28,7 +28,8 @@ import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.server.SourceAuthorizer
-import com.fserver.core.sync.transfer.FileUploader
+import com.fserver.core.sync.transfer.FilePusher
+import com.fserver.core.sync.transfer.SourceUploader
 import com.fserver.core.sync.version.HybridLogicalClock
 import com.fserver.files.FilesNode
 import io.mockk.mockk
@@ -80,11 +81,11 @@ class FileOperationHandlerTest {
             localHasher = index.hasher,
             indexWriter = index.writer,
             fileDeleter = FileDeleter(storage, node, index.writer),
-            fileUploader = FileUploader(
+            sourceUploader = SourceUploader(
                 index.writer,
                 PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
                 node,
-                progress,
+                FilePusher(progress),
             ),
             fileMover = FileMover(storage, node, index.writer),
         )

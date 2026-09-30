@@ -4,15 +4,13 @@ import com.fserver.common.exception.TransferException
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
 import com.fserver.core.network.dictionary.FileServerMessages
-import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.progress.FileTransferKey
+import com.fserver.core.network.dictionary.dto.UploadKey
+import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.transfer.ProgressiveHash
 import com.fserver.core.sync.transfer.skipExactly
-import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsWriter
-import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,10 +33,9 @@ import kotlin.time.Instant
  * session's buffer is refused, and the peer resends it.
  */
 internal class UploadContext(
-    val file: FileRecord,
-    val key: IndexedFileKey,
-    /** Where [file] goes once whole. */
-    val fs: FileSystem,
+    val key: UploadKey,
+    /** Where the file goes once whole, and what records it. */
+    val landing: UploadLanding,
     val staging: FsFile,
     /** Held open for the whole upload: one descriptor, not one per chunk. */
     private val out: FsWriter,
@@ -49,14 +46,11 @@ internal class UploadContext(
     private val progress: SyncProgressReporter,
     scope: CoroutineScope,
 ) {
-    /** Incoming whoever asked: a peer pushing to us, or a download this device requested. */
-    val transferKey: FileTransferKey = FileTransferKey.incoming(key.sourceId, key.fileId)
-
     /**
      * Where the receiving side's time goes: waiting for chunks or the disk. A dominant
      * `idle-waiting-for-chunk` means the sender or the link is the limit, not this device.
      */
-    private val timer = StageTimer("download ${file.id}")
+    private val timer = StageTimer("download $key")
 
     /** What the writer died of, if it did. Read by the collector, so kept visible to it. */
     @Volatile
@@ -76,7 +70,7 @@ internal class UploadContext(
         get() = synchronized(received) { received.prefix }
 
     val isWhole: Boolean
-        get() = prefix >= file.metadata.size
+        get() = prefix >= landing.size
 
     private val chunks = Channel<FileServerMessages.UploadChunk>(Channel.UNLIMITED)
 
@@ -149,7 +143,7 @@ internal class UploadContext(
     /** [stop], reported as a transfer that did not finish. */
     suspend fun close() {
         stop()
-        progress.transferFailed(transferKey, failure)
+        progress.uploadFailed(FileTransfer.Direction.Incoming, key, failure)
     }
 
     private suspend fun write() {
@@ -175,8 +169,8 @@ internal class UploadContext(
         val end = start + chunk.bytes.size
 
         // Bounded by what Init declared, or a peer picks how big a sparse file we make.
-        if (start < 0  || end > file.metadata.size) {
-            throw TransferException.ChunkOutOfBoundsException(start, chunk.bytes.size, file.metadata.size)
+        if (start < 0 || end > landing.size) {
+            throw TransferException.ChunkOutOfBoundsException(start, chunk.bytes.size, landing.size)
         }
 
         if (synchronized(received) { received.covers(start, end) }) {
@@ -193,7 +187,8 @@ internal class UploadContext(
 
         timer.time("hash") { advanceHash(chunk, contiguous) }
 
-        progress.transferAdvanced(transferKey, total)
+        // Incoming whoever asked: a peer pushing to us, or a download this device requested.
+        progress.uploadAdvanced(FileTransfer.Direction.Incoming, key, total)
 
         timer.count("bytes", chunk.bytes.size.toLong())
         timer.count("chunks")
@@ -219,7 +214,7 @@ internal class UploadContext(
                 val buffer = ByteArray(HashBufferSize)
                 while (digest.hashedTo < until) {
                     val read = input.read(buffer, 0, minOf(buffer.size.toLong(), until - digest.hashedTo).toInt())
-                    if (read == -1) throw TransferException.FileNotFoundException("Staged ${file.id} ends at ${digest.hashedTo}")
+                    if (read == -1) throw TransferException.FileNotFoundException("Staged $key ends at ${digest.hashedTo}")
 
                     digest.feed(digest.hashedTo, buffer, read)
                 }

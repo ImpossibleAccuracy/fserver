@@ -1,14 +1,15 @@
 package com.fserver.core.sync.server.handler.upload
 
 import com.fserver.common.exception.TransferException
+import com.fserver.common.model.ContentHash
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.dto.UploadKey
+import com.fserver.files.fs.FsFile
+import com.fserver.net.security.identity.PeerIdentity
 import com.fserver.core.support.InMemoryFileSystem
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
-import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
-import com.fserver.files.upload.FileId
-import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -192,29 +193,29 @@ class UploadContextTest {
     ): UploadContext {
         val staged = if (create) fs.createFile(Staging) else fs.openFile(Staging)!!
         return UploadContext(
-        file = FileRecord(
-            id = FileId(FileIdValue),
-            path = "dir/photo.jpg",
-            locator = null,
-            state = FileRecord.State.Present(),
-            content = null,
-            metadata = FileRecord.Metadata(size = size, lastModified = TestEpoch, version = null),
-        ),
-        key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId),
-        fs = fs,
-        staging = staged,
-        out = staged.openWriter(),
-        committed = committed,
-        startedAt = TestEpoch,
-        buffered = buffered,
-        progress = progress,
-        scope = scope,
-    )
+            key = UploadKey.Source(sourceId = SourceId, fileId = FileIdValue),
+            landing = SizedLanding(size),
+            staging = staged,
+            out = staged.openWriter(),
+            committed = committed,
+            startedAt = TestEpoch,
+            buffered = buffered,
+            progress = progress,
+            scope = scope,
+        )
+    }
+
+    /** Only the size matters to the writer; landing is the target's business. */
+    private class SizedLanding(override val size: Long) : UploadLanding {
+        override val path = "dir/photo.jpg"
+        override suspend fun ensureOpen(peer: PeerIdentity) = Unit
+        override suspend fun checkpoint(offset: Long) = Unit
+        override suspend fun place(staged: FsFile, hash: ContentHash) = Unit
+        override suspend fun discard(staged: FsFile) = Unit
     }
 
     private fun chunk(offset: Long, bytes: ByteArray) = FileServerMessages.UploadChunk(
-        sourceId = SourceId,
-        fileId = FileIdValue,
+        key = UploadKey.Source(sourceId = SourceId, fileId = FileIdValue),
         offset = offset,
         bytes = bytes,
     )

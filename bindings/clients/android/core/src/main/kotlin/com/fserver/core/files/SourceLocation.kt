@@ -61,6 +61,23 @@ sealed interface SourceLocation {
     }
 
     /**
+     * One [directory] under the public Downloads folder: where received files are easiest to find.
+     * Android 10+ writes it through MediaStore with no grant; older versions need the storage one.
+     */
+    data class Downloads(val directory: String) : Hostable {
+        init {
+            require(directory.isNotBlank() && directory.none { it == '/' || it == '\\' } &&
+                    directory != "." && directory != "..") {
+                "Downloads directory must be a single directory name: $directory"
+            }
+        }
+
+        override fun toString(): String {
+            return "Downloads(directory=$directory)"
+        }
+    }
+
+    /**
      * App-private storage, scoped to one [bucket] directory under it.
      * The default place a hosted source lands.
      *

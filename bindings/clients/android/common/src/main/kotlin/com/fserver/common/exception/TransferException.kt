@@ -16,6 +16,9 @@ sealed class TransferException(message: String, cause: Throwable? = null) :
     class PendingChunksOverflowException(occupiedBytes: Int, maxBytes: Int) :
         TransferException("Pending chunks overflow: occupied $occupiedBytes bytes, but max is $maxBytes bytes")
 
+    /** Whatever the upload belongs to takes nothing more - a one-shot transfer cancelled or settled. */
+    class UploadStoppedException(reason: String) : TransferException(reason)
+
     class ChunkOutOfBoundsException(offset: Long, length: Int, size: Long) :
         TransferException("Chunk [$offset, +$length) is outside the declared size $size")
 }

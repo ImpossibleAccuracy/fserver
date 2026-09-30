@@ -53,7 +53,6 @@ class OneShotTransferTest {
         index = index,
         name = "a.jpg",
         size = 10,
-        mimeType = null,
         locator = null,
         committedBytes = committed,
     )

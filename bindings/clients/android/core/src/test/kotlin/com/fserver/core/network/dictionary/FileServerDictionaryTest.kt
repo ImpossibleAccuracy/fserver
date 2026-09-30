@@ -1,6 +1,7 @@
 package com.fserver.core.network.dictionary
 
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
+import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
 import com.fserver.core.network.dictionary.dto.SyncModeDto
 import org.junit.Assert.assertArrayEquals
@@ -16,8 +17,7 @@ class FileServerDictionaryTest {
     @Test
     fun `a chunk survives the round trip through the dictionary`() {
         val chunk = FileServerMessages.UploadChunk(
-            sourceId = "5f7c0f2e-0e0a-4e5e-9a1d-3f9f2b1c4d55",
-            fileId = "a".repeat(64),
+            key = UploadKey.Source(sourceId = "5f7c0f2e-0e0a-4e5e-9a1d-3f9f2b1c4d55", fileId = "a".repeat(64)),
             offset = 4_294_967_296,
             bytes = Random(7).nextBytes(9_000),
         )
@@ -26,8 +26,7 @@ class FileServerDictionaryTest {
 
         assertTrue(decoded is FileServerMessages.UploadChunk)
         decoded as FileServerMessages.UploadChunk
-        assertEquals(chunk.sourceId, decoded.sourceId)
-        assertEquals(chunk.fileId, decoded.fileId)
+        assertEquals(chunk.key, decoded.key)
         assertEquals(chunk.offset, decoded.offset)
         assertArrayEquals(chunk.bytes, decoded.bytes)
     }
@@ -35,8 +34,7 @@ class FileServerDictionaryTest {
     @Test
     fun `an empty chunk survives the round trip`() {
         val chunk = FileServerMessages.UploadChunk(
-            sourceId = "source",
-            fileId = "file",
+            key = UploadKey.Source(sourceId = "source", fileId = "file"),
             offset = 0,
             bytes = ByteArray(0),
         )
@@ -69,15 +67,14 @@ class FileServerDictionaryTest {
 
         val encoded = codec.encode(
             FileServerMessages.UploadChunk(
-                sourceId = sourceId,
-                fileId = fileId,
+                key = UploadKey.Source(sourceId = sourceId, fileId = fileId),
                 offset = 17,
                 bytes = ByteArray(payload),
             )
         )
 
         assertEquals(
-            UploadChunkCodec.headerSize(sourceId, fileId) + payload,
+            UploadChunkCodec.headerSize(UploadKey.Source(sourceId, fileId)) + payload,
             encoded.size,
         )
     }

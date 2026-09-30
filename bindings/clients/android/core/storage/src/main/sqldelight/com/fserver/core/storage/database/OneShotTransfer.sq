@@ -24,7 +24,6 @@ CREATE TABLE oneShotTransferFile (
     position       INTEGER NOT NULL,
     name           TEXT    NOT NULL,
     size           INTEGER NOT NULL,
-    mimeType       TEXT,
     locator        TEXT,
     committedBytes INTEGER NOT NULL,
     -- Pending | Completed | Failed
@@ -76,9 +75,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertFile:
 INSERT INTO oneShotTransferFile(
-    transferId, position, name, size, mimeType, locator, committedBytes, status, failureReason
+    transferId, position, name, size, locator, committedBytes, status, failureReason
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 updateStatus:
 UPDATE oneShotTransfer

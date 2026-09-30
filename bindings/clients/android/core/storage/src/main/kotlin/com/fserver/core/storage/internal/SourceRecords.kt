@@ -40,6 +40,7 @@ internal object SourceRecords {
     private const val Media = "Media"
     private const val Directory = "Directory"
     private const val Internal = "Internal"
+    private const val Downloads = "Downloads"
 
     // Mode discriminators.
     private const val Mirror = "Mirror"
@@ -59,6 +60,7 @@ internal object SourceRecords {
     // Field names, by the type that owns them.
     private const val Path = "path"
     private const val Bucket = "bucket"
+    private const val DirectoryName = "directory"
     private const val IgnoreFilesBefore = "ignoreFilesBefore"
     private const val Policy = "policy"
     private const val PolicyDays = "policy.days"
@@ -81,6 +83,7 @@ internal object SourceRecords {
         SourceLocation.Media -> Media
         is SourceLocation.Directory -> Directory
         is SourceLocation.Internal -> Internal
+        is SourceLocation.Downloads -> Downloads
     }
 
     fun discriminatorOf(mode: SyncMode): String = when (mode) {
@@ -198,6 +201,7 @@ internal object SourceRecords {
             SourceLocation.Media -> Unit
             is SourceLocation.Directory -> put(Location, Path, location.path)
             is SourceLocation.Internal -> put(Location, Bucket, location.bucket)
+            is SourceLocation.Downloads -> put(Location, DirectoryName, location.directory)
         }
     }
 
@@ -267,6 +271,10 @@ internal object SourceRecords {
         Internal -> attributes.string(Location, Bucket)
             ?.let(SourceLocation::Internal)
             ?: missing(id, "location '$Internal' has no '$Bucket'")
+
+        Downloads -> attributes.string(Location, DirectoryName)
+            ?.let(SourceLocation::Downloads)
+            ?: missing(id, "location '$Downloads' has no '$DirectoryName'")
 
         else -> missing(id, "location '$discriminator' is not one this build knows")
     }

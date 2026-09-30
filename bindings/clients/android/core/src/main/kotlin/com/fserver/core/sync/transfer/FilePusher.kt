@@ -4,160 +4,139 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.exception.TransferException
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
-import com.fserver.core.files.scan.toFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.codec.UploadChunkCodec
-import com.fserver.core.network.dictionary.dto.ContentHashDto
-import com.fserver.core.network.dictionary.dto.toDto
-import com.fserver.core.sync.index.IndexedFileKey
-import com.fserver.core.sync.index.LocalIndexWriter
-import com.fserver.core.sync.model.SourceEntry
-import com.fserver.core.sync.progress.FileTransferKey
+import com.fserver.core.network.dictionary.dto.UploadKey
+import com.fserver.core.sync.progress.FileTransfer.Direction.Outgoing
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
-import com.fserver.core.sync.remote.PeerIndexFetcher
-import com.fserver.core.sync.transfer.FileUploader.Companion.MinChunkSize
-import com.fserver.files.FilesNode
+import com.fserver.core.sync.transfer.FilePusher.Companion.MinChunkSize
 import com.fserver.files.fs.FsFile
-import com.fserver.files.upload.FileRecord
-import com.fserver.files.upload.FileVersion
 import com.fserver.net.session.PeerSession
 import timber.log.Timber
 
 /**
- * Streams one local file to the peer: [Upload.Init], chunks, then [Upload.Complete] with the hash.
- * Used by a pass pushing a file, and by the server handing one back to the peer that asked.
+ * Streams one local file to the peer under an [UploadKey]: [Upload.Init], chunks, then
+ * [Upload.Complete] with the hash. Shared by [SourceUploader] and one-shot transfers.
  *
  * The receiver stages what arrives and answers every step with how far it got, so a dropped
- * upload resumes from there instead of starting over - within this call, and across passes.
+ * upload resumes from there instead of starting over - within this call, and across calls.
  */
-internal class FileUploader(
-    private val indexWriter: LocalIndexWriter,
-    private val remoteIndex: PeerIndexFetcher,
-    private val node: FilesNode,
+internal class FilePusher(
     private val progress: SyncProgressReporter,
 ) {
     /**
-     * Reported as one transfer whichever way it was asked for: a pass pushing the file, or a peer
-     * asking us to hand it back. Both are this device sending bytes.
+     * Streams [file] under [init]'s key: [Upload.Init], chunks, then [Upload.Complete] with the hash.
+     * Reported as one transfer whichever way it was asked for: a pass pushing the file, a peer asking
+     * us to hand it back, or a one-shot transfer. All are this device sending bytes.
      *
-     * @return hash of the bytes sent
+     * @param knownHash the file's hash when already known; computed on the way otherwise.
+     * @return hash of the bytes sent, or null when the receiver already held the whole file.
+     * @throws TransferException.UploadStoppedException when the receiver takes nothing more under
+     *   the key's owner - a one-shot transfer cancelled there.
      */
-    suspend fun uploadFile(
-        file: FileRecord,
-        version: FileVersion? = file.metadata.version,
-        source: SourceEntry,
+    suspend fun push(
         session: PeerSession<FileServerMessages>,
-    ): ContentHash {
-        val key = FileTransferKey.outgoing(source.id, file.id.value)
+        init: Upload.Init,
+        file: FsFile,
+        path: String,
+        size: Long,
+        knownHash: ContentHash?,
+    ): ContentHash? {
+        val key = init.key
 
         return try {
             stream(
-                file = file,
-                version = version,
-                source = source,
                 session = session,
-                key = key,
-            ).also { progress.transferCompleted(key) }
+                init = init,
+                file = file,
+                path = path,
+                size = size,
+                knownHash = knownHash
+            ).also {
+                if (it != null) progress.uploadCompleted(Outgoing, key) else progress.uploadSkipped(
+                    Outgoing,
+                    key
+                )
+            }
         } catch (e: SyncException.OverLimitException) {
-            progress.transferSkipped(key)
+            progress.uploadSkipped(Outgoing, key)
             throw e
         } catch (e: Throwable) {
-            progress.transferFailed(key, e)
+            progress.uploadFailed(Outgoing, key, e)
             throw e
         }
     }
 
+    /** Tells the receiver this device gives the file up - it cannot read it anymore. */
+    suspend fun abandon(session: PeerSession<FileServerMessages>, key: UploadKey, reason: String) {
+        session.ask(Upload.Abandon(key, reason))
+        progress.uploadSkipped(Outgoing, key)
+    }
+
     private suspend fun stream(
-        file: FileRecord,
-        version: FileVersion?,
-        source: SourceEntry,
         session: PeerSession<FileServerMessages>,
-        key: FileTransferKey,
-    ): ContentHash {
-        val locator = file.locator
-            ?: error("Cannot upload file ${file.id} because it has no locator")
+        init: Upload.Init,
+        file: FsFile,
+        path: String,
+        size: Long,
+        knownHash: ContentHash?,
+    ): ContentHash? {
+        val key = init.key
 
         // Instrumentation: a slow upload is disk, hashing, crypto or the socket, and the only way
         // to tell is to count. See StageTimer.enabled to take it back out.
-        val timer = StageTimer("upload ${file.id}")
+        val timer = StageTimer("upload $key")
 
-        val uploadKey = IndexedFileKey(fileId = file.id.value, sourceId = source.id)
-        val init = Upload.Init(
-            sourceId = source.id,
-            file = file.toDto(
-                sourceId = source.id,
-                version = version,
-            ),
-        )
-
-        val chunkSize = chunkSize(session, source.id, file.id.value)
+        val chunkSize = chunkSize(session, key)
         timer.count("chunkSize", chunkSize.toLong())
 
-        val fs = node.openSource(source.location.toFiles())
-        val opened = fs.openFile(locator)
-            ?: throw TransferException.FileNotFoundException("File ${file.id} is gone from $locator")
+        val digest = if (knownHash == null) ProgressiveHash() else null
 
-        val digest = if (file.content == null) ProgressiveHash() else null
-
-        var resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
-        progress.transferStarted(key, file.path, file.metadata.size)
+        var resumeFrom = timer.time("init-rtt") { session.ask(init).offset() } ?: return null
+        progress.uploadStarted(Outgoing, key, path, size)
 
         repeat(MaxAttempts) { attempt ->
             if (attempt > 0) {
                 timer.count("resumes")
-                Timber.i("Resuming upload of ${file.id} from $resumeFrom, attempt ${attempt + 1}")
+                Timber.i("Resuming upload of $key from $resumeFrom, attempt ${attempt + 1}")
             }
 
             val sent = sendFrom(
                 offset = resumeFrom,
-                file = opened,
-                uploadKey = uploadKey,
+                file = file,
+                key = key,
                 chunkSize = chunkSize,
                 digest = digest,
                 session = session,
-                key = key,
                 timer = timer,
             )
 
-            if (!sent) {
-                resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
-                return@repeat
-            }
+            if (sent) {
+                val hash = digest?.hash ?: knownHash!!
 
-            val hash = digest?.hash ?: file.content!!
-
-            val answer = timer.time("completed-rtt") {
-                session.ask(
-                    Upload.Complete(
-                        key = uploadKey,
-                        hash = hash.value,
-                        algorithm = hash.algorithm,
+                val answer = timer.time("completed-rtt") {
+                    session.ask(
+                        Upload.Complete(
+                            key = key,
+                            hash = hash.value,
+                            algorithm = hash.algorithm
+                        )
                     )
-                )
-            }
-
-            if (answer is Upload.Completed) {
-                Timber.i(timer.summary())
-
-                if (digest != null) {
-                    indexWriter.recordHash(source, file, hash)
                 }
 
-                remoteIndex.recordSent(
-                    source = source,
-                    file = init.file.copy(content = ContentHashDto(value = hash.value, algorithm = hash.algorithm)),
-                )
-
-                return hash
+                if (answer is Upload.Completed) {
+                    Timber.i(timer.summary())
+                    return hash
+                }
             }
 
-            // Bytes went missing on the way: the receiver parked what it has, so open it again.
-            resumeFrom = timer.time("init-rtt") { session.ask(init).offset() }
+            // Lost, or bytes went missing on the way: the receiver parked what it has, so open it again.
+            resumeFrom = timer.time("init-rtt") { session.ask(init).offset() } ?: return null
         }
 
         throw SyncException.RemoteRejectedException(
-            "Peer ${session.identity.deviceId} did not take ${file.id} in $MaxAttempts attempts"
+            "Peer ${session.identity.deviceId} did not take $key in $MaxAttempts attempts"
         )
     }
 
@@ -169,11 +148,10 @@ internal class FileUploader(
     private suspend fun sendFrom(
         offset: Long,
         file: FsFile,
-        uploadKey: IndexedFileKey,
+        key: UploadKey,
         chunkSize: Int,
         digest: ProgressiveHash?,
         session: PeerSession<FileServerMessages>,
-        key: FileTransferKey,
         timer: StageTimer,
     ): Boolean = file.read().use { stream ->
         val buffer = ByteArray(chunkSize)
@@ -208,8 +186,7 @@ internal class FileUploader(
             timer.time("send") {
                 session.send(
                     FileServerMessages.UploadChunk(
-                        sourceId = uploadKey.sourceId,
-                        fileId = uploadKey.fileId,
+                        key = key,
                         offset = position,
                         // Trimmed to what was read: the receiver takes the length from the frame.
                         bytes = chunk,
@@ -218,14 +195,14 @@ internal class FileUploader(
             }
 
             position += bytesRead
-            progress.transferAdvanced(key, position)
+            progress.uploadAdvanced(Outgoing, key, position)
 
             timer.count("bytes", bytesRead.toLong())
             timer.count("chunks")
 
             if (++sinceStatus == statusEvery) {
                 sinceStatus = 0
-                if (!timer.time("status-rtt") { session.status(uploadKey) }) return@use false
+                if (!timer.time("status-rtt") { session.status(key) }) return@use false
             }
         }
 
@@ -233,9 +210,11 @@ internal class FileUploader(
     }
 
     /** True while the receiver still has the upload open. Its answer is its checkpoint. */
-    private suspend fun PeerSession<FileServerMessages>.status(uploadKey: IndexedFileKey): Boolean =
+    private suspend fun PeerSession<FileServerMessages>.status(uploadKey: UploadKey): Boolean =
         when (val answer = request(Upload.Status(uploadKey)).getOrThrow()) {
             is Upload.Received -> true
+
+            is Upload.Stopped -> throw TransferException.UploadStoppedException(answer.reason)
 
             is Upload.Failed -> {
                 Timber.i("Peer ${identity.deviceId} lost upload $uploadKey: ${answer.reason}")
@@ -251,6 +230,8 @@ internal class FileUploader(
             is Upload.Failed -> throw SyncException.RemoteRejectedException(
                 "Peer ${identity.deviceId} refused ${message::class.simpleName} for ${message.key}: ${answer.reason}"
             )
+
+            is Upload.Stopped -> throw TransferException.UploadStoppedException(answer.reason)
 
             is Upload.OverLimit -> throw SyncException.OverLimitException(
                 "Peer ${identity.deviceId} has no room for ${message.key} under its file limits"
@@ -275,8 +256,12 @@ internal class FileUploader(
     }
 }
 
-private fun Upload.offset(): Long =
-    (this as? Upload.Received)?.offset ?: error("Expected Upload.Received, got $this")
+/** Where to send from, or null when the receiver already holds the whole file. */
+private fun Upload.offset(): Long? = when (this) {
+    is Upload.Received -> offset
+    is Upload.Completed -> null
+    else -> error("Expected Upload.Received, got $this")
+}
 
 /**
  * How many bytes of file go in one message, so that the message fills one frame and no more.
@@ -287,7 +272,6 @@ private fun Upload.offset(): Long =
  */
 private fun chunkSize(
     session: PeerSession<FileServerMessages>,
-    sourceId: String,
-    fileId: String,
-): Int = (session.maxPayloadSize - UploadChunkCodec.headerSize(sourceId, fileId))
+    key: UploadKey,
+): Int = (session.maxPayloadSize - UploadChunkCodec.headerSize(key))
     .coerceAtLeast(MinChunkSize)

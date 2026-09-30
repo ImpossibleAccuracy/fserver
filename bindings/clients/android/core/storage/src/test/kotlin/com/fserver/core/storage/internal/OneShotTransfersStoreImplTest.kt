@@ -38,6 +38,7 @@ class OneShotTransfersStoreImplTest {
             SourceLocation.Tree("content://tree/primary%3ADownload"),
             SourceLocation.Directory("/storage/emulated/0/Download"),
             SourceLocation.Internal("inbox"),
+            SourceLocation.Downloads("FServer"),
         )
 
         val transfers = listOf(
@@ -213,7 +214,6 @@ class OneShotTransfersStoreImplTest {
         index = index,
         name = name,
         size = 10,
-        mimeType = "image/jpeg",
         locator = locator,
         committedBytes = committed,
         status = status,

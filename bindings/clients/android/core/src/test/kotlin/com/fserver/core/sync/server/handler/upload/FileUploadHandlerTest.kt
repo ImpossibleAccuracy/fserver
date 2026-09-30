@@ -15,11 +15,17 @@ import com.fserver.core.support.indexedFile
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.network.dictionary.dto.FileRecordDto
+import com.fserver.core.network.dictionary.dto.UploadKey
+import com.fserver.core.network.dictionary.dto.toUploadKey
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.server.SessionContext
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
+import com.fserver.core.sync.server.handler.upload.oneshot.OneShotUploadTarget
+import com.fserver.core.sync.server.handler.upload.source.SourceUploadTarget
 import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.files.FilesNode
 import com.fserver.net.session.PeerSession
@@ -67,6 +73,7 @@ class FileUploadHandlerTest {
     private val stranger = FakePeerSession(identity = peerIdentity(StrangerId))
 
     private val key = IndexedFileKey(fileId = FileIdValue, sourceId = SourceId)
+    private val uploadKey = key.toUploadKey()
     private val requested = RequestedDownloads()
 
     @Before
@@ -77,11 +84,14 @@ class FileUploadHandlerTest {
         val node = FilesNode.create(ContextWrapper(null), stagingDir = stagingDir)
         staging = UploadStaging(storage, node, clock)
         handler = FileUploadHandler(
-            authorizer = SourceAuthorizer(storage),
-            admission = UploadAdmission(storage, requested),
-            indexWriter = LocalIndex(storage, node, clock).writer,
-            node = node,
-            staging = staging,
+            sources = SourceUploadTarget(
+                authorizer = SourceAuthorizer(storage),
+                admission = UploadAdmission(storage, requested),
+                indexWriter = LocalIndex(storage, node, clock).writer,
+                node = node,
+                staging = staging,
+            ),
+            oneShots = OneShotUploadTarget(storage, node, OneShotStaging(node), clock),
             timeProvider = clock,
             progress = progress,
         )
@@ -210,7 +220,7 @@ class FileUploadHandlerTest {
         handler.queueChunk(chunk("0123456789".toByteArray()), context)
         awaitStaged(10)
 
-        val status = ask(owner, Upload.Status(key))
+        val status = ask(owner, Upload.Status(uploadKey))
 
         assertEquals(10L, (status as Upload.Received).offset)
         assertEquals(10L, storage.uploads.find(key)?.committedOffset)
@@ -218,7 +228,7 @@ class FileUploadHandlerTest {
 
     @Test
     fun `status for an upload the receiver lost fails, so the sender inits again`() = runTest {
-        assertTrue(ask(owner, Upload.Status(key)) is Upload.Failed)
+        assertTrue(ask(owner, Upload.Status(uploadKey)) is Upload.Failed)
     }
 
     @Test
@@ -273,10 +283,7 @@ class FileUploadHandlerTest {
     fun `a file id that walks out of its staging directory is refused`() = runTest {
         val answer = ask(
             owner,
-            Upload.Init(
-                sourceId = SourceId,
-                file = fileDto(id = "../other-source/x", sourceId = SourceId, path = FilePath, size = 1),
-            ),
+            sourceInit(fileDto(id = "../other-source/x", sourceId = SourceId, path = FilePath, size = 1)),
         )
 
         assertTrue(answer is Upload.Failed)
@@ -339,10 +346,7 @@ class FileUploadHandlerTest {
             // owns. The row must land under the id that was checked, not the one that was claimed.
             ask(
                 owner,
-                Upload.Init(
-                    sourceId = SourceId,
-                    file = fileDto(id = FileIdValue, sourceId = "other-source", path = FilePath, size = 5),
-                ),
+                sourceInit(fileDto(id = FileIdValue, sourceId = "other-source", path = FilePath, size = 5)),
             )
             handler.queueChunk(chunk("bytes".toByteArray()), context)
             complete(owner, "bytes".toByteArray())
@@ -423,10 +427,7 @@ class FileUploadHandlerTest {
         limitSource(SourceEntry.Preferences.FileLimits(maxFiles = 1, maxTotalSize = null))
         assertTrue(init(owner) is Upload.Received)
 
-        val second = Upload.Init(
-            sourceId = SourceId,
-            file = fileDto(id = "file-2", sourceId = SourceId, path = "other.jpg", size = 1),
-        )
+        val second = sourceInit(fileDto(id = "file-2", sourceId = SourceId, path = "other.jpg", size = 1))
 
         assertTrue(ask(owner, second) is Upload.OverLimit)
     }
@@ -450,15 +451,12 @@ class FileUploadHandlerTest {
         size: Long = 15,
     ): Upload = ask(
         session,
-        Upload.Init(
-            sourceId = SourceId,
-            file = fileDto(id = FileIdValue, sourceId = SourceId, path = path, size = size),
-        ),
+        sourceInit(fileDto(id = FileIdValue, sourceId = SourceId, path = path, size = size)),
     )
 
     private suspend fun complete(session: FakePeerSession, bytes: ByteArray): Upload = ask(
         session,
-        Upload.Complete(key = key, hash = sha256(bytes), algorithm = "SHA-256"),
+        Upload.Complete(key = uploadKey, hash = sha256(bytes), algorithm = "SHA-256"),
     )
 
     private suspend fun ask(session: FakePeerSession, message: Upload): Upload {
@@ -469,7 +467,7 @@ class FileUploadHandlerTest {
 
     /** Chunks are written off the collector; a test that parks the upload waits for them first. */
     private fun awaitStaged(bytes: Long) {
-        val upload = context.uploads.inFlight.getValue(key)
+        val upload = context.uploads.inFlight.getValue(uploadKey)
         val deadline = System.currentTimeMillis() + 5_000
 
         while (upload.prefix < bytes) {
@@ -478,9 +476,11 @@ class FileUploadHandlerTest {
         }
     }
 
+    private fun sourceInit(file: FileRecordDto) =
+        Upload.Init(key = UploadKey.Source(sourceId = SourceId, fileId = file.id), file = file)
+
     private fun chunk(bytes: ByteArray, offset: Long = 0) = FileServerMessages.UploadChunk(
-        sourceId = SourceId,
-        fileId = FileIdValue,
+        key = uploadKey,
         offset = offset,
         bytes = bytes,
     )

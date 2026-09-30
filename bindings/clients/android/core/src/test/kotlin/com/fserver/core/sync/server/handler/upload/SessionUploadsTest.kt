@@ -3,16 +3,21 @@ package com.fserver.core.sync.server.handler.upload
 import android.content.ContextWrapper
 import com.fserver.common.exception.TransferException
 import com.fserver.core.network.dictionary.FileServerMessages
+import com.fserver.core.network.dictionary.FileServerMessages.Upload
+import com.fserver.core.network.dictionary.dto.UploadKey
+import com.fserver.core.support.LocalIndex
+import com.fserver.core.support.fileDto
+import com.fserver.core.support.peerIdentity
+import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.core.support.FakeStorage
-import com.fserver.core.support.InMemoryFileSystem
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.sourceEntry
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
+import com.fserver.core.sync.server.handler.upload.source.SourceUploadTarget
 import com.fserver.files.FilesNode
-import com.fserver.files.upload.FileId
-import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,20 +43,27 @@ class SessionUploadsTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(clock = clock)
-    private val fs = InMemoryFileSystem()
     private val progress = SyncProgressReporter(clock)
     private val source = sourceEntry(id = "source-1")
 
     private lateinit var stagingDir: File
     private lateinit var staging: UploadStaging
     private lateinit var uploads: SessionUploads
+    private lateinit var target: SourceUploadTarget
 
     @Before
     fun setUp() = runBlocking {
         stagingDir = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), stagingDir = stagingDir)
         staging = UploadStaging(storage, node, clock)
-        uploads = SessionUploads(scope, staging, progress)
+        uploads = SessionUploads(scope, progress)
+        target = SourceUploadTarget(
+            authorizer = SourceAuthorizer(storage),
+            admission = UploadAdmission(storage, RequestedDownloads()),
+            indexWriter = LocalIndex(storage, node, clock).writer,
+            node = node,
+            staging = staging,
+        )
         storage.sources.upsert(source)
     }
 
@@ -117,25 +129,16 @@ class SessionUploadsTest {
         assertEquals(4L, storage.uploads.find(key("file-1"))?.committedOffset)
     }
 
-    private suspend fun open(fileId: String): UploadContext =
-        uploads.start(
-            source = source,
-            file = FileRecord(
-                id = FileId(fileId),
-                path = "$fileId.bin",
-                locator = null,
-                state = FileRecord.State.Present(),
-                content = null,
-                metadata = FileRecord.Metadata(
-                    size = 100,
-                    lastModified = TestEpoch,
-                    version = null,
-                ),
-            ),
-            deviceId = source.deviceId,
-            fs = fs,
-            startedAt = TestEpoch,
-        )
+    /** What the handler does on Init: make room, let the target open staging, start. */
+    private suspend fun open(fileId: String): UploadContext {
+        val key = UploadKey.Source(sourceId = source.id, fileId = fileId)
+        val init = Upload.Init(key, fileDto(id = fileId, sourceId = source.id, path = "$fileId.bin", size = 100))
+
+        uploads.reserve(key)
+        val staged = target.open(peerIdentity(source.deviceId), init, uploads) as UploadTarget.Opening.Staged
+
+        return uploads.start(key, staged, TestEpoch)
+    }
 
     private fun key(fileId: String) = IndexedFileKey(fileId = fileId, sourceId = source.id)
 
@@ -143,8 +146,7 @@ class SessionUploadsTest {
         File(stagingDir, "${source.id}/$fileId/data").readText()
 
     private fun chunk(fileId: String, bytes: ByteArray) = FileServerMessages.UploadChunk(
-        sourceId = source.id,
-        fileId = fileId,
+        key = UploadKey.Source(sourceId = source.id, fileId = fileId),
         offset = 0,
         bytes = bytes,
     )

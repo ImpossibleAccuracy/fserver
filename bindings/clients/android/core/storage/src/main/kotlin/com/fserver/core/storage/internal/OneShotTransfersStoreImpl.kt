@@ -77,7 +77,6 @@ internal class OneShotTransfersStoreImpl(
                 position = file.index.toLong(),
                 name = file.name,
                 size = file.size,
-                mimeType = file.mimeType,
                 locator = file.locator,
                 committedBytes = file.committedBytes,
                 status = OneShotTransferRecords.discriminatorOf(file.status),
