@@ -10,20 +10,13 @@ import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
 import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
 import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
 import com.fserver.app.data.preview.EvictionPreviews
-import com.fserver.app.di.coreModule
-import com.fserver.app.di.dataModule
-import com.fserver.app.di.domainModule
-import com.fserver.app.di.presentationModule
+import com.fserver.app.di.AppGraph
 import com.fserver.app.work.SyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.android.inject
-import org.koin.android.ext.koin.androidContext
-import org.koin.android.ext.koin.androidLogger
-import org.koin.core.context.startKoin
-import org.koin.core.logger.Level
 import timber.log.Timber
 
 class FServerApplication : Application(), SingletonImageLoader.Factory {
@@ -42,16 +35,7 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
             Timber.plant(Timber.DebugTree())
         }
 
-        startKoin {
-            androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.NONE)
-            androidContext(this@FServerApplication)
-            modules(
-                dataModule,
-                domainModule,
-                presentationModule,
-                coreModule,
-            )
-        }
+        AppGraph.start(this)
 
         // Here rather than in a ViewModel: the schedule has to survive the UI, and this runs in
         // every process the app is started in, including the one WorkManager wakes.

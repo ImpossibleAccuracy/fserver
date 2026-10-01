@@ -31,6 +31,7 @@ class DocumentsRepositoryImpl(
     private val files: FilesController,
     private val sources: RegisteredSourcesRepository,
     private val previews: EvictionPreviews,
+    private val fetches: DocumentFetches,
 ) : DocumentsRepository {
 
     override val changes: Flow<Unit> = combine(files.overallContent, sources.sources) { _, _ -> }.drop(1)
@@ -62,7 +63,11 @@ class DocumentsRepositoryImpl(
 
     override suspend fun open(file: DocumentNode.File): OpenedDocument {
         val entry = file.entry
-        val present = if (entry.isRemote) files.download(entry).getOrThrow() else entry
+        val present = if (entry.isRemote) {
+            fetches.track(file.name) { files.download(entry) }.getOrThrow()
+        } else {
+            entry
+        }
 
         val sourceFile = files.file(present.sourceId, present.fileId)
             ?: throw FileNotFoundException("${present.path} is not held here")

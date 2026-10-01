@@ -135,6 +135,10 @@
             android:name=".data.oneshot.OneShotTransferService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".data.documents.DocumentFetchService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <receiver
             android:name=".data.oneshot.OneShotOfferReceiver"
             android:exported="false" />

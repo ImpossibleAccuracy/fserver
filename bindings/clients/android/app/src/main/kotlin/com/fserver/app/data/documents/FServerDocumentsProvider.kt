@@ -1,5 +1,6 @@
 package com.fserver.app.data.documents
 
+import android.app.Application
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.database.Cursor
@@ -24,6 +25,7 @@ import android.system.OsConstants
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import com.fserver.app.R
+import com.fserver.app.di.AppGraph
 import com.fserver.app.domain.documents.DocumentIds
 import com.fserver.app.domain.documents.DocumentNode
 import com.fserver.app.domain.documents.DocumentsRepository
@@ -40,7 +42,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
+import org.koin.core.component.get
 import timber.log.Timber
 import java.io.File
 import java.io.FileNotFoundException
@@ -50,8 +52,11 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /** Every source as a read-only root of the system file picker. See [DocumentsRepository]. */
 class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
-    // Resolved on first use: a provider is created before `Application.onCreate` starts Koin.
-    private val documents: DocumentsRepository by inject()
+    // Resolved on first call, which may come before `Application.onCreate` has started Koin.
+    private val documents: DocumentsRepository by lazy {
+        AppGraph.start(ctx.applicationContext as Application)
+        get()
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val watching = AtomicBoolean(false)

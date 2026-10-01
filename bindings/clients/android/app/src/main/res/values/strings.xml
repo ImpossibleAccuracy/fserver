@@ -438,6 +438,12 @@
     <string name="oneshot_channel_offers">Incoming files</string>
     <string name="oneshot_notification_sending">Sending to %1$s</string>
     <string name="oneshot_notification_receiving">Receiving from %1$s</string>
+    <string name="documents_channel_fetch">Opening files from other devices</string>
+    <string name="documents_notification_fetching">Fetching %1$s</string>
+    <plurals name="documents_notification_fetching_many">
+        <item quantity="one">Fetching %1$d file</item>
+        <item quantity="other">Fetching %1$d files</item>
+    </plurals>
     <plurals name="oneshot_notification_many">
         <item quantity="one">%1$d transfer in progress</item>
         <item quantity="other">%1$d transfers in progress</item>
