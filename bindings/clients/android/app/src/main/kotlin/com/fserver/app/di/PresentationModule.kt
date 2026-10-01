@@ -29,6 +29,8 @@ import com.fserver.app.presentation.screens.settings.pin.PinChangeViewModel
 import com.fserver.app.presentation.screens.settings.security.SecurityViewModel
 import com.fserver.app.presentation.screens.settings.storage.main.StorageViewModel
 import com.fserver.app.presentation.screens.settings.storage.source.StorageSourceViewModel
+import com.fserver.app.presentation.screens.settings.transfers.TransfersViewModel
+import com.fserver.app.presentation.share.ShareViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -77,4 +79,8 @@ val presentationModule = module {
     viewModelOf(::OneTimeCodeViewModel)
     viewModelOf(::StorageViewModel)
     viewModelOf(::StorageSourceViewModel)
+    viewModelOf(::TransfersViewModel)
+
+    // Share sheet entry, outside the main activity's graph.
+    viewModelOf(::ShareViewModel)
 }

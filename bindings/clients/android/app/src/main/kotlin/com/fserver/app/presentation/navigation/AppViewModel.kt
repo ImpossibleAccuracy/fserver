@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
+import com.fserver.app.domain.oneshot.OneShotRepository
+import com.fserver.app.domain.oneshot.isAwaitingAnswer
+import com.fserver.app.presentation.composable.IncomingFileUi
+import com.fserver.app.presentation.composable.IncomingRequestUi
 import com.fserver.app.presentation.composable.toUi
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.model.UnauthenticatedDestinations
@@ -12,11 +16,17 @@ import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.util.stateInScreen
+import com.fserver.common.model.FileSize
 import com.fserver.core.FServerCore
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.lifecycle.network.PresenceController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.device.IncomingConnection
+import com.fserver.core.oneshot.OneShotTransfersController
+import com.fserver.core.oneshot.model.OneShotTransfer
+import com.fserver.core.storage.OneShotTransfersRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -44,6 +54,9 @@ class AppViewModel(
     private val fServerCore: FServerCore,
     private val lifecycleController: LifecycleController,
     private val errorBus: com.fserver.app.presentation.shared.error.ErrorBus,
+    private val oneShotTransfers: OneShotTransfersRepository,
+    private val oneShotController: OneShotTransfersController,
+    private val oneShot: OneShotRepository,
 ) : ViewModel() {
     private val presenceHandover = lifecycleController.presenceHandover()
 
@@ -65,19 +78,41 @@ class AppViewModel(
 
     private val viewedFile = MutableStateFlow<FileBrowserUi.File?>(null)
 
+    /** Offers answered here, hidden while the answer is on its way. */
+    private val answeredTransfers = MutableStateFlow<Set<String>>(emptySet())
+
+    /** A destination picked on the sheet for one offer, instead of the default. */
+    private val destinationOverride = MutableStateFlow<Pair<String, SourceLocation.Hostable>?>(null)
+
+    // With auto-accept on there is nothing to ask: OneShotRepository.runAutoAccept answers.
+    private val incomingTransfer: Flow<IncomingRequestUi?> = combine(
+        oneShotTransfers.transfers,
+        oneShot.autoAccept,
+        oneShot.destination,
+        destinationOverride,
+        answeredTransfers,
+    ) { transfers, autoAccept, default, override, answered ->
+        if (autoAccept) return@combine null
+
+        // Oldest first: the one waiting longest is asked about first.
+        val offer = transfers.lastOrNull { it.isAwaitingAnswer && it.id !in answered } ?: return@combine null
+        offer.toRequestUi(destination = override?.takeIf { it.first == offer.id }?.second ?: default)
+    }
+
     val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
         devicesRepository.pendingConfirmation,
         viewedFile,
-    ) { destination, pending, pendingConfirmation, viewedFile ->
+        incomingTransfer,
+    ) { destination, pending, pendingConfirmation, viewedFile, incomingTransfer ->
         destination ?: return@combine null
 
         AppRootState(
             startDestination = destination,
             incomingConnection = pending.firstOrNull()?.toUi(),
             pendingConfirmation = pendingConfirmation?.toUi(),
-            incomingTransfer = null,
+            incomingTransfer = incomingTransfer,
             viewedFile = viewedFile,
         )
     }.stateInScreen(viewModelScope, null)
@@ -119,6 +154,10 @@ class AppViewModel(
         // else still arrives below as a prompt.
         lifecycleController.startAutoAccept()
 
+        // Here, not in the Application: none of it should run for a background job.
+        viewModelScope.launch { oneShot.runBackgroundWork() }
+        viewModelScope.launch { oneShot.linkVisibility(appVisible = isAppVisible) }
+
         lifecycleController.presence.start()?.invokeOnCompletion {
             Timber.i("FServerCore stopped presence: ${it?.message ?: "no error"}")
         }
@@ -147,9 +186,16 @@ class AppViewModel(
             is AppRootIntent.RejectIncomingConnection ->
                 answer { it.reject() }
 
-            is AppRootIntent.AcceptIncomingTransfer -> {}
+            is AppRootIntent.AcceptIncomingTransfer ->
+                answerTransfer { oneShotController.accept(it.transferId, it.destination) }
 
-            is AppRootIntent.RejectIncomingTransfer -> {}
+            is AppRootIntent.RejectIncomingTransfer ->
+                answerTransfer { oneShotController.decline(it.transferId) }
+
+            is AppRootIntent.ChangeIncomingDestination -> {
+                val request = state.value?.incomingTransfer ?: return
+                destinationOverride.value = request.transferId to intent.destination
+            }
 
             is AppRootIntent.AcceptPendingConfirmation ->
                 devicesRepository.resolvePendingConfirmation(accept = true)
@@ -179,6 +225,21 @@ class AppViewModel(
         }
     }
 
+    fun reportError(error: Throwable, context: String) = errorBus.report(error, context)
+
+    /** Hidden on the tap, like [answer]; back on screen if the answer did not go through. */
+    private fun answerTransfer(verdict: suspend (IncomingRequestUi) -> Result<Unit>) {
+        val request = state.value?.incomingTransfer ?: return
+        answeredTransfers.update { it + request.transferId }
+
+        viewModelScope.launch {
+            verdict(request).onFailure {
+                answeredTransfers.update { answered -> answered - request.transferId }
+                errorBus.report(it, "could not answer transfer ${request.transferId}")
+            }
+        }
+    }
+
     /** Reports the precondition; `:core` decides what to do with it. */
     private fun handleForegroundState(intent: AppRootIntent.ForegroundStateChanged) {
         val isLifecycleForeground = intent.lifecycle.isAtLeast(Lifecycle.State.STARTED)
@@ -190,6 +251,14 @@ class AppViewModel(
         // Permissions changed/system toggle enabled, recheck
         lifecycleController.presence.recheck()
     }
+
+    private fun OneShotTransfer.toRequestUi(destination: SourceLocation.Hostable) = IncomingRequestUi(
+        transferId = id,
+        fromDeviceName = peer.displayName,
+        totalSize = FileSize(files.sumOf { it.size }),
+        files = files.map { IncomingFileUi(name = it.name, size = FileSize(it.size)) },
+        destination = destination,
+    )
 
     private fun computeStartDestination(profile: AuthManager.Profile?): Destination =
         when (profile) {

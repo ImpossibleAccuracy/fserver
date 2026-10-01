@@ -1,5 +1,8 @@
 package com.fserver.app.presentation.screens.dashboard
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
@@ -18,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Upload
@@ -28,20 +30,26 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.DkFabMenu
 import com.fserver.app.presentation.composable.DkFabMenuItem
+import com.fserver.app.presentation.composable.ObserveEffects
 import com.fserver.app.presentation.composable.StorageUsage
-import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkIcon
 import com.fserver.app.presentation.designkit.DkInfoBox
 import com.fserver.app.presentation.designkit.DkInlineSpinner
@@ -49,11 +57,15 @@ import com.fserver.app.presentation.designkit.DkScaffold
 import com.fserver.app.presentation.designkit.DkSectionLabel
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkTopBar
+import com.fserver.app.presentation.navigation.ResultEffect
 import com.fserver.app.presentation.screens.dashboard.composable.LinksSection
 import com.fserver.app.presentation.screens.dashboard.composable.NetworkEmptyState
 import com.fserver.app.presentation.screens.dashboard.composable.NetworkSection
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
+import com.fserver.app.presentation.screens.dashboard.model.DashboardUiEffect
+import com.fserver.app.presentation.screens.discovery.connect.model.DeviceSelection
+import com.fserver.app.presentation.shared.oneshot.rememberNotificationPermissionRequest
 import com.fserver.app.presentation.theme.FServerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -71,17 +83,60 @@ fun DashboardScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val viewModel: DashboardViewModel = koinViewModel()
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val requestNotifications = rememberNotificationPermissionRequest()
+
+    // Files picked for sending, until a device is picked for them. Copied by `:core` on send,
+    // so the picker's grant only has to outlive the device pick.
+    var picked by rememberSaveable { mutableStateOf(emptyList<String>()) }
+
+    val filesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+
+        picked = uris.map { it.toString() }
+        navigateToConnect()
+    }
+
+    ResultEffect<DeviceSelection> { selection ->
+        if (picked.isEmpty()) return@ResultEffect
+
+        requestNotifications.run()
+        viewModel.onIntent(DashboardIntent.SendFiles(selection.deviceId, picked.map { it.toUri() }))
+        picked = emptyList()
+    }
+
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            is DashboardUiEffect.FilesOffered -> Toast.makeText(
+                context,
+                resources.getQuantityString(R.plurals.oneshot_offered, effect.count, effect.count),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     DashboardScreenContent(
         modifier = modifier,
         state = state,
         onIntent = viewModel::onIntent,
         navigateToFiles = navigateToFiles,
-        navigateToConnect = navigateToConnect,
+        navigateToConnect = {
+            // Connecting only: a pick left over from a send backed out of is not this one's.
+            picked = emptyList()
+            navigateToConnect()
+        },
         navigateToSourcePick = navigateToSourcePick,
         navigateToSyncRequests = navigateToSyncRequests,
         navigateToSourceDetails = navigateToSourceDetails,
         navigateToDeviceSettings = navigateToDeviceSettings,
         navigateToStorage = navigateToStorage,
+        onSendFiles = {
+            filesLauncher.launch(arrayOf("*/*"))
+        },
     )
 }
 
@@ -98,6 +153,7 @@ private fun DashboardScreenContent(
     navigateToSourceDetails: (String) -> Unit = {},
     navigateToDeviceSettings: (String) -> Unit = {},
     navigateToStorage: () -> Unit = {},
+    onSendFiles: () -> Unit = {},
 ) {
     DkScaffold(
         modifier = modifier.fillMaxSize(),
@@ -124,7 +180,7 @@ private fun DashboardScreenContent(
                     DkFabMenuItem(
                         icon = Icons.Default.Upload,
                         label = stringResource(R.string.dashboard_fab_send_file),
-                        onClick = {},
+                        onClick = onSendFiles,
                     ),
                     DkFabMenuItem(
                         icon = Icons.Default.Link,
@@ -247,7 +303,10 @@ private fun Banners(
         if (waiting == null) return@AnimatedVisibility
 
         SyncRequestsRow(
-            modifier = Modifier.padding(horizontal = DkSpacing.screenPadding, vertical = DkSpacing.sm),
+            modifier = Modifier.padding(
+                horizontal = DkSpacing.screenPadding,
+                vertical = DkSpacing.sm
+            ),
             waiting = waiting,
             onClick = navigateToSyncRequests,
         )

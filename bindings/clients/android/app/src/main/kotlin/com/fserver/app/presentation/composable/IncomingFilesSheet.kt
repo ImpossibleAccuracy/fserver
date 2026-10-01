@@ -22,25 +22,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import com.fserver.app.R
-import com.fserver.app.data.SampleData
+import com.fserver.app.domain.oneshot.OneShotDestinations
+import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkGhostButton
 import com.fserver.app.presentation.designkit.DkPrimaryButton
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkType
+import com.fserver.app.presentation.shared.oneshot.destinationLabel
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.common.model.FileSize
+import com.fserver.core.files.SourceLocation
 
 @Immutable
 data class IncomingFileUi(
     val name: String,
-    val sizeLabel: String,
+    val size: FileSize,
 )
 
 @Immutable
 data class IncomingRequestUi(
+    val transferId: String,
     val fromDeviceName: String,
-    val totalSizeLabel: String,
+    val totalSize: FileSize,
     val files: List<IncomingFileUi>,
-    val destinationLabel: String,
+    val destination: SourceLocation.Hostable,
 )
 
 /**
@@ -57,6 +62,7 @@ fun IncomingFilesSheet(
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     onDismiss: () -> Unit,
+    onChangeDestination: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ModalBottomSheet(
@@ -87,7 +93,7 @@ fun IncomingFilesSheet(
             val fromLine = stringResource(
                 R.string.incoming_from,
                 request.fromDeviceName,
-                request.totalSizeLabel,
+                request.totalSize.formatted(),
             )
             val emphasis = SpanStyle(
                 fontWeight = FontWeight.Medium,
@@ -114,7 +120,7 @@ fun IncomingFilesSheet(
                         text = stringResource(
                             R.string.value_with_detail,
                             file.name,
-                            file.sizeLabel,
+                            file.size.formatted(),
                         ),
                         style = DkType.monoLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -122,11 +128,21 @@ fun IncomingFilesSheet(
                 }
             }
 
-            Text(
-                text = stringResource(R.string.incoming_save_to, request.destinationLabel),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = stringResource(
+                        R.string.incoming_save_to,
+                        request.destination.destinationLabel()
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                DkGhostButton(
+                    text = stringResource(R.string.action_edit),
+                    onClick = onChangeDestination
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -144,10 +160,21 @@ fun IncomingFilesSheet(
 private fun IncomingFilesSheetPreview() {
     FServerTheme {
         IncomingFilesSheet(
-            request = SampleData.incomingRequest,
+            request = IncomingRequestUi(
+                transferId = "transfer-1",
+                fromDeviceName = "MacBook-Pro",
+                totalSize = FileSize(213_600_000),
+                files = listOf(
+                    IncomingFileUi("IMG_4831.RAW", FileSize(28_400_000)),
+                    IncomingFileUi("interview_02.wav", FileSize(112_000_000)),
+                    IncomingFileUi("clip_preview.mp4", FileSize(73_200_000)),
+                ),
+                destination = OneShotDestinations.Downloads,
+            ),
             onAccept = {},
             onDecline = {},
             onDismiss = {},
+            onChangeDestination = {},
         )
     }
 }

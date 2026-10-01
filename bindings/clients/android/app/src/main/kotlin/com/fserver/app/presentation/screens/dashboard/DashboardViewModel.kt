@@ -14,6 +14,7 @@ import com.fserver.app.presentation.composable.model.toUi
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.dashboard.model.DashboardIntent
 import com.fserver.app.presentation.screens.dashboard.model.DashboardState
+import com.fserver.app.presentation.screens.dashboard.model.DashboardUiEffect
 import com.fserver.app.presentation.screens.source.shared.model.transfersOf
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
@@ -27,6 +28,7 @@ import com.fserver.core.network.device.model.ReachabilityFailure
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkCapability
 import com.fserver.core.network.info.model.NetworkInfo
+import com.fserver.core.oneshot.OneShotTransfersController
 import com.fserver.core.requirement.RequirementReport
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.storage.RegisteredSourcesRepository
@@ -35,10 +37,13 @@ import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.FileTransfer
 import com.fserver.core.sync.progress.SourcePass
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
 class DashboardViewModel(
@@ -50,8 +55,12 @@ class DashboardViewModel(
     private val networkInfoRepository: NetworkInfoRepository,
     private val diskUsage: DiskUsageRepository,
     private val requirementsChecker: RequirementsChecker,
+    private val oneShotTransfers: OneShotTransfersController,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
+    private val effects = Channel<DashboardUiEffect>(Channel.BUFFERED)
+    val uiEffects = effects.receiveAsFlow()
+
     /**
      * What is still missing before this device could name the network it is on. Kept from the last
      * read rather than re-checked on the tap, so the banner and the sheet it opens describe the
@@ -132,6 +141,12 @@ class DashboardViewModel(
     fun onIntent(intent: DashboardIntent) {
         when (intent) {
             DashboardIntent.NetworkWarningClicked -> reporter.report(networkRequirements.value)
+
+            is DashboardIntent.SendFiles -> viewModelScope.launch {
+                oneShotTransfers.sendShared(intent.deviceId, intent.uris)
+                    .onSuccess { effects.send(DashboardUiEffect.FilesOffered(it.files.size)) }
+                    .onFailure { reporter.report(it, "could not send files to ${intent.deviceId}") }
+            }
         }
     }
 

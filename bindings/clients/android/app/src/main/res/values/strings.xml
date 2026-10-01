@@ -421,7 +421,69 @@
         <item quantity="other">Accept %1$d files?</item>
     </plurals>
     <string name="incoming_from">From %1$s · %2$s</string>
-    <string name="incoming_save_to">Save to: %1$s</string>
+    <string name="incoming_save_to">Files will be saved to %1$s</string>
+
+    <!-- One-shot transfers -->
+    <string name="oneshot_destination_title">Save received files to</string>
+    <string name="oneshot_destination_downloads">Downloads</string>
+    <string name="oneshot_destination_app_storage">App storage</string>
+    <string name="oneshot_destination_app_storage_desc">Private to this app, needs no access</string>
+    <string name="oneshot_destination_folder">Folder…</string>
+    <string name="oneshot_destination_folder_desc">Pick any folder on this phone</string>
+    <plurals name="oneshot_offered">
+        <item quantity="one">Offered %1$d file</item>
+        <item quantity="other">Offered %1$d files</item>
+    </plurals>
+    <string name="oneshot_channel_progress">File transfers</string>
+    <string name="oneshot_channel_offers">Incoming files</string>
+    <string name="oneshot_notification_sending">Sending to %1$s</string>
+    <string name="oneshot_notification_receiving">Receiving from %1$s</string>
+    <plurals name="oneshot_notification_many">
+        <item quantity="one">%1$d transfer in progress</item>
+        <item quantity="other">%1$d transfers in progress</item>
+    </plurals>
+    <string name="oneshot_notification_progress">%1$s of %2$s</string>
+
+    <!-- Share sheet -->
+    <string name="share_target_label">Send to device</string>
+    <plurals name="share_title">
+        <item quantity="one">Send %1$d file</item>
+        <item quantity="other">Send %1$d files</item>
+    </plurals>
+    <string name="share_send_to">Send to</string>
+    <string name="share_device_online">Online</string>
+    <string name="share_device_offline">Offline · sent once it is back</string>
+    <string name="share_no_devices">No paired devices yet. Open the app to pair one.</string>
+    <string name="share_copying">Preparing files…</string>
+    <string name="share_nothing">Nothing to send</string>
+    <plurals name="share_offered">
+        <item quantity="one">Offered %1$d file to %2$s</item>
+        <item quantity="other">Offered %1$d files to %2$s</item>
+    </plurals>
+
+    <!-- Transfers settings -->
+    <string name="transfers_title">Transfers</string>
+    <string name="transfers_section_receiving">Receiving</string>
+    <string name="transfers_destination">Save location</string>
+    <string name="transfers_auto_accept">Accept automatically</string>
+    <string name="transfers_auto_accept_desc">Files a device sends are saved without asking</string>
+    <string name="transfers_section_history">History</string>
+    <string name="transfers_clear_finished">Clear finished</string>
+    <string name="transfers_empty">Nothing sent or received yet.</string>
+    <string name="transfers_to">To %1$s</string>
+    <string name="transfers_from">From %1$s</string>
+    <string name="transfers_meta">%1$s · %2$s · %3$s · %4$s</string>
+    <plurals name="transfers_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="transfers_status_waiting_peer">Waiting for answer</string>
+    <string name="transfers_status_waiting_you">Waiting for you</string>
+    <string name="transfers_status_active">In progress</string>
+    <string name="transfers_status_completed">Done</string>
+    <string name="transfers_status_declined">Declined</string>
+    <string name="transfers_status_cancelled">Cancelled</string>
+    <string name="transfers_status_failed">Failed: %1$s</string>
 
     <!-- Settings root: four rows, each a way further in. No toggle lives here. -->
     <string name="settings_title">Settings</string>
@@ -435,6 +497,8 @@
     <string name="settings_security_desc">Connection confirmation and visibility</string>
     <string name="settings_storage">Phone storage</string>
     <string name="settings_storage_desc">What the app keeps on this phone</string>
+    <string name="settings_transfers">Transfers</string>
+    <string name="settings_transfers_desc">Sending and receiving files outside sources</string>
     <string name="settings_diagnostics">Connection diagnostics</string>
     <string name="settings_diagnostics_desc">Network, permission and protocol checks</string>
     <string name="settings_about">About</string>

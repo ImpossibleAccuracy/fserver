@@ -6,6 +6,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.data.AuthManagerImpl
+import com.fserver.app.data.oneshot.OneShotNotifications
+import com.fserver.app.data.oneshot.OneShotNotifier
+import com.fserver.app.data.oneshot.OneShotRepositoryImpl
+import com.fserver.app.domain.oneshot.OneShotRepository
 import com.fserver.app.data.preview.CoilEvictionPreviewer
 import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.domain.AuthManager
@@ -21,6 +25,11 @@ internal val dataModule = module {
     singleOf(::AuthManagerImpl) bind AuthManager::class
 
     singleOf(::AppSettingsStore)
+
+    // Its auto-accept and notifications run in `AppViewModel`: never for a background job.
+    singleOf(::OneShotRepositoryImpl) bind OneShotRepository::class
+    single { OneShotNotifications(androidContext()) }
+    single { OneShotNotifier(androidContext(), get()) }
 
     singleOf(::EvictionPreviews)
     singleOf(::CoilEvictionPreviewer)

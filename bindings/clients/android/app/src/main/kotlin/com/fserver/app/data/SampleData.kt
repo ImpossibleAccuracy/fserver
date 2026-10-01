@@ -1,8 +1,6 @@
 package com.fserver.app.data
 
 import com.fserver.app.R
-import com.fserver.app.presentation.composable.IncomingFileUi
-import com.fserver.app.presentation.composable.IncomingRequestUi
 import com.fserver.app.presentation.composable.model.DiagnosticCheckUi
 import com.fserver.app.presentation.composable.model.FileAvailabilityUi
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -178,16 +176,5 @@ object SampleData {
             detailRes = R.string.diagnostics_protocol_value,
             state = DkCheckState.Warning,
         ),
-    )
-
-    val incomingRequest = IncomingRequestUi(
-        fromDeviceName = "MacBook-Pro",
-        totalSizeLabel = "214 MB",
-        files = listOf(
-            IncomingFileUi("IMG_4831.RAW", "28.4 MB"),
-            IncomingFileUi("interview_02.wav", "112 MB"),
-            IncomingFileUi("clip_preview.mp4", "73.2 MB"),
-        ),
-        destinationLabel = "Downloads/Exchange",
     )
 }

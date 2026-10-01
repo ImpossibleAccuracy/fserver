@@ -14,7 +14,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.runtime.entryProvider
@@ -55,6 +58,7 @@ import com.fserver.app.presentation.screens.settings.security.settingsSecurityEn
 import com.fserver.app.presentation.screens.settings.storage.main.settingsStorageEntry
 import com.fserver.app.presentation.screens.settings.storage.source.settingsStorageSourceEntry
 import com.fserver.app.presentation.screens.settings.settingsEntry
+import com.fserver.app.presentation.screens.settings.transfers.settingsTransfersEntry
 import com.fserver.app.presentation.screens.source.list.syncRequestListEntry
 import com.fserver.app.presentation.screens.source.request.syncRequestEntry
 import com.fserver.app.presentation.screens.source.setup.access.sourceAccessEntry
@@ -64,6 +68,8 @@ import com.fserver.app.presentation.screens.source.setup.pick.sourcePickEntry
 import com.fserver.app.presentation.screens.source.setup.done.sourceDoneEntry
 import com.fserver.app.presentation.screens.source.setup.progress.sourceProgressEntry
 import com.fserver.app.presentation.shared.error.ErrorHandler
+import com.fserver.app.presentation.shared.oneshot.DestinationPickerSheet
+import com.fserver.app.presentation.shared.oneshot.rememberNotificationPermissionRequest
 import com.fserver.app.presentation.shared.viewer.FileViewerHost
 import com.fserver.app.presentation.shared.viewer.LocalFileOpener
 import com.fserver.app.presentation.shared.viewer.rememberFileOpener
@@ -151,9 +157,13 @@ private fun AppContent(
         // A transfer offer is not tied to the file list either: it arrives over whatever
         // screen is open, so it is answered here.
         state.incomingTransfer?.let { request ->
+            var pickingDestination by rememberSaveable(request.transferId) { mutableStateOf(false) }
+            val requestNotifications = rememberNotificationPermissionRequest()
+
             IncomingFilesSheet(
                 request = request,
                 onAccept = {
+                    requestNotifications.run()
                     viewModel.onIntent(AppRootIntent.AcceptIncomingTransfer)
                 },
                 onDecline = {
@@ -163,7 +173,20 @@ private fun AppContent(
                 onDismiss = {
                     viewModel.onIntent(AppRootIntent.RejectIncomingTransfer)
                 },
+                onChangeDestination = { pickingDestination = true },
             )
+
+            if (pickingDestination) {
+                DestinationPickerSheet(
+                    current = request.destination,
+                    onPick = {
+                        viewModel.onIntent(AppRootIntent.ChangeIncomingDestination(it))
+                        pickingDestination = false
+                    },
+                    onError = { viewModel.reportError(it, "could not take a folder grant") },
+                    onDismiss = { pickingDestination = false },
+                )
+            }
         }
 
         // The actual code compare, mid-handshake. Can follow either sheet above, or a Connect
@@ -243,6 +266,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             settingsOneTimeCodeEntry(navigator)
             settingsStorageEntry(navigator)
             settingsStorageSourceEntry(navigator)
+            settingsTransfersEntry(navigator)
             settingsAboutEntry(navigator)
             diagnosticEntry(navigator)
 
