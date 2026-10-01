@@ -41,27 +41,6 @@ Everything else `internal`. Core wires itself with Koin in a *private* `koinAppl
 property on `FServerCore`, not a new exported class or Koin definition. Host re-publishes what it
 needs (`app/di/CoreModule.kt`), so a UI on Hilt or hand-wiring works unchanged.
 
-### Store ≠ repository
-
-A **store** (`core/store/`) is the SPI: the narrowest set of calls the engine itself makes, shaped
-for the engine. A **repository** (`:core:storage`) is UI-shaped and wider. They are deliberately
-disjoint types — the engine never lists trusted devices, the UI never upserts one.
-
-`:app` **never implements a store.** `@SubclassOptInRequired(FServerStorageApi::class)` on all four
-turns that into a compile error; `:core:storage` is the one module that opts in, module-wide. If
-you reach for `@OptIn` anywhere else, the repository you actually wanted is missing — add it to
-`:core:storage`. A screen that needs engine state injects a repository, never a `store/` type.
-
-Spec design constraints to keep in mind while writing `:core`:
-
-- **Server never trusts client.** Client-side checks = UX affordance only; authorization is server
-  job. Never treat client-side restriction as security control.
-- **Engine interfaces must be replaceable.** MVP targets ~1000 files, so full-set comparison +
-  SQLite index fine — but design must allow delta-sync swap-in later without rewrite.
-- **Protocol versioned and negotiated at handshake.** Older clients must keep working.
-- **`evict` ≠ `delete`.** In offload mode, freeing local space must not propagate as user deletion
-  to backup device. Get this wrong → user data destroyed.
-
 ## Commands
 
 Always pass `--no-daemon`.
@@ -101,8 +80,6 @@ Always pass `--no-daemon`.
   loop.
 - **Ask questions.** User does not mind — clarifying question cheaper than wrong design, especially
   while architecture still being set.
-- **Document decisions here, not details.** Add to this file when something *load-bearing* —
-  boundary rule, protocol invariant, non-obvious constraint. No routine implementation notes.
 - **Suggest skills/agents for recurring work.** Task repeats or encodes reusable knowledge (module
   scaffolding, protocol-change checklist, spec cross-referencing) → remind user to capture as skill
   or agent instead of re-deriving each session.
@@ -110,4 +87,4 @@ Always pass `--no-daemon`.
   to add something to CLAUDE.md before doing so.
 - Avoid writing overly long comments and documentation. They can almost always be shortened to 1-2
   lines.
-- There are TODOs list in docs directory. Anyone can add things to this doc.
+- There are TODOs list in docs directory. Feel free to add things to this doc.
