@@ -189,6 +189,9 @@ internal class FakeRemoteIndexStore : RemoteIndexStore {
     override suspend fun files(sourceId: String): List<RemoteIndexedFile> =
         rows.value.filter { it.sourceId == sourceId }
 
+    override suspend fun findFile(key: IndexedFileKey): RemoteIndexedFile? =
+        rows.value.firstOrNull { it.sourceId == key.sourceId && it.fileId == key.fileId }
+
     override suspend fun replace(
         sourceId: String,
         deviceId: String,

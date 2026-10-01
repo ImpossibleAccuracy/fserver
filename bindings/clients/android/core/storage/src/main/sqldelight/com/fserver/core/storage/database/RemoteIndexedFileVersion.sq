@@ -17,6 +17,11 @@ SELECT *
 FROM remoteIndexedFileVersion
 WHERE sourceId = ?;
 
+selectByKey:
+SELECT *
+FROM remoteIndexedFileVersion
+WHERE sourceId = ? AND fileId = ?;
+
 insert:
 INSERT INTO remoteIndexedFileVersion(sourceId, fileId, deviceId, counter)
 VALUES (?, ?, ?, ?);

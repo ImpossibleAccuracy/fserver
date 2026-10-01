@@ -159,6 +159,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Authority must match FServerDocumentsProvider.AuthoritySuffix. -->
+        <provider
+            android:name=".data.documents.FServerDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
     </application>
 
 </manifest>

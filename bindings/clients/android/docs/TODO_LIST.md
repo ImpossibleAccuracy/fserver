@@ -33,10 +33,24 @@ Idea:
 - Short targeted discovery session as the last resort, once every cheaper route has failed:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.
+- Folders in the index: today it holds files only, so an empty folder neither syncs nor shows in
+  the `DocumentsProvider`. Needs a record kind in `FileRecordDto` (protocol change - server and
+  other clients too), schema, scanner, and sync semantics: mkdir/rmdir, folder-vs-file name
+  conflict, non-empty folder deleted on the peer, folder rename. Until then, a provider write stage
+  can create real folders on disk and list empty ones from disk without indexing them.
+
+Documents provider:
+
+- Listing a folder reads the whole source (`FilesController.content`). Add a subtree query
+  (`path LIKE 'dir/%'`) to the index stores once sources grow large;
+- Thumbnails and the app's own viewers read `locator` directly through Coil, bypassing `:core`:
+  an encrypted source will break them. Needs a Coil fetcher over `SourceFileReader`;
+- Write support (`w`/`rw`, create, delete, rename) - read-only for now.
 
 Major:
 - add QR connection via OutOfBandKeyAuthMethod
 - no compatibility with different hashers (e.g. SHA-256 vs BLAKE3) - need to add a selection based on already used hash info
+- impl storage migrations
 
 ## Net
 

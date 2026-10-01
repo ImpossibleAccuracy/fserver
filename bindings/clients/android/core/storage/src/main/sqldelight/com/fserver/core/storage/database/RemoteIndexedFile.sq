@@ -42,6 +42,11 @@ SELECT *
 FROM remoteIndexedFile
 WHERE sourceId = ?;
 
+findByKey:
+SELECT *
+FROM remoteIndexedFile
+WHERE sourceId = ? AND fileId = ?;
+
 insert:
 INSERT OR REPLACE INTO remoteIndexedFile(
     sourceId, fileId, deviceId, path, state, pinned, stateChangedEpochMs,

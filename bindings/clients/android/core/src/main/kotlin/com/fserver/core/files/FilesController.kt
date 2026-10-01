@@ -3,6 +3,7 @@ package com.fserver.core.files
 import com.fserver.common.exception.SyncException
 import com.fserver.common.task.ProgressTask
 import com.fserver.common.task.map
+import com.fserver.common.utils.SourcePaths
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.access.LocalFileEditor
@@ -19,7 +20,7 @@ import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.model.evictsByHand
 import com.fserver.core.sync.model.evictsLocally
-import com.fserver.core.sync.model.fetchesOnDemand
+import com.fserver.core.sync.model.fetches
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.transfer.FileDownloader
 import com.fserver.core.util.TimeProvider
@@ -74,6 +75,21 @@ class FilesController internal constructor(
         initialValue = emptyList(),
     )
 
+    /** [sourceId]'s part of [overallContent], read from the index now: a snapshot, never the empty initial value. */
+    suspend fun content(sourceId: String): List<SyncFileEntry> = mergeIndexedFiles(
+        local = storage.index.processedFiles(sourceId),
+        remote = storage.remoteIndex.files(sourceId),
+    )
+
+    /** The entry at source-relative [path] of [sourceId], or null when neither side holds a file there. */
+    suspend fun entry(sourceId: String, path: String): SyncFileEntry? {
+        val key = IndexedFileKey(fileId = SourcePaths.fileId(path), sourceId = sourceId)
+        return mergeIndexedFiles(
+            local = listOfNotNull(storage.index.findFile(key)),
+            remote = listOfNotNull(storage.remoteIndex.findFile(key)),
+        ).singleOrNull()
+    }
+
     /**
      * Fetches a file this device does not hold from its source's peer, into the source itself: a
      * pass then sees both sides equal. Where the source evicts, the copy is marked fetched, and is
@@ -90,8 +106,7 @@ class FilesController internal constructor(
         val source = storage.sources.findById(entry.sourceId)
             ?: throw IllegalArgumentException("Source ${entry.sourceId} is not registered")
 
-        val evictedByHand = source.evictsByHand && storage.index.findFile(key)?.state is LocalIndexedFile.State.Evicted
-        if (!source.fetchesOnDemand && !evictedByHand) {
+        if (!source.fetches(storage.index.findFile(key)?.state)) {
             throw SyncException.ModeForbiddenException(
                 "Source ${source.id} fetches nothing on demand under ${source.syncMode.type}"
             )

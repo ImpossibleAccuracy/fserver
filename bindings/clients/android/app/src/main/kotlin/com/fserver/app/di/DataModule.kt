@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.data.AuthManagerImpl
+import com.fserver.app.data.documents.DocumentsRepositoryImpl
 import com.fserver.app.data.oneshot.OneShotNotifications
 import com.fserver.app.data.oneshot.OneShotNotifier
 import com.fserver.app.data.oneshot.OneShotRepositoryImpl
@@ -13,6 +14,7 @@ import com.fserver.app.domain.oneshot.OneShotRepository
 import com.fserver.app.data.preview.CoilEvictionPreviewer
 import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.domain.AuthManager
+import com.fserver.app.domain.documents.DocumentsRepository
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -33,6 +35,8 @@ internal val dataModule = module {
 
     singleOf(::EvictionPreviews)
     singleOf(::CoilEvictionPreviewer)
+
+    singleOf(::DocumentsRepositoryImpl) bind DocumentsRepository::class
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "fserver_prefs")

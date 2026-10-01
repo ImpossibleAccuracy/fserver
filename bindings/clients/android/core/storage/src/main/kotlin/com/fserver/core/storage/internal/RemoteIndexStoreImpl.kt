@@ -9,6 +9,7 @@ import com.fserver.core.storage.FilesTotal
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.database.RemoteIndexedFileVersion
 import com.fserver.core.store.sync.RemoteIndexStore
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.RemoteIndexedFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,16 @@ internal class RemoteIndexStoreImpl(
         database.transactionWithResult {
             dao.selectBySource(sourceId).executeAsList()
                 .withVectors(versions.selectBySource(sourceId).executeAsList())
+        }
+
+    override suspend fun findFile(key: IndexedFileKey): RemoteIndexedFile? =
+        database.transactionWithResult {
+            dao.findByKey(sourceId = key.sourceId, fileId = key.fileId)
+                .executeAsOneOrNull()
+                ?.let { row ->
+                    listOf(row).withVectors(versions.selectByKey(sourceId = key.sourceId, fileId = key.fileId).executeAsList())
+                        .single()
+                }
         }
 
     /**
