@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.source.request
 
+import com.fserver.app.domain.documents.isOwnDocument
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.util.stateInScreen
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.app.presentation.composable.model.peers
@@ -124,6 +126,7 @@ class SyncRequestViewModel(
     }
 
     private fun pickFolder(intent: SyncRequestIntent.FolderPicked) {
+        if (SourceLocation.Tree(intent.uri).isOwnDocument) return reporter.report(AppError.OwnFolder)
         val folder = HostLocationUi.Folder(uri = intent.uri, label = intent.label, hasFiles = intent.hasFiles)
         editable.update { it.copy(location = folder, folder = folder) }
     }

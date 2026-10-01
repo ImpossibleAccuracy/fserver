@@ -2,6 +2,15 @@
 
 ### App
 
+Documents provider:
+
+- Listing a folder reads the whole source (`FilesController.content`). Add a subtree query
+  (`path LIKE 'dir/%'`) to the index stores once sources grow large;
+- Thumbnails and the app's own viewers read `locator` directly through Coil, bypassing `:core`:
+  an encrypted source will break them. Needs a Coil fetcher over `SourceFileReader`;
+- Write support (`w`/`rw`, create, delete, rename) - read-only for now.
+- Solution unstable for remote-only files, retest over sources and devices.
+
 Minor:
 
 - Check TODOs in code;
@@ -38,14 +47,6 @@ Idea:
   other clients too), schema, scanner, and sync semantics: mkdir/rmdir, folder-vs-file name
   conflict, non-empty folder deleted on the peer, folder rename. Until then, a provider write stage
   can create real folders on disk and list empty ones from disk without indexing them.
-
-Documents provider:
-
-- Listing a folder reads the whole source (`FilesController.content`). Add a subtree query
-  (`path LIKE 'dir/%'`) to the index stores once sources grow large;
-- Thumbnails and the app's own viewers read `locator` directly through Coil, bypassing `:core`:
-  an encrypted source will break them. Needs a Coil fetcher over `SourceFileReader`;
-- Write support (`w`/`rw`, create, delete, rename) - read-only for now.
 
 Major:
 - add QR connection via OutOfBandKeyAuthMethod

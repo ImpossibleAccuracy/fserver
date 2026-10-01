@@ -62,13 +62,14 @@ fun DkIcon(
     modifier: Modifier = Modifier,
     icon: ImageVector,
     size: Dp = 18.dp,
+    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     contentDescription: String? = null,
 ) {
     Icon(
         modifier = modifier.size(size),
         imageVector = icon,
         contentDescription = contentDescription,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        tint = tint,
     )
 }
 

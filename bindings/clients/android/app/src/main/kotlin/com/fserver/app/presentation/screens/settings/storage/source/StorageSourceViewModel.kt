@@ -57,6 +57,7 @@ class StorageSourceViewModel(
     private val filesProviderHandler = FilesProviderHandler(
         filesController = filesController,
         registeredSourcesRepository = registeredSources,
+        progress = sourcesController.progress,
         reporter = reporter,
         openFile = {
             effects.send(StorageSourceUiEffect.OpenFile(it.asPreviewFile()))
@@ -82,7 +83,7 @@ class StorageSourceViewModel(
 
         val sending = transfers
             .filter { !it.isFinished && it.key.sourceId == source.id }
-            .mapTo(mutableSetOf()) { it.key.fileId }
+            .associate { it.key.fileId to it.progress }
         val here = entries.filter { it.localState is LocalIndexedFile.State.Present }
         val fileOf = { entry: SyncFileEntry -> entry.toUi(sending) }
         val files = here.map(fileOf).sortedWith(editable.sort.comparator)
@@ -173,10 +174,10 @@ private data class Editable(
     val selection: Selection = Selection(),
 )
 
-private fun SyncFileEntry.toUi(sending: Set<String>): FileBrowserUi.File = asPreviewFile().copy(
+private fun SyncFileEntry.toUi(sending: Map<String, Float?>): FileBrowserUi.File = asPreviewFile().copy(
     sync = when {
         remoteState is LocalIndexedFile.State.Present -> null
-        fileId in sending -> FileBrowserUi.File.Sync.Sending
+        fileId in sending -> FileBrowserUi.File.Sync.Sending(sending[fileId])
         else -> FileBrowserUi.File.Sync.Waiting
     },
 )

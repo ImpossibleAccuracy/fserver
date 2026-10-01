@@ -12,6 +12,7 @@ import com.fserver.app.presentation.screens.files.editor.shared.EditableImageFor
 import com.fserver.app.presentation.screens.files.model.FilesIntent
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.files.model.FilesUiEffect
+import com.fserver.app.presentation.screens.files.shared.FileFetches
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
@@ -57,6 +58,7 @@ class FilesViewModel(
     private val filesProviderHandler = FilesProviderHandler(
         filesController = filesController,
         registeredSourcesRepository = registeredSourcesRepository,
+        progress = sourcesController.progress,
         reporter = reporter,
         openFile = {
             effects.send(FilesUiEffect.OpenFile(it.asPreviewFile()))
@@ -81,13 +83,13 @@ class FilesViewModel(
                     },
                     sourceIds = query.sourceId?.let(::setOf),
                 ),
-                filesProviderHandler.downloading,
+                filesProviderHandler.fetches,
                 registeredSourcesRepository.sources,
-            ) { files, downloading, sources ->
+            ) { files, fetches, sources ->
                 val writable = sources.filter { it.drivesSync }.mapTo(HashSet()) { it.id }
 
                 FilesState.FeedUi(
-                    preview = files.toTree(query.sort, query.sortAscending) { it.toUi(downloading) },
+                    preview = files.toTree(query.sort, query.sortAscending) { it.toUi(fetches) },
                     filter = query.filter,
                     sourceId = query.sourceId,
                     sort = query.sort,
@@ -235,8 +237,8 @@ class FilesViewModel(
     )
 }
 
-private fun SyncFileEntry.toUi(downloading: Set<String>): FileBrowserUi.File = asPreviewFile().copy(
-    sync = FileBrowserUi.File.Sync.Receiving.takeIf { fileId in downloading },
+private fun SyncFileEntry.toUi(fetches: FileFetches): FileBrowserUi.File = asPreviewFile().copy(
+    sync = fetches.of(this),
 )
 
 private fun SyncFileEntry.actions(writable: Set<String>): Set<FilesState.FileActionUi> = when {

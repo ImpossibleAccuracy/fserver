@@ -9,11 +9,11 @@ import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
+import com.fserver.core.sync.progress.FileTransfer
+import com.fserver.core.sync.progress.SyncProgressRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.getAndUpdate
@@ -24,13 +24,24 @@ import kotlin.time.Duration.Companion.milliseconds
 class FilesProviderHandler(
     private val filesController: FilesController,
     private val registeredSourcesRepository: RegisteredSourcesRepository,
+    progress: SyncProgressRepository,
     private val reporter: ErrorReporter,
     private val openFile: suspend (SyncFileEntry) -> Unit,
 ) {
-    private val _downloading = MutableStateFlow<Set<String>>(emptySet())
+    private val downloading = MutableStateFlow<Set<FileKey>>(emptySet())
+    private val failed = MutableStateFlow<Set<FileKey>>(emptySet())
 
-    /** Ids of the files being fetched from the peer on demand. */
-    val downloading: StateFlow<Set<String>> = _downloading.asStateFlow()
+    /**
+     * How fetches from the peer are getting on: asked here by a tap, or by another app through
+     * the documents provider - the engine reports both as incoming transfers.
+     */
+    val fetches: Flow<FileFetches> = combine(downloading, failed, progress.transfers) { asked, failed, transfers ->
+        val receiving = transfers
+            .filter { it.key.direction == FileTransfer.Direction.Incoming && !it.isFinished }
+            .associate { FileKey(it.key.sourceId, it.key.fileId) to it.progress }
+
+        FileFetches(receiving = receiving, asked = asked, failed = failed)
+    }
 
     /**
      * Indexed entries matching the filters, with paths rooted at their source's origin.
@@ -79,15 +90,20 @@ class FilesProviderHandler(
     suspend fun onItemClick(entry: SyncFileEntry) {
         if (!entry.isRemote) return openFile(entry)
 
+        val key = FileKey(entry.sourceId, entry.fileId)
         // A second tap while the first fetch runs must not start another transfer of the same file.
-        if (entry.fileId in _downloading.getAndUpdate { it + entry.fileId }) return
+        if (key in downloading.getAndUpdate { it + key }) return
+        failed.update { it - key }
 
         try {
             filesController.download(entry)
                 .onSuccess { openFile(entry.copy(locator = it.locator, localState = it.localState)) }
-                .onFailure { reporter.report(it, "On-demand download of ${entry.fileId} failed") }
+                .onFailure {
+                    failed.update { failed -> failed + key }
+                    reporter.report(it, "On-demand download of ${entry.fileId} failed")
+                }
         } finally {
-            _downloading.update { it - entry.fileId }
+            downloading.update { it - key }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.fserver.app.presentation.shared.error
 
 import androidx.compose.runtime.Immutable
+import com.fserver.app.R
 import com.fserver.app.presentation.model.UiText
 import com.fserver.core.requirement.RequirementReport
 
@@ -23,4 +24,9 @@ data class AppError(
 ) {
     /** Whether the user has something to do about it beyond reading the line. */
     val isActionable: Boolean get() = requirements?.isSatisfied == false
+
+    companion object {
+        /** A folder picked from this app's own documents provider. */
+        val OwnFolder = AppError(UiText.of(R.string.error_own_folder))
+    }
 }

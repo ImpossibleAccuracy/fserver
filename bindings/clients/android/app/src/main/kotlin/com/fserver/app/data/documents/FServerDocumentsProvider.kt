@@ -29,6 +29,7 @@ import com.fserver.app.di.AppGraph
 import com.fserver.app.domain.documents.DocumentIds
 import com.fserver.app.domain.documents.DocumentNode
 import com.fserver.app.domain.documents.DocumentsRepository
+import com.fserver.app.domain.documents.OwnDocumentsAuthority
 import com.fserver.app.domain.documents.OpenedDocument
 import com.fserver.app.presentation.composable.model.fileExtension
 import com.fserver.core.files.access.SourceFileReader
@@ -53,10 +54,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /** Every source as a read-only root of the system file picker. See [DocumentsRepository]. */
 class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
     // Resolved on first call, which may come before `Application.onCreate` has started Koin.
-    private val documents: DocumentsRepository by lazy {
-        AppGraph.start(ctx.applicationContext as Application)
-        get()
-    }
+    private val documents: DocumentsRepository by lazy { started { get() } }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val watching = AtomicBoolean(false)
@@ -65,9 +63,13 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
     private val ioHandler by lazy { Handler(HandlerThread("documents-io").apply { start() }.looper) }
 
     private val ctx: Context get() = checkNotNull(context) { "Provider is not attached" }
-    private val authority: String get() = "${ctx.packageName}$AuthoritySuffix"
 
     override fun onCreate(): Boolean = true
+
+    private inline fun <T> started(resolve: () -> T): T {
+        AppGraph.start(ctx.applicationContext as Application)
+        return resolve()
+    }
 
     override fun queryRoots(projection: Array<String>?): Cursor {
         watchChanges()
@@ -81,7 +83,7 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
                 .add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_IS_CHILD)
                 .add(Root.COLUMN_ICON, R.mipmap.ic_launcher)
         }
-        cursor.setNotificationUri(ctx.contentResolver, DocumentsContract.buildRootsUri(authority))
+        cursor.setNotificationUri(ctx.contentResolver, DocumentsContract.buildRootsUri(OwnDocumentsAuthority))
         return cursor
     }
 
@@ -102,7 +104,7 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
         cursor.addNode(sourceId, node, name = if (path.isEmpty()) source.label else node.name)
         cursor.setNotificationUri(
             ctx.contentResolver,
-            DocumentsContract.buildDocumentUri(authority, documentId)
+            DocumentsContract.buildDocumentUri(OwnDocumentsAuthority, documentId)
         )
         return cursor
     }
@@ -123,7 +125,7 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
         children.forEach { cursor.addNode(sourceId, it, it.name) }
         cursor.setNotificationUri(
             ctx.contentResolver,
-            DocumentsContract.buildChildDocumentsUri(authority, parentDocumentId),
+            DocumentsContract.buildChildDocumentsUri(OwnDocumentsAuthority, parentDocumentId),
         )
         return cursor
     }
@@ -245,7 +247,7 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
         if (!watching.compareAndSet(false, true)) return
 
         // Every document uri sits below this one, so one notification reaches every open cursor.
-        val everything = Uri.Builder().scheme("content").authority(authority).build()
+        val everything = Uri.Builder().scheme("content").authority(OwnDocumentsAuthority).build()
         scope.launch {
             documents.changes
                 .debounce(NotifyDebounce)
@@ -254,8 +256,6 @@ class FServerDocumentsProvider : DocumentsProvider(), KoinComponent {
     }
 
     private companion object {
-        /** Must match the authority in the manifest. */
-        const val AuthoritySuffix = ".documents"
         const val ThumbnailQuality = 85
         const val PipeBufferSize = 256 * 1024
         val NotifyDebounce = 300.milliseconds

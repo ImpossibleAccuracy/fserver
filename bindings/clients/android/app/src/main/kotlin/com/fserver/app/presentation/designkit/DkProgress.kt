@@ -52,14 +52,29 @@ fun DkProgressBar(
     )
 }
 
-/** The small spinner that sits inline in the "still searching…" row. */
+/** The small spinner that sits inline in a row. With [progress], a ring filling up instead. */
 @Composable
-fun DkInlineSpinner(modifier: Modifier = Modifier) {
+fun DkInlineSpinner(
+    modifier: Modifier = Modifier,
+    progress: Float? = null,
+) {
+    if (progress == null) {
+        CircularProgressIndicator(
+            modifier = modifier.size(14.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            strokeWidth = 2.dp,
+        )
+        return
+    }
+
     CircularProgressIndicator(
+        progress = { progress },
         modifier = modifier.size(14.dp),
         color = MaterialTheme.colorScheme.primary,
         trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         strokeWidth = 2.dp,
+        gapSize = 0.dp,
     )
 }
 

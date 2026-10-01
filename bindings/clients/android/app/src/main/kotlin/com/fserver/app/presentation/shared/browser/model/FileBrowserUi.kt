@@ -114,13 +114,17 @@ sealed interface FileBrowserUi {
             Remote,
         }
 
-        /** A file whose bytes are only on one side yet. */
-        enum class Sync {
-            Waiting,
-            Sending,
+        /** A file whose bytes are only on one side yet. [progress] is null while the size is unknown. */
+        sealed interface Sync {
+            data object Waiting : Sync
+
+            data class Sending(val progress: Float? = null) : Sync
 
             /** Being fetched from the peer, to be opened here. */
-            Receiving,
+            data class Receiving(val progress: Float? = null) : Sync
+
+            /** The last fetch from the peer failed; opening the file tries again. */
+            data object Failed : Sync
         }
     }
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.formatted
+import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.designkit.DkStatusDot
@@ -44,10 +45,14 @@ internal fun BrowserFileRow(
     DkListRow(
         modifier = modifier,
         title = file.name,
-        subtitle = listOfNotNull(file.size?.formatted(), sync?.let { stringResource(it.labelRes) })
+        subtitle = listOfNotNull(
+            file.size?.formatted(),
+            sync?.let { stringResource(it.labelRes) },
+            sync?.progress?.let { stringResource(R.string.file_sync_percent, (it * 100).toInt()) },
+        )
             .joinToString(" · ")
             .ifEmpty { null },
-        subtitleColor = if (sync == FileBrowserUi.File.Sync.Waiting) MaterialTheme.colorScheme.error else null,
+        subtitleColor = if (sync?.isProblem == true) MaterialTheme.colorScheme.error else null,
         subtitleLeading = sync?.let { { DkStatusDot(color = it.color()) } },
         leading = {
             Row(
@@ -60,7 +65,11 @@ internal fun BrowserFileRow(
         },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RemoteOnlyBadge(file = file)
+                if (sync is FileBrowserUi.File.Sync.Receiving) {
+                    DkInlineSpinner(progress = sync.progress)
+                } else {
+                    RemoteOnlyBadge(file = file)
+                }
                 if (selection == null) menu?.invoke(file)
             }
         },
@@ -91,14 +100,23 @@ private fun EntryThumbnail(
 private val FileBrowserUi.File.Sync.labelRes: Int
     get() = when (this) {
         FileBrowserUi.File.Sync.Waiting -> R.string.file_sync_waiting
-        FileBrowserUi.File.Sync.Sending -> R.string.file_sync_sending
-        FileBrowserUi.File.Sync.Receiving -> R.string.file_sync_receiving
+        is FileBrowserUi.File.Sync.Sending -> R.string.file_sync_sending
+        is FileBrowserUi.File.Sync.Receiving -> R.string.file_sync_receiving
+        FileBrowserUi.File.Sync.Failed -> R.string.file_sync_failed
     }
 
+private val FileBrowserUi.File.Sync.progress: Float?
+    get() = when (this) {
+        is FileBrowserUi.File.Sync.Sending -> progress
+        is FileBrowserUi.File.Sync.Receiving -> progress
+        FileBrowserUi.File.Sync.Waiting,
+        FileBrowserUi.File.Sync.Failed -> null
+    }
+
+private val FileBrowserUi.File.Sync.isProblem: Boolean
+    get() = this == FileBrowserUi.File.Sync.Waiting || this == FileBrowserUi.File.Sync.Failed
+
 @Composable
-private fun FileBrowserUi.File.Sync.color(): Color = when (this) {
-    FileBrowserUi.File.Sync.Waiting -> MaterialTheme.colorScheme.error
-    FileBrowserUi.File.Sync.Sending,
-    FileBrowserUi.File.Sync.Receiving -> MaterialTheme.colorScheme.primary
-}
+private fun FileBrowserUi.File.Sync.color(): Color =
+    if (isProblem) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.domain.AuthManager
+import com.fserver.app.domain.documents.isOwnDocument
 import com.fserver.app.domain.oneshot.OneShotRepository
 import com.fserver.app.domain.oneshot.isAwaitingAnswer
 import com.fserver.app.presentation.composable.IncomingFileUi
@@ -15,6 +16,7 @@ import com.fserver.app.presentation.model.UnauthenticatedDestinations
 import com.fserver.app.presentation.navigation.model.AppRootIntent
 import com.fserver.app.presentation.navigation.model.AppRootState
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.util.stateInScreen
 import com.fserver.common.model.FileSize
 import com.fserver.core.FServerCore
@@ -193,6 +195,7 @@ class AppViewModel(
                 answerTransfer { oneShotController.decline(it.transferId) }
 
             is AppRootIntent.ChangeIncomingDestination -> {
+                if (intent.destination.isOwnDocument) return errorBus.report(AppError.OwnFolder)
                 val request = state.value?.incomingTransfer ?: return
                 destinationOverride.value = request.transferId to intent.destination
             }

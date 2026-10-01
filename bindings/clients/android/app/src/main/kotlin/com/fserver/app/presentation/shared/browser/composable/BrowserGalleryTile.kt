@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,7 +14,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.designkit.DkIcon
+import com.fserver.app.presentation.designkit.DkInlineSpinner
 import com.fserver.app.presentation.designkit.DkMediaTile
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
@@ -51,6 +56,39 @@ fun BrowserGalleryTile(
             onClick = gestures?.onClick,
             onLongClick = gestures?.onLongClick,
         )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(DkSpacing.xs),
+        ) {
+            when (file.sync) {
+                FileBrowserUi.File.Sync.Failed -> {
+                    DkIcon(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                shape = MaterialTheme.shapes.small,
+                            )
+                            .padding(DkSpacing.xxs),
+                        icon = Icons.Default.ErrorOutline,
+                        size = 14.dp,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                is FileBrowserUi.File.Sync.Receiving -> {
+                    DkInlineSpinner(
+                        progress = file.sync.progress,
+                    )
+                }
+
+                is FileBrowserUi.File.Sync.Sending,
+                FileBrowserUi.File.Sync.Waiting,
+                null -> {
+                }
+            }
+        }
 
         if (file.isRemoteOnly) {
             RemoteOnlyBadge(

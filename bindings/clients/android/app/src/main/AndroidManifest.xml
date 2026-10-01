@@ -163,7 +163,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Authority must match FServerDocumentsProvider.AuthoritySuffix. -->
         <provider
             android:name=".data.documents.FServerDocumentsProvider"
             android:authorities="${applicationId}.documents"

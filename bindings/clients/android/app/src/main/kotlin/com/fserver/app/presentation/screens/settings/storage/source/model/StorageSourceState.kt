@@ -97,7 +97,7 @@ data class StorageSourceState(
                 sampleFile("VID_20260902_1144.mp4", 1_600_000_000, FileBrowserUi.File.Sync.Waiting),
                 sampleFile("VID_20250611_1733.mp4", 1_200_000_000),
                 sampleFile("IMG_4410.dng", 800_000_000),
-                sampleFile("VID_20260920_0915.mp4", 700_000_000, FileBrowserUi.File.Sync.Sending),
+                sampleFile("VID_20260920_0915.mp4", 700_000_000, FileBrowserUi.File.Sync.Sending(0.4f)),
             ),
         )
 

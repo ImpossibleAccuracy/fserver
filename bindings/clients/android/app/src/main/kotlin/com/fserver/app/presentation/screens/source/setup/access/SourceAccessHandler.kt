@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.source.setup.access
 
+import com.fserver.app.domain.documents.isOwnDocument
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.util.stateInScreen
 import android.content.Context
 import com.fserver.app.presentation.screens.source.setup.access.model.SourceAccessIntent
@@ -131,6 +133,7 @@ class SourceAccessHandler(
 
     private fun startScan(grant: SourceAccessGrant) {
         val target = grant.directory() ?: return
+        if (target.isOwnDocument) return reporter.report(AppError.OwnFolder)
         val tree = grant as? SourceAccessGrant.Tree
 
         runScan(

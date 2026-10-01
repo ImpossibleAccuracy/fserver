@@ -2,12 +2,15 @@ package com.fserver.app.presentation.screens.settings.transfers
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.domain.documents.isOwnDocument
 import com.fserver.app.domain.oneshot.OneShotRepository
 import com.fserver.app.presentation.screens.settings.transfers.model.TransfersIntent
 import com.fserver.app.presentation.screens.settings.transfers.model.TransfersState
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.stateInScreen
 import com.fserver.common.model.FileSize
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.oneshot.OneShotTransfersController
 import com.fserver.core.oneshot.model.OneShotTransfer
 import com.fserver.core.oneshot.model.OneShotTransferFile
@@ -44,7 +47,7 @@ class TransfersViewModel(
 
     fun onIntent(intent: TransfersIntent) {
         when (intent) {
-            is TransfersIntent.DestinationPicked -> viewModelScope.launch { settings.setDestination(intent.destination) }
+            is TransfersIntent.DestinationPicked -> recordDestination(intent.destination)
             is TransfersIntent.AutoAcceptChanged -> viewModelScope.launch { settings.setAutoAccept(intent.enabled) }
             is TransfersIntent.CancelClicked -> run("cancel") { controller.cancel(intent.transferId) }
             is TransfersIntent.RetryClicked -> run("retry") { controller.retry(intent.transferId) }
@@ -54,6 +57,11 @@ class TransfersViewModel(
     }
 
     fun reportError(error: Throwable, context: String) = reporter.report(error, context)
+
+    private fun recordDestination(destination: SourceLocation.Hostable) {
+        if (destination.isOwnDocument) return reporter.report(AppError.OwnFolder)
+        viewModelScope.launch { settings.setDestination(destination) }
+    }
 
     private fun run(what: String, action: suspend () -> Result<Unit>) {
         viewModelScope.launch {
