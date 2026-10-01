@@ -1,10 +1,12 @@
 package com.fserver.core.support
 
+import android.os.ParcelFileDescriptor
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.task.ProgressTask
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.scan.ScanProgress
 import java.io.ByteArrayInputStream
@@ -68,6 +70,29 @@ internal class InMemoryFileSystem : FileSystem {
     private inner class InMemoryFile(override val locator: String) : FsFile {
         override suspend fun read(): InputStream =
             ByteArrayInputStream(files[locator] ?: throw FileSystemException.InvalidPath(locator))
+
+        override suspend fun openReader(): FsReader {
+            if (locator !in files) throw FileSystemException.InvalidPath(locator)
+
+            return object : FsReader {
+                private val bytes get() = files[locator] ?: throw FileSystemException.InvalidPath(locator)
+
+                override suspend fun size(): Long = bytes.size.toLong()
+
+                override suspend fun read(offset: Long, bytes: ByteArray, length: Int): Int {
+                    val content = this.bytes
+                    if (offset >= content.size) return -1
+
+                    val count = minOf(length, content.size - offset.toInt())
+                    content.copyInto(bytes, startIndex = offset.toInt(), endIndex = offset.toInt() + count)
+                    return count
+                }
+
+                override fun close() = Unit
+            }
+        }
+
+        override suspend fun openDescriptor(): ParcelFileDescriptor = throw UnsupportedOperationException()
 
         override suspend fun openWriter(): FsWriter {
             if (locator !in files) throw FileSystemException.InvalidPath(locator)

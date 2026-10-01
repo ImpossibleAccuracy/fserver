@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import com.fserver.common.exception.FileSystemException
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -19,6 +22,23 @@ import java.io.OutputStream
 internal suspend fun readProviderFile(context: Context, uri: Uri): InputStream =
     withContext(Dispatchers.IO) {
         context.contentResolver.openInputStream(uri)
+            ?: throw FileSystemException.InvalidPath(uri.toString())
+    }
+
+/** Positional, so a provider that hands back a pipe instead of a seekable descriptor fails on read. */
+@SuppressLint("Recycle")
+internal suspend fun openProviderReader(context: Context, uri: Uri): FsReader =
+    withContext(Dispatchers.IO) {
+        val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
+            ?: throw FileSystemException.InvalidPath(uri.toString())
+
+        ChannelReader(FileInputStream(descriptor.fileDescriptor).channel, onClose = descriptor::close)
+    }
+
+@SuppressLint("Recycle")
+internal suspend fun openProviderDescriptor(context: Context, uri: Uri): ParcelFileDescriptor =
+    withContext(Dispatchers.IO) {
+        context.contentResolver.openFileDescriptor(uri, "r")
             ?: throw FileSystemException.InvalidPath(uri.toString())
     }
 

@@ -1,5 +1,6 @@
 package com.fserver.core.files.access
 
+import android.os.ParcelFileDescriptor
 import com.fserver.common.model.FileSize
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
@@ -28,6 +29,16 @@ class SourceFile internal constructor(
 
     /** Only while the bytes are here: an evicted file is downloaded first. */
     suspend fun read(): InputStream = editor.read(key)
+
+    /** As [read], but at any offset. */
+    suspend fun openReader(): SourceFileReader = editor.openReader(key)
+
+    /**
+     * A read-only descriptor on the file itself, for handing to another app: it carries the real
+     * path, which some apps take the name from. Null where the bytes on disk are not the content
+     * as is (an encrypted source) - use [openReader] then.
+     */
+    suspend fun openDescriptor(): ParcelFileDescriptor? = editor.openDescriptor(key)
 
     /**
      * Renames the file to [newName] - a name, not a path - within its directory.

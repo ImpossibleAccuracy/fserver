@@ -1,9 +1,12 @@
 package com.fserver.files.fs.impl.local
 
+import android.os.ParcelFileDescriptor
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.impl.StreamTarget
+import com.fserver.files.fs.impl.ChannelReader
 import com.fserver.files.fs.impl.ChannelWriter
 import com.fserver.files.fs.impl.nameOf
 import com.fserver.files.fs.impl.partNameOf
@@ -35,6 +38,18 @@ internal class LocalFile(
 
     override suspend fun read(): InputStream = withContext(Dispatchers.IO) {
         file.inputStream()
+    }
+
+    override suspend fun openReader(): FsReader {
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) { ChannelReader(RandomAccessFile(file, "r").channel) }
+    }
+
+    override suspend fun openDescriptor(): ParcelFileDescriptor {
+        if (!file.isFile) throw FileSystemException.InvalidPath(locator)
+
+        return withContext(Dispatchers.IO) { ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY) }
     }
 
     override suspend fun openWriter(): FsWriter {

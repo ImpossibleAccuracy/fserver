@@ -1,5 +1,7 @@
 package com.fserver.core.sync.model
 
+import com.fserver.core.sync.index.LocalIndexedFile
+
 // What each end of a source may do under its mode. Mirror is symmetric; every other mode is driven
 // by the initiator alone, and the follower only answers it.
 
@@ -41,3 +43,7 @@ val SourceEntry.fetchesOnDemand: Boolean
         is SyncMode.Offload, is SyncMode.Host -> role == SourceEntry.Role.Initiator
         is SyncMode.AutoUpload -> false
     }
+
+/** A file this device lacks, in [localState] here (null: never held), may be fetched from the peer. */
+fun SourceEntry.fetches(localState: LocalIndexedFile.State?): Boolean =
+    fetchesOnDemand || (evictsByHand && localState is LocalIndexedFile.State.Evicted)

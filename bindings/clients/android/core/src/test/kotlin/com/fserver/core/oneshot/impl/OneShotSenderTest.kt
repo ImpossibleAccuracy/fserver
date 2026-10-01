@@ -19,6 +19,8 @@ import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FileSystemSource
 import com.fserver.files.fs.FsFile
 import kotlinx.coroutines.flow.first
+import android.os.ParcelFileDescriptor
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import io.mockk.coEvery
 import io.mockk.every
@@ -179,6 +181,9 @@ class OneShotSenderTest {
         override suspend fun read(): InputStream =
             if (readable) ByteArrayInputStream(content) else throw FileSystemException.InvalidPath(locator)
 
+        override suspend fun openReader(): FsReader = throw UnsupportedOperationException()
+
+        override suspend fun openDescriptor(): ParcelFileDescriptor = throw UnsupportedOperationException()
         override suspend fun openWriter(): FsWriter = throw UnsupportedOperationException()
         override suspend fun rename(newName: String, deleteOldOnConflict: Boolean): FsFile = this
         override suspend fun delete(): Boolean = false

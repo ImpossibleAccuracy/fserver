@@ -1,5 +1,6 @@
 package com.fserver.core.files.access
 
+import android.os.ParcelFileDescriptor
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.exception.SyncException
 import com.fserver.common.model.FileSize
@@ -16,6 +17,7 @@ import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FileSystem
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -45,14 +47,20 @@ internal class LocalFileEditor(
 
         val fs = open(source)
         fs.checkPath(canonical)
-        if (storage.index.findFile(key)?.state is LocalIndexedFile.State.Present || fs.fileExists(canonical)) {
+        if (storage.index.findFile(key)?.state is LocalIndexedFile.State.Present || fs.fileExists(
+                canonical
+            )
+        ) {
             throw FileSystemException.AlreadyExists(canonical)
         }
 
         return withContext(NonCancellable) {
             val file = fs.createFile(canonical)
             val modifiedAt = file.settleLastModified(timeProvider.now())
-            SourceFile(this@LocalFileEditor, indexWriter.recordCreated(source, canonical, file.locator, modifiedAt))
+            SourceFile(
+                this@LocalFileEditor,
+                indexWriter.recordCreated(source, canonical, file.locator, modifiedAt)
+            )
         }
     }
 
@@ -62,12 +70,29 @@ internal class LocalFileEditor(
         return open(source).openFile(row.locator)?.read() ?: throw FileNotFoundException(row.path)
     }
 
+    suspend fun openReader(key: IndexedFileKey): SourceFileReader {
+        val source = source(key.sourceId)
+        val row = present(key)
+        val reader = open(source).openFile(row.locator)?.openReader()
+            ?: throw FileNotFoundException(row.path)
+        return FsSourceReader(reader)
+    }
+
+    // Always the file itself while no source transforms its bytes on disk.
+    suspend fun openDescriptor(key: IndexedFileKey): ParcelFileDescriptor? {
+        val source = source(key.sourceId)
+        val row = present(key)
+        val file = open(source).openFile(row.locator) ?: throw FileNotFoundException(row.path)
+        return file.openDescriptor()
+    }
+
     suspend fun rename(key: IndexedFileKey, newName: String): SourceFile {
         require(newName.isNotBlank() && newName.none { it == '/' || it == '\\' }) { "Not a file name: $newName" }
 
         val source = writableSource(key.sourceId)
         val row = present(key)
-        val path = SourcePaths.canonical(null, listOf(row.path.substringBeforeLast('/', ""), newName))
+        val path =
+            SourcePaths.canonical(null, listOf(row.path.substringBeforeLast('/', ""), newName))
         if (path == row.path) return SourceFile(this, row)
 
         val target = IndexedFileKey(fileId = SourcePaths.fileId(path), sourceId = source.id)
@@ -80,7 +105,10 @@ internal class LocalFileEditor(
             // Refuses when a file not indexed yet sits under the new name.
             val renamed = file.rename(path.substringAfterLast('/'))
             val modifiedAt = renamed.settleLastModified(row.modifiedAt)
-            SourceFile(this@LocalFileEditor, indexWriter.recordRenamed(source, key, path, renamed.locator, modifiedAt))
+            SourceFile(
+                this@LocalFileEditor,
+                indexWriter.recordRenamed(source, key, path, renamed.locator, modifiedAt)
+            )
         }
     }
 
@@ -147,6 +175,15 @@ internal class LocalFileEditor(
     private fun open(source: SourceEntry): FileSystem = node.openSource(source.location.toFiles())
 }
 
+private class FsSourceReader(private val delegate: FsReader) : SourceFileReader {
+    override suspend fun size(): Long = delegate.size()
+
+    override suspend fun read(offset: Long, bytes: ByteArray, length: Int): Int =
+        delegate.read(offset, bytes, length)
+
+    override fun close() = delegate.close()
+}
+
 /** Remembers how far the writes reached, since [FsWriter] cannot tell the size. */
 private class TrackingWriter(private val delegate: FsWriter) : SourceFileWriter, AutoCloseable {
     private var end = 0L
@@ -154,7 +191,8 @@ private class TrackingWriter(private val delegate: FsWriter) : SourceFileWriter,
     var touched = false
         private set
 
-    fun sizeAfter(initial: Long): Long = maxOf(truncatedTo?.let { minOf(initial, it) } ?: initial, end)
+    fun sizeAfter(initial: Long): Long =
+        maxOf(truncatedTo?.let { minOf(initial, it) } ?: initial, end)
 
     override suspend fun write(offset: Long, bytes: ByteArray, length: Int) {
         touched = true

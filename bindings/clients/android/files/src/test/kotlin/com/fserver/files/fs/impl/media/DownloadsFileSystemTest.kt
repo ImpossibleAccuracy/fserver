@@ -6,6 +6,8 @@ import android.provider.MediaStore
 import androidx.core.net.toUri
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import android.os.ParcelFileDescriptor
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.impl.BytesFile
 import kotlinx.coroutines.test.runTest
@@ -162,6 +164,10 @@ class DownloadsFileSystemTest {
         override suspend fun read(): InputStream = object : InputStream() {
             override fun read(): Int = throw IOException("disk gone")
         }
+
+        override suspend fun openReader(): FsReader = throw UnsupportedOperationException()
+
+        override suspend fun openDescriptor(): ParcelFileDescriptor = throw UnsupportedOperationException()
 
         override suspend fun openWriter(): FsWriter = throw UnsupportedOperationException()
         override suspend fun rename(newName: String, deleteOldOnConflict: Boolean): FsFile = this

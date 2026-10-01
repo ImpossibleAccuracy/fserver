@@ -6,9 +6,11 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.os.ParcelFileDescriptor
 import androidx.annotation.RequiresApi
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.impl.StreamTarget
 import com.fserver.files.fs.impl.openProviderOutput
@@ -17,6 +19,8 @@ import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.nameOf
 import com.fserver.files.fs.impl.readProviderFile
 import com.fserver.files.fs.impl.tree.TreeFile
+import com.fserver.files.fs.impl.openProviderDescriptor
+import com.fserver.files.fs.impl.openProviderReader
 import com.fserver.files.fs.impl.openProviderWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,6 +39,10 @@ internal class MediaFile(
     override val locator: String = uri.toString()
 
     override suspend fun read(): InputStream = readProviderFile(context, uri)
+
+    override suspend fun openReader(): FsReader = openProviderReader(context, uri)
+
+    override suspend fun openDescriptor(): ParcelFileDescriptor = openProviderDescriptor(context, uri)
 
     override suspend fun openWriter(): FsWriter = openProviderWriter(context, uri)
 

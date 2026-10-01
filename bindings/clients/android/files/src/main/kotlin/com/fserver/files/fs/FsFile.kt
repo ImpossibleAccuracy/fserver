@@ -1,5 +1,6 @@
 package com.fserver.files.fs
 
+import android.os.ParcelFileDescriptor
 import java.io.InputStream
 import kotlin.time.Instant
 
@@ -10,6 +11,12 @@ interface FsFile {
 
     /** Open the file for reading. */
     suspend fun read(): InputStream
+
+    /** Open the file for positional reads, one descriptor for as many as the caller makes. */
+    suspend fun openReader(): FsReader
+
+    /** A read-only descriptor on the file itself, for handing to another process. The caller closes it. */
+    suspend fun openDescriptor(): ParcelFileDescriptor?
 
     /** Open the file for positional writes, one descriptor for as many as the caller makes. */
     suspend fun openWriter(): FsWriter

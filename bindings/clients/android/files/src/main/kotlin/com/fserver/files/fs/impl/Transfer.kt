@@ -2,6 +2,7 @@ package com.fserver.files.fs.impl
 
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -34,6 +35,19 @@ internal class ChannelWriter(
     override suspend fun truncate(size: Long) = withContext(Dispatchers.IO) { channel.truncate(size); Unit }
 
     override suspend fun sync() = withContext(Dispatchers.IO) { channel.force(false) }
+
+    override fun close() = onClose()
+}
+
+/** [FsReader] over one [channel]; [onClose] releases whatever owns its descriptor. */
+internal class ChannelReader(
+    private val channel: FileChannel,
+    private val onClose: () -> Unit = channel::close,
+) : FsReader {
+    override suspend fun size(): Long = withContext(Dispatchers.IO) { channel.size() }
+
+    override suspend fun read(offset: Long, bytes: ByteArray, length: Int): Int =
+        withContext(Dispatchers.IO) { channel.read(ByteBuffer.wrap(bytes, 0, length), offset) }
 
     override fun close() = onClose()
 }

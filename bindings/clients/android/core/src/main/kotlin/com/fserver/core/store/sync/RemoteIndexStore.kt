@@ -1,6 +1,7 @@
 package com.fserver.core.store.sync
 
 import com.fserver.core.store.FServerStorageApi
+import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.RemoteIndexedFile
 import kotlinx.coroutines.flow.Flow
 
@@ -21,6 +22,9 @@ interface RemoteIndexStore {
 
     /** What [sourceId]'s peer last reported, or empty when nothing has been heard yet. */
     suspend fun files(sourceId: String): List<RemoteIndexedFile>
+
+    /** What the peer last reported for [key], or null when it reported nothing for it. */
+    suspend fun findFile(key: IndexedFileKey): RemoteIndexedFile?
 
     /** Replaces everything recorded for [sourceId] with [files], attributed to [deviceId]. */
     suspend fun replace(sourceId: String, deviceId: String, files: Collection<RemoteIndexedFile>)

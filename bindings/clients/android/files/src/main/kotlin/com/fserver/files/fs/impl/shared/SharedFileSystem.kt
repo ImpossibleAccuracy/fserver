@@ -3,6 +3,7 @@ package com.fserver.files.fs.impl.shared
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
@@ -10,8 +11,11 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.model.FileSize
 import com.fserver.common.task.ProgressTask
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.ReadableFileSystem
+import com.fserver.files.fs.impl.openProviderDescriptor
+import com.fserver.files.fs.impl.openProviderReader
 import com.fserver.files.fs.impl.readProviderFile
 import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.scan.ScanProgress
@@ -121,6 +125,18 @@ private class SharedFile(
         readProviderFile(context, uri)
     } catch (e: SecurityException) {
         // The grant ended: the sharing task is gone, or the process restarted since.
+        throw FileSystemException.InvalidPath(locator)
+    }
+
+    override suspend fun openReader(): FsReader = try {
+        openProviderReader(context, uri)
+    } catch (e: SecurityException) {
+        throw FileSystemException.InvalidPath(locator)
+    }
+
+    override suspend fun openDescriptor(): ParcelFileDescriptor = try {
+        openProviderDescriptor(context, uri)
+    } catch (e: SecurityException) {
         throw FileSystemException.InvalidPath(locator)
     }
 
