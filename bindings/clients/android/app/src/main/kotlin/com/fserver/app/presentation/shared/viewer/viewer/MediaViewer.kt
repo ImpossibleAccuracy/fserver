@@ -57,7 +57,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
-import com.fserver.app.playback.BackgroundPlayback
+import com.fserver.app.data.playback.BackgroundPlayback
 import com.fserver.app.presentation.composable.model.FileKindUi
 import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi

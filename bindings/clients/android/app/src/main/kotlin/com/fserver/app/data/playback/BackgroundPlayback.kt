@@ -1,4 +1,4 @@
-package com.fserver.app.playback
+package com.fserver.app.data.playback
 
 import android.app.PendingIntent
 import android.content.Context
@@ -8,7 +8,6 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
 import com.fserver.common.utils.IdGenerator
 import timber.log.Timber
-import java.util.UUID
 
 /**
  * Hands the viewer's player to [PlaybackService] while the app is out of sight. The player stays

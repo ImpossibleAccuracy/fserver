@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -80,6 +82,8 @@ private val FilesState.FileActionUi.labelRes: Int
     get() = when (this) {
         FilesState.FileActionUi.Edit -> R.string.action_edit
         FilesState.FileActionUi.Rename -> R.string.files_action_rename
+        FilesState.FileActionUi.Pin -> R.string.files_action_pin
+        FilesState.FileActionUi.Unpin -> R.string.files_action_unpin
         FilesState.FileActionUi.Delete -> R.string.action_delete
     }
 
@@ -87,6 +91,8 @@ private val FilesState.FileActionUi.icon: ImageVector
     get() = when (this) {
         FilesState.FileActionUi.Edit -> Icons.Default.Edit
         FilesState.FileActionUi.Rename -> Icons.Default.DriveFileRenameOutline
+        FilesState.FileActionUi.Pin -> Icons.Outlined.PushPin
+        FilesState.FileActionUi.Unpin -> Icons.Default.PushPin
         FilesState.FileActionUi.Delete -> Icons.Default.DeleteOutline
     }
 

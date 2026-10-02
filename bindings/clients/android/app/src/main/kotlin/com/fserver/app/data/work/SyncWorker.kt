@@ -1,4 +1,4 @@
-package com.fserver.app.work
+package com.fserver.app.data.work
 
 import android.content.Context
 import androidx.work.CoroutineWorker

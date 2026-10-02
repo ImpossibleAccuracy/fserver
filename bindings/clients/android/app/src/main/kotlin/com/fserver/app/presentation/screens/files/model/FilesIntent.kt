@@ -24,4 +24,5 @@ sealed interface FilesIntent {
 
     data class RenameConfirmed(val entryId: String, val newName: String) : FilesIntent
     data class DeleteConfirmed(val entryIds: Set<String>) : FilesIntent
+    data class PinRequested(val entryIds: Set<String>, val pinned: Boolean) : FilesIntent
 }

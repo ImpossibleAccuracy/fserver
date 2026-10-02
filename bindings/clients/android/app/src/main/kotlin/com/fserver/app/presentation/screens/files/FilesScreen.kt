@@ -125,6 +125,8 @@ private fun FilesScreenContent(
                 }
             }
             FilesState.FileActionUi.Rename -> renaming = entryIds.single()
+            FilesState.FileActionUi.Pin -> onIntent(FilesIntent.PinRequested(entryIds, pinned = true))
+            FilesState.FileActionUi.Unpin -> onIntent(FilesIntent.PinRequested(entryIds, pinned = false))
             FilesState.FileActionUi.Delete -> deleting = entryIds
         }
     }

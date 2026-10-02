@@ -15,12 +15,14 @@ import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
+import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.model.evictsByHand
 import com.fserver.core.sync.model.evictsLocally
 import com.fserver.core.sync.model.fetches
+import com.fserver.core.sync.model.pinsFiles
 import com.fserver.core.sync.runner.SyncRunner
 import com.fserver.core.sync.transfer.FileDownloader
 import com.fserver.core.util.TimeProvider
@@ -37,6 +39,7 @@ class FilesController internal constructor(
     private val fileDownloader: FileDownloader,
     private val editor: LocalFileEditor,
     private val evictor: FileEvictor,
+    private val indexWriter: LocalIndexWriter,
     private val syncRunner: SyncRunner,
     private val timeProvider: TimeProvider,
     private val coroutineScope: BackgroundScope,
@@ -161,6 +164,22 @@ class FilesController internal constructor(
                 val row = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = sourceId))
                 row != null && evictor.evict(agreed, fileId, expected = row.hash)
             }
+        }
+    }
+
+    /** Pins or unpins [fileIds] of [sourceId], where [pinsFiles] allows it. Files not present here are skipped. */
+    suspend fun setPinned(sourceId: String, fileIds: Set<String>, pinned: Boolean) {
+        val source = storage.sources.findById(sourceId)
+            ?: throw IllegalArgumentException("Source $sourceId is not registered")
+
+        if (!source.pinsFiles) {
+            throw SyncException.ModeForbiddenException(
+                "Source ${source.id} does not evict under ${source.syncMode.type} as ${source.role}"
+            )
+        }
+
+        for (fileId in fileIds) {
+            indexWriter.recordPinned(source, IndexedFileKey(fileId = fileId, sourceId = sourceId), pinned)
         }
     }
 

@@ -11,7 +11,7 @@ import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
 import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
 import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.di.AppGraph
-import com.fserver.app.work.SyncScheduler
+import com.fserver.app.data.work.SyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

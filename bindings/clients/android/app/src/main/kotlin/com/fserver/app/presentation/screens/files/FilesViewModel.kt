@@ -27,6 +27,7 @@ import com.fserver.core.storage.RegisteredSourcesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.drivesSync
+import com.fserver.core.sync.model.pinsFiles
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -87,6 +88,7 @@ class FilesViewModel(
                 registeredSourcesRepository.sources,
             ) { files, fetches, sources ->
                 val writable = sources.filter { it.drivesSync }.mapTo(HashSet()) { it.id }
+                val pinnable = sources.filter { it.pinsFiles }.mapTo(HashSet()) { it.id }
 
                 FilesState.FeedUi(
                     preview = files.toTree(query.sort, query.sortAscending) { it.toUi(fetches) },
@@ -94,7 +96,7 @@ class FilesViewModel(
                     sourceId = query.sourceId,
                     sort = query.sort,
                     sortAscending = query.sortAscending,
-                    actions = files.associate { it.fileId to it.actions(writable) },
+                    actions = files.associate { it.fileId to it.actions(writable, pinnable) },
                 )
             }
         }
@@ -179,6 +181,8 @@ class FilesViewModel(
             is FilesIntent.RenameConfirmed -> rename(intent.entryId, intent.newName)
 
             is FilesIntent.DeleteConfirmed -> delete(intent.entryIds)
+
+            is FilesIntent.PinRequested -> setPinned(intent.entryIds, intent.pinned)
         }
     }
 
@@ -200,6 +204,19 @@ class FilesViewModel(
 
                 runCatchingCancellable { filesController.delete(entry.sourceId, entry.fileId) }
                     .onFailure { reporter.report(it, "Delete of ${entry.fileId} failed") }
+            }
+
+            closeEdit()
+        }
+    }
+
+    private fun setPinned(entryIds: Set<String>, pinned: Boolean) {
+        viewModelScope.launch {
+            val bySource = entryIds.mapNotNull(::entryOf).groupBy({ it.sourceId }, { it.fileId })
+
+            for ((sourceId, fileIds) in bySource) {
+                runCatchingCancellable { filesController.setPinned(sourceId, fileIds.toSet(), pinned) }
+                    .onFailure { reporter.report(it, "Pinning in $sourceId failed") }
             }
 
             closeEdit()
@@ -241,10 +258,22 @@ private fun SyncFileEntry.toUi(fetches: FileFetches): FileBrowserUi.File = asPre
     sync = fetches.of(this),
 )
 
-private fun SyncFileEntry.actions(writable: Set<String>): Set<FilesState.FileActionUi> = when {
-    sourceId !in writable -> emptySet()
-    localState is LocalIndexedFile.State.Present -> FilesState.FileActionUi.entries.toSet()
-        .let { if (EditableImageFormat.of(path) == null) it - FilesState.FileActionUi.Edit else it }
-    localState is LocalIndexedFile.State.Evicted -> setOf(FilesState.FileActionUi.Delete)
-    else -> emptySet()
+private fun SyncFileEntry.actions(
+    writable: Set<String>,
+    pinnable: Set<String>,
+): Set<FilesState.FileActionUi> {
+    if (sourceId !in writable) return emptySet()
+
+    return when (val state = localState) {
+        is LocalIndexedFile.State.Present -> buildSet {
+            add(FilesState.FileActionUi.Rename)
+            add(FilesState.FileActionUi.Delete)
+            if (EditableImageFormat.of(path) != null) add(FilesState.FileActionUi.Edit)
+            if (sourceId in pinnable) {
+                add(if (state.pinned) FilesState.FileActionUi.Unpin else FilesState.FileActionUi.Pin)
+            }
+        }
+        is LocalIndexedFile.State.Evicted -> setOf(FilesState.FileActionUi.Delete)
+        else -> emptySet()
+    }
 }

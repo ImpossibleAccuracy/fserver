@@ -2,7 +2,7 @@ package com.fserver.app.di
 
 import com.fserver.app.data.DemoContentSource
 import com.fserver.app.data.SampleContentSource
-import com.fserver.app.playback.BackgroundPlayback
+import com.fserver.app.data.playback.BackgroundPlayback
 import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.navigation.AppViewModel

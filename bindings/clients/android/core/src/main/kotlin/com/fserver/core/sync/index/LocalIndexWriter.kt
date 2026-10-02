@@ -90,6 +90,13 @@ internal class LocalIndexWriter(
         storage.index.updateFileState(key, LocalIndexedFile.State.Evicted(evictedAt = timeProvider.now()))
     }
 
+    /** Pins or unpins [key]'s present bytes. Unpinning a fetched copy restarts its TTL. */
+    suspend fun recordPinned(source: SourceEntry, key: IndexedFileKey, pinned: Boolean) = locks.withLock(source.id) {
+        val present = storage.index.findFile(key)?.state as? LocalIndexedFile.State.Present ?: return@withLock
+        val fetchedAt = if (pinned) present.fetchedAt else present.fetchedAt?.let { timeProvider.now() }
+        storage.index.updateFileState(key, present.copy(pinned = pinned, fetchedAt = fetchedAt))
+    }
+
     /**
      * Records a rename done for a plan: the bytes of [from] now sit at [path] / [locator] as
      * [fileId] under [version], and [from] is deleted under [deletedVersion] - or a new version of

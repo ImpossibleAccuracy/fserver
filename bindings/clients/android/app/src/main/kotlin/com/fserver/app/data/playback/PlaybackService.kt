@@ -1,4 +1,4 @@
-package com.fserver.app.playback
+package com.fserver.app.data.playback
 
 import android.content.Context
 import androidx.annotation.OptIn

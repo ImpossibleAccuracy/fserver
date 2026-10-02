@@ -67,7 +67,7 @@ data class FilesState(
         val actions: Map<String, Set<FileActionUi>> = emptyMap(),
     )
 
-    enum class FileActionUi { Edit, Rename, Delete }
+    enum class FileActionUi { Edit, Rename, Pin, Unpin, Delete }
 
     @Immutable
     data class SourceUi(

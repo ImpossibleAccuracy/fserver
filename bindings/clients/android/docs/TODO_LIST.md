@@ -11,9 +11,14 @@ Documents provider:
 - Write support (`w`/`rw`, create, delete, rename) - read-only for now.
 - Solution unstable for remote-only files, retest over sources and devices.
 
-Minor:
+Weak points (re-test after desktop client is in MVP state):
 
-- Check TODOs in code;
+- Document provider works pretty bad for remote-only files.
+- Need to test and stabilize behavior for storage and source storage screens.
+- No foreground service for long-running sync, so the OS can kill it and the user sees nothing.
+- Source details screen is asymmetric between two sides.
+- Sync may glitch and fully re-upload files, after one device re-connected while sync.
+- Coil fetches files by itself, bypassing `:core` and its decryption.
 
 ## Core
 
@@ -49,8 +54,10 @@ Idea:
   can create real folders on disk and list empty ones from disk without indexing them.
 
 Major:
+
 - add QR connection via OutOfBandKeyAuthMethod
-- no compatibility with different hashers (e.g. SHA-256 vs BLAKE3) - need to add a selection based on already used hash info
+- no compatibility with different hashers (e.g. SHA-256 vs BLAKE3) - need to add a selection based
+  on already used hash info
 - impl storage migrations
 
 ## Net
@@ -72,20 +79,21 @@ Idea:
   Today knowing a peer is an *authentication* input (`oob-key-1`), never an admission one, and the
   public greeting is a forced reply to anyone who dialled (`Connection Protocol.md` §2.3).
   Worth having as a separate, orthogonal mechanism - but not keyed on the identity key:
-  - the key and its fingerprint are **not secrets**. They are on the QR, and every completed
-    handshake states the key. So a knock on them stops a port scanner and stops nobody else;
-  - nothing there is revocable. A peer that ever paired, or anyone who photographed the code, can
-    knock forever, and taking that away means rotating the identity key and dropping every pin;
-  - a static value replayed in the clear is replayable by a passive LAN observer.
+    - the key and its fingerprint are **not secrets**. They are on the QR, and every completed
+      handshake states the key. So a knock on them stops a port scanner and stops nobody else;
+    - nothing there is revocable. A peer that ever paired, or anyone who photographed the code, can
+      knock forever, and taking that away means rotating the identity key and dropping every pin;
+    - a static value replayed in the clear is replayable by a passive LAN observer.
 
   Two pieces to pull apart, then:
-  - *cannot knock without the key* - the honest construction is Noise `IK` (first message encrypted
-    to the responder's static key), which is what `Connection Protocol.md` §6.1 already names for
-    the QR row. Not replayable, and the current `oob-key-1` (transcript signature) is the staged
-    predecessor of it. Still gives no revocation;
-  - *may not connect* - a generated access code with real entropy, carried by the QR next to the
-    fingerprint, rotatable and never stated by a handshake. ToR §8.1 already expects one for the
-    password mode, so it is the same token in text form.
+    - *cannot knock without the key* - the honest construction is Noise `IK` (first message
+      encrypted
+      to the responder's static key), which is what `Connection Protocol.md` §6.1 already names for
+      the QR row. Not replayable, and the current `oob-key-1` (transcript signature) is the staged
+      predecessor of it. Still gives no revocation;
+    - *may not connect* - a generated access code with real entropy, carried by the QR next to the
+      fingerprint, rotatable and never stated by a handshake. ToR §8.1 already expects one for the
+      password mode, so it is the same token in text form.
 
   Note ToR §3.2 currently says the opposite for the QR mode - access is open, hidden mode protects
   a device by not announcing it, and the code exists so the *client* can verify the *server*. Any

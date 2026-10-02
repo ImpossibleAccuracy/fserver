@@ -1,6 +1,6 @@
 package com.fserver.app.di
 
-import com.fserver.app.work.SyncScheduler
+import com.fserver.app.data.work.SyncScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
