@@ -16,6 +16,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.size.Size
+import com.fserver.app.presentation.shared.viewer.imageModel
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.fileViewerContent
 import com.fserver.app.presentation.shared.viewer.thumbnailCacheKey
@@ -37,7 +38,7 @@ internal fun ImageViewer(
     val screen = LocalWindowInfo.current.containerSize
     val request = remember(context, file.locator, screen) {
         ImageRequest.Builder(context)
-            .data(file.localUri())
+            .data(file.imageModel(acceptCache = false))
             .placeholderMemoryCacheKey(file.thumbnailCacheKey)
             .size(Size(screen.width, screen.height))
             .build()

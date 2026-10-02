@@ -1,6 +1,7 @@
 package com.fserver.core.sync.server
 
 import android.content.ContextWrapper
+import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.network.NetworkController
@@ -90,7 +91,7 @@ class PeerRequestServerTest {
         FilesNode.create(ContextWrapper(null), stagingDir = File(temp.root, "staging"))
     }
     private val index by lazy { LocalIndex(storage, node, clock) }
-    private val staging by lazy { UploadStaging(storage, node, clock) }
+    private val staging by lazy { UploadStaging(storage, node, clock, SealedFiles(emptyList(), storage.storageKeys)) }
     private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, sourceFiles(storage, node), index.writer)) }
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)

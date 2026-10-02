@@ -4,22 +4,26 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.fserver.app.R
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
-import com.fserver.app.presentation.shared.viewer.impl.locatorUri
+import com.fserver.app.domain.documents.DocumentIds
+import com.fserver.app.domain.documents.OwnDocumentsAuthority
 import timber.log.Timber
 import java.io.File
 
 /**
- * Hands [file] to another app. An absolute path is readable by no one else, so it goes out through
- * the app's `FileProvider` with a one-shot read grant; a content URI is shareable as is.
+ * Hands [file] to another app with a one-shot read grant. A source's file goes out through the
+ * app's own documents provider, which reads through `:core` - an encrypted one too. A scanned one
+ * by path goes through `FileProvider`, a content URI as is.
  */
 internal fun Context.openInSystemViewer(file: FileBrowserUi.File) {
-    val uri = file.locator?.let(::shareableUri)
+    val uri = file.sourceId?.let { DocumentsContract.buildDocumentUri(OwnDocumentsAuthority, DocumentIds.of(it, file.path)) }
+        ?: file.locator?.let(::shareableUri)
     if (uri == null) {
         Toast.makeText(this, R.string.file_viewer_open_failed, Toast.LENGTH_SHORT).show()
         return
@@ -36,9 +40,6 @@ internal fun Context.openInSystemViewer(file: FileBrowserUi.File) {
         Toast.makeText(this, R.string.file_viewer_open_failed, Toast.LENGTH_SHORT).show()
     }
 }
-
-/** What this app itself reads [locator] through: no grant needed. */
-internal fun FileBrowserUi.File.localUri(): Uri? = locator?.let(::locatorUri)
 
 private fun Context.shareableUri(locator: String): Uri? {
     if (!locator.startsWith('/')) return locator.toUri()

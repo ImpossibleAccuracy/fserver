@@ -4,6 +4,7 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.core.disk.StoreType
 import java.io.InputStream
+import kotlin.time.Instant
 
 /**
  * Host hook called right before a file's local bytes are evicted, while they can still be read -
@@ -28,6 +29,8 @@ class EvictingFile internal constructor(
     val fileId: String,
     val path: String,
     val size: FileSize,
+    /** As the index has it, like [com.fserver.core.files.SyncFileEntry.modifiedAt]. */
+    val modifiedAt: Instant,
     val hash: ContentHash,
     /** Where the file lives, in the backend's own terms - as [com.fserver.core.files.SyncFileEntry.locator]. */
     val locator: String,

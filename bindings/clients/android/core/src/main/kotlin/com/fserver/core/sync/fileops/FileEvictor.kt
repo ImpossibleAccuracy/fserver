@@ -69,6 +69,7 @@ internal class FileEvictor(
             fileId = row.fileId,
             path = row.path,
             size = row.size,
+            modifiedAt = row.modifiedAt,
             hash = hash,
             locator = file.locator,
             open = file::read,

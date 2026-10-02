@@ -6,8 +6,6 @@ Documents provider:
 
 - Listing a folder reads the whole source (`FilesController.content`). Add a subtree query
   (`path LIKE 'dir/%'`) to the index stores once sources grow large;
-- Thumbnails and the app's own viewers read `locator` directly through Coil, bypassing `:core`:
-  an encrypted source will break them. Needs a Coil fetcher over `SourceFileReader`;
 - Write support (`w`/`rw`, create, delete, rename) - read-only for now.
 - Solution unstable for remote-only files, retest over sources and devices.
 
@@ -18,7 +16,6 @@ Weak points (re-test after desktop client is in MVP state):
 - No foreground service for long-running sync, so the OS can kill it and the user sees nothing.
 - Source details screen is asymmetric between two sides.
 - Sync may glitch and fully re-upload files, after one device re-connected while sync.
-- Coil fetches files by itself, bypassing `:core` and its decryption.
 
 ## Core
 

@@ -2,6 +2,7 @@ package com.fserver.core.sync.server.handler.upload
 
 import android.content.ContextWrapper
 import com.fserver.common.exception.TransferException
+import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.UploadKey
@@ -56,7 +57,7 @@ class SessionUploadsTest {
     fun setUp() = runBlocking {
         stagingDir = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), stagingDir = stagingDir)
-        staging = UploadStaging(storage, node, clock)
+        staging = UploadStaging(storage, node, clock, SealedFiles(emptyList(), storage.storageKeys))
         uploads = SessionUploads(scope, progress)
         target = SourceUploadTarget(
             authorizer = SourceAuthorizer(storage),

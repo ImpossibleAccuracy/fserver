@@ -15,6 +15,8 @@ import com.fserver.app.domain.documents.childrenOf
 import com.fserver.app.domain.documents.nodeAt
 import com.fserver.app.presentation.composable.model.fileKindOf
 import com.fserver.app.presentation.shared.viewer.impl.FileImage
+import com.fserver.app.presentation.shared.viewer.impl.imageVersionOf
+import com.fserver.app.presentation.shared.viewer.impl.mimeTypeOf
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.storage.RegisteredSourcesRepository
@@ -34,17 +36,20 @@ class DocumentsRepositoryImpl(
     private val fetches: DocumentFetches,
 ) : DocumentsRepository {
 
-    override val changes: Flow<Unit> = combine(files.overallContent, sources.sources) { _, _ -> }.drop(1)
+    override val changes: Flow<Unit> =
+        combine(files.overallContent, sources.sources) { _, _ -> }.drop(1)
 
     override suspend fun sources(): List<SourceEntry> = sources.sources.first()
 
-    override suspend fun source(sourceId: String): SourceEntry? = sources.observeById(sourceId).first()
+    override suspend fun source(sourceId: String): SourceEntry? =
+        sources.observeById(sourceId).first()
 
     override suspend fun node(sourceId: String, path: String): DocumentNode? {
         val source = source(sourceId) ?: return null
         if (path.isEmpty()) return DocumentNode.Folder(path)
 
-        files.entry(sourceId, path)?.let { return if (source.shows(it)) DocumentNode.File(it) else null }
+        files.entry(sourceId, path)
+            ?.let { return if (source.shows(it)) DocumentNode.File(it) else null }
 
         // Not a file, so a folder at most: the index holds none, only the files below one imply it.
         return nodeAt(path, shown(source))
@@ -58,7 +63,8 @@ class DocumentsRepositoryImpl(
     override fun hasThumbnail(file: DocumentNode.File): Boolean {
         val entry = file.entry
         return fileKindOf(entry.path).isMedia &&
-            (entry.locator != null || previews.fileFor(entry.sourceId, entry.fileId).exists())
+                (entry.locator != null || entry.imageModel()
+                    .let { previews.images.has(it.cacheKey, it.version) })
     }
 
     override suspend fun open(file: DocumentNode.File): OpenedDocument {
@@ -91,7 +97,8 @@ class DocumentsRepositoryImpl(
 }
 
 /** Held here, or fetchable from the peer under the source's mode. */
-private fun SourceEntry.shows(entry: SyncFileEntry): Boolean = !entry.isRemote || fetches(entry.localState)
+private fun SourceEntry.shows(entry: SyncFileEntry): Boolean =
+    !entry.isRemote || fetches(entry.localState)
 
 /** The same Coil model the app's own tiles load, so they share decoders, cache and kept previews. */
 private fun SyncFileEntry.imageModel() = FileImage(
@@ -99,5 +106,6 @@ private fun SyncFileEntry.imageModel() = FileImage(
     fileId = fileId,
     locator = locator,
     kind = fileKindOf(path),
-    version = "${modifiedAt.toEpochMilliseconds()}:${size.bytes}",
+    mimeType = mimeTypeOf(path),
+    version = imageVersionOf(modifiedAt, size),
 )

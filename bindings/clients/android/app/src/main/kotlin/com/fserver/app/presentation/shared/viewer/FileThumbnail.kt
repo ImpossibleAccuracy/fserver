@@ -13,7 +13,9 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.impl.FileImage
-import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
+import com.fserver.app.presentation.shared.viewer.impl.FileImageFetcher
+import com.fserver.app.presentation.shared.viewer.impl.imageVersionOf
+import com.fserver.app.presentation.shared.viewer.impl.mimeTypeOf
 
 /**
  * A cropped preview for a tile: an image, a video frame, or an audio file's embedded artwork. Tied
@@ -46,13 +48,15 @@ fun FileThumbnail(
     )
 }
 
-/** What Coil loads for [this] - see [FileImageMapper]. */
-internal fun FileBrowserUi.File.imageModel(): FileImage = FileImage(
+/** What Coil loads for [this] - see [FileImageFetcher]. */
+internal fun FileBrowserUi.File.imageModel(acceptCache: Boolean = true): FileImage = FileImage(
     sourceId = sourceId,
     fileId = id,
     locator = locator,
     kind = kind,
-    version = "${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}",
+    mimeType = mimeTypeOf(name),
+    version = imageVersionOf(modifiedAt, size),
+    acceptCache = acceptCache,
 )
 
 /** Whatever [FileViewerHost] shows now; thumbnails of it step aside for the full-screen copy. */

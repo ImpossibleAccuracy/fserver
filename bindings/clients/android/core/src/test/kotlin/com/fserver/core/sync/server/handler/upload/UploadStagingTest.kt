@@ -1,6 +1,8 @@
 package com.fserver.core.sync.server.handler.upload
 
 import android.content.ContextWrapper
+import com.fserver.core.crypto.internal.SealedFiles
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.LocalIndex
@@ -52,7 +54,7 @@ class UploadStagingTest {
     fun setUp() = runBlocking {
         root = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), root)
-        staging = UploadStaging(storage, node, clock)
+        staging = UploadStaging(storage, node, clock, SealedFiles(emptyList(), storage.storageKeys))
         garbageCollector = GarbageCollector(storage, node, clock, scope, FileEvictor(storage, sourceFiles(storage, node), LocalIndex(storage, node, clock).writer))
         storage.sources.upsert(sourceEntry(id = key.sourceId))
     }
@@ -60,6 +62,21 @@ class UploadStagingTest {
     @After
     fun tearDown() {
         scope.cancel()
+    }
+
+    @Test
+    fun `an upload for an encrypted source is sealed in staging, and resumes sealed`() = runTest {
+        storage.sources.upsert(sourceEntry(id = key.sourceId).let {
+            it.copy(preferences = it.preferences.copy(encryption = EncryptionPolicy.Required()))
+        })
+        val plain = "bytes from the peer".repeat(100).toByteArray()
+
+        val opened = staging.open(key, DeviceId, record())
+        opened.file.openWriter().use { it.write(0, plain) }
+
+        assertTrue(stagedFile().readBytes().copyOf(4).contentEquals("FSEC".toByteArray()))
+        val resumed = staging.open(key, DeviceId, record()).file
+        assertTrue(resumed.read().use { it.readBytes() }.contentEquals(plain))
     }
 
     @Test

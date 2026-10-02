@@ -1,6 +1,9 @@
 package com.fserver.core.sync.server.handler.upload
 
 import com.fserver.common.exception.FileSystemException
+import com.fserver.core.crypto.internal.SealedFiles
+import com.fserver.core.crypto.internal.SealedFsFile
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.StagedUpload
@@ -9,15 +12,21 @@ import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * Where a peer's push waits until it is whole: `{sourceId}/{fileId}/data` in [FilesNode.openStaging],
  * with a [StagedUpload] row per file. Rows are what lets resume outlive the session and the process.
+ *
+ * For a source under `Required` the bytes are sealed from the first chunk on: a plaintext copy in
+ * staging would defeat encrypting the source (Storage Encryption §6.4).
  */
 internal class UploadStaging(
     private val storage: FServerStorage,
     private val node: FilesNode,
     private val timeProvider: TimeProvider,
+    private val sealedFiles: SealedFiles,
 ) {
     private val staging get() = node.openStaging()
 
@@ -49,7 +58,7 @@ internal class UploadStaging(
             discard(key, parked.locator)
         }
 
-        val staged = create(pathOf(key))
+        val staged = seal(key.sourceId, create(pathOf(key)))
 
         storage.uploads.upsert(
             StagedUpload(
@@ -97,12 +106,41 @@ internal class UploadStaging(
             staging.createFile(path)
         }
 
-    private suspend fun openOrNull(locator: String): FsFile? =
+    /** [raw] as a sealed file when its source asks for one, still empty. */
+    private suspend fun seal(sourceId: String, raw: FsFile): FsFile {
+        val policy =
+            storage.sources.findById(sourceId)?.preferences?.encryption as? EncryptionPolicy.Required
+                ?: return raw
+
+        val sealed = sealedFiles.create(sourceId, policy.cipherId)
         try {
+            raw.openWriter().use {
+                sealed.initialize(it)
+                it.sync()
+            }
+        } catch (e: Throwable) {
+            withContext(NonCancellable) { raw.delete() }
+            throw e
+        }
+        return SealedFsFile(raw, sealed.header, sealedFiles)
+    }
+
+    /** Sealed or not, as its own header says: the source's policy may have changed since. */
+    private suspend fun openOrNull(locator: String): FsFile? {
+        val raw = try {
             staging.openFile(locator)
         } catch (_: FileSystemException.InvalidPath) {
             null
+        } ?: return null
+
+        // Plaintext that merely starts like a header stays plaintext.
+        val header = try {
+            raw.openReader().use { sealedFiles.headerOf(it) }
+        } catch (_: FileSystemException.Corrupted) {
+            null
         }
+        return if (header != null) SealedFsFile(raw, header, sealedFiles) else raw
+    }
 
     companion object {
         const val DataFile = "data"

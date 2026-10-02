@@ -46,6 +46,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
@@ -63,7 +64,10 @@ import com.fserver.app.presentation.designkit.DkSpacing
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.fileViewerContent
 import com.fserver.app.presentation.shared.viewer.imageModel
+import com.fserver.app.presentation.shared.viewer.impl.SourceFileDataSource
+import com.fserver.app.presentation.shared.viewer.impl.locatorUri
 import com.fserver.app.presentation.shared.viewer.thumbnailCacheKey
+import com.fserver.core.files.FilesController
 import org.koin.compose.koinInject
 
 /**
@@ -200,7 +204,7 @@ private fun AudioArtwork(
     val context = LocalPlatformContext.current
     val request = remember(context, file.locator) {
         ImageRequest.Builder(context)
-            .data(file.imageModel())
+            .data(file.imageModel(acceptCache = false))
             .placeholderMemoryCacheKey(file.thumbnailCacheKey)
             .build()
     }
@@ -239,7 +243,8 @@ private fun rememberViewerPlayer(file: FileBrowserUi.File): Player {
     val context = LocalContext.current
     val playback = koinInject<BackgroundPlayback>()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val player = remember(context, file.locator) { context.viewerPlayer(file) }
+    val files = koinInject<FilesController>()
+    val player = remember(context, file.locator) { context.viewerPlayer(file, files) }
     val session = remember(player) { playback.newSession(player) }
 
     DisposableEffect(lifecycle, player) {
@@ -262,20 +267,28 @@ private fun rememberViewerPlayer(file: FileBrowserUi.File): Player {
     return player
 }
 
-private fun Context.viewerPlayer(file: FileBrowserUi.File): Player =
+/** A source's file plays through `:core`, so an encrypted one plays too; a scanned one by path. */
+@OptIn(UnstableApi::class)
+private fun Context.viewerPlayer(file: FileBrowserUi.File, files: FilesController): Player =
     ExoPlayer.Builder(this)
         .setAudioAttributes(AudioAttributes.DEFAULT, true)
         .setHandleAudioBecomingNoisy(true)
         .setWakeMode(C.WAKE_MODE_LOCAL)
         .build()
         .apply {
-            file.localUri()?.let { uri ->
-                setMediaItem(
-                    MediaItem.Builder()
-                        .setUri(uri)
-                        .setMediaMetadata(MediaMetadata.Builder().setDisplayTitle(file.name).build())
-                        .build(),
+            val item = MediaItem.Builder()
+                .setMediaMetadata(MediaMetadata.Builder().setDisplayTitle(file.name).build())
+            val sourceId = file.sourceId
+            val locator = file.locator
+
+            when {
+                locator == null -> Unit
+                sourceId != null -> setMediaSource(
+                    ProgressiveMediaSource.Factory(SourceFileDataSource.Factory(files))
+                        .createMediaSource(item.setUri(SourceFileDataSource.uriOf(sourceId, file.id)).build()),
                 )
+
+                else -> setMediaItem(item.setUri(locatorUri(locator)).build())
             }
             prepare()
             playWhenReady = true

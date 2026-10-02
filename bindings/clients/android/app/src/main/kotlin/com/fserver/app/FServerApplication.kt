@@ -6,12 +6,12 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.video.VideoFrameDecoder
-import com.fserver.app.presentation.shared.viewer.impl.AudioArtwork
-import com.fserver.app.presentation.shared.viewer.impl.AudioArtworkFetcher
-import com.fserver.app.presentation.shared.viewer.impl.FileImageMapper
+import com.fserver.app.presentation.shared.viewer.impl.FileImage
+import com.fserver.app.presentation.shared.viewer.impl.FileImageFetcher
 import com.fserver.app.data.preview.EvictionPreviews
 import com.fserver.app.di.AppGraph
 import com.fserver.app.data.work.SyncScheduler
+import com.fserver.core.files.FilesController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +26,7 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
 
     private val syncScheduler: SyncScheduler by inject()
     private val evictionPreviews: EvictionPreviews by inject()
+    private val files: FilesController by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -44,7 +45,8 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            // Under the cache directory by name, so the storage screen counts it as cache.
+            // Under the cache directory by name, so the storage screen counts it as cache. Eviction
+            // previews live apart - see EvictionPreviews.
             .diskCache {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve(ImageCacheDirectory).toOkioPath())
@@ -53,8 +55,7 @@ class FServerApplication : Application(), SingletonImageLoader.Factory {
             }
             .components {
                 add(VideoFrameDecoder.Factory())
-                add(AudioArtworkFetcher.Factory(), AudioArtwork::class)
-                add(FileImageMapper(evictionPreviews))
+                add(FileImageFetcher.Factory(files, evictionPreviews), FileImage::class)
             }
             .build()
 
