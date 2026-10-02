@@ -191,4 +191,10 @@ private fun FileSystemException.toAppError(): AppError = when (this) {
     is FileSystemException.CreationFailed -> AppError(UiText.of(R.string.error_file_create_failed))
     is FileSystemException.RenameRejected -> AppError(UiText.of(R.string.error_file_rename_failed))
     is FileSystemException.DeleteRejected -> AppError(UiText.of(R.string.error_file_delete_failed))
+
+    is FileSystemException.UnknownCipher,
+    is FileSystemException.MissingKey,
+        -> AppError(UiText.of(R.string.error_file_key_missing))
+
+    is FileSystemException.Corrupted -> AppError(UiText.of(R.string.error_file_corrupted))
 }

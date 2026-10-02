@@ -1,0 +1,33 @@
+-- Data keys files are sealed with at rest, one current per source. Only ever stored wrapped: the
+-- key that unwraps them lives in Android Keystore and never reaches this file.
+CREATE TABLE storageKey (
+    keyId            TEXT    NOT NULL PRIMARY KEY,
+    sourceId         TEXT    NOT NULL,
+    -- Keystore alias of the wrapping key, so rewrapping under a new one can go key by key.
+    wrappingKey      TEXT    NOT NULL,
+    iv               BLOB    NOT NULL,
+    wrapped          BLOB    NOT NULL,
+    createdAtEpochMs INTEGER NOT NULL
+);
+
+CREATE INDEX storageKeyBySource ON storageKey(sourceId, createdAtEpochMs);
+
+selectCurrent:
+SELECT *
+FROM storageKey
+WHERE sourceId = ?
+ORDER BY createdAtEpochMs DESC
+LIMIT 1;
+
+selectById:
+SELECT *
+FROM storageKey
+WHERE keyId = ?;
+
+insert:
+INSERT INTO storageKey(keyId, sourceId, wrappingKey, iv, wrapped, createdAtEpochMs)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteBySource:
+DELETE FROM storageKey
+WHERE sourceId = ?;

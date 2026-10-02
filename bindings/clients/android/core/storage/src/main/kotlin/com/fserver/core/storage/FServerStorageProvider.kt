@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.fserver.core.FServerConfig
 import com.fserver.core.storage.database.FServerStorageDatabase
+import com.fserver.core.storage.internal.AndroidKeystoreWrapper
 import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.ConflictDecisionsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
@@ -16,11 +17,13 @@ import com.fserver.core.storage.internal.FileIndexStoreImpl
 import com.fserver.core.storage.internal.RemoteIndexStoreImpl
 import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
+import com.fserver.core.storage.internal.StorageKeysStoreImpl
 import com.fserver.core.storage.internal.SyncStoreImpl
 import com.fserver.core.storage.internal.OneShotTransfersStoreImpl
 import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
 import com.fserver.core.storage.internal.UploadStagingStoreImpl
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.store.crypto.StorageKeysStore
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
@@ -82,6 +85,9 @@ class FServerStorageProvider private constructor(
     private val uploadStagingStore by lazy { UploadStagingStoreImpl(database) }
     private val conflictDecisionsStore by lazy { ConflictDecisionsStoreImpl(database) }
     private val oneShotTransfersStore by lazy { OneShotTransfersStoreImpl(database) }
+    private val storageKeysStore by lazy {
+        StorageKeysStoreImpl(database, AndroidKeystoreWrapper(), timeProvider)
+    }
 
     val identity: DeviceIdentityRepository get() = identityStore
 
@@ -107,6 +113,7 @@ class FServerStorageProvider private constructor(
         override val uploads: UploadStagingStore get() = uploadStagingStore
         override val conflictDecisions: ConflictDecisionsStore get() = conflictDecisionsStore
         override val oneShotTransfers: OneShotTransfersStore get() = oneShotTransfersStore
+        override val storageKeys: StorageKeysStore get() = storageKeysStore
     }
 
     /**

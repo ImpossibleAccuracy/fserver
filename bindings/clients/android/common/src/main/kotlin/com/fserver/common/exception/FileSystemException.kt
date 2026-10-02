@@ -16,4 +16,14 @@ sealed class FileSystemException(message: String, cause: Throwable? = null) :
     class RenameRejected(locator: String, newName: String) :
         FileSystemException("Rename rejected: $locator -> $newName")
     class DeleteRejected(locator: String) : FileSystemException("Delete rejected: $locator")
+
+    /** A file sealed at rest by a method this device does not have. */
+    class UnknownCipher(val cipherId: String) : FileSystemException("Unknown storage cipher: $cipherId")
+
+    /** A file sealed at rest under a key this device no longer has. */
+    class MissingKey(val keyId: String) : FileSystemException("Missing storage key: $keyId")
+
+    /** A file sealed at rest that is damaged or was tampered with. Its bytes are never handed out. */
+    class Corrupted(reason: String, cause: Throwable? = null) :
+        FileSystemException("Corrupted sealed file: $reason", cause)
 }

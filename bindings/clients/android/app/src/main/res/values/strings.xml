@@ -993,6 +993,8 @@
     <string name="error_file_create_failed">The file could not be created.</string>
     <string name="error_file_rename_failed">Could not rename the file. A file with that name may already exist.</string>
     <string name="error_file_delete_failed">Android would not let this file be deleted.</string>
+    <string name="error_file_key_missing">This file is encrypted with a key or method this device no longer has.</string>
+    <string name="error_file_corrupted">This encrypted file is damaged and cannot be opened.</string>
 
     <string name="pairing_probe_failed">Could not read what the device offers.</string>
     <string name="source_create_incomplete">The setup was left without a source, a target or a mode.</string>

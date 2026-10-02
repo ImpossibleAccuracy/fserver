@@ -7,7 +7,10 @@ import com.fserver.core.network.device.model.FailedContact
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.LocalDevice
 import com.fserver.core.network.device.model.TrustedDevice
+import com.fserver.common.utils.IdGenerator
+import com.fserver.core.crypto.spi.StorageKey
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.store.crypto.StorageKeysStore
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
@@ -40,6 +43,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.security.KeyPair
 import java.security.KeyPairGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
+import kotlin.random.Random
 import kotlin.time.Instant
 
 /**
@@ -65,6 +71,25 @@ internal class FakeStorage(
     override val uploads: FakeUploadStagingStore = FakeUploadStagingStore()
     override val conflictDecisions: FakeConflictDecisionsStore = FakeConflictDecisionsStore()
     override val oneShotTransfers: FakeOneShotTransfersStore = FakeOneShotTransfersStore()
+    override val storageKeys: FakeStorageKeysStore = FakeStorageKeysStore()
+}
+
+@OptIn(FServerStorageApi::class)
+internal class FakeStorageKeysStore : StorageKeysStore {
+    private val keys = mutableMapOf<String, Pair<String, StorageKey>>()
+
+    override suspend fun current(sourceId: String): StorageKey = synchronized(keys) {
+        keys.values.lastOrNull { it.first == sourceId }?.second
+            ?: StorageKey(IdGenerator.nextId, SecretKeySpec(Random.nextBytes(32), "AES"))
+                .also { keys[it.id] = sourceId to it }
+    }
+
+    override suspend fun resolve(keyId: String): SecretKey? = synchronized(keys) { keys[keyId]?.second?.secret }
+
+    override suspend fun forget(sourceId: String) = synchronized(keys) {
+        keys.values.removeAll { it.first == sourceId }
+        Unit
+    }
 }
 
 @OptIn(FServerStorageApi::class)
