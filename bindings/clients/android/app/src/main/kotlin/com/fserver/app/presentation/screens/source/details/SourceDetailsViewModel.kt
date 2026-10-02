@@ -25,6 +25,9 @@ import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.util.combineMany
+import com.fserver.core.crypto.EncryptionController
+import com.fserver.core.crypto.EncryptionStatus
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SyncFileEntry
 import com.fserver.core.network.device.DevicesRepository
@@ -43,12 +46,17 @@ import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.drivesSync
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SourceDetailsViewModel(
     private val key: Destination.Files.SourceDetails,
     private val sourcesController: SourcesController,
@@ -58,6 +66,7 @@ class SourceDetailsViewModel(
     identity: DeviceIdentityRepository,
     devicesRepository: DevicesRepository,
     networkInfoRepository: NetworkInfoRepository,
+    encryptionController: EncryptionController,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
@@ -88,7 +97,11 @@ class SourceDetailsViewModel(
         )
     }
 
-    val state: StateFlow<SourceDetailsState> = combineMany(
+    private val encryption = registeredSources.observeById(key.sourceId).flatMapLatest { source ->
+        source?.let(encryptionController::status)?.map { it.toCondition() } ?: flowOf(null)
+    }
+
+    val state: StateFlow<SourceDetailsState> = combine(combineMany(
         registeredSources.observeById(key.sourceId),
         registeredSources.observeTotals(key.sourceId),
         environment,
@@ -108,6 +121,8 @@ class SourceDetailsViewModel(
             isSyncing = syncing,
             attention = issues.toAttention(source.syncMode) + peerFullness(source, metadata),
         )
+    }, encryption) { state, encryption ->
+        state.copy(conditions = state.conditions + listOfNotNull(encryption))
     }.stateInScreen(viewModelScope, SourceDetailsState())
 
     fun onIntent(intent: SourceDetailsIntent) {
@@ -126,6 +141,14 @@ class SourceDetailsViewModel(
             )
         }
     }
+}
+
+private fun EncryptionStatus.toCondition(): ConditionUi? = when (this) {
+    EncryptionStatus.Unsupported -> ConditionUi.NotEncryptable
+    EncryptionStatus.Off -> null
+    is EncryptionStatus.Encrypted -> ConditionUi.Encrypted
+    is EncryptionStatus.Migrating ->
+        if (toward is EncryptionPolicy.Required) ConditionUi.Encrypting(remaining) else ConditionUi.Decrypting(remaining)
 }
 
 private data class Issues(

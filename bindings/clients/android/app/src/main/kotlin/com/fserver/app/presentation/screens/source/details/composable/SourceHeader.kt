@@ -80,6 +80,20 @@ private fun ConditionUi.label(): String = when (this) {
         R.string.source_details_condition_max_size,
         FileSize(bytes).binaryToDecimal().formatted(),
     )
+
+    ConditionUi.Encrypted -> stringResource(R.string.source_details_condition_encrypted)
+    ConditionUi.NotEncryptable -> stringResource(R.string.source_details_condition_not_encryptable)
+    is ConditionUi.Encrypting -> pluralStringResource(
+        R.plurals.source_details_condition_encrypting,
+        remaining,
+        remaining,
+    )
+
+    is ConditionUi.Decrypting -> pluralStringResource(
+        R.plurals.source_details_condition_decrypting,
+        remaining,
+        remaining,
+    )
 }
 
 @Preview(showBackground = true, widthDp = 360)

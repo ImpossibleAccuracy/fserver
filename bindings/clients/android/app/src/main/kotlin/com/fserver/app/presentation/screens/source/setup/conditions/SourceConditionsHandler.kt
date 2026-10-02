@@ -1,8 +1,6 @@
 package com.fserver.app.presentation.screens.source.setup.conditions
 
-import com.fserver.app.util.stateInScreen
 import com.fserver.app.R
-import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsIntent
 import com.fserver.app.presentation.screens.source.setup.conditions.model.SourceConditionsState
@@ -10,14 +8,17 @@ import com.fserver.app.presentation.screens.source.setup.conditions.model.Source
 import com.fserver.app.presentation.screens.source.setup.shared.SourceSetupIncompleteException
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceSetupState
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
 import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
-import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
 import com.fserver.app.presentation.screens.source.shared.preferences.model.toSyncMode
-import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesIntent
-import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withLocation
+import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.shared.error.toAppError
+import com.fserver.app.util.stateInScreen
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.model.SourceEntry
@@ -127,7 +128,10 @@ class SourceConditionsHandler(
     private fun changePreferences(intent: SourcePreferencesIntent) {
         val mode = flow.value.mode ?: return
         editable.update {
-            it.copy(preferences = it.preferencesFor(mode, flow.value).reduce(intent), preferencesMode = mode)
+            it.copy(
+                preferences = it.preferencesFor(mode, flow.value).reduce(intent),
+                preferencesMode = mode
+            )
         }
     }
 
@@ -180,7 +184,10 @@ class SourceConditionsHandler(
             .first { it.isFinished }
 
         if (run.stage == IndexingProgress.Stage.Failed) {
-            reporter.report(IllegalStateException("Initial indexing of $sourceId failed"), "Could not index the new source")
+            reporter.report(
+                IllegalStateException("Initial indexing of $sourceId failed"),
+                "Could not index the new source"
+            )
         }
     }
 
@@ -190,13 +197,21 @@ class SourceConditionsHandler(
         return when (run.stage) {
             IndexingProgress.Stage.Hashing -> copy(
                 progress = run.filesHashed.toFloat() / run.filesToHash.coerceAtLeast(1),
-                progressDetail = UiText.of(R.string.source_progress_hashing_detail, run.filesHashed, run.filesToHash),
+                progressDetail = UiText.of(
+                    R.string.source_progress_hashing_detail,
+                    run.filesHashed,
+                    run.filesToHash
+                ),
             )
 
             else -> copy(
                 progress = if (total > 0) (run.filesScanned.toFloat() / total).coerceAtMost(1f) else 0f,
                 progressDetail = if (flow.value.mode == SourceModeUi.Offload) {
-                    UiText.of(R.string.source_prepare_detail_offload, run.filesScanned, run.bytesScanned / BytesPerGb)
+                    UiText.of(
+                        R.string.source_prepare_detail_offload,
+                        run.filesScanned,
+                        run.bytesScanned / BytesPerGb
+                    )
                 } else {
                     UiText.of(R.string.source_progress_detail, run.filesScanned, total)
                 },
@@ -215,9 +230,18 @@ class SourceConditionsHandler(
         val error: UiText? = null,
     )
 
-    private fun Editable.preferencesFor(mode: SourceModeUi, shared: SourceSetupState): SourcePreferencesUi =
-        (preferences?.takeIf { preferencesMode == mode } ?: SourcePreferencesUi.build(mode, SourceRoleUi.Initiator))
+    private fun Editable.preferencesFor(
+        mode: SourceModeUi,
+        shared: SourceSetupState
+    ): SourcePreferencesUi =
+        (preferences?.takeIf { preferencesMode == mode } ?: SourcePreferencesUi.build(
+            mode,
+            SourceRoleUi.Initiator
+        ))
             .withFloor(shared.source?.files, shared.source?.bytes?.bytes)
+            .let { preferences ->
+                shared.source?.location?.let(preferences::withLocation) ?: preferences
+            }
 }
 
 private const val BytesPerGb = 1_000_000_000.0

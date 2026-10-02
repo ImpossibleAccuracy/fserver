@@ -20,6 +20,9 @@ import com.fserver.app.presentation.screens.source.shared.preferences.model.Sour
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.SizePresetsGb
 import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi.Companion.build
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.EncryptionPolicy
+import com.fserver.core.crypto.model.supportsEncryption
+import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import kotlin.time.Clock
@@ -40,6 +43,8 @@ data class SourcePreferencesUi(
     val conflicts: ConflictsUi? = null,
     val upload: UploadUi? = null,
     val eviction: EvictionUi? = null,
+    /** Null where the location is shared storage, which is never encrypted - see [withLocation]. */
+    val encryption: EncryptionUi? = null,
 ) {
     @Immutable
     data class LimitsUi(
@@ -78,6 +83,14 @@ data class SourcePreferencesUi(
     ) {
         val largerThanBytes: Long get() = largerThanMb.toLong() * BytesInMb
     }
+
+    @Immutable
+    data class EncryptionUi(
+        val enabled: Boolean = false,
+        val cipherId: String = EncryptionPolicy.BuiltInCipherId,
+        /** A folder the user can browse: other apps lose access to what gets encrypted there. */
+        val userFolder: Boolean = false,
+    )
 
     companion object {
         const val DefaultMaxFiles = 1000
@@ -128,7 +141,15 @@ data class SourcePreferencesUi(
                 conflicts = defaults.conflicts?.let { (mode as? SyncMode.Mirror)?.toUi() ?: it },
                 upload = defaults.upload?.let { (mode as? SyncMode.AutoUpload)?.toUi() ?: it },
                 eviction = defaults.eviction?.let { (mode as? SyncMode.Offload)?.toUi() ?: it },
-            )
+            ).withLocation(source.location).let { built ->
+                val policy = source.preferences.encryption as? EncryptionPolicy.Required
+                built.copy(
+                    encryption = built.encryption?.copy(
+                        enabled = policy != null,
+                        cipherId = policy?.cipherId ?: EncryptionPolicy.BuiltInCipherId,
+                    ),
+                )
+            }
         }
 
         private fun SyncMode.Mirror.toUi() = ConflictsUi(
@@ -213,6 +234,9 @@ fun SourcePreferencesUi.reduce(intent: SourcePreferencesIntent): SourcePreferenc
             copy(olderThanDays = stepped(olderThanDays, intent.steps, DaysStep, MinDays, MaxDays))
         }
 
+        is SourcePreferencesIntent.EncryptionToggled ->
+            copy(encryption = encryption?.copy(enabled = intent.enabled))
+
         is SourcePreferencesIntent.SizeThresholdStepped -> updateEviction {
             copy(
                 largerThanMb = stepped(
@@ -243,6 +267,15 @@ fun SourcePreferencesUi.withFloor(files: Int?, bytes: Long?): SourcePreferencesU
     )
 }
 
+/** Offers encryption only where [location] may hold it, keeping what the user already chose. */
+fun SourcePreferencesUi.withLocation(location: SourceLocation): SourcePreferencesUi = copy(
+    encryption = if (location.supportsEncryption) {
+        (encryption ?: SourcePreferencesUi.EncryptionUi()).copy(userFolder = location !is SourceLocation.Internal)
+    } else {
+        null
+    },
+)
+
 fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
     deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
         wifiRequired = wifiOnly,
@@ -254,6 +287,8 @@ fun SourcePreferencesUi.toPreferences() = SourceEntry.Preferences(
             maxTotalSize = FileSize(it.maxSizeBytes).takeIf { _ -> it.limitSize },
         )
     } ?: SourceEntry.Preferences.FileLimits.None,
+    encryption = encryption?.takeIf { it.enabled }?.let { EncryptionPolicy.Required(it.cipherId) }
+        ?: EncryptionPolicy.Off,
 )
 
 /**

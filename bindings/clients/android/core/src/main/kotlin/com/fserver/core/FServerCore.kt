@@ -1,5 +1,6 @@
 package com.fserver.core
 
+import com.fserver.core.crypto.EncryptionController
 import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.di.coreModule
 import com.fserver.core.disk.DiskUsageRepository
@@ -99,6 +100,9 @@ class FServerCore private constructor(
 
     /** Files both sides changed, held for the user to pick a version. */
     val conflicts: ConflictsController by lazy { koin.get() }
+
+    /** At-rest encryption: available ciphers and per-source status. */
+    val encryption: EncryptionController by lazy { koin.get() }
 
     /**
      * Sending files to a device once, outside any source, and answering what devices send here.

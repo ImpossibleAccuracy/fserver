@@ -52,6 +52,10 @@ data class SourceDetailsState(
         data class OnConflict(val ask: Boolean) : ConditionUi
         data class MaxFiles(val count: Int) : ConditionUi
         data class MaxSize(val bytes: Long) : ConditionUi
+        data object Encrypted : ConditionUi
+        data object NotEncryptable : ConditionUi
+        data class Encrypting(val remaining: Int) : ConditionUi
+        data class Decrypting(val remaining: Int) : ConditionUi
     }
 
     @Immutable

@@ -43,6 +43,7 @@ val coreModule = module {
     single { get<FServerCore>().reachability }
     single { get<FServerCore>().requirements }
     single { get<FServerCore>().files }
+    single { get<FServerCore>().encryption }
     single { get<FServerCore>().diskUsage }
     single { get<FServerCore>().sources }
     single { get<FServerCore>().conflicts }

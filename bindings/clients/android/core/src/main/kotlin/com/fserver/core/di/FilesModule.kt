@@ -1,6 +1,7 @@
 package com.fserver.core.di
 
 import com.fserver.core.FServerConfig
+import com.fserver.core.crypto.EncryptionController
 import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.crypto.internal.SourceFileSystems
@@ -19,6 +20,7 @@ internal val filesModule = module {
     single { SealedFiles(get<FServerConfig>().storageCiphers, get<FServerStorage>().storageKeys) }
     singleOf(::SourceFileSystems)
     singleOf(::EncryptionMigrator)
+    singleOf(::EncryptionController)
 
     singleOf(::FilesController)
     singleOf(::LocalFileEditor)

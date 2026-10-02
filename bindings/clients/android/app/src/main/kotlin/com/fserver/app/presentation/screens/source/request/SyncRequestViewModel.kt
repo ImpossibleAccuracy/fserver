@@ -1,13 +1,10 @@
 package com.fserver.app.presentation.screens.source.request
 
-import com.fserver.app.domain.documents.isOwnDocument
-import com.fserver.app.presentation.shared.error.AppError
-import com.fserver.app.util.stateInScreen
-import com.fserver.core.network.device.DevicesRepository
-import com.fserver.app.presentation.composable.model.peers
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.domain.documents.isOwnDocument
+import com.fserver.app.presentation.composable.model.peers
 import com.fserver.app.presentation.model.Destination
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestIntent
 import com.fserver.app.presentation.screens.source.request.model.SyncRequestState
@@ -16,22 +13,26 @@ import com.fserver.app.presentation.screens.source.request.shared.model.toUi
 import com.fserver.app.presentation.screens.source.shared.model.HostLocationUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceKindUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
 import com.fserver.app.presentation.screens.source.shared.model.readablePath
+import com.fserver.app.presentation.screens.source.shared.model.toLocation
+import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
+import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
+import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
+import com.fserver.app.presentation.screens.source.shared.preferences.model.withLocation
 import com.fserver.app.presentation.shared.browser.FileBrowserNavigation
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.toPreview
-import com.fserver.app.presentation.screens.source.shared.preferences.model.SourcePreferencesUi
-import com.fserver.app.presentation.screens.source.shared.model.SourceRoleUi
-import com.fserver.app.presentation.screens.source.shared.preferences.model.reduce
-import com.fserver.app.presentation.screens.source.shared.model.toLocation
-import com.fserver.app.presentation.screens.source.shared.preferences.model.toPreferences
-import com.fserver.app.presentation.screens.source.shared.preferences.model.withFloor
+import com.fserver.app.presentation.shared.error.AppError
 import com.fserver.app.presentation.shared.error.ErrorReporter
+import com.fserver.app.util.stateInScreen
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.StorageVolumes
 import com.fserver.core.files.scan.DirectoryScanProgress
+import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.storage.TrustedDevicesRepository
 import com.fserver.core.sync.SourcesController
 import kotlinx.coroutines.CancellationException
@@ -88,9 +89,12 @@ class SyncRequestViewModel(
             directory = local.directory,
             picker = local.picker?.toUi(),
             disk = disk,
-            preferences = (local.preferences
-                ?: SourcePreferencesUi.build(request?.mode ?: SourceModeUi.Sync, SourceRoleUi.Follower))
-                .withFloor(request?.files, request?.bytes),
+            preferences = (local.preferences ?: SourcePreferencesUi.build(
+                mode = request?.mode ?: SourceModeUi.Sync,
+                role = SourceRoleUi.Follower
+            ))
+                .withFloor(request?.files, request?.bytes)
+                .withLocation(local.location.toLocation(sourceId)),
             isAnswering = local.answering,
         )
     }.stateInScreen(viewModelScope, null)
@@ -127,7 +131,11 @@ class SyncRequestViewModel(
 
     private fun pickFolder(intent: SyncRequestIntent.FolderPicked) {
         if (SourceLocation.Tree(intent.uri).isOwnDocument) return reporter.report(AppError.OwnFolder)
-        val folder = HostLocationUi.Folder(uri = intent.uri, label = intent.label, hasFiles = intent.hasFiles)
+        val folder = HostLocationUi.Folder(
+            uri = intent.uri,
+            label = intent.label,
+            hasFiles = intent.hasFiles
+        )
         editable.update { it.copy(location = folder, folder = folder) }
     }
 
@@ -147,8 +155,14 @@ class SyncRequestViewModel(
 
                 task.progress.collect { progress -> updatePicker { it.copy(progress = progress) } }
 
-                val tree = task.result().getOrThrow().toPreview(SourceKindUi.WholeDevice, root.volumes)
-                updatePicker { it.copy(phase = SyncRequestState.DirectoryPickerUi.Phase.Browsing, preview = tree) }
+                val tree =
+                    task.result().getOrThrow().toPreview(SourceKindUi.WholeDevice, root.volumes)
+                updatePicker {
+                    it.copy(
+                        phase = SyncRequestState.DirectoryPickerUi.Phase.Browsing,
+                        preview = tree
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -185,7 +199,15 @@ class SyncRequestViewModel(
             FileBrowserNavigation(
                 opened = opened,
                 onOpen = { entry -> updatePicker { it.copy(opened = entry) } },
-                onUp = { updatePicker { it.copy(opened = (it.preview as? FileBrowserUi.Tree)?.parentOf(it.opened)) } },
+                onUp = {
+                    updatePicker {
+                        it.copy(
+                            opened = (it.preview as? FileBrowserUi.Tree)?.parentOf(
+                                it.opened
+                            )
+                        )
+                    }
+                },
             )
         } else {
             null

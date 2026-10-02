@@ -846,6 +846,11 @@
     <string name="conditions_upload_all">All</string>
     <string name="conditions_upload_scope_hint">Only shots taken after it is turned on. "All" adds %1$s older photos.</string>
     <string name="source_preferences_when_label">When</string>
+    <string name="source_preferences_encryption_label">Storage on this device</string>
+    <string name="source_preferences_encryption_title">Encrypt files</string>
+    <string name="source_preferences_encryption_hint">Only FServer can open them where they are stored here</string>
+    <string name="source_preferences_encryption_folder_warning">Other apps will no longer be able to open files in this folder.</string>
+    <string name="source_preferences_encryption_transport_note">Files still travel decrypted inside the encrypted connection, and the server can read them.</string>
     <string name="source_preferences_size_custom">Custom</string>
     <string name="source_preferences_size_usage">%1$s / %2$s</string>
     <string name="source_preferences_size_unknown">—</string>
@@ -1015,6 +1020,16 @@
         <item quantity="other">Up to %1$d files</item>
     </plurals>
     <string name="source_details_condition_max_size">Up to %1$s</string>
+    <string name="source_details_condition_encrypted">Encrypted here</string>
+    <string name="source_details_condition_not_encryptable">Not encrypted: shared storage</string>
+    <plurals name="source_details_condition_encrypting">
+        <item quantity="one">Encrypting: %1$d file left</item>
+        <item quantity="other">Encrypting: %1$d files left</item>
+    </plurals>
+    <plurals name="source_details_condition_decrypting">
+        <item quantity="one">Decrypting: %1$d file left</item>
+        <item quantity="other">Decrypting: %1$d files left</item>
+    </plurals>
     <string name="source_delete_title">Delete “%1$s”?</string>
     <string name="source_delete_body">Syncing with %1$s stops for good. Files already copied stay on both devices.</string>
     <string name="source_edit_title">Source settings</string>

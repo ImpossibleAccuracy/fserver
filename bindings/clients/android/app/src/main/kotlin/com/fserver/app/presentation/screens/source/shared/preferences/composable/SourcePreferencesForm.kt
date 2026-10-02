@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -68,6 +69,10 @@ fun SourcePreferencesForm(
         }
 
         ConstraintsFields(state = state, onIntent = onIntent)
+
+        state.encryption?.let { encryption ->
+            EncryptionFields(encryption = encryption, onIntent = onIntent)
+        }
 
         state.limits?.let { limits ->
             LimitsFields(
@@ -226,6 +231,33 @@ private fun ConstraintsFields(
 }
 
 @Composable
+private fun EncryptionFields(
+    modifier: Modifier = Modifier,
+    encryption: SourcePreferencesUi.EncryptionUi,
+    onIntent: (SourcePreferencesIntent) -> Unit,
+) {
+    Column(modifier = modifier) {
+        SectionHeader(label = stringResource(R.string.source_preferences_encryption_label))
+        DkSwitchRow(
+            title = stringResource(R.string.source_preferences_encryption_title),
+            supportingText = stringResource(R.string.source_preferences_encryption_hint),
+            leadingIcon = Icons.Default.Lock,
+            checked = encryption.enabled,
+            onCheckedChange = { onIntent(SourcePreferencesIntent.EncryptionToggled(it)) },
+        )
+        Column(
+            modifier = Modifier.padding(horizontal = DkSpacing.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(DkSpacing.xxs),
+        ) {
+            if (encryption.enabled && encryption.userFolder) {
+                DkCaption(text = stringResource(R.string.source_preferences_encryption_folder_warning))
+            }
+            DkCaption(text = stringResource(R.string.source_preferences_encryption_transport_note))
+        }
+    }
+}
+
+@Composable
 private fun LimitsFields(
     modifier: Modifier = Modifier,
     limits: SourcePreferencesUi.LimitsUi,
@@ -353,7 +385,10 @@ private fun SourcePreferencesFormFollowerPreview() {
     FServerTheme {
         SourcePreferencesForm(
             state = SourcePreferencesUi.build(SourceModeUi.Sync, SourceRoleUi.Follower).let {
-                it.copy(limits = it.limits?.copy(limitSize = true))
+                it.copy(
+                    limits = it.limits?.copy(limitSize = true),
+                    encryption = SourcePreferencesUi.EncryptionUi(enabled = true, userFolder = true),
+                )
             },
             onIntent = {},
             peerName = "MacBook-Pro",

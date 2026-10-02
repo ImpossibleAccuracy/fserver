@@ -27,6 +27,9 @@ internal class SealedFiles(
         all.associateBy { it.id }
     }
 
+    /** Every cipher id registered here, the built-in one first. */
+    val cipherIds: List<String> get() = byId.keys.toList()
+
     /** Whether [cipherId] can seal and open here. */
     fun supports(cipherId: String): Boolean = cipherId in byId
 
