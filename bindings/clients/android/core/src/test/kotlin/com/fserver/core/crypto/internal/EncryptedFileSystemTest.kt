@@ -3,12 +3,10 @@ package com.fserver.core.crypto.internal
 import android.content.ContextWrapper
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.SourcePaths
-import com.fserver.core.crypto.impl.AesGcmCipher
 import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.crypto.model.requireEncryptable
 import com.fserver.core.crypto.model.supportsEncryption
-import com.fserver.core.crypto.spi.StorageCipher
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.access.LocalFileEditor
 import com.fserver.core.files.util.FileHasher
@@ -214,9 +212,4 @@ class EncryptedFileSystemTest {
         const val SourceId = "source-1"
         val Content = "the quick brown fox jumps over the lazy dog".repeat(4000).toByteArray()
     }
-}
-
-/** The built-in algorithm under another id: enough to tell which one sealed a file. */
-private object AltCipher : StorageCipher by AesGcmCipher {
-    override val id = "test.alt.v1"
 }

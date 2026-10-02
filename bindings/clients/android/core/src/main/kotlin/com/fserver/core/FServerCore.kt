@@ -1,5 +1,6 @@
 package com.fserver.core
 
+import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.di.coreModule
 import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.files.FilesController
@@ -161,6 +162,9 @@ class FServerCore private constructor(
 
             // Uploads a previous process left staged and nobody came back for.
             koin.get<GarbageCollector>().collectGarbageAsync()
+
+            // Files a previous process did not get to bring in line with their source's policy.
+            koin.get<EncryptionMigrator>().migrateAsync()
 
             // Offers and sends a previous process did not get to finish.
             config.backgroundScope.launch {

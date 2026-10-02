@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner.pass
 
+import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.store.FServerStorage
@@ -15,6 +16,7 @@ internal class PassCompletion(
     private val garbageCollector: GarbageCollector,
     private val backgroundScope: BackgroundScope,
     private val timeProvider: TimeProvider,
+    private val encryptionMigrator: EncryptionMigrator,
 ) {
     /** A pass this device drove went through. */
     suspend fun localPassSucceeded(source: SourceEntry) {
@@ -30,10 +32,12 @@ internal class PassCompletion(
     suspend fun peerPassEnded(sourceId: String, succeeded: Boolean) {
         if (succeeded) storage.sources.markSynced(sourceId, timeProvider.now())
         garbageCollector.collectGarbageAsync()
+        encryptionMigrator.migrateAsync()
     }
 
     /** A round of local passes is over. */
     fun localPassesEnded() {
         garbageCollector.collectGarbageAsync()
+        encryptionMigrator.migrateAsync()
     }
 }

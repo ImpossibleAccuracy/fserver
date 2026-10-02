@@ -15,14 +15,17 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.FsWriter
 import com.fserver.files.fs.impl.PartMarker
 import com.fserver.files.fs.scan.FoundFile
 import com.fserver.files.fs.scan.ScanProgress
 import com.fserver.files.fs.scan.ScanTree
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -98,25 +101,49 @@ internal class EncryptedFileSystem(
             file.header,
             files
         )
-        val policy = policy ?: return inner.place(file, path)
+        if (policy == null) return inner.place(file, path)
 
-        val sealed = files.create(source.id, policy.cipherId)
+        val placed = rewrite(file, path).commit()
+        file.delete()
+        return placed
+    }
+
+    /**
+     * [file]'s content in the form the policy asks for, written to a part beside [path] and
+     * synced. Nothing replaces anything until [Rewrite.commit]; [file] itself is only read.
+     */
+    suspend fun rewrite(file: FsFile, path: String): Rewrite {
+        val sealed = policy?.let { files.create(source.id, it.cipherId) }
         val part = inner.createFile(partPathOf(path))
         try {
             file.read().use { input ->
-                part.openWriter().use {
-                    sealed.sealAll(input, it)
-                    it.sync()
+                part.openWriter().use { out ->
+                    if (sealed != null) sealed.sealAll(input, out) else input.copyInto(out)
+                    out.sync()
                 }
             }
         } catch (e: Throwable) {
             withContext(NonCancellable) { part.delete() }
             throw e
         }
+        return Rewrite(part, path.substringAfterLast('/'), sealed?.header)
+    }
 
-        val placed = part.rename(path.substringAfterLast('/'), deleteOldOnConflict = true)
-        file.delete()
-        return SealedFsFile(placed, sealed.header, files)
+    /** A part waiting to replace the file it was rewritten from. */
+    inner class Rewrite internal constructor(
+        private val part: FsFile,
+        private val name: String,
+        private val header: SealedHeader?,
+    ) {
+        /** Renames the part over the original, in one step where the backend allows it. */
+        suspend fun commit(): FsFile {
+            val placed = part.rename(name, deleteOldOnConflict = true)
+            return if (header != null) SealedFsFile(placed, header, files) else placed
+        }
+
+        suspend fun discard() {
+            withContext(NonCancellable) { part.delete() }
+        }
     }
 
     /** [found] with plaintext sizes. A header is read only where the index cannot vouch for the file. */
@@ -203,5 +230,16 @@ private fun <P, R1, R2> ProgressTask<P, R1>.then(transform: suspend (R1) -> R2):
         override suspend fun result(): Result<R2> =
             delegate.result()
                 .fold({ runCatchingCancellable { transform(it) } }, { Result.failure(it) })
+    }
+}
+
+private suspend fun InputStream.copyInto(out: FsWriter) {
+    val buffer = ByteArray(SealedHeader.DefaultSegmentSize)
+    var offset = 0L
+    while (true) {
+        val read = withContext(Dispatchers.IO) { read(buffer) }
+        if (read < 0) return
+        out.write(offset, buffer, read)
+        offset += read
     }
 }

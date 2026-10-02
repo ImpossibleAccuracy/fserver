@@ -4,6 +4,7 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.crypto.model.requireEncryptable
@@ -47,6 +48,7 @@ class SourcesController internal constructor(
     private val localIndexer: LocalChangesIndexer,
     private val backgroundScope: BackgroundScope,
     private val sealedFiles: SealedFiles,
+    private val encryptionMigrator: EncryptionMigrator,
 ) {
     /** Initial scan-then-ask per new source, cancelled if the source is removed before it ends. */
     private val introductions = ConcurrentHashMap<String, Job>()
@@ -221,6 +223,8 @@ class SourcesController internal constructor(
         updated
     }.onSuccess {
         syncRunner.runOnceAsync()
+        // Not left to the pass: constraints may hold passes back, and migration is local work.
+        encryptionMigrator.migrateAsync()
     }
 
     /**

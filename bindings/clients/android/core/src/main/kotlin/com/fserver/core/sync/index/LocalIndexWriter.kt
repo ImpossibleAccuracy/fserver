@@ -5,11 +5,15 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
+import com.fserver.core.crypto.internal.atRest
 import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
+import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.time.Instant
 
@@ -265,6 +269,33 @@ internal class LocalIndexWriter(
             }
 
         storage.index.markProcessed(listOf(indexed))
+    }
+
+    /**
+     * Swaps [expected]'s bytes for the same content sitting another way on disk (sealed, opened,
+     * resealed). Not a version, and not new to the peer: version and `processedAt` stay.
+     *
+     * [replace] runs under the lock only while the row is still [expected]; it puts the new bytes
+     * in place, or returns null when it finds the old ones changed. Returns whether it happened.
+     */
+    suspend fun recordRewritten(
+        source: SourceEntry,
+        expected: LocalIndexedFile,
+        replace: suspend () -> FsFile?,
+    ): Boolean = locks.withLock(source.id) {
+        val row = storage.index.findFile(IndexedFileKey(fileId = expected.fileId, sourceId = source.id))
+        if (row != expected) return@withLock false
+
+        withContext(NonCancellable) {
+            val placed = replace() ?: return@withContext false
+            // Kept as it was, or the next scan reads the rename as a local edit.
+            val modifiedAt = placed.settleLastModified(row.modifiedAt)
+
+            storage.index.markProcessed(
+                listOf(row.copy(locator = placed.locator, modifiedAt = modifiedAt, atRest = placed.atRest))
+            )
+            true
+        }
     }
 
     /**

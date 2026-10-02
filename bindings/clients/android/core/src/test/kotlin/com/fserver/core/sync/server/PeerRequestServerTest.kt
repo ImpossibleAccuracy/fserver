@@ -252,7 +252,7 @@ class PeerRequestServerTest {
                 storage,
                 registry,
                 SyncModeReconciler(storage),
-                PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock),
+                PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock, mockk(relaxed = true)),
                 peerMetadataExchange(storage, clock),
             ),
             syncRequests = SyncRequestHandler(authorizer(), mockk(relaxed = true)),
