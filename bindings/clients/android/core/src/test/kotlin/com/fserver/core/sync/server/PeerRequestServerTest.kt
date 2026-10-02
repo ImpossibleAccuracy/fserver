@@ -16,6 +16,7 @@ import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.peerMetadataExchange
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.fileops.FileDeleter
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.fileops.FileMover
@@ -90,7 +91,7 @@ class PeerRequestServerTest {
     }
     private val index by lazy { LocalIndex(storage, node, clock) }
     private val staging by lazy { UploadStaging(storage, node, clock) }
-    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, node, index.writer)) }
+    private val garbageCollector by lazy { GarbageCollector(storage, node, clock, background, FileEvictor(storage, sourceFiles(storage, node), index.writer)) }
     private val progress = SyncProgressReporter(clock)
     private val registry = SyncLeaseRegistry(clock, progress)
     private val incoming = FakeIncomingConnections()
@@ -260,21 +261,21 @@ class PeerRequestServerTest {
                 storage = storage,
                 localHasher = index.hasher,
                 indexWriter = index.writer,
-                fileDeleter = FileDeleter(storage, node, index.writer),
+                fileDeleter = FileDeleter(storage, sourceFiles(storage, node), index.writer),
                 sourceUploader = SourceUploader(
                 index.writer,
                 PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
-                node,
+                sourceFiles(storage, node),
                 FilePusher(progress),
             ),
-                fileMover = FileMover(storage, node, index.writer),
+                fileMover = FileMover(storage, sourceFiles(storage, node), index.writer),
             ),
             uploads = FileUploadHandler(
                 sources = SourceUploadTarget(
                     authorizer(),
                     UploadAdmission(storage, RequestedDownloads()),
                     index.writer,
-                    node,
+                    sourceFiles(storage, node),
                     staging,
                 ),
                 oneShots = mockk(relaxed = true),

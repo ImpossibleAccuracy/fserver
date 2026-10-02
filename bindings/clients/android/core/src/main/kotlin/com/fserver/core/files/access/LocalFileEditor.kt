@@ -5,8 +5,9 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.common.exception.SyncException
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
+import com.fserver.core.crypto.internal.SourceFileSystems
+import com.fserver.core.crypto.internal.atRest
 import com.fserver.core.files.ensureSourceReachable
-import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
@@ -15,7 +16,6 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.drivesSync
 import com.fserver.core.util.TimeProvider
-import com.fserver.files.FilesNode
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
@@ -30,7 +30,7 @@ import java.io.InputStream
  */
 internal class LocalFileEditor(
     private val storage: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val indexWriter: LocalIndexWriter,
     private val requirementsChecker: RequirementsChecker,
     private val timeProvider: TimeProvider,
@@ -47,9 +47,8 @@ internal class LocalFileEditor(
 
         val fs = open(source)
         fs.checkPath(canonical)
-        if (storage.index.findFile(key)?.state is LocalIndexedFile.State.Present || fs.fileExists(
-                canonical
-            )
+        if (storage.index.findFile(key)?.state is LocalIndexedFile.State.Present ||
+            fs.fileExists(canonical)
         ) {
             throw FileSystemException.AlreadyExists(canonical)
         }
@@ -59,7 +58,13 @@ internal class LocalFileEditor(
             val modifiedAt = file.settleLastModified(timeProvider.now())
             SourceFile(
                 this@LocalFileEditor,
-                indexWriter.recordCreated(source, canonical, file.locator, modifiedAt)
+                indexWriter.recordCreated(
+                    source = source,
+                    path = canonical,
+                    locator = file.locator,
+                    modifiedAt = modifiedAt,
+                    atRest = file.atRest
+                )
             )
         }
     }
@@ -78,7 +83,6 @@ internal class LocalFileEditor(
         return FsSourceReader(reader)
     }
 
-    // Always the file itself while no source transforms its bytes on disk.
     suspend fun openDescriptor(key: IndexedFileKey): ParcelFileDescriptor? {
         val source = source(key.sourceId)
         val row = present(key)
@@ -172,7 +176,7 @@ internal class LocalFileEditor(
         }
     }
 
-    private fun open(source: SourceEntry): FileSystem = node.openSource(source.location.toFiles())
+    private fun open(source: SourceEntry): FileSystem = sourceFiles.open(source)
 }
 
 private class FsSourceReader(private val delegate: FsReader) : SourceFileReader {

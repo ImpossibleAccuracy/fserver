@@ -41,7 +41,8 @@ internal fun partPathOf(path: String): String {
     return (segments.dropLast(1) + partNameOf(segments.last())).joinToString("/")
 }
 
-private const val PartMarker = ".fserver-part"
+const val PartMarker = ".fserver-part"
+const val AtomicReplaceMarker = ".fserver-replaced"
 
 /** Mime type guessed from [name]'s extension, so a provider keeps the name it was given. */
 internal fun mimeTypeOf(name: String): String =

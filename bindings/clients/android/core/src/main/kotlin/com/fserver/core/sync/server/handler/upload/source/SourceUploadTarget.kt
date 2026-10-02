@@ -2,7 +2,8 @@ package com.fserver.core.sync.server.handler.upload.source
 
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.StageTimer
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
+import com.fserver.core.crypto.internal.atRest
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.network.dictionary.dto.toFileRecord
@@ -14,7 +15,6 @@ import com.fserver.core.sync.server.handler.upload.UploadAdmission
 import com.fserver.core.sync.server.handler.upload.UploadLanding
 import com.fserver.core.sync.server.handler.upload.UploadStaging
 import com.fserver.core.sync.server.handler.upload.UploadTarget
-import com.fserver.files.FilesNode
 import com.fserver.files.fs.FileSystem
 import com.fserver.files.fs.FsFile
 import com.fserver.files.upload.FileRecord
@@ -29,7 +29,7 @@ internal class SourceUploadTarget(
     private val authorizer: SourceAuthorizer,
     private val admission: UploadAdmission,
     private val indexWriter: LocalIndexWriter,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val staging: UploadStaging,
 ) : UploadTarget {
 
@@ -51,7 +51,7 @@ internal class SourceUploadTarget(
             return UploadTarget.Opening.Answered(FileServerMessages.Upload.OverLimit(key = key))
         }
 
-        val fs = node.openSource(source.location.toFiles())
+        val fs = sourceFiles.open(source)
 
         // Refused before anything is staged, not once it all arrived.
         fs.checkPath(file.path)
@@ -114,6 +114,7 @@ internal class SourceUploadTarget(
                     file = file.copy(content = hash),
                     locator = result.locator,
                     modifiedAt = modifiedAt,
+                    atRest = result.atRest,
                 )
             }
 

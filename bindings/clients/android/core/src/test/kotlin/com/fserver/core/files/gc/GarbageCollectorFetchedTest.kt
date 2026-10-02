@@ -10,6 +10,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
@@ -45,7 +46,7 @@ class GarbageCollectorFetchedTest {
     @Before
     fun setUp() {
         node = FilesNode.create(ContextWrapper(null), stagingDir = temp.newFolder("staging"))
-        gc = GarbageCollector(storage, node, clock, TestScope(), FileEvictor(storage, node, LocalIndex(storage, node, clock).writer))
+        gc = GarbageCollector(storage, node, clock, TestScope(), FileEvictor(storage, sourceFiles(storage, node), LocalIndex(storage, node, clock).writer))
         root = temp.newFolder("source-root")
         file = File(root, FileName).apply { writeText("bytes") }
     }

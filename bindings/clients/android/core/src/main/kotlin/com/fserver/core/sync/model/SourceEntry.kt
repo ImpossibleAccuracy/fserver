@@ -1,6 +1,7 @@
 package com.fserver.core.sync.model
 
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.files.SourceLocation
 import kotlin.time.Instant
 
@@ -34,6 +35,8 @@ data class SourceEntry(
     data class Preferences(
         val deviceConstraints: DeviceConstraints,
         val fileLimits: FileLimits,
+        /** This device's own: the peer never learns it, and its copy of the files is its call. */
+        val encryption: EncryptionPolicy = EncryptionPolicy.Off,
     ) {
         data class DeviceConstraints(
             val wifiRequired: Boolean,

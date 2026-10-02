@@ -1,6 +1,7 @@
 package com.fserver.core.storage.internal
 
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.sync.model.SourceEntry
@@ -71,6 +72,12 @@ internal object SourceRecords {
     private const val ConflictResolution = "conflictResolution"
     private const val MaxFiles = "maxFiles"
     private const val MaxTotalBytes = "maxTotalBytes"
+    private const val Encryption = "encryption"
+    private const val EncryptionCipher = "encryption.cipher"
+
+    // Encryption policy discriminators.
+    private const val EncryptionOff = "Off"
+    private const val EncryptionRequired = "Required"
 
     // Conflict resolution discriminators.
     private const val LastWriteWins = "LastWriteWins"
@@ -249,6 +256,13 @@ internal object SourceRecords {
         preferences.fileLimits.maxTotalSize?.let {
             put(Preferences, MaxTotalBytes, it.bytes.toString())
         }
+        when (val encryption = preferences.encryption) {
+            EncryptionPolicy.Off -> put(Preferences, Encryption, EncryptionOff)
+            is EncryptionPolicy.Required -> {
+                put(Preferences, Encryption, EncryptionRequired)
+                put(Preferences, EncryptionCipher, encryption.cipherId)
+            }
+        }
     }
 
     // ---------------- per-part readers ----------------
@@ -346,6 +360,15 @@ internal object SourceRecords {
             it.toLongOrNull()?.takeIf { v -> v >= 0 }?.let(::FileSize)
                 ?: return missing(id, "preferences have unreadable '$MaxTotalBytes'")
         }
+        // Absent on rows written before encryption existed. An unknown value is not a reason to decrypt.
+        val encryption = when (attributes.string(Preferences, Encryption)) {
+            null, EncryptionOff -> EncryptionPolicy.Off
+            EncryptionRequired -> EncryptionPolicy.Required(
+                cipherId = attributes.string(Preferences, EncryptionCipher)
+                    ?: return missing(id, "preferences have no '$EncryptionCipher'"),
+            )
+            else -> return missing(id, "preferences have unknown '$Encryption'")
+        }
 
         return SourceEntry.Preferences(
             deviceConstraints = SourceEntry.Preferences.DeviceConstraints(
@@ -356,6 +379,7 @@ internal object SourceRecords {
                 maxFiles = maxFiles,
                 maxTotalSize = maxTotalSize,
             ),
+            encryption = encryption,
         )
     }
 

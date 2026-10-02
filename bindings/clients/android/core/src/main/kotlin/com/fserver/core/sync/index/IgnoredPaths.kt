@@ -1,5 +1,8 @@
 package com.fserver.core.sync.index
 
+import com.fserver.files.fs.impl.AtomicReplaceMarker
+import com.fserver.files.fs.impl.PartMarker
+
 /** Files a scan never indexes: temp and lock files, and OS / app service data. */
 internal object IgnoredPaths {
     private val ignoredDirs = setOf(
@@ -18,7 +21,7 @@ internal object IgnoredPaths {
 
     private val ignoredSuffixes = listOf(
         ".tmp", ".temp", ".part", ".partial", ".crdownload", ".download", ".swp", ".swo", ".lck",
-        "~", ".fserver-replaced",
+        "~", AtomicReplaceMarker,
     )
 
     /** [path] is canonical: `/`-separated, see [com.fserver.common.utils.SourcePaths]. */
@@ -31,6 +34,6 @@ internal object IgnoredPaths {
                 ignoredPrefixes.any { name.startsWith(it) } ||
                 ignoredSuffixes.any { name.endsWith(it) } ||
                 // Our own in-flight copy, see `partNameOf` in :files.
-                ".fserver-part" in name
+                PartMarker in name
     }
 }

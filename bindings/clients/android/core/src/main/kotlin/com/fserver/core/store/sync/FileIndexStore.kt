@@ -18,6 +18,9 @@ interface FileIndexStore {
 
     suspend fun findFile(key: IndexedFileKey): LocalIndexedFile?
 
+    /** The row whose bytes sit at [locator] in [sourceId], deleted ones included. */
+    suspend fun findByLocator(sourceId: String, locator: String): LocalIndexedFile?
+
     /**
      * Everything [sourceId] has already handed off, so the next pass can diff against it.
      *

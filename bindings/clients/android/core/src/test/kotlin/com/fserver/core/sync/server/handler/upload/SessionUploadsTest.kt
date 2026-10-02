@@ -8,6 +8,7 @@ import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.fileDto
 import com.fserver.core.support.peerIdentity
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.server.SourceAuthorizer
 import com.fserver.core.sync.transfer.RequestedDownloads
 import com.fserver.core.support.FakeStorage
@@ -61,7 +62,7 @@ class SessionUploadsTest {
             authorizer = SourceAuthorizer(storage),
             admission = UploadAdmission(storage, RequestedDownloads()),
             indexWriter = LocalIndex(storage, node, clock).writer,
-            node = node,
+            sourceFiles = sourceFiles(storage, node),
             staging = staging,
         )
         storage.sources.upsert(source)

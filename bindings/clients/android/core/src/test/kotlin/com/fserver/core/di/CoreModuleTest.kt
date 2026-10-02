@@ -2,12 +2,17 @@ package com.fserver.core.di
 
 import android.content.ContextWrapper
 import com.fserver.core.FServerConfig
+import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.store.crypto.StorageKeysStore
 import kotlinx.coroutines.CoroutineScope
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
+import org.koin.test.verify.definition
+import org.koin.test.verify.injectedParameters
 import org.koin.test.verify.verify
 import java.lang.reflect.Proxy
+import java.security.SecureRandom
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
@@ -29,7 +34,13 @@ class CoreModuleTest {
         )
 
         // Function0: lambdas handed in by a `single { }` block, which verify cannot see through.
-        module.verify(extraTypes = listOf(Function0::class))
+        // SealedFiles is built by hand from the host's ciphers and key store.
+        module.verify(
+            extraTypes = listOf(Function0::class),
+            injections = injectedParameters(
+                definition<SealedFiles>(List::class, StorageKeysStore::class, SecureRandom::class),
+            ),
+        )
     }
 
     /** A proxy rather than a fake: the store SPI is closed to subclassing outside a backend. */

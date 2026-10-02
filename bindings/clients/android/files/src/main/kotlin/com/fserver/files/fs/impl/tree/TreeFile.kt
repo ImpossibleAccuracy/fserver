@@ -3,20 +3,21 @@ package com.fserver.files.fs.impl.tree
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.provider.DocumentsContract
 import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.impl.AtomicReplaceMarker
 import com.fserver.files.fs.impl.StreamTarget
-import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.nameOf
-import com.fserver.files.fs.impl.readProviderFile
 import com.fserver.files.fs.impl.openProviderDescriptor
+import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.openProviderReader
 import com.fserver.files.fs.impl.openProviderWriter
+import com.fserver.files.fs.impl.readProviderFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
@@ -35,7 +36,8 @@ internal class TreeFile(
 
     override suspend fun openReader(): FsReader = openProviderReader(context, uri)
 
-    override suspend fun openDescriptor(): ParcelFileDescriptor = openProviderDescriptor(context, uri)
+    override suspend fun openDescriptor(): ParcelFileDescriptor =
+        openProviderDescriptor(context, uri)
 
     override suspend fun openWriter(): FsWriter = openProviderWriter(context, uri)
 
@@ -61,7 +63,7 @@ internal class TreeFile(
         }
 
         val aside = existing?.let {
-            renameDocument(it, name + AsideSuffix)
+            renameDocument(it, name + AtomicReplaceMarker)
                 ?: throw FileSystemException.RenameRejected(locator, newName)
         }
 
@@ -175,9 +177,5 @@ internal class TreeFile(
             }
 
         return null
-    }
-
-    private companion object {
-        const val AsideSuffix = ".fserver-replaced"
     }
 }

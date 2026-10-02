@@ -1,13 +1,12 @@
 package com.fserver.core.sync.fileops
 
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toFileRecord
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -16,7 +15,7 @@ import timber.log.Timber
 /** Deletes a file's local bytes and records the deletion, for our own plan or the peer's. */
 internal class FileDeleter(
     private val storage: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val indexWriter: LocalIndexWriter,
 ) {
     /**
@@ -38,7 +37,7 @@ internal class FileDeleter(
         }
 
         return withContext(NonCancellable) {
-            val fs = node.openSource(source.location.toFiles())
+            val fs = sourceFiles.open(source)
             // Nothing there is as good as deleted.
             val deleted = fs.openFile(row.locator)?.delete() ?: true
 

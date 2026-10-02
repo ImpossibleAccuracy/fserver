@@ -11,6 +11,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.model.SourceEntry
@@ -95,7 +96,7 @@ class FileEvictorPreviewTest {
     }
 
     private fun evictor(previewer: EvictionPreviewer) =
-        FileEvictor(storage, node, LocalIndex(storage, node, clock).writer, previewer)
+        FileEvictor(storage, sourceFiles(storage, node), LocalIndex(storage, node, clock).writer, previewer)
 
     private suspend fun setUpIndex() {
         storage.sources.upsert(source)

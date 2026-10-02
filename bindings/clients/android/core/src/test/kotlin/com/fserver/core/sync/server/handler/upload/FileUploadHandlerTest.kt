@@ -14,6 +14,7 @@ import com.fserver.core.support.fileDto
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.network.dictionary.dto.FileRecordDto
 import com.fserver.core.network.dictionary.dto.UploadKey
@@ -88,7 +89,7 @@ class FileUploadHandlerTest {
                 authorizer = SourceAuthorizer(storage),
                 admission = UploadAdmission(storage, requested),
                 indexWriter = LocalIndex(storage, node, clock).writer,
-                node = node,
+                sourceFiles = sourceFiles(storage, node),
                 staging = staging,
             ),
             oneShots = OneShotUploadTarget(storage, node, OneShotStaging(node), clock),

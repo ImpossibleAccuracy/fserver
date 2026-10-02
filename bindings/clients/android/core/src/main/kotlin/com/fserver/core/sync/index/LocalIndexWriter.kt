@@ -5,6 +5,7 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
+import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.util.TimeProvider
@@ -111,6 +112,7 @@ internal class LocalIndexWriter(
         locator: String,
         modifiedAt: Instant,
         version: LocalIndexedFile.Version?,
+        atRest: AtRest,
     ) = locks.withLock(source.id) {
         val row = storage.index.findFile(from)
             ?: throw IllegalArgumentException("File ${from.fileId} not found in source ${source.id}")
@@ -133,6 +135,7 @@ internal class LocalIndexWriter(
                     modifiedAt = modifiedAt,
                     version = version,
                     processedAt = now,
+                    atRest = atRest,
                 ),
             )
         )
@@ -185,6 +188,7 @@ internal class LocalIndexWriter(
         path: String,
         locator: String,
         modifiedAt: Instant,
+        atRest: AtRest,
     ): LocalIndexedFile = locks.withLock(source.id) {
         val fileId = SourcePaths.fileId(path)
         val existing = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = source.id))
@@ -202,6 +206,7 @@ internal class LocalIndexWriter(
             modifiedAt = modifiedAt,
             version = versions.issuer(1).after(existing?.version),
             processedAt = now,
+            atRest = atRest,
         )
         storage.index.markProcessed(listOf(created))
         created
@@ -239,6 +244,7 @@ internal class LocalIndexWriter(
         file: FileRecord,
         locator: String,
         modifiedAt: Instant,
+        atRest: AtRest,
     ) = locks.withLock(source.id) {
         val saved = storage.index.findFile(IndexedFileKey(fileId = file.id.value, sourceId = source.id))
 
@@ -250,7 +256,13 @@ internal class LocalIndexWriter(
                 currentTime = timeProvider.now(),
             )
             // Pin and fetch time are this device's own: a new version keeps them.
-            .let { it.copy(modifiedAt = modifiedAt, state = saved?.state as? LocalIndexedFile.State.Present ?: it.state) }
+            .let {
+                it.copy(
+                    modifiedAt = modifiedAt,
+                    state = saved?.state as? LocalIndexedFile.State.Present ?: it.state,
+                    atRest = atRest,
+                )
+            }
 
         storage.index.markProcessed(listOf(indexed))
     }

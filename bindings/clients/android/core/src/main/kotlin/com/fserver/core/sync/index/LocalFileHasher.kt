@@ -1,9 +1,8 @@
 package com.fserver.core.sync.index
 
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.files.util.FileHasher
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +15,7 @@ import kotlin.time.Instant
  * not hold scans up; [LocalIndexWriter.recordHash] re-checks the row before writing.
  */
 internal class LocalFileHasher(
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val writer: LocalIndexWriter,
 ) {
     suspend fun hashFile(source: SourceEntry, local: FileRecord) {
@@ -54,7 +53,7 @@ internal class LocalFileHasher(
         val hasher = FileHasher()
 
         withContext(Dispatchers.IO) {
-            val fs = node.openSource(source.location.toFiles())
+            val fs = sourceFiles.open(source)
             val file = fs.openFile(locator) ?: throw FileNotFoundException(locator)
 
             file.read().use { stream ->

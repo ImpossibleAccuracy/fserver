@@ -11,6 +11,7 @@ import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
@@ -45,7 +46,7 @@ class LocalFileEditorTest {
         root = temp.newFolder("source-root")
         editor = LocalFileEditor(
             storage,
-            node,
+            sourceFiles(storage, node),
             LocalIndex(storage, node, clock).writer,
             FakeRequirementsChecker(),
             clock

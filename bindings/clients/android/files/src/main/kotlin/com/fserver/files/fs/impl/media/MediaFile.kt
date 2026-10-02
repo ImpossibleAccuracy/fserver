@@ -5,23 +5,24 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import android.os.ParcelFileDescriptor
+import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.fserver.common.exception.FileSystemException
 import com.fserver.files.fs.FsFile
 import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
+import com.fserver.files.fs.impl.AtomicReplaceMarker
 import com.fserver.files.fs.impl.StreamTarget
-import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.isMediaName
 import com.fserver.files.fs.impl.longOrZero
 import com.fserver.files.fs.impl.nameOf
-import com.fserver.files.fs.impl.readProviderFile
-import com.fserver.files.fs.impl.tree.TreeFile
 import com.fserver.files.fs.impl.openProviderDescriptor
+import com.fserver.files.fs.impl.openProviderOutput
 import com.fserver.files.fs.impl.openProviderReader
 import com.fserver.files.fs.impl.openProviderWriter
+import com.fserver.files.fs.impl.readProviderFile
+import com.fserver.files.fs.impl.tree.TreeFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -42,7 +43,8 @@ internal class MediaFile(
 
     override suspend fun openReader(): FsReader = openProviderReader(context, uri)
 
-    override suspend fun openDescriptor(): ParcelFileDescriptor = openProviderDescriptor(context, uri)
+    override suspend fun openDescriptor(): ParcelFileDescriptor =
+        openProviderDescriptor(context, uri)
 
     override suspend fun openWriter(): FsWriter = openProviderWriter(context, uri)
 
@@ -87,7 +89,7 @@ internal class MediaFile(
             throw FileSystemException.RenameRejected(locator, newName)
         }
 
-        if (existing != null && !rename(existing, name + AsideSuffix)) {
+        if (existing != null && !rename(existing, name + AtomicReplaceMarker)) {
             throw FileSystemException.RenameRejected(locator, newName)
         }
 
@@ -143,10 +145,6 @@ internal class MediaFile(
         return updated && context.contentResolver
             .query(uri, arrayOf(MediaStore.Files.FileColumns.DISPLAY_NAME), null, null, null)
             ?.use { it.moveToFirst() && it.getString(0) == name } == true
-    }
-
-    private companion object {
-        const val AsideSuffix = ".fserver-replaced"
     }
 }
 

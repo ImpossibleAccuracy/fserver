@@ -3,9 +3,10 @@ package com.fserver.core.files.gc
 import com.fserver.common.exception.FileSystemException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.files.gc.GarbageCollector.Companion.FetchedTtl
+import com.fserver.core.files.gc.GarbageCollector.Companion.PartSweepInterval
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.oneshot.impl.OneShotOutbox
-import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
 import com.fserver.core.oneshot.model.OneShotTransfer
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.fileops.FileEvictor
@@ -13,9 +14,11 @@ import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.evictsLocally
+import com.fserver.core.sync.server.handler.upload.oneshot.OneShotStaging
 import com.fserver.core.util.TimeProvider
 import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
+import com.fserver.files.fs.impl.PartMarker
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import timber.log.Timber
@@ -25,7 +28,7 @@ import kotlin.time.Instant
 
 /**
  * Component that drops uploads nobody came back for, rows whose bytes are gone, bytes with no row,
- * and copies fetched on demand once they outlived [FetchedTtl].
+ * copies fetched on demand once they outlived [FetchedTtl], and part files a crashed placement left.
  */
 internal class GarbageCollector(
     private val storage: FServerStorage,
@@ -35,6 +38,9 @@ internal class GarbageCollector(
     private val fileEvictor: FileEvictor,
 ) {
     private val gcLock = Mutex()
+
+    @Volatile
+    private var partsSweptAt: Instant? = null
 
     private val staging get() = node.openStaging()
 
@@ -60,6 +66,7 @@ internal class GarbageCollector(
         collectOneShotStaging()
         collectOneShotOutbox(now)
         collectExpiredFetches(now)
+        collectStaleParts(now)
     }
 
     /** Drops uploads whose bytes are gone or which have not been touched for a while. */
@@ -138,16 +145,55 @@ internal class GarbageCollector(
 
     /** Evicts again what was fetched on demand, once the user had [FetchedTtl] to work with it. */
     private suspend fun collectExpiredFetches(now: Instant) {
-        val sources = storage.sources.all().filter { it.evictsLocally && it.status == SourceEntry.Status.Active }
+        val sources = storage.sources.all()
+            .filter { it.evictsLocally && it.status == SourceEntry.Status.Active }
 
         for (source in sources) {
             for (file in storage.index.processedFiles(source.id)) {
-                val fetchedAt = (file.state as? LocalIndexedFile.State.Present)?.fetchedAt ?: continue
+                val fetchedAt =
+                    (file.state as? LocalIndexedFile.State.Present)?.fetchedAt ?: continue
                 if (now - fetchedAt < FetchedTtl) continue
 
-                runCatchingCancellable { fileEvictor.evict(source, file.fileId, expected = file.hash) }
-                    .onFailure { Timber.w(it, "Could not evict fetched ${file.path} in source ${source.id}") }
+                runCatchingCancellable {
+                    fileEvictor.evict(
+                        source,
+                        file.fileId,
+                        expected = file.hash
+                    )
+                }
+                    .onFailure {
+                        Timber.w(
+                            it,
+                            "Could not evict fetched ${file.path} in source ${source.id}"
+                        )
+                    }
             }
+        }
+    }
+
+    /**
+     * Drops part files ([PartMarker]) a placement left when the process died mid-copy. Each
+     * source is walked whole, so this runs once per [PartSweepInterval] rather than every pass.
+     * Raw, past the encryption seam: nothing here reads content, and a part has no row to vouch for it.
+     */
+    private suspend fun collectStaleParts(now: Instant) {
+        if (partsSweptAt?.let { now - it < PartSweepInterval } == true) return
+        partsSweptAt = now
+
+        val activeSources = storage.sources.all().filter { it.status == SourceEntry.Status.Active }
+        for (source in activeSources) {
+            runCatchingCancellable {
+                val fs = node.openSource(source.location.toFiles())
+                for (file in fs.scan().result().getOrThrow()) {
+                    // A part still being written keeps its mtime fresh.
+                    if (PartMarker !in file.path.substringAfterLast('/') ||
+                        now - file.lastModified < OrphanGrace
+                    ) continue
+
+                    Timber.i("Dropping stale part ${file.path} in source ${source.id}")
+                    fs.openFile(file.locator)?.delete()
+                }
+            }.onFailure { Timber.w(it, "Could not sweep parts in source ${source.id}") }
         }
     }
 
@@ -164,6 +210,9 @@ internal class GarbageCollector(
 
         /** Young files may be an upload between creating its file and writing its row. */
         val OrphanGrace = 1.hours
+
+        /** Parts are rare - only a crash leaves one - and finding them walks every source. */
+        val PartSweepInterval = 1.days
 
         /** How long a file fetched on demand stays before it is evicted again. TODO: make configurable. */
         val FetchedTtl = 1.days

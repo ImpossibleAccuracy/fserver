@@ -1,14 +1,14 @@
 package com.fserver.core.sync.fileops
 
 import com.fserver.common.model.ContentHash
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
+import com.fserver.core.crypto.internal.atRest
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.toIndexed
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
 import kotlinx.coroutines.NonCancellable
@@ -19,7 +19,7 @@ import java.io.FileNotFoundException
 /** Carries out a planned rename on this device, for our own plan or the peer's. */
 internal class FileMover(
     private val storage: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val indexWriter: LocalIndexWriter,
 ) {
     /**
@@ -46,7 +46,7 @@ internal class FileMover(
         }
 
         withContext(NonCancellable) {
-            val fs = node.openSource(source.location.toFiles())
+            val fs = sourceFiles.open(source)
             check(!fs.fileExists(target.path)) { "${target.path} in source ${source.id} is taken by a file not indexed yet" }
 
             val file = fs.openFile(row.locator) ?: throw FileNotFoundException(row.locator)
@@ -64,6 +64,7 @@ internal class FileMover(
                 locator = placed.locator,
                 modifiedAt = modifiedAt,
                 version = version?.toIndexed(),
+                atRest = placed.atRest,
             )
         }
 

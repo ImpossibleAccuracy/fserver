@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.storage.database.FServerStorageDatabase
 import com.fserver.core.storage.database.IndexedFileVersion
 import com.fserver.core.store.sync.FileIndexStore
@@ -47,6 +48,16 @@ internal class FileIndexStoreImpl(
                 }
         }
 
+    override suspend fun findByLocator(sourceId: String, locator: String): LocalIndexedFile? =
+        database.transactionWithResult {
+            dao.findByLocator(sourceId = sourceId, locator = locator)
+                .executeAsOneOrNull()
+                ?.let { row ->
+                    val vector = versions.selectByKey(sourceId = sourceId, fileId = row.fileId).executeAsList()
+                    listOf(row).withVectors(vector).single()
+                }
+        }
+
     override suspend fun processedFiles(sourceId: String): List<LocalIndexedFile> =
         database.transactionWithResult {
             dao.selectBySource(sourceId).executeAsList()
@@ -79,6 +90,8 @@ internal class FileIndexStoreImpl(
                     hlc = file.version?.hlc?.packed,
                     originDevice = file.version?.originDevice,
                     processedAtEpochMs = file.processedAt.toEpochMilliseconds(),
+                    atRestCipher = (file.atRest as? AtRest.Sealed)?.cipherId,
+                    atRestKey = (file.atRest as? AtRest.Sealed)?.keyId,
                 )
 
                 versions.deleteByKey(sourceId = file.sourceId, fileId = file.fileId)
@@ -144,4 +157,5 @@ private fun DBIndexedFile.toDomainModel(counters: Map<String, Long>) = LocalInde
     version = FileVersions.read(hlc = hlc, originDevice = originDevice, counters = counters),
     hashStale = hashStale == 1L,
     processedAt = Instant.fromEpochMilliseconds(processedAtEpochMs),
+    atRest = if (atRestCipher != null && atRestKey != null) AtRest.Sealed(atRestCipher, atRestKey) else AtRest.Plain,
 )

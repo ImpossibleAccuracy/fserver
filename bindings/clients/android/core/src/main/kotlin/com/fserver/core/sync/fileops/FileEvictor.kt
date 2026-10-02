@@ -2,16 +2,15 @@ package com.fserver.core.sync.fileops
 
 import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.files.evictRefusal
 import com.fserver.core.files.preview.EvictingFile
 import com.fserver.core.files.preview.EvictionPreviewer
-import com.fserver.core.files.scan.toFiles
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.files.FilesNode
 import com.fserver.files.fs.FsFile
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -22,7 +21,7 @@ import kotlin.time.Duration.Companion.seconds
 /** Frees a file's local bytes, keeping it in the set. The one place eviction happens. */
 internal class FileEvictor(
     private val storage: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val indexWriter: LocalIndexWriter,
     private val previewer: EvictionPreviewer? = null,
 ) {
@@ -46,7 +45,7 @@ internal class FileEvictor(
         }
 
         // Before the NonCancellable part: a cancelled pass should not sit out a slow preview.
-        val file = node.openSource(source.location.toFiles()).openFile(row.locator)
+        val file = sourceFiles.open(source).openFile(row.locator)
         if (file != null) capturePreview(source, row, expected, file)
 
         return withContext(NonCancellable) {

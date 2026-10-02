@@ -22,6 +22,6 @@ internal class LocalIndex(
     private val versions = LocalVersions(storage, HybridLogicalClock(storage, clock))
 
     val writer = LocalIndexWriter(storage, clock, locks, versions)
-    val hasher = LocalFileHasher(node, writer)
-    val indexer = LocalChangesIndexer(storage, node, FakeRequirementsChecker(), clock, locks, versions, hasher, progress)
+    val hasher = LocalFileHasher(sourceFiles(storage, node), writer)
+    val indexer = LocalChangesIndexer(storage, sourceFiles(storage, node), FakeRequirementsChecker(), clock, locks, versions, hasher, progress)
 }

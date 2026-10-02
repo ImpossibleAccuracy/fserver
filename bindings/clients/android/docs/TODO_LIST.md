@@ -41,6 +41,31 @@ Sync (see `../../../docs/HLC.md`):
 - Clock skew is only logged: no offset estimate at handshake (NTP-style) and no diagnostics.
   In host/public mode the physical time does not come from the server;
 
+Storage encryption (see `../../../docs/Storage Encryption.md`):
+
+- Mark sealed files by name, not only by header: `photo.jpg` sealed sits on disk as
+  `photo.jpg.fsenc`, and the decorator strips the suffix, so path / `fileId` / what the peer sees
+  stay the same. With a fixed-size header (key id as 16 raw bytes, cipher id as a 16-byte hash
+  looked up in the registry) a scan derives the plaintext size from the length alone and never
+  opens a file - today it reads the header of every file the index cannot vouch for, which on a
+  first scan of a SAF tree is ~1-5 ms per file. It also survives what any per-source flag cannot:
+  a source removed and re-added on a folder that still holds sealed files, or an SD card moved
+  between devices. Costs: the decorator maps paths in every op (`createFile`, `place`,
+  `fileExists`, `checkPath`, `rename`), migration renames files, and a user who strips the suffix
+  by hand turns a file into "plaintext" (caught only by the downgrade check, where the index
+  remembers it sealed);
+- Export / import of storage keys. Data keys live wrapped by an Android Keystore key, which does
+  not leave the device: a reinstall, a restore of the app's data elsewhere, or a folder / SD card
+  moved to another device leaves its sealed files unreadable (`MissingKey`). Export the data keys
+  (`keyId` -> key) re-wrapped under a user passphrase (PBKDF2 - `PBKDF2WithHmacSHA256` is API 26+,
+  so 24-25 need SHA1 or a bundled KDF; Argon2 needs a library) into one versioned file; import
+  re-wraps them under the local Keystore key and adds rows, so `resolve(keyId)` finds them for any
+  source. Needs a `StorageKeysStore` SPI extension (export / import), UI in settings, and a warning
+  that the file plus the passphrase opens everything;
+- `StorageKeysStore.forget` is called by nothing. Crypto-erase is right only where the files go
+  with the source (an `Internal` bucket); for `Tree` / `Directory` the files outlive the source and
+  a re-added source must still open them.
+
 Idea:
 
 - Implement actions logging into database;

@@ -2,7 +2,7 @@ package com.fserver.core.sync.transfer
 
 import com.fserver.common.exception.TransferException
 import com.fserver.common.model.ContentHash
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.ContentHashDto
@@ -11,7 +11,6 @@ import com.fserver.core.network.dictionary.dto.toDto
 import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.remote.PeerIndexFetcher
-import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import com.fserver.files.upload.FileVersion
 import com.fserver.net.session.PeerSession
@@ -23,7 +22,7 @@ import com.fserver.net.session.PeerSession
 internal class SourceUploader(
     private val indexWriter: LocalIndexWriter,
     private val remoteIndex: PeerIndexFetcher,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val pusher: FilePusher,
 ) {
     /**
@@ -41,7 +40,7 @@ internal class SourceUploader(
         val locator = file.locator
             ?: error("Cannot upload file ${file.id} because it has no locator")
 
-        val opened = node.openSource(source.location.toFiles()).openFile(locator)
+        val opened = sourceFiles.open(source).openFile(locator)
             ?: throw TransferException.FileNotFoundException("File ${file.id} is gone from $locator")
 
         val init = Upload.Init(

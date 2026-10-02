@@ -4,6 +4,9 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.crypto.internal.SealedFiles
+import com.fserver.core.crypto.model.EncryptionPolicy
+import com.fserver.core.crypto.model.requireEncryptable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.ensureSourceReachable
@@ -43,6 +46,7 @@ class SourcesController internal constructor(
     private val sessionProgressReporter: SyncProgressReporter,
     private val localIndexer: LocalChangesIndexer,
     private val backgroundScope: BackgroundScope,
+    private val sealedFiles: SealedFiles,
 ) {
     /** Initial scan-then-ask per new source, cancelled if the source is removed before it ends. */
     private val introductions = ConcurrentHashMap<String, Job>()
@@ -108,6 +112,7 @@ class SourcesController internal constructor(
         }
 
         ensureNoDuplicate(syncMode, location)
+        checkEncryption(location, preferences.encryption)
 
         val source = SourceEntry(
             id = IdGenerator.nextId,
@@ -169,6 +174,7 @@ class SourcesController internal constructor(
         preferences: SourceEntry.Preferences = SourceEntry.Preferences.Default,
     ): Result<SourceEntry> = runBackgroundJob {
         requirementsChecker.ensureSourceReachable(location)
+        checkEncryption(location, preferences.encryption)
 
         Timber.i("Accepting source $sourceId at $location")
         sourceSetup.accept(sourceId, location, preferences)
@@ -206,6 +212,7 @@ class SourcesController internal constructor(
         }
 
         ensureNoDuplicate(syncMode, existing.location, except = id)
+        checkEncryption(existing.location, preferences.encryption)
 
         val updated = existing.copy(syncMode = syncMode, preferences = preferences)
         storage.sources.upsert(updated)
@@ -233,6 +240,13 @@ class SourcesController internal constructor(
     }
 
     /** One source per mode and location: two would sync the same files twice. */
+    private fun checkEncryption(location: SourceLocation, policy: EncryptionPolicy) {
+        requireEncryptable(location, policy)
+        if (policy is EncryptionPolicy.Required) {
+            require(sealedFiles.supports(policy.cipherId)) { "Storage cipher ${policy.cipherId} is not registered" }
+        }
+    }
+
     private suspend fun ensureNoDuplicate(mode: SyncMode, location: SourceLocation, except: String? = null) {
         storage.sources.findByModeAndLocation(mode = mode, location = location)
             ?.takeIf { it.id != except }

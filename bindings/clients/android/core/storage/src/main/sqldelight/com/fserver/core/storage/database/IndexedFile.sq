@@ -31,12 +31,17 @@ CREATE TABLE indexedFile (
     hlc                  INTEGER,
     originDevice         TEXT,
     processedAtEpochMs  INTEGER NOT NULL,
+    -- Both null for plaintext on disk; both set for a file sealed at rest by that cipher and key.
+    atRestCipher        TEXT,
+    atRestKey           TEXT,
     -- What actually names a record: fileId alone is cross-device, so it identifies a row only
     -- paired with the source it was indexed under.
     PRIMARY KEY (sourceId, fileId)
 );
 
 CREATE UNIQUE INDEX indexedFile_id ON indexedFile(id);
+
+CREATE INDEX indexedFile_locator ON indexedFile(sourceId, locator);
 
 selectAll:
 SELECT *
@@ -64,6 +69,14 @@ SELECT count(*) AS files, coalesce(sum(size), 0) AS bytes
 FROM indexedFile
 WHERE sourceId = ? AND state = 'Present';
 
+-- A present row wins over a tombstone left at the same locator.
+findByLocator:
+SELECT *
+FROM indexedFile
+WHERE sourceId = ? AND locator = ?
+ORDER BY state = 'Present' DESC, processedAtEpochMs DESC
+LIMIT 1;
+
 findByKey:
 SELECT *
 FROM indexedFile
@@ -73,9 +86,9 @@ upsert:
 INSERT OR REPLACE INTO indexedFile(
     id, sourceId, fileId, path, locator, state, pinned, stateChangedEpochMs,
     size, modifiedAtEpochMs, hashValue, hashAlgorithm, hashStale,
-    hlc, originDevice, processedAtEpochMs
+    hlc, originDevice, processedAtEpochMs, atRestCipher, atRestKey
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateState:
 UPDATE indexedFile

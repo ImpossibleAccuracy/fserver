@@ -1,5 +1,6 @@
 package com.fserver.core.crypto.impl
 
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.crypto.spi.StorageCipher
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -7,7 +8,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** The built-in method. ChaCha20-Poly1305 would need API 28 or a third-party provider. */
 internal object AesGcmCipher : StorageCipher {
-    override val id = "fserver.aes256gcm-seg.v1"
+    override val id = EncryptionPolicy.BuiltInCipherId
     override val nonceSize = 12
     override val tagSize = 16
 

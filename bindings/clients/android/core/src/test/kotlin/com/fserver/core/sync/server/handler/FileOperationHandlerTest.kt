@@ -18,6 +18,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.peerIdentity
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.fileops.FileDeleter
 import com.fserver.core.sync.fileops.FileMover
 import com.fserver.core.sync.index.IndexedFileKey
@@ -80,14 +81,14 @@ class FileOperationHandlerTest {
             storage = storage,
             localHasher = index.hasher,
             indexWriter = index.writer,
-            fileDeleter = FileDeleter(storage, node, index.writer),
+            fileDeleter = FileDeleter(storage, sourceFiles(storage, node), index.writer),
             sourceUploader = SourceUploader(
                 index.writer,
                 PeerIndexFetcher(storage, mockk(relaxed = true), clock, HybridLogicalClock(storage, clock)),
-                node,
+                sourceFiles(storage, node),
                 FilePusher(progress),
             ),
-            fileMover = FileMover(storage, node, index.writer),
+            fileMover = FileMover(storage, sourceFiles(storage, node), index.writer),
         )
 
         storage.sources.upsert(

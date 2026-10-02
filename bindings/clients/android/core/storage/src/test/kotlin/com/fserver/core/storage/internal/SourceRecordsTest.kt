@@ -1,6 +1,7 @@
 package com.fserver.core.storage.internal
 
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.EncryptionPolicy
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -162,6 +163,14 @@ class SourceRecordsTest {
             attributes.associate { (it.type to it.field) to it.value }
         ),
     )
+
+    @Test
+    fun `every encryption policy survives a round trip`() {
+        for (encryption in listOf(EncryptionPolicy.Off, EncryptionPolicy.Required(), EncryptionPolicy.Required("host.cipher.v2"))) {
+            val source = source(preferences = SourceEntry.Preferences.Default.copy(encryption = encryption))
+            assertEquals(encryption, roundTrip(source)?.preferences?.encryption)
+        }
+    }
 
     private fun source(
         location: SourceLocation.Persistable = SourceLocation.Media,

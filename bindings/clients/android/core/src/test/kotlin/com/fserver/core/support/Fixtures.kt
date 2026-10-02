@@ -1,6 +1,8 @@
 package com.fserver.core.support
 
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.internal.SealedFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.dto.ContentHashDto
 import com.fserver.core.network.dictionary.dto.FileRecordDto
@@ -11,6 +13,7 @@ import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.util.TimeProvider
+import com.fserver.files.FilesNode
 import com.fserver.net.security.identity.PeerIdentity
 import kotlin.time.Instant
 
@@ -92,3 +95,7 @@ internal fun indexedFile(
     modifiedAt = modifiedAt,
     processedAt = modifiedAt,
 )
+
+/** What production wires: every source through the encryption seam, with the built-in cipher only. */
+internal fun sourceFiles(storage: FServerStorage, node: FilesNode): SourceFileSystems =
+    SourceFileSystems(node, storage, SealedFiles(emptyList(), storage.storageKeys))

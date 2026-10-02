@@ -1,9 +1,8 @@
 package com.fserver.core.sync.conflict
 
-import com.fserver.core.files.scan.toFiles
+import com.fserver.core.crypto.internal.SourceFileSystems
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
-import com.fserver.files.FilesNode
 import com.fserver.files.upload.FileRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +12,7 @@ import java.io.FileNotFoundException
 /** "Keep both": this device's bytes copied next to the file, under a name [ConflictCopies] picks. */
 internal class ConflictCopier(
     private val storage: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
 ) {
     /**
      * Local bytes of [file] copied as `<name> (<this device>).<ext>`. A new file: the next scan
@@ -25,7 +24,7 @@ internal class ConflictCopier(
         val label = storage.identity.localDevice().displayName
 
         withContext(Dispatchers.IO) {
-            val fs = node.openSource(source.location.toFiles())
+            val fs = sourceFiles.open(source)
             val original = fs.openFile(locator) ?: throw FileNotFoundException(locator)
 
             val path = generateSequence(1) { it + 1 }

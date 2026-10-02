@@ -4,6 +4,9 @@ import com.fserver.common.exception.FileSystemException
 import com.fserver.core.crypto.spi.StorageCipher
 import com.fserver.files.fs.FsReader
 import com.fserver.files.fs.FsWriter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
@@ -39,6 +42,32 @@ internal class SealedFile(
     suspend fun initialize(out: FsWriter) {
         out.write(0, header.encoded)
         out.write(layout.segmentOffset(0), seal(0, ByteArray(0), 0, last = true))
+    }
+
+    /**
+     * Writes the header and all of [input], sealed, to a new, empty file. One segment of
+     * read-ahead tells the last one apart. Returns the plaintext size.
+     */
+    suspend fun sealAll(input: InputStream, out: FsWriter): Long {
+        out.write(0, header.encoded)
+
+        var index = 0L
+        var total = 0L
+        var current = ByteArray(layout.segmentSize)
+        var length = input.readUpTo(current)
+        while (true) {
+            val next = ByteArray(layout.segmentSize)
+            val nextLength = if (length < current.size) 0 else input.readUpTo(next)
+            val last = nextLength == 0
+
+            out.write(layout.segmentOffset(index), seal(index, current, length, last))
+            total += length
+            if (last) return total
+
+            current = next
+            length = nextLength
+            index++
+        }
     }
 
     /** Nonce followed by the sealed [length] bytes of [plain]. */
@@ -82,4 +111,15 @@ internal suspend fun FsReader.readFully(offset: Long, length: Int): ByteArray {
         done += read
     }
     return bytes
+}
+
+/** Fills [buffer] unless the stream ends first; returns how much it got. */
+private suspend fun InputStream.readUpTo(buffer: ByteArray): Int = withContext(Dispatchers.IO) {
+    var done = 0
+    while (done < buffer.size) {
+        val read = read(buffer, done, buffer.size - done)
+        if (read < 0) break
+        done += read
+    }
+    done
 }

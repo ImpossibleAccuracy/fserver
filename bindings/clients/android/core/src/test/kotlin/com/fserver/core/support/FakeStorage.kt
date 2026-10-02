@@ -1,5 +1,6 @@
 package com.fserver.core.support
 
+import com.fserver.core.crypto.spi.StorageKey
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.auth.OfferedAuthMethod
@@ -8,7 +9,6 @@ import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.device.model.LocalDevice
 import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.common.utils.IdGenerator
-import com.fserver.core.crypto.spi.StorageKey
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.crypto.StorageKeysStore
 import com.fserver.core.store.FServerStorageApi
@@ -173,6 +173,10 @@ internal class FakeFileIndexStore : FileIndexStore {
 
     override suspend fun findFile(key: IndexedFileKey): LocalIndexedFile? =
         rows.value.find { it.fileId == key.fileId && it.sourceId == key.sourceId }
+
+    override suspend fun findByLocator(sourceId: String, locator: String): LocalIndexedFile? =
+        rows.value.filter { it.sourceId == sourceId && it.locator == locator }
+            .maxWithOrNull(compareBy({ it.state is LocalIndexedFile.State.Present }, { it.processedAt }))
 
     override suspend fun processedFiles(sourceId: String): List<LocalIndexedFile> =
         rows.value.filter { it.sourceId == sourceId }

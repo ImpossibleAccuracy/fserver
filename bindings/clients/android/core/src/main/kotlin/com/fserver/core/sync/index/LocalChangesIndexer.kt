@@ -4,14 +4,14 @@ import com.fserver.common.model.ContentHash
 import com.fserver.common.utils.IdGenerator
 import com.fserver.common.utils.SourcePaths
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.crypto.internal.SourceFileSystems
+import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.files.ensureSourceReachable
-import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.util.TimeProvider
-import com.fserver.files.FilesNode
 import com.fserver.files.fs.scan.FoundFile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -22,7 +22,7 @@ import kotlin.time.Instant
 /** Brings a source's local index in line with its folder. Writes outside a scan go through [LocalIndexWriter]. */
 internal class LocalChangesIndexer(
     private val store: FServerStorage,
-    private val node: FilesNode,
+    private val sourceFiles: SourceFileSystems,
     private val requirementsChecker: RequirementsChecker,
     private val timeProvider: TimeProvider,
     private val locks: SourceIndexLocks,
@@ -86,7 +86,8 @@ internal class LocalChangesIndexer(
 
         val currentTime = timeProvider.now()
 
-        val scan = node.openSource(source.location.toFiles()).scan()
+        val fs = sourceFiles.open(source)
+        val scan = fs.scan()
         scan.progress.collect {
             progress.indexingScanned(source.id, it.scannedFiles, it.scannedSizeBytes)
         }
@@ -147,6 +148,7 @@ internal class LocalChangesIndexer(
                         version = versions.after(null),
                         hash = null,
                         currentTime = currentTime,
+                        atRest = fs.atRestOf(file.locator),
                     )
                 }
 
@@ -164,6 +166,7 @@ internal class LocalChangesIndexer(
                         version = versions.after(saved.version),
                         hash = null,
                         currentTime = currentTime,
+                        atRest = fs.atRestOf(file.locator),
                     )
                 }
 
@@ -177,6 +180,7 @@ internal class LocalChangesIndexer(
                         hash = saved.hash,
                         hashStale = true,
                         currentTime = currentTime,
+                        atRest = fs.atRestOf(file.locator),
                     )
                 }
 
@@ -225,6 +229,7 @@ private fun FoundFile.toIndexed(
     hash: ContentHash?,
     hashStale: Boolean = false,
     currentTime: Instant,
+    atRest: AtRest,
 ) = LocalIndexedFile(
     id = id,
     sourceId = sourceId,
@@ -238,4 +243,5 @@ private fun FoundFile.toIndexed(
     hashStale = hashStale,
     version = version,
     processedAt = currentTime,
+    atRest = atRest,
 )

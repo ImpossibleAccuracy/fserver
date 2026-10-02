@@ -2,6 +2,7 @@ package com.fserver.core.sync.index
 
 import com.fserver.common.model.ContentHash
 import com.fserver.common.model.FileSize
+import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.sync.version.HlcTimestamp
 import com.fserver.core.sync.version.VersionVector
 import kotlin.time.Instant
@@ -38,6 +39,8 @@ data class LocalIndexedFile(
      */
     val hashStale: Boolean = false,
     val processedAt: Instant,
+    /** How the bytes sit on disk. Local only: a peer always gets plaintext. */
+    val atRest: AtRest = AtRest.Plain,
 ) {
     val isDeleted: Boolean
         get() = state is State.Deleted

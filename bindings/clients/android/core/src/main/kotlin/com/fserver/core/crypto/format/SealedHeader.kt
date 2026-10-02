@@ -65,6 +65,10 @@ internal class SealedHeader(
         private val Magic =
             byteArrayOf('F'.code.toByte(), 'S'.code.toByte(), 'E'.code.toByte(), 'C'.code.toByte())
 
+        /** How long the header of a file sealed by [cipherId] under [keyId] is. */
+        fun sizeOf(cipherId: String, keyId: String): Int =
+            FixedSize + cipherId.toByteArray(Charsets.UTF_8).size + keyId.toByteArray(Charsets.UTF_8).size
+
         /** True when [bytes] start like a sealed file - a hint only, see Storage Encryption §6.1. */
         fun hasMagic(bytes: ByteArray, length: Int = bytes.size): Boolean =
             length >= Magic.size && Magic.indices.all { bytes[it] == Magic[it] }

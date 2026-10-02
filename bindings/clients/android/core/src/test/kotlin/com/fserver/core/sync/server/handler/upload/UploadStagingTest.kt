@@ -7,6 +7,7 @@ import com.fserver.core.support.LocalIndex
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.files.FilesNode
@@ -52,7 +53,7 @@ class UploadStagingTest {
         root = temp.newFolder("staging")
         val node = FilesNode.create(ContextWrapper(null), root)
         staging = UploadStaging(storage, node, clock)
-        garbageCollector = GarbageCollector(storage, node, clock, scope, FileEvictor(storage, node, LocalIndex(storage, node, clock).writer))
+        garbageCollector = GarbageCollector(storage, node, clock, scope, FileEvictor(storage, sourceFiles(storage, node), LocalIndex(storage, node, clock).writer))
         storage.sources.upsert(sourceEntry(id = key.sourceId))
     }
 
