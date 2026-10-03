@@ -3,7 +3,6 @@ package com.fserver.core.sync.runner
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
 import com.fserver.core.sync.model.drivesSync
-import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FilesSnapshot
 import com.fserver.files.upload.UploadDecisions
 import com.fserver.files.upload.UploadStrategy
@@ -12,9 +11,7 @@ import com.fserver.files.upload.impl.MirrorUploadStrategy
 import com.fserver.files.upload.impl.OneWayUploadStrategy
 import kotlin.time.Duration.Companion.days
 
-internal class UploadStrategySelector(
-    private val timeProvider: TimeProvider,
-) {
+internal class UploadStrategySelector {
     private val strategies: List<UploadStrategy> = listOf(
         MirrorUploadStrategy(),
         OneWayUploadStrategy(),
@@ -46,7 +43,7 @@ internal class UploadStrategySelector(
             propagateDeletions = false,
             evictWhen = when (val policy = syncMode.policy) {
                 is SyncMode.Offload.EvictPolicy.OlderThanDays ->
-                    OneWayUploadStrategy.EvictCriterion.ModifiedBefore(timeProvider.now() - policy.days.days)
+                    OneWayUploadStrategy.EvictCriterion.NotModifiedFor(policy.days.days)
 
                 is SyncMode.Offload.EvictPolicy.LargerThanBytes ->
                     OneWayUploadStrategy.EvictCriterion.LargerThan(policy.bytes)

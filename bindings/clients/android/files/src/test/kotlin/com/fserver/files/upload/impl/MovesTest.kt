@@ -93,7 +93,7 @@ class MovesTest {
     }
 
     private suspend fun plan(local: List<FileRecord>, remote: List<FileRecord>): List<FileAction> =
-        strategy.plan(MirrorUploadStrategy.Params, FilesSnapshot(local, remote)).actions
+        strategy.plan(MirrorUploadStrategy.Params, FilesSnapshot(local, remote, Now)).actions
 
     private fun file(
         id: String,

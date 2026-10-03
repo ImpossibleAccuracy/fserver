@@ -54,6 +54,7 @@ internal fun FileRecordDto.toFileRecord(): FileRecord = FileRecord(
         size = metadata.size,
         lastModified = metadata.lastModified,
         version = metadata.version?.toFiles(),
+        lastAccessed = null,
     ),
 )
 

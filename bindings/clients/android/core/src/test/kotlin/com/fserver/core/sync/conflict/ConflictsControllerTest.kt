@@ -36,7 +36,7 @@ class ConflictsControllerTest {
 
     private fun TestScope.controller() = ConflictsController(
         storage = storage,
-        strategySelector = UploadStrategySelector(clock),
+        strategySelector = UploadStrategySelector(),
         syncRunner = syncRunner,
         timeProvider = clock,
         clockSkews = skews,

@@ -24,6 +24,8 @@ data class FileRecord(
         val lastModified: Instant,
         /** Where this version sits in the file's history, or `null` when unknown. */
         val version: FileVersion?,
+        /** Last read of the bytes (LRU), or `null` when this side does not track it. */
+        val lastAccessed: Instant? = null,
     )
 
     /**

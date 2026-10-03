@@ -1,5 +1,7 @@
 package com.fserver.files.upload
 
+import kotlin.time.Instant
+
 /**
  * What both sides hold at one moment, as seen by the caller.
  *
@@ -9,6 +11,8 @@ package com.fserver.files.upload
 data class FilesSnapshot(
     val local: List<FileRecord>,
     val remote: List<FileRecord>,
+    /** When the snapshot was taken: the clock a strategy measures ages against. */
+    val now: Instant,
 ) {
     val localById: Map<FileId, FileRecord> by lazy { local.associateBy(FileRecord::id) }
     val remoteById: Map<FileId, FileRecord> by lazy { remote.associateBy(FileRecord::id) }

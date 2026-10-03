@@ -20,6 +20,8 @@ internal fun LocalIndexedFile.toFileRecord(): FileRecord = FileRecord(
         size = size.bytes,
         lastModified = modifiedAt,
         version = version?.toFiles(),
+        // Android gives no reliable atime (noatime mounts, MediaStore/SAF expose none).
+        lastAccessed = null,
     ),
 )
 
@@ -34,6 +36,7 @@ internal fun RemoteIndexedFile.toFileRecord(): FileRecord = FileRecord(
         size = size.bytes,
         lastModified = modifiedAt,
         version = version?.toFiles(),
+        lastAccessed = null,
     ),
 )
 

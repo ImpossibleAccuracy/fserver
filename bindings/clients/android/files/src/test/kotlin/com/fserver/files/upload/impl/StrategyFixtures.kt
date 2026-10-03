@@ -14,6 +14,7 @@ internal const val A = "device-a"
 internal const val B = "device-b"
 internal val Early: Instant = Instant.fromEpochSeconds(1_000_000)
 internal val Late: Instant = Instant.fromEpochSeconds(2_000_000)
+internal val Now: Instant = Instant.fromEpochSeconds(3_000_000)
 internal val Deleted = FileRecord.State.Deleted(Early)
 internal val Evicted = FileRecord.State.Evicted(Early)
 internal val Pinned = FileRecord.State.Present(pinned = true)
@@ -24,13 +25,14 @@ internal suspend fun UploadStrategy.planOne(
     params: UploadStrategy.Params,
     local: FileRecord?,
     remote: FileRecord?,
-): FileAction? = plan(params, FilesSnapshot(listOfNotNull(local), listOfNotNull(remote))).actions.singleOrNull()
+): FileAction? = plan(params, FilesSnapshot(listOfNotNull(local), listOfNotNull(remote), Now)).actions.singleOrNull()
 
 internal fun record(
     vector: Map<String, Long>?,
     content: String? = null,
     state: FileRecord.State = FileRecord.State.Present(),
     modifiedAt: Instant = Early,
+    accessedAt: Instant? = null,
     size: Long = 64,
     origin: String = A,
     hlc: Long = 0,
@@ -44,5 +46,6 @@ internal fun record(
         size = size,
         lastModified = modifiedAt,
         version = vector?.let { FileVersion(VersionVector(it), hlc = hlc, originDevice = origin) },
+        lastAccessed = accessedAt,
     ),
 )

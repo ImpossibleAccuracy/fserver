@@ -23,6 +23,7 @@ import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.remote.PeerSyncRequester
 import com.fserver.core.sync.runner.UploadStrategySelector
 import com.fserver.core.sync.runner.action.FileActionRunner
+import com.fserver.core.util.TimeProvider
 import com.fserver.files.upload.FileAction
 import com.fserver.files.upload.FileId
 import com.fserver.files.upload.FilesSnapshot
@@ -44,6 +45,7 @@ internal class SourcePassExecutor(
     private val syncRequester: PeerSyncRequester,
     private val clockProbe: PeerClockProbe,
     private val clockSkews: ClockSkews,
+    private val timeProvider: TimeProvider,
 ) {
     /**
      * One source, under a lease the peer agreed to. [force] skips the device constraints.
@@ -144,6 +146,7 @@ internal class SourcePassExecutor(
                     lease,
                     errors
                 ) { runCatchingCancellable { remoteFetcher.fetchIndex(source) } }.getOrThrow(),
+                now = timeProvider.now(),
             )
 
             Timber.d("Source ${source.id} snapshot round $round: ${snapshot.local.size} local files, ${snapshot.remote.size} remote files")

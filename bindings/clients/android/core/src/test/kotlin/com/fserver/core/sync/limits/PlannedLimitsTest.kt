@@ -109,7 +109,7 @@ class PlannedLimitsTest {
         assertEquals(1, plan.runnable.size)
     }
 
-    private fun snapshot(local: List<FileRecord> = emptyList()) = FilesSnapshot(local, emptyList())
+    private fun snapshot(local: List<FileRecord> = emptyList()) = FilesSnapshot(local, emptyList(), TestEpoch)
 
     private fun file(
         id: String,

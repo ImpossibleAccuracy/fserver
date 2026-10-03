@@ -99,6 +99,7 @@ class ConflictsController internal constructor(
         val snapshot = FilesSnapshot(
             local = local.map { it.toFileRecord() },
             remote = remote.map { it.toFileRecord() },
+            now = timeProvider.now(),
         )
 
         val localById = local.associateBy { it.fileId }

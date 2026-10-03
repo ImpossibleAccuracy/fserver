@@ -207,7 +207,7 @@ class MirrorUploadStrategyTest {
     fun `a local-only evicted file is not uploaded`() = runTest {
         val decisions = strategy.plan(
             MirrorUploadStrategy.Params,
-            FilesSnapshot(listOf(record(vector = mapOf(A to 1L), state = Evicted)), emptyList()),
+            FilesSnapshot(listOf(record(vector = mapOf(A to 1L), state = Evicted)), emptyList(), Now),
         )
 
         assertTrue(decisions.isEmpty)
@@ -217,7 +217,7 @@ class MirrorUploadStrategyTest {
     fun `a remote-only evicted file is not downloaded`() = runTest {
         val decisions = strategy.plan(
             MirrorUploadStrategy.Params,
-            FilesSnapshot(emptyList(), listOf(record(vector = mapOf(A to 1L), state = Evicted))),
+            FilesSnapshot(emptyList(), listOf(record(vector = mapOf(A to 1L), state = Evicted)), Now),
         )
 
         assertTrue(decisions.isEmpty)
@@ -303,7 +303,7 @@ class MirrorUploadStrategyTest {
     }
 
     private suspend fun plan(local: FileRecord, remote: FileRecord): FileAction? =
-        strategy.plan(MirrorUploadStrategy.Params, FilesSnapshot(listOf(local), listOf(remote)))
+        strategy.plan(MirrorUploadStrategy.Params, FilesSnapshot(listOf(local), listOf(remote), Now))
             .actions
             .singleOrNull()
 

@@ -86,13 +86,23 @@ class OneWayUploadStrategyTest {
 
     @Test
     fun `a file the remote confirmably holds is evicted once due, unless pinned or fetched`() = runTest {
-        val params = Params(evictWhen = EvictCriterion.ModifiedBefore(Late))
+        val params = Params(evictWhen = EvictCriterion.NotModifiedFor(Now - Late))
         val remote = record(vector = mapOf(A to 1L), content = "x")
 
         assertTrue(plan(record(vector = mapOf(A to 1L), content = "x", modifiedAt = Early), remote, params) is FileAction.EvictLocal)
         assertNull(plan(record(vector = mapOf(A to 1L), content = "x", modifiedAt = Late), remote, params))
         assertNull(plan(record(vector = mapOf(A to 1L), content = "x", state = Pinned), remote, params))
         assertNull(plan(record(vector = mapOf(A to 1L), content = "x", state = Fetched), remote, params))
+    }
+
+    @Test
+    fun `least recently used file is evicted, one with unknown access time never`() = runTest {
+        val params = Params(evictWhen = EvictCriterion.NotAccessedFor(Now - Late))
+        val remote = record(vector = mapOf(A to 1L), content = "x")
+
+        assertTrue(plan(record(vector = mapOf(A to 1L), content = "x", accessedAt = Early), remote, params) is FileAction.EvictLocal)
+        assertNull(plan(record(vector = mapOf(A to 1L), content = "x", accessedAt = Late), remote, params))
+        assertNull(plan(record(vector = mapOf(A to 1L), content = "x", accessedAt = null), remote, params))
     }
 
     @Test

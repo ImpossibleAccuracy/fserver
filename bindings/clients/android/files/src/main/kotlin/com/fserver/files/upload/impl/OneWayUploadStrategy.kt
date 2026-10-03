@@ -7,6 +7,7 @@ import com.fserver.files.upload.FileRecord.State
 import com.fserver.files.upload.FilesSnapshot
 import com.fserver.files.upload.UploadDecisions
 import com.fserver.files.upload.UploadStrategy
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -32,9 +33,12 @@ class OneWayUploadStrategy : UploadStrategy {
     ) : UploadStrategy.Params
 
     sealed interface EvictCriterion {
-        data class ModifiedBefore(val instant: Instant) : EvictCriterion
+        data class NotModifiedFor(val age: Duration) : EvictCriterion
 
         data class LargerThan(val bytes: Long) : EvictCriterion
+
+        /** A file with unknown [FileRecord.Metadata.lastAccessed] is never due. */
+        data class NotAccessedFor(val age: Duration) : EvictCriterion
     }
 
     override fun accepts(params: UploadStrategy.Params): Boolean = params is Params
@@ -46,17 +50,17 @@ class OneWayUploadStrategy : UploadStrategy {
         require(params is Params) { "OneWayUploadStrategy only accepts Params, got $params" }
 
         val actions = snapshot.join().mapNotNull { (_, local, remote) ->
-            decide(params, local, remote)
+            decide(params, snapshot.now, local, remote)
         }
         return UploadDecisions(pairMoves(actions))
     }
 
-    private fun decide(params: Params, local: FileRecord?, remote: FileRecord?): FileAction? =
+    private fun decide(params: Params, now: Instant, local: FileRecord?, remote: FileRecord?): FileAction? =
         when (local?.state) {
             // Remote-only: whatever the remote holds on its own is its business.
             null -> null
 
-            is State.Present -> present(params, local, remote)
+            is State.Present -> present(params, now, local, remote)
 
             is State.Deleted -> deleted(params, local, remote)
 
@@ -64,7 +68,7 @@ class OneWayUploadStrategy : UploadStrategy {
             is State.Evicted -> null
         }
 
-    private fun present(params: Params, local: FileRecord, remote: FileRecord?): FileAction? =
+    private fun present(params: Params, now: Instant, local: FileRecord, remote: FileRecord?): FileAction? =
         when (remote?.state) {
             null ->
                 if (params.skipModifiedBefore?.let { local.metadata.lastModified < it } == true) null
@@ -79,7 +83,7 @@ class OneWayUploadStrategy : UploadStrategy {
             is State.Present -> when (compareContent(local, remote)) {
                 ContentMatch.SAME ->
                     mergeIfDiverged(local, remote, local.causality(remote), "same content")
-                        ?: evict(params, local)
+                        ?: evict(params, now, local)
 
                 // Both sides present, so both can be hashed.
                 ContentMatch.UNKNOWN -> computeHash(local, remote, "not hashed yet")
@@ -109,13 +113,14 @@ class OneWayUploadStrategy : UploadStrategy {
         }
 
     /** Called only once both sides are known to hold the same bytes. */
-    private fun evict(params: Params, local: FileRecord): FileAction? {
+    private fun evict(params: Params, now: Instant, local: FileRecord): FileAction? {
         val criterion = params.evictWhen ?: return null
         if (!local.evictable) return null
 
         val due = when (criterion) {
-            is EvictCriterion.ModifiedBefore -> local.metadata.lastModified < criterion.instant
+            is EvictCriterion.NotModifiedFor -> local.metadata.lastModified < now - criterion.age
             is EvictCriterion.LargerThan -> local.metadata.size > criterion.bytes
+            is EvictCriterion.NotAccessedFor -> local.metadata.lastAccessed?.let { it < now - criterion.age } == true
         }
 
         return if (due) FileAction.EvictLocal(local, "confirmed remotely, $criterion") else null
