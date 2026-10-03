@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,11 +53,13 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.fserver.app.R
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -65,6 +68,9 @@ import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.viewer.ImageViewer
 import com.fserver.app.presentation.shared.viewer.viewer.MediaViewer
 import com.fserver.app.presentation.shared.viewer.viewer.NotificationsButton
+import com.fserver.app.presentation.shared.viewer.viewer.PdfViewer
+import com.fserver.app.presentation.shared.viewer.viewer.TextViewer
+import com.fserver.app.presentation.shared.viewer.viewer.openInSystemViewer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -211,6 +217,10 @@ private fun FileViewer(
                 },
             )
 
+            FileKindUi.Pdf -> PdfViewer(modifier = contentModifier, file = file)
+
+            FileKindUi.Text -> TextViewer(modifier = contentModifier, file = file)
+
             FileKindUi.Folder, FileKindUi.Document, FileKindUi.Other -> Unit
         }
 
@@ -227,6 +237,9 @@ private fun FileViewer(
                 actions = {
                     if (file.kind == FileKindUi.Video || file.kind == FileKindUi.Audio) {
                         NotificationsButton()
+                    }
+                    if (file.kind == FileKindUi.Pdf) {
+                        OpenElsewhereButton(file = file)
                     }
                 },
             )
@@ -308,6 +321,22 @@ private fun ViewerTitle(
     }
 }
 
+@Composable
+private fun OpenElsewhereButton(
+    modifier: Modifier = Modifier,
+    file: FileBrowserUi.File,
+) {
+    val context = LocalContext.current
+
+    IconButton(modifier = modifier, onClick = { context.openInSystemViewer(file) }) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = stringResource(R.string.file_viewer_open_elsewhere),
+            tint = Color.White,
+        )
+    }
+}
+
 /** Dark icons would vanish on the black backdrop; the app's own choice comes back on close. */
 @Composable
 private fun LightSystemBarIcons() {
@@ -328,6 +357,9 @@ private fun LightSystemBarIcons() {
         }
     }
 }
+
+/** Room the title takes under the status bar: a 48dp icon button and its padding. */
+internal val ViewerTitleHeight = 56.dp
 
 /** How long the controls stay up untouched while something plays. */
 private const val ControlsTimeoutMs = 3_000L

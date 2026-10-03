@@ -5,6 +5,8 @@ fun fileKindOf(name: String): FileKindUi = when (name.fileExtension) {
     in ImageExtensions -> FileKindUi.Image
     in VideoExtensions -> FileKindUi.Video
     in AudioExtensions -> FileKindUi.Audio
+    in PdfExtensions -> FileKindUi.Pdf
+    in TextExtensions -> FileKindUi.Text
     in DocumentExtensions -> FileKindUi.Document
     else -> FileKindUi.Other
 }
@@ -20,5 +22,10 @@ private val VideoExtensions = setOf("mp4", "mkv", "mov", "avi", "webm", "3gp", "
 
 private val AudioExtensions = setOf("mp3", "aac", "flac", "wav", "ogg", "m4a", "opus", "amr")
 
+private val PdfExtensions = setOf("pdf")
+
+private val TextExtensions =
+    setOf("txt", "md", "log", "csv", "tsv", "json", "xml", "yaml", "yml", "toml", "ini", "conf")
+
 private val DocumentExtensions =
-    setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "rtf", "odt", "epub")
+    setOf("doc", "docx", "xls", "xlsx", "ppt", "pptx", "rtf", "odt", "ods", "odp", "epub")

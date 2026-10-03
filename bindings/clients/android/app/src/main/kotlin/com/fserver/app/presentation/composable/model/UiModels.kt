@@ -16,7 +16,7 @@ import kotlin.time.Instant
  */
 
 enum class FileKindUi {
-    Folder, Image, Video, Audio, Document, Other;
+    Folder, Image, Video, Audio, Pdf, Text, Document, Other;
 
     val isMedia: Boolean
         get() = this == Image || this == Video || this == Audio

@@ -11,7 +11,7 @@ import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.viewer.viewer.openInSystemViewer
 
 /**
- * Opens a file for the user: images, video and audio full screen in the app, anything else in
+ * Opens a file for the user: media, PDF and text full screen in the app, anything else in
  * whatever app the system has for it. Provided once at the root through [LocalFileOpener].
  */
 fun interface FileOpener {
@@ -38,4 +38,5 @@ fun rememberFileOpener(onView: (FileBrowserUi.File) -> Unit): FileOpener {
 internal val FileBrowserUi.File.opensInApp: Boolean
     get() = locator != null && kind in InAppKinds
 
-private val InAppKinds = setOf(FileKindUi.Image, FileKindUi.Video, FileKindUi.Audio)
+private val InAppKinds =
+    setOf(FileKindUi.Image, FileKindUi.Video, FileKindUi.Audio, FileKindUi.Pdf, FileKindUi.Text)

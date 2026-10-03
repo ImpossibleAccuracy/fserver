@@ -914,6 +914,9 @@
     <string name="file_browser_empty">The scan found nothing here.</string>
     <string name="file_viewer_enable_notifications">Allow notifications to keep playing in the background</string>
     <string name="file_viewer_open_failed">No app on this phone opens that file.</string>
+    <string name="file_viewer_unreadable">This file can\'t be shown here.</string>
+    <string name="file_viewer_open_elsewhere">Open in another app</string>
+    <string name="file_viewer_text_truncated">Only the beginning of the file is shown.</string>
     <string name="file_browser_directory_count">%1$d items · %2$s</string>
     <string name="file_browser_volume_primary">Internal storage</string>
     <string name="file_location_remote">On another device</string>
