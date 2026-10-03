@@ -11,6 +11,10 @@ import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.common.utils.IdGenerator
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.crypto.StorageKeysStore
+import com.fserver.core.store.journal.JournalStore
+import com.fserver.core.journal.IssueState
+import com.fserver.core.journal.JournalEntry
+import com.fserver.core.journal.JournalEvent
 import com.fserver.core.store.FServerStorageApi
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
@@ -72,6 +76,75 @@ internal class FakeStorage(
     override val conflictDecisions: FakeConflictDecisionsStore = FakeConflictDecisionsStore()
     override val oneShotTransfers: FakeOneShotTransfersStore = FakeOneShotTransfersStore()
     override val storageKeys: FakeStorageKeysStore = FakeStorageKeysStore()
+    override val journal: FakeJournalStore = FakeJournalStore()
+}
+
+@OptIn(FServerStorageApi::class)
+internal class FakeJournalStore : JournalStore {
+    private val state = MutableStateFlow<List<JournalEntry>>(emptyList())
+    private var nextId = 1L
+
+    /** Newest first. */
+    override val entries: Flow<List<JournalEntry>> = state.map { all -> all.sortedByDescending { it.id } }
+
+    val all: List<JournalEntry> get() = state.value.sortedByDescending { it.id }
+
+    override suspend fun append(event: JournalEvent, at: Instant) {
+        state.update { it + JournalEntry(nextId++, event, at, issue = null) }
+    }
+
+    override suspend fun raise(issue: JournalEvent.Issue, at: Instant) {
+        state.update { all ->
+            val open = all.find { it.isOpen(issue.key) }
+                ?: return@update all + JournalEntry(nextId++, issue, at, IssueState(at, 1, null))
+
+            all - open + open.copy(
+                event = issue,
+                issue = open.issue!!.copy(lastSeenAt = at, occurrences = open.issue!!.occurrences + 1),
+            )
+        }
+    }
+
+    override suspend fun solve(key: String, at: Instant): Boolean = solveWhere(at) { it.isOpen(key) }
+
+    override suspend fun solve(id: Long, at: Instant): Boolean = solveWhere(at) { it.id == id && it.isOpen() }
+
+    override suspend fun solveForSource(sourceId: String, at: Instant) {
+        solveWhere(at) { it.event.sourceId == sourceId && it.isOpen() }
+    }
+
+    override suspend fun solveForDevice(deviceId: String, at: Instant) {
+        solveWhere(at) { it.event.deviceId == deviceId && it.isOpen() }
+    }
+
+    override suspend fun openIssues(sourceId: String): List<JournalEntry> =
+        all.filter { it.event.sourceId == sourceId && it.isOpen() }
+
+    override suspend fun trim(keep: Int) {
+        val kept = all.take(keep).map { it.id }.toSet()
+        state.update { all -> all.filter { it.id in kept || it.isOpen() } }
+    }
+
+    override suspend fun clear() {
+        state.update { all -> all.filter { it.isOpen() } }
+    }
+
+    private fun solveWhere(at: Instant, predicate: (JournalEntry) -> Boolean): Boolean {
+        var solved = false
+        state.update { all ->
+            all.map {
+                if (!predicate(it)) return@map it
+                solved = true
+                it.copy(issue = it.issue!!.copy(solvedAt = at))
+            }
+        }
+        return solved
+    }
+
+    private fun JournalEntry.isOpen(key: String? = null): Boolean {
+        val event = event as? JournalEvent.Issue ?: return false
+        return issue?.solved == false && (key == null || event.key == key)
+    }
 }
 
 @OptIn(FServerStorageApi::class)
@@ -136,6 +209,13 @@ internal class FakeTrustedDevicesStore : TrustedDevicesStore {
         _devices.update { current ->
             current.filterNot { it.publicKey.contentEquals(record.publicKey) } + record
         }
+    }
+
+    override suspend fun forget(deviceId: String) {
+        _devices.update { current -> current.filterNot { it.deviceId == deviceId } }
+        routes.remove(deviceId)
+        networks.remove(deviceId)
+        contacts.update { it - deviceId }
     }
 
     override suspend fun recordKnownRoute(deviceId: String, route: KnownRoute, networkId: String?) {

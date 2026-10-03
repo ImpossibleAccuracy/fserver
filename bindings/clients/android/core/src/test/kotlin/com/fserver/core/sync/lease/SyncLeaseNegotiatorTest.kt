@@ -1,5 +1,6 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.common.exception.SyncException
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -43,7 +44,7 @@ class SyncLeaseNegotiatorTest {
     private val peers = mockk<PeerConnector>()
 
     private val source = sourceEntry(id = SourceId, deviceId = PeerId)
-    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage), peerMetadataExchange(storage, clock))
+    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
 
     @Before
     fun setUp() = runBlocking {

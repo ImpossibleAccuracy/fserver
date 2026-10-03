@@ -1,0 +1,89 @@
+-- The activity journal. [kind] is the event's discriminator; its fields are in `attribute` under the
+-- 'journal_entry' owner, except the source and device it is about, which are columns to solve by.
+--
+-- An issue carries [issueKey] and the three columns after it; any other entry leaves them null. An
+-- issue is open while [solvedAtEpochMs] is null, and at most one is open per key.
+CREATE TABLE journalEntry (
+    id                INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    kind              TEXT    NOT NULL,
+    sourceId          TEXT,
+    deviceId          TEXT,
+    -- For an issue, when it was first seen.
+    atEpochMs         INTEGER NOT NULL,
+    issueKey          TEXT,
+    lastSeenAtEpochMs INTEGER,
+    occurrences       INTEGER,
+    solvedAtEpochMs   INTEGER
+);
+
+CREATE UNIQUE INDEX journalEntry_openIssue ON journalEntry(issueKey)
+WHERE issueKey IS NOT NULL AND solvedAtEpochMs IS NULL;
+
+CREATE INDEX journalEntry_at ON journalEntry(atEpochMs, id);
+
+CREATE TRIGGER journalEntryAttributeCleanup
+AFTER DELETE ON journalEntry
+BEGIN
+    DELETE FROM attribute
+    WHERE owner = 'journal_entry' AND ownerId = CAST(old.id AS TEXT);
+END;
+
+selectAll:
+SELECT *
+FROM journalEntry
+ORDER BY atEpochMs DESC, id DESC;
+
+selectOpenIssue:
+SELECT *
+FROM journalEntry
+WHERE issueKey = ? AND solvedAtEpochMs IS NULL;
+
+selectOpenIssuesOf:
+SELECT *
+FROM journalEntry
+WHERE sourceId = ? AND issueKey IS NOT NULL AND solvedAtEpochMs IS NULL
+ORDER BY atEpochMs DESC, id DESC;
+
+insert:
+INSERT INTO journalEntry(kind, sourceId, deviceId, atEpochMs, issueKey, lastSeenAtEpochMs, occurrences)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+seenAgain:
+UPDATE journalEntry
+SET kind = :kind, sourceId = :sourceId, deviceId = :deviceId,
+    lastSeenAtEpochMs = :at, occurrences = occurrences + 1
+WHERE id = :id;
+
+solveByKey:
+UPDATE journalEntry
+SET solvedAtEpochMs = :at
+WHERE issueKey = :issueKey AND solvedAtEpochMs IS NULL;
+
+solveById:
+UPDATE journalEntry
+SET solvedAtEpochMs = :at
+WHERE id = :id AND issueKey IS NOT NULL AND solvedAtEpochMs IS NULL;
+
+solveBySource:
+UPDATE journalEntry
+SET solvedAtEpochMs = :at
+WHERE sourceId = :sourceId AND issueKey IS NOT NULL AND solvedAtEpochMs IS NULL;
+
+solveByDevice:
+UPDATE journalEntry
+SET solvedAtEpochMs = :at
+WHERE deviceId = :deviceId AND issueKey IS NOT NULL AND solvedAtEpochMs IS NULL;
+
+trim:
+DELETE FROM journalEntry
+WHERE (issueKey IS NULL OR solvedAtEpochMs IS NOT NULL)
+  AND id NOT IN (
+    SELECT id FROM journalEntry ORDER BY atEpochMs DESC, id DESC LIMIT :keep
+  );
+
+deleteSettled:
+DELETE FROM journalEntry
+WHERE issueKey IS NULL OR solvedAtEpochMs IS NOT NULL;

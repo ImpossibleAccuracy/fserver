@@ -84,13 +84,9 @@ class DeviceDetailsViewModel(
         }
     }
 
-    /** Trust first, then the session: a live link would otherwise re-record the key it just lost. */
     private suspend fun forget() {
-        trustedDevices.forget(key.deviceId)
-        devicesRepository.disconnect(key.deviceId)
-            .onFailure {
-                reporter.report(it, "forgot ${key.deviceId} but could not close its session")
-            }
+        devicesRepository.forget(key.deviceId)
+            .onFailure { reporter.report(it, "could not forget ${key.deviceId}") }
 
         effects.send(DeviceDetailsUiEffect.NavigateBack)
     }

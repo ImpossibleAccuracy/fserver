@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server
 
+import com.fserver.core.journal.impl.JournalWriter
 import android.content.ContextWrapper
 import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.files.SourceLocation
@@ -247,7 +248,7 @@ class PeerRequestServerTest {
         server = PeerRequestServer(
             network = network,
             leaseRegistry = registry,
-            sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock, peerMetadataExchange(storage, clock)),
+            sourceSetup = SourceSetupExchange(storage, mockk(relaxed = true), clock, peerMetadataExchange(storage, clock), JournalWriter(storage, clock)),
             fetchFiles = fetchFiles,
             publishedIndexes = PublishIndexHandler(authorizer(), storage, clock, HybridLogicalClock(storage, clock)),
             leases = SyncLeaseHandler(
@@ -257,6 +258,7 @@ class PeerRequestServerTest {
                 SyncModeReconciler(storage),
                 PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock, mockk(relaxed = true)),
                 peerMetadataExchange(storage, clock),
+                JournalWriter(storage, clock),
             ),
             clockProbes = ClockProbeHandler(clock, ClockSkews()),
             syncRequests = SyncRequestHandler(authorizer(), mockk(relaxed = true)),

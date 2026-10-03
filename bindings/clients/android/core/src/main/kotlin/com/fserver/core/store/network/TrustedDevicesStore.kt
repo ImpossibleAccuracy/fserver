@@ -6,10 +6,7 @@ import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.store.FServerStorageApi
 import kotlinx.coroutines.flow.Flow
 
-/**
- * What a completed handshake leaves behind. Lookups and writes only - listing and forgetting are
- * UI actions and live on the repository.
- */
+/** What a completed handshake leaves behind. */
 @SubclassOptInRequired(FServerStorageApi::class)
 interface TrustedDevicesStore {
     /** Every key trusted on this device, most recently seen first. */
@@ -48,4 +45,7 @@ interface TrustedDevicesStore {
 
     /** Ends the run: the device has been reached. Does nothing when there was no run. */
     suspend fun clearFailedContact(deviceId: String)
+
+    /** Drops every key recorded for [deviceId], and its known route, metadata and failed run with them. */
+    suspend fun forget(deviceId: String)
 }

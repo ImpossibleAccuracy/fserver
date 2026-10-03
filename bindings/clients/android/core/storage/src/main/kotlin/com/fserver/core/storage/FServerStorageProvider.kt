@@ -14,6 +14,7 @@ import com.fserver.core.storage.internal.AuthSettingsStoreImpl
 import com.fserver.core.storage.internal.ConflictDecisionsStoreImpl
 import com.fserver.core.storage.internal.DeviceIdentityStoreImpl
 import com.fserver.core.storage.internal.FileIndexStoreImpl
+import com.fserver.core.storage.internal.JournalStoreImpl
 import com.fserver.core.storage.internal.RemoteIndexStoreImpl
 import com.fserver.core.storage.internal.SourceRequestsStoreImpl
 import com.fserver.core.storage.internal.SourcesStoreImpl
@@ -24,6 +25,7 @@ import com.fserver.core.storage.internal.TrustedDevicesStoreImpl
 import com.fserver.core.storage.internal.UploadStagingStoreImpl
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.store.crypto.StorageKeysStore
+import com.fserver.core.store.journal.JournalStore
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
@@ -85,6 +87,7 @@ class FServerStorageProvider private constructor(
     private val uploadStagingStore by lazy { UploadStagingStoreImpl(database) }
     private val conflictDecisionsStore by lazy { ConflictDecisionsStoreImpl(database) }
     private val oneShotTransfersStore by lazy { OneShotTransfersStoreImpl(database) }
+    private val journalStore by lazy { JournalStoreImpl(database) }
     private val storageKeysStore by lazy {
         StorageKeysStoreImpl(database, AndroidKeystoreWrapper(), timeProvider)
     }
@@ -114,6 +117,7 @@ class FServerStorageProvider private constructor(
         override val conflictDecisions: ConflictDecisionsStore get() = conflictDecisionsStore
         override val oneShotTransfers: OneShotTransfersStore get() = oneShotTransfersStore
         override val storageKeys: StorageKeysStore get() = storageKeysStore
+        override val journal: JournalStore get() = journalStore
     }
 
     /**

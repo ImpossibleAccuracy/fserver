@@ -1,16 +1,20 @@
 package com.fserver.core.network.device.impl
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.PeerIdentityMismatchException
 import com.fserver.core.network.RequirementsNotMetException
 import com.fserver.core.network.TransportKind
+import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.auth.impl.InteractivePeerAuthenticator
 import com.fserver.core.network.device.json.JsonQrCodeParser
 import com.fserver.core.network.device.json.JsonQrCodeWriter
 import com.fserver.core.network.device.model.KnownRoute
+import com.fserver.core.network.device.model.TrustedDevice
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
@@ -91,7 +95,28 @@ class DevicesRepositoryImplTest {
             // Never started, so every request goes to the host - which is what this suite is about.
             autoAccept = AutoAcceptCoordinator(storage, backgroundScope = TestScope()),
             backgroundScope = TestScope(),
+            journal = JournalWriter(storage, MutableTimeProvider()),
         )
+    }
+
+    @Test
+    fun `forgetting drops the keys, journals it and solves what was open about the device`() = runTest {
+        storage.trust.upsert(
+            TrustedDevice(
+                deviceId = RealId,
+                displayName = "Peer",
+                publicKey = "key".toByteArray(),
+                method = AuthMethod.ConfirmFingerprint,
+                strength = "strong",
+            )
+        )
+        storage.journal.raise(JournalEvent.ClockSkewed(RealId, 120_000), MutableTimeProvider().now())
+
+        repository.forget(RealId).getOrThrow()
+
+        assertTrue(storage.trust.findByDeviceId(RealId).isEmpty())
+        assertTrue(storage.journal.all.any { it.event == JournalEvent.DeviceForgotten(RealId, "Peer") })
+        assertTrue(storage.journal.all.single { it.event is JournalEvent.ClockSkewed }.issue!!.solved)
     }
 
     @Test

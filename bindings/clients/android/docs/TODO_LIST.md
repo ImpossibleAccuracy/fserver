@@ -35,9 +35,6 @@ Sync (see `../../../docs/HLC.md`):
 - A user edit made while an incoming file is being received is overwritten. Before the rename,
   compare the on-disk hash with the index;
 - A conflict where the winning side is evicted is never resolved, and repeats every pass;
-- Clock skew is measured before each pass but only logged: write it to the activity journal once
-  there is one, and show it from there. In host/public mode the physical time does not come from
-  the server;
 
 Storage encryption (see `../../../docs/Storage Encryption.md`):
 
@@ -66,7 +63,6 @@ Storage encryption (see `../../../docs/Storage Encryption.md`):
 
 Idea:
 
-- Implement actions logging into database;
 - Short targeted discovery session as the last resort, once every cheaper route has failed:
   discovery as a whole rather than mDNS - a device paired over Nearby Connections cannot be synced
   without it at all - time-boxed, and looking only for known device ids.

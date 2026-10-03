@@ -3,6 +3,7 @@ package com.fserver.core.sync.server.handler.upload.oneshot
 import com.fserver.common.exception.TransferException
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.scan.toFiles
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.oneshot.impl.settledStatus
@@ -32,6 +33,7 @@ internal class OneShotUploadTarget(
     private val node: FilesNode,
     private val staging: OneShotStaging,
     private val timeProvider: TimeProvider,
+    private val journal: JournalWriter,
 ) : UploadTarget {
     private val store get() = storage.oneShotTransfers
 
@@ -97,7 +99,7 @@ internal class OneShotUploadTarget(
         val transfer = store.find(transferId) ?: return
         val status = settledStatus(transfer.files) ?: return
 
-        store.updateStatus(transferId, status, timeProvider.now())
+        if (store.updateStatus(transferId, status, timeProvider.now())) journal.oneShotSettled(transferId)
         staging.discard(transferId)
     }
 

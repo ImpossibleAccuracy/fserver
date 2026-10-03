@@ -1,6 +1,8 @@
 package com.fserver.core.sync.server.handler
 
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
@@ -24,6 +26,7 @@ internal class SyncLeaseHandler(
     private val modes: SyncModeReconciler,
     private val completion: PassCompletion,
     private val metadata: PeerMetadataExchange,
+    private val journal: JournalWriter,
 ) {
     suspend fun answer(
         event: PeerSession.Inbound<FileServerMessages>,
@@ -133,6 +136,15 @@ internal class SyncLeaseHandler(
         )
 
         completion.peerPassEnded(message.sourceId, succeeded = released && message.failure == null)
+
+        if (!released) return
+        val failure = message.failure
+        if (failure == null) {
+            // The peer's pass covers both directions: sync over the source works again.
+            journal.solve(JournalEvent.PassFailed.keyOf(message.sourceId))
+        } else {
+            journal.record(JournalEvent.PeerPassFailed(message.sourceId, peer.deviceId, failure))
+        }
     }
 
     /** How a refusal reaches the peer: [ResolvedIncomingSource.Gone] is final, everything else is "not now". */

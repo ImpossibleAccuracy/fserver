@@ -1,5 +1,6 @@
 package com.fserver.core.oneshot.impl
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.common.exception.FileSystemException
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -59,7 +60,7 @@ class OneShotSenderTest {
 
     private val progress = SyncProgressReporter(clock)
     private val pusher = FilePusher(progress)
-    private val sender = OneShotSender(storage, node, peers, pusher, OneShotOutbox(node), clock, background)
+    private val sender = OneShotSender(storage, node, peers, pusher, OneShotOutbox(node), clock, background, JournalWriter(storage, clock))
 
     init {
         coEvery { peers.connectToDevice(PeerId) } returns session

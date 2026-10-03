@@ -3,6 +3,9 @@ package com.fserver.core.sync.runner.pass
 import com.fserver.common.exception.NetworkException
 import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runCatchingCancellable
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.PassTally
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.clock.ClockSkews
@@ -46,6 +49,7 @@ internal class SourcePassExecutor(
     private val clockProbe: PeerClockProbe,
     private val clockSkews: ClockSkews,
     private val timeProvider: TimeProvider,
+    private val journal: JournalWriter,
 ) {
     /**
      * One source, under a lease the peer agreed to. [force] skips the device constraints.
@@ -91,14 +95,16 @@ internal class SourcePassExecutor(
                 progress.localPassStarted(source.id)
                 passReported = true
 
-                try {
+                val outcome = try {
                     syncSource(lease)
                 } catch (e: Exception) {
                     progress.localPassFinished(source.id, e)
+                    if (e !is CancellationException) journal.passFailed(source, e)
                     throw e
                 }
 
                 progress.localPassFinished(source.id, null)
+                journal.passSucceeded(source, outcome.tally, outcome.conflicts)
                 completion.localPassSucceeded(source)
 
                 if (whileHeld != null) {
@@ -109,7 +115,10 @@ internal class SourcePassExecutor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (!passReported) progress.localPassAborted(source.id, e)
+            if (!passReported) {
+                progress.localPassAborted(source.id, e)
+                journal.passFailed(source, e)
+            }
             throw e
         }
 
@@ -123,11 +132,13 @@ internal class SourcePassExecutor(
      * and the first round only hashes files that are already known locally.
      * Later rounds re-read the index and plan from it, until all files are hashed or a maximum number of rounds is reached.
      */
-    private suspend fun syncSource(lease: HeldLease) {
+    private suspend fun syncSource(lease: HeldLease): PassOutcome {
         val source = lease.source
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
         val skipped = mutableSetOf<FileId>()
+        val conflicts = mutableSetOf<String>()
+        var tally = PassTally()
 
         // Before any conflict is resolved: a skewed peer holds the source to Ask.
         reconnecting(lease, errors) { runCatchingCancellable { clockProbe.measure(source) } }.getOrThrow()
@@ -153,6 +164,7 @@ internal class SourcePassExecutor(
 
             val decisions = uploadStrategySelector.plan(source, snapshot)
             dropSettledDecisions(source, decisions)
+            decisions.filterIsAction<FileAction.Conflict>().mapTo(conflicts) { it.id.value }
             if (decisions.isEmpty) break
 
             val unhashed = decisions.filterIsAction<FileAction.ComputeHash>()
@@ -193,7 +205,7 @@ internal class SourcePassExecutor(
                 }
 
                 progress.localPassAdvanced(source.id, action, failure)
-                failure?.let(errors::add)
+                if (failure == null) tally = tally.counting(action) else errors += failure
             }
 
             if (unhashed.isEmpty()) break
@@ -208,7 +220,7 @@ internal class SourcePassExecutor(
             local = storage.index.processedFiles(source.id)
         }
 
-        if (errors.isEmpty()) return
+        if (errors.isEmpty()) return PassOutcome(tally.copy(skipped = skipped.size), conflicts)
 
         val failure = SyncException.ActionFailedException(
             "Source ${source.id} pass failed with ${errors.size} errors",
@@ -263,16 +275,22 @@ internal class SourcePassExecutor(
         if (stored.isEmpty()) return
 
         for (decision in settledDecisions(clockSkews.resolution(source), plan, stored)) {
-            // TODO: history entry - "your choice on <file> was overtaken" (resolved on the peer, or edited since).
             Timber.i("Dropping decision on ${decision.fileId} in source ${source.id}: no longer conflicts")
-            storage.conflictDecisions.remove(
-                IndexedFileKey(
-                    fileId = decision.fileId,
-                    sourceId = source.id
+            val key = IndexedFileKey(fileId = decision.fileId, sourceId = source.id)
+            storage.conflictDecisions.remove(key)
+
+            journal.record(
+                JournalEvent.ConflictDecisionDropped(
+                    sourceId = source.id,
+                    path = storage.index.findFile(key)?.path ?: decision.fileId,
+                    reason = JournalEvent.ConflictDecisionDropped.Reason.NoLongerConflicts,
                 )
             )
         }
     }
+
+    /** [conflicts] are file ids the pass still planned as conflicts. */
+    private class PassOutcome(val tally: PassTally, val conflicts: Set<String>)
 
     private companion object {
         const val MaxRounds = 3
@@ -289,4 +307,13 @@ private fun Throwable.isLinkLoss(): Boolean = generateSequence(this) { it.cause 
             it is NetworkException.Transport ||
             it is NetworkException.NoRoute ||
             it is DeviceUnreachableException
+}
+
+private fun PassTally.counting(action: FileAction): PassTally = when (action) {
+    is FileAction.Upload -> copy(sent = sent + 1)
+    is FileAction.Download -> copy(received = received + 1)
+    is FileAction.DeleteLocal, is FileAction.DeleteRemote -> copy(deleted = deleted + 1)
+    is FileAction.MoveLocal, is FileAction.MoveRemote -> copy(moved = moved + 1)
+    is FileAction.EvictLocal -> copy(evicted = evicted + 1)
+    else -> this
 }

@@ -22,7 +22,7 @@ internal fun coreModule(
     config: FServerConfig,
     storage: FServerStorage,
 ): Module = module {
-    includes(filesModule, networkModule, syncModule, oneShotModule, requirementsModule)
+    includes(filesModule, networkModule, syncModule, oneShotModule, requirementsModule, journalModule)
     singleOf(::LifecycleController)
 
     // From the host. The whole config is bound too: `:net` reads context and storage off it.

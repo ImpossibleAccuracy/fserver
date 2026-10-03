@@ -14,10 +14,4 @@ interface TrustedDevicesRepository {
 
     /** null when nothing dialable was ever recorded for [deviceId], or the device was forgotten. */
     fun observeKnownRoute(deviceId: String): Flow<KnownRoute?>
-
-    /**
-     * Drops every key recorded for [deviceId], and its known route with them. The next handshake
-     * starts over from a code comparison, which is the only way to revoke trust.
-     */
-    suspend fun forget(deviceId: String)
 }

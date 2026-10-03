@@ -3,8 +3,11 @@ package com.fserver.core.network.device.impl
 import com.fserver.common.exception.MalformedQrException
 import com.fserver.common.exception.NetworkException
 import com.fserver.common.utils.chainWith
+import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.Constants
 import com.fserver.core.di.BackgroundScope
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.lifecycle.network.AutoAcceptCoordinator
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.network.NetworkController
@@ -61,6 +64,7 @@ internal class DevicesRepositoryImpl(
     private val reachability: ReachabilityTracker,
     private val autoAccept: AutoAcceptCoordinator,
     private val backgroundScope: BackgroundScope,
+    private val journal: JournalWriter,
 ) : DevicesRepository {
 
     override val discovery: DeviceDiscovery by lazy {
@@ -101,6 +105,19 @@ internal class DevicesRepositoryImpl(
 
     override suspend fun disconnect(deviceId: String): Result<Unit> = runCatching {
         network.incomingConnections.session(deviceId)?.close(CloseReason.Normal)
+    }
+
+    /** Trust first, then the session: a live link would otherwise re-record the key it just lost. */
+    override suspend fun forget(deviceId: String): Result<Unit> = runBackgroundJob {
+        val known = storage.trust.findByDeviceId(deviceId).firstOrNull()
+
+        if (known != null) {
+            storage.trust.forget(deviceId)
+            journal.record(JournalEvent.DeviceForgotten(deviceId, known.displayName))
+            journal.solveForDevice(deviceId)
+        }
+
+        disconnect(deviceId).getOrThrow()
     }
 
     /**

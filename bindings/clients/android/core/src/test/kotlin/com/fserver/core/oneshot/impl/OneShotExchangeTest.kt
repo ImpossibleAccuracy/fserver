@@ -1,5 +1,6 @@
 package com.fserver.core.oneshot.impl
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.common.exception.TransferException
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.scan.ScannedContent
@@ -60,6 +61,7 @@ class OneShotExchangeTest {
         outbox = outbox,
         timeProvider = clock,
         backgroundScope = background,
+        journal = JournalWriter(storage, clock),
     )
 
     @Before

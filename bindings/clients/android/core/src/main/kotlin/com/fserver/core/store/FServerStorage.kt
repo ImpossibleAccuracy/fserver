@@ -1,6 +1,7 @@
 package com.fserver.core.store
 
 import com.fserver.core.store.crypto.StorageKeysStore
+import com.fserver.core.store.journal.JournalStore
 import com.fserver.core.store.network.AuthSettingsStore
 import com.fserver.core.store.network.DeviceIdentityStore
 import com.fserver.core.store.network.TrustedDevicesStore
@@ -53,4 +54,7 @@ interface FServerStorage {
 
     /** Keys files are sealed with at rest. */
     val storageKeys: StorageKeysStore
+
+    /** What the engine did and ran into, for the user to read back. */
+    val journal: JournalStore
 }

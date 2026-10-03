@@ -1,6 +1,7 @@
 package com.fserver.core.network
 
 import com.fserver.common.exception.NetworkException
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.FServerConfig
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.network.auth.OfferedAuthMethod
@@ -50,6 +51,7 @@ internal class NetworkController(
     private val pairingCodes: PairingCodesImpl,
     private val networkInfoRepository: NetworkInfoRepository,
     private val coroutineScope: BackgroundScope,
+    private val journal: JournalWriter,
 ) {
     private val crypto = X25519CryptoProvider
 
@@ -138,6 +140,7 @@ internal class NetworkController(
                 trustedDevicesStore = storage.trust,
                 networkInfoRepository = networkInfoRepository,
                 timeProvider = config.timeProvider,
+                journal = journal,
             )
             authenticator = this@NetworkController.authenticator
             crypto = this@NetworkController.crypto

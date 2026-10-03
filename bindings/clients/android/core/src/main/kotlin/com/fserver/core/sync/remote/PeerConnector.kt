@@ -1,5 +1,6 @@
 package com.fserver.core.sync.remote
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.device.DevicesRepository
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -14,6 +15,7 @@ import com.fserver.net.session.PeerSession
 internal class PeerConnector(
     private val networkController: NetworkController,
     private val devicesRepository: DevicesRepository,
+    private val journal: JournalWriter,
 ) {
     suspend fun connectToDevice(source: SourceEntry): PeerSession<FileServerMessages> =
         connectToDevice(source.deviceId)
@@ -21,7 +23,10 @@ internal class PeerConnector(
     suspend fun connectToDevice(deviceId: String): PeerSession<FileServerMessages> {
         networkController.incomingConnections.session(deviceId)?.let { return it }
 
-        devicesRepository.connect(PeerLocator.KnownDevice(deviceId), null).getOrThrow()
+        devicesRepository.connect(PeerLocator.KnownDevice(deviceId), null)
+            .onSuccess { journal.connected(deviceId) }
+            .onFailure { journal.connectFailed(deviceId, it) }
+            .getOrThrow()
 
         return networkController.incomingConnections.session(deviceId)
             ?: throw IllegalStateException("Failed to establish session with device $deviceId")

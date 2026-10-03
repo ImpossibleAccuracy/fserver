@@ -11,6 +11,8 @@ import com.fserver.core.crypto.model.requireEncryptable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.ensureSourceReachable
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.index.LocalChangesIndexer
@@ -28,7 +30,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -49,6 +50,7 @@ class SourcesController internal constructor(
     private val backgroundScope: BackgroundScope,
     private val sealedFiles: SealedFiles,
     private val encryptionMigrator: EncryptionMigrator,
+    private val journal: JournalWriter,
 ) {
     /** Initial scan-then-ask per new source, cancelled if the source is removed before it ends. */
     private val introductions = ConcurrentHashMap<String, Job>()
@@ -130,6 +132,7 @@ class SourcesController internal constructor(
         )
 
         storage.sources.upsert(source)
+        journal.record(source.added())
 
         Timber.i("Registered new source ${source.id} at $location for $deviceId, asking it to host")
         introduce(source)
@@ -142,12 +145,22 @@ class SourcesController internal constructor(
             // A failed scan still asks.
             runCatchingCancellable { localIndexer.refresh(source) }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "Could not index source ${source.id} before asking ${source.deviceId}") }
+                ?.let {
+                    Timber.w(
+                        it,
+                        "Could not index source ${source.id} before asking ${source.deviceId}"
+                    )
+                }
 
             // Best effort: peer may be off network right now, and the source is registered either way
             runCatchingCancellable { sourceSetup.requestRemote(source) }
                 .exceptionOrNull()
-                ?.let { Timber.w(it, "Could not ask ${source.deviceId} to host source ${source.id}") }
+                ?.let {
+                    Timber.w(
+                        it,
+                        "Could not ask ${source.deviceId} to host source ${source.id}"
+                    )
+                }
         }
 
         introductions[source.id] = job
@@ -181,6 +194,7 @@ class SourcesController internal constructor(
         Timber.i("Accepting source $sourceId at $location")
         sourceSetup.accept(sourceId, location, preferences)
     }.onSuccess {
+        journal.record(it.added())
         syncRunner.runOnceAsync()
     }
 
@@ -236,7 +250,17 @@ class SourcesController internal constructor(
     suspend fun removeSource(id: String): Result<Unit> = runBackgroundJob {
         // A scan still running would write index rows back after the delete, and ask for a gone source.
         introductions[id]?.cancelAndJoin()
+        val source = storage.sources.findById(id)
         storage.sources.delete(id)
+
+        if (source != null) journal.record(
+            JournalEvent.SourceRemoved(
+                source.id,
+                source.deviceId,
+                source.label
+            )
+        )
+        journal.solveForSource(id)
 
         // TODO: notify peer about removal
     }.onSuccess {
@@ -251,7 +275,11 @@ class SourcesController internal constructor(
         }
     }
 
-    private suspend fun ensureNoDuplicate(mode: SyncMode, location: SourceLocation, except: String? = null) {
+    private suspend fun ensureNoDuplicate(
+        mode: SyncMode,
+        location: SourceLocation,
+        except: String? = null
+    ) {
         storage.sources.findByModeAndLocation(mode = mode, location = location)
             ?.takeIf { it.id != except }
             ?.let {
@@ -263,3 +291,11 @@ class SourcesController internal constructor(
             }
     }
 }
+
+private fun SourceEntry.added() = JournalEvent.SourceAdded(
+    sourceId = id,
+    deviceId = deviceId,
+    label = label,
+    mode = syncMode.type,
+    role = role
+)

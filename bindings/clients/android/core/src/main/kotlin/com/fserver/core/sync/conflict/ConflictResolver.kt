@@ -1,5 +1,7 @@
 package com.fserver.core.sync.conflict
 
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.clock.ClockSkews
 import com.fserver.core.sync.index.IndexedFileKey
@@ -19,13 +21,25 @@ internal class ConflictResolver(
     private val steps: ActionSteps,
     private val copier: ConflictCopier,
     private val clockSkews: ClockSkews,
+    private val journal: JournalWriter,
 ) {
     suspend fun resolve(action: FileAction.Conflict, source: SourceEntry) {
-        val resolution = clockSkews.resolution(source) ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
+        val resolution = clockSkews.resolution(source)
+            ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
 
         when (resolution) {
-            SyncMode.Mirror.ConflictResolution.LastWriteWins ->
-                transferWinner(action, source, localWins = lastWriteWins(action, source))
+            SyncMode.Mirror.ConflictResolution.LastWriteWins -> {
+                val localWins = lastWriteWins(action, source)
+                transferWinner(action, source, localWins)
+                resolved(
+                    action = action,
+                    source = source,
+                    outcome =
+                        if (localWins) JournalEvent.ConflictResolved.Outcome.KeptLocal
+                        else JournalEvent.ConflictResolved.Outcome.KeptRemote,
+                    decidedBy = JournalEvent.ConflictResolved.DecidedBy.LastWriteWins,
+                )
+            }
 
             SyncMode.Mirror.ConflictResolution.Ask -> applyDecision(action, source)
         }
@@ -53,12 +67,16 @@ internal class ConflictResolver(
      */
     private suspend fun applyDecision(action: FileAction.Conflict, source: SourceEntry) {
         val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
-        val decision = storage.conflictDecisions.find(key) ?: return
+        val decision = storage.conflictDecisions.find(key) ?: return held(action, source)
 
         if (decision.local != action.local.seenVersion() || decision.remote != action.remote.seenVersion()) {
-            // TODO: history entry - "your choice on <file> was dropped: it changed since".
             Timber.i("Dropping decision on ${action.local.path} in source ${source.id}: a side changed since")
             storage.conflictDecisions.remove(key)
+            dropped(
+                action = action,
+                source = source,
+                reason = JournalEvent.ConflictDecisionDropped.Reason.SideChanged
+            )
             return
         }
 
@@ -66,7 +84,18 @@ internal class ConflictResolver(
         if (decision.choice !in action.choices()) {
             Timber.i("Dropping decision on ${action.local.path} in source ${source.id}: ${decision.choice} no longer available")
             storage.conflictDecisions.remove(key)
+            dropped(
+                action = action,
+                source = source,
+                reason = JournalEvent.ConflictDecisionDropped.Reason.ChoiceUnavailable
+            )
             return
+        }
+
+        val outcome = when (decision.choice) {
+            ConflictDecision.Choice.KeepLocal -> JournalEvent.ConflictResolved.Outcome.KeptLocal
+            ConflictDecision.Choice.KeepRemote -> JournalEvent.ConflictResolved.Outcome.KeptRemote
+            ConflictDecision.Choice.KeepBoth -> JournalEvent.ConflictResolved.Outcome.KeptBoth
         }
 
         when (decision.choice) {
@@ -83,6 +112,50 @@ internal class ConflictResolver(
         }
 
         storage.conflictDecisions.remove(key)
+        resolved(action, source, outcome, JournalEvent.ConflictResolved.DecidedBy.User)
+    }
+
+    private suspend fun held(action: FileAction.Conflict, source: SourceEntry) = journal.raise(
+        JournalEvent.ConflictHeld(
+            sourceId = source.id,
+            deviceId = source.deviceId,
+            fileId = action.id.value,
+            path = action.local.path
+        )
+    )
+
+    /** The conflict is still there: the user has to decide again. */
+    private suspend fun dropped(
+        action: FileAction.Conflict,
+        source: SourceEntry,
+        reason: JournalEvent.ConflictDecisionDropped.Reason,
+    ) {
+        journal.record(
+            JournalEvent.ConflictDecisionDropped(
+                sourceId = source.id,
+                path = action.local.path,
+                reason = reason
+            )
+        )
+        held(action, source)
+    }
+
+    private suspend fun resolved(
+        action: FileAction.Conflict,
+        source: SourceEntry,
+        outcome: JournalEvent.ConflictResolved.Outcome,
+        decidedBy: JournalEvent.ConflictResolved.DecidedBy,
+    ) {
+        journal.record(
+            JournalEvent.ConflictResolved(
+                sourceId = source.id,
+                deviceId = source.deviceId,
+                path = action.local.path,
+                outcome = outcome,
+                decidedBy = decidedBy
+            )
+        )
+        journal.solve(JournalEvent.ConflictHeld.keyOf(source.id, action.id.value))
     }
 
     /**
@@ -111,7 +184,12 @@ internal class ConflictResolver(
                 // An unhashed remote was hashed on the way: our copy holds its bytes now.
                 val key = IndexedFileKey(fileId = action.id.value, sourceId = source.id)
                 val received = action.remote.content ?: storage.index.findFile(key)?.hash
-                if (received != null) steps.adoptRemotely(source, action.remote, merged, expected = received)
+                if (received != null) steps.adoptRemotely(
+                    source = source,
+                    file = action.remote,
+                    version = merged,
+                    expected = received
+                )
             }
 
             is FileRecord.State.Deleted -> if (loser.state !is FileRecord.State.Deleted) {

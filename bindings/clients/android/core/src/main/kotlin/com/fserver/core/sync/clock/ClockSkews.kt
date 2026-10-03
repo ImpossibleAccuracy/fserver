@@ -24,13 +24,13 @@ internal class ClockSkews {
         .map { all -> all.filterValues(::isSkewed).keys }
         .distinctUntilChanged()
 
-    fun record(deviceId: String, offsetMs: Long) {
+    /** Returns whether the peer's clock is off by more than [Hlc.MaxDriftMs]. */
+    fun record(deviceId: String, offsetMs: Long): Boolean {
         offsets.update { it + (deviceId to offsetMs) }
 
-        if (isSkewed(offsetMs)) {
-            // TODO: write to the activity journal once there is one; the UI reads clock warnings from it.
-            Timber.w("Clock of $deviceId is off by $offsetMs ms from ours")
-        }
+        val skewed = isSkewed(offsetMs)
+        if (skewed) Timber.w("Clock of $deviceId is off by $offsetMs ms from ours")
+        return skewed
     }
 
     fun resolution(source: SourceEntry): SyncMode.Mirror.ConflictResolution? =

@@ -1,5 +1,7 @@
 package com.fserver.core.network.impl
 
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.DeviceKind
 import com.fserver.core.network.device.model.DeviceMetadata
@@ -17,6 +19,7 @@ internal class TrustStoreAdapter(
     private val trustedDevicesStore: TrustedDevicesStore,
     private val networkInfoRepository: NetworkInfoRepository,
     private val timeProvider: TimeProvider,
+    private val journal: JournalWriter,
 ) : PeerTrustStore {
     override suspend fun find(publicKey: ByteArray): TrustRecord? =
         trustedDevicesStore.findByKey(publicKey)?.toRecord()
@@ -29,7 +32,12 @@ internal class TrustStoreAdapter(
      * record current: a reconnect from a different Wi-Fi overwrites the one before it.
      */
     override suspend fun pin(record: TrustRecord) {
-        trustedDevicesStore.upsert(record.toDevice(lastSeen = timeProvider.now()))
+        val paired = trustedDevicesStore.findByDeviceId(record.deviceId).isEmpty()
+        val device = record.toDevice(lastSeen = timeProvider.now())
+        trustedDevicesStore.upsert(device)
+
+        // The first key of a device; another key of a known one is not a new pairing.
+        if (paired) journal.record(JournalEvent.DevicePaired(device.deviceId, device.displayName, device.method))
 
         // Device-level, and written on its own so a connect that lands either side of the
         // handshake does not have to know the peer's claims to record the network.

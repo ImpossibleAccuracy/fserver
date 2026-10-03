@@ -6,6 +6,7 @@ import com.fserver.common.exception.TransferException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.scan.toFiles
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages.Upload
 import com.fserver.core.network.dictionary.dto.UploadKey
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -37,6 +38,7 @@ internal class OneShotSender(
     private val outbox: OneShotOutbox,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
+    private val journal: JournalWriter,
 ) {
     private val store get() = storage.oneShotTransfers
 
@@ -46,7 +48,12 @@ internal class OneShotSender(
     fun start(transferId: String) {
         val job = backgroundScope.launch(start = CoroutineStart.LAZY) {
             runCatchingCancellable { send(transferId) }
-                .onFailure { Timber.w(it, "Sending transfer $transferId stopped; resumes when the peer is back") }
+                .onFailure {
+                    Timber.w(
+                        it,
+                        "Sending transfer $transferId stopped; resumes when the peer is back"
+                    )
+                }
         }
 
         if (jobs.putIfAbsent(transferId, job) != null) return
@@ -69,7 +76,8 @@ internal class OneShotSender(
 
         for (file in transfer.files.filter { it.status == OneShotTransferFile.Status.Pending }) {
             val key = UploadKey.OneShot(transferId, file.index)
-            val locator = file.locator ?: error("Outgoing file #${file.index} of $transferId has no locator")
+            val locator = file.locator
+                ?: error("Outgoing file #${file.index} of $transferId has no locator")
 
             val outcome = try {
                 pusher.push(
@@ -83,7 +91,15 @@ internal class OneShotSender(
                 OneShotTransferFile.Status.Completed
             } catch (e: TransferException.UploadStoppedException) {
                 Timber.i("Device ${transfer.peer.deviceId} stopped transfer $transferId: ${e.message}")
-                store.updateStatus(transferId, OneShotTransfer.Status.Failed(e.message.orEmpty()), timeProvider.now())
+                val finished = store.updateStatus(
+                    id = transferId,
+                    status = OneShotTransfer.Status.Failed(e.message.orEmpty()),
+                    at = timeProvider.now()
+
+                )
+                if (finished) {
+                    journal.oneShotSettled(transferId)
+                }
                 outbox.release(transfer)
                 return
             } catch (e: FileSystemException) {
@@ -106,7 +122,9 @@ internal class OneShotSender(
         }
 
         val settled = store.find(transferId)?.let { settledStatus(it.files) } ?: return
-        store.updateStatus(transferId, settled, timeProvider.now())
+        if (store.updateStatus(transferId, settled, timeProvider.now())) journal.oneShotSettled(
+            transferId
+        )
         outbox.release(transfer)
     }
 }

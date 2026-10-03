@@ -1,6 +1,8 @@
 package com.fserver.core.sync.lease
 
 import com.fserver.common.exception.SyncException
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
@@ -31,6 +33,7 @@ internal class SyncLeaseNegotiator(
     private val peers: PeerConnector,
     private val modes: SyncModeReconciler,
     private val metadata: PeerMetadataExchange,
+    private val journal: JournalWriter,
 ) {
     /**
      * Runs [block] only if both devices agree we hold [source] and run it under the same mode.
@@ -121,6 +124,14 @@ internal class SyncLeaseNegotiator(
                 storage.sources.updateStatus(
                     id = source.id,
                     status = SourceEntry.Status.Disabled(response.reason)
+                )
+                journal.record(
+                    JournalEvent.SourceDisabledByPeer(
+                        sourceId = source.id,
+                        deviceId = source.deviceId,
+                        label = source.label,
+                        reason = JournalEvent.SourceDisabledByPeer.Reason.Removed,
+                    )
                 )
                 null
             }

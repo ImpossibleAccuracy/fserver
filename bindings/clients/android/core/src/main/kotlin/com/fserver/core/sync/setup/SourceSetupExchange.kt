@@ -2,6 +2,8 @@ package com.fserver.core.sync.setup
 
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.files.SourceLocation
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.toDomain
 import com.fserver.core.network.dictionary.dto.toDto
@@ -29,6 +31,7 @@ internal class SourceSetupExchange(
     private val peers: PeerConnector,
     private val timeProvider: TimeProvider,
     private val metadata: PeerMetadataExchange,
+    private val journal: JournalWriter,
 ) {
     /** Every ask waiting on this device's user, oldest first. */
     val pending: Flow<List<IncomingSourceRequest>> = storage.sourceRequests.pending()
@@ -117,6 +120,17 @@ internal class SourceSetupExchange(
             ?.takeIf { it.deviceId == peer.deviceId }
         val now = timeProvider.now()
 
+        if (parked == null) {
+            journal.record(
+                JournalEvent.SourceRequested(
+                    sourceId = message.sourceId,
+                    deviceId = peer.deviceId,
+                    label = message.label,
+                    mode = message.syncMode.toDomain().type,
+                )
+            )
+        }
+
         storage.sourceRequests.upsert(
             IncomingSourceRequest(
                 sourceId = message.sourceId,
@@ -189,6 +203,13 @@ internal class SourceSetupExchange(
         // Remembered, so a re-ask from a peer that missed this answer is refused again, not re-parked.
         storage.sources.recordRefusal(sourceId, request.deviceId)
         storage.sourceRequests.delete(sourceId)
+        journal.record(
+            JournalEvent.SourceRequestRejected(
+                sourceId = sourceId,
+                deviceId = request.deviceId,
+                label = request.label
+            )
+        )
 
         answer(
             deviceId = request.deviceId,
@@ -225,6 +246,15 @@ internal class SourceSetupExchange(
 
         if (message.accepted) {
             storage.sources.updateStatus(message.sourceId, SourceEntry.Status.Active)
+            if (source.status == SourceEntry.Status.Pending) {
+                journal.record(
+                    JournalEvent.SourceAcceptedByPeer(
+                        sourceId = source.id,
+                        deviceId = source.deviceId,
+                        label = source.label
+                    )
+                )
+            }
             return
         }
 
@@ -233,6 +263,16 @@ internal class SourceSetupExchange(
             id = message.sourceId,
             status = SourceEntry.Status.Disabled(message.reason ?: RefusedReason),
         )
+        if (source.status !is SourceEntry.Status.Disabled) {
+            journal.record(
+                JournalEvent.SourceDisabledByPeer(
+                    sourceId = source.id,
+                    deviceId = source.deviceId,
+                    label = source.label,
+                    reason = JournalEvent.SourceDisabledByPeer.Reason.Refused,
+                )
+            )
+        }
     }
 
     /**

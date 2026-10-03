@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.SourceMetadataDto
@@ -39,7 +40,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true), peerMetadataExchange(storage, clock))
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
 
     @Before
     fun setUp() = runBlocking {

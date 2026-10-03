@@ -41,6 +41,12 @@ interface DevicesRepository {
     suspend fun disconnect(deviceId: String): Result<Unit>
 
     /**
+     * Drops every key recorded for [deviceId] and closes its session. The next handshake starts
+     * over from a code comparison, which is the only way to revoke trust.
+     */
+    suspend fun forget(deviceId: String): Result<Unit>
+
+    /**
      * The public greeting for the device behind [arguments] - versions and offered methods,
      * nothing trusted yet. Costs no user interaction; safe to call to fill in a UI before the
      * user commits to anything.

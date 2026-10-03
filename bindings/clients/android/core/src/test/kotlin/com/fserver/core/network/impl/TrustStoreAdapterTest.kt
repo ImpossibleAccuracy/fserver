@@ -1,10 +1,12 @@
 package com.fserver.core.network.impl
 
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.auth.AuthMethod
 import com.fserver.core.network.device.model.KnownRoute
 import com.fserver.core.network.info.NetworkInfoRepository
 import com.fserver.core.network.info.model.NetworkInfo
-import com.fserver.core.support.FakeTrustedDevicesStore
+import com.fserver.core.support.FakeStorage
 import com.fserver.core.support.MutableTimeProvider
 import com.fserver.net.security.auth.sas.SasAuthMethod
 import com.fserver.net.security.trust.AuthStrength
@@ -21,13 +23,26 @@ import org.junit.Test
 class TrustStoreAdapterTest {
 
     private val clock = MutableTimeProvider()
-    private val store = FakeTrustedDevicesStore()
+    private val storage = FakeStorage(clock = clock)
+    private val store = storage.trust
 
     private fun adapter(network: NetworkInfo? = NetworkInfo.Wired) = TrustStoreAdapter(
         trustedDevicesStore = store,
         networkInfoRepository = FakeNetworkInfoRepository(network),
         timeProvider = clock,
+        journal = JournalWriter(storage, clock),
     )
+
+    @Test
+    fun `only the first key of a device is journaled as a pairing`() = runTest {
+        adapter().pin(record())
+        adapter().pin(record())
+
+        assertEquals(
+            listOf(JournalEvent.DevicePaired(DeviceId, store.findByDeviceId(DeviceId).single().displayName, AuthMethod.ConfirmFingerprint)),
+            storage.journal.all.map { it.event },
+        )
+    }
 
     @Test
     fun `a pin writes the key and the network it was reached over`() = runTest {

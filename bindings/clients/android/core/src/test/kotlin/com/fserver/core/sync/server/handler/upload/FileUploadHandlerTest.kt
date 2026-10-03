@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler.upload
 
+import com.fserver.core.journal.impl.JournalWriter
 import android.content.ContextWrapper
 import com.fserver.common.model.FileSize
 import com.fserver.core.crypto.internal.SealedFiles
@@ -93,7 +94,7 @@ class FileUploadHandlerTest {
                 sourceFiles = sourceFiles(storage, node),
                 staging = staging,
             ),
-            oneShots = OneShotUploadTarget(storage, node, OneShotStaging(node), clock),
+            oneShots = OneShotUploadTarget(storage, node, OneShotStaging(node), clock, JournalWriter(storage, clock)),
             timeProvider = clock,
             progress = progress,
         )

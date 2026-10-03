@@ -8,13 +8,17 @@ import kotlinx.serialization.json.Json
 internal class FileServerDictionary : MessageDictionary<FileServerMessages> {
     override val descriptor: MessageDictionary.Descriptor = MessageDictionary.Descriptor(
         id = "FServer",
-        version = 1,
+        version = Version,
     )
 
     override val codec: MessageCodec<FileServerMessages> = Codec()
 
     override fun negotiate(remote: MessageDictionary.Descriptor): MessageDictionary.Decision =
         MessageDictionary.Decision.Accept(remote.version)
+
+    companion object {
+        const val Version = 1
+    }
 
     private class Codec : MessageCodec<FileServerMessages> {
         private val json = Json {

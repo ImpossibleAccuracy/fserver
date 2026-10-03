@@ -1,5 +1,6 @@
 package com.fserver.core.sync.server.handler.upload.oneshot
 
+import com.fserver.core.journal.impl.JournalWriter
 import android.content.ContextWrapper
 import com.fserver.common.exception.TransferException
 import com.fserver.core.files.SourceLocation
@@ -74,7 +75,7 @@ class OneShotUploadTargetTest {
         staging = OneShotStaging(node)
         handler = FileUploadHandler(
             sources = mockk(relaxed = true),
-            oneShots = OneShotUploadTarget(storage, node, staging, clock),
+            oneShots = OneShotUploadTarget(storage, node, staging, clock, JournalWriter(storage, clock)),
             timeProvider = clock,
             progress = progress,
         )

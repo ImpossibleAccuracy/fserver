@@ -7,6 +7,7 @@ import com.fserver.core.disk.DiskUsageRepository
 import com.fserver.core.external.export.DataExport
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.gc.GarbageCollector
+import com.fserver.core.journal.ActivityJournal
 import com.fserver.core.lifecycle.LifecycleController
 import com.fserver.core.network.NetworkController
 import com.fserver.core.network.auth.PairingCodes
@@ -106,6 +107,9 @@ class FServerCore private constructor(
 
     /** At-rest encryption: available ciphers and per-source status. */
     val encryption: EncryptionController by lazy { koin.get() }
+
+    /** What the engine did and ran into, and the issues still open. */
+    val journal: ActivityJournal by lazy { koin.get() }
 
     /**
      * Sending files to a device once, outside any source, and answering what devices send here.

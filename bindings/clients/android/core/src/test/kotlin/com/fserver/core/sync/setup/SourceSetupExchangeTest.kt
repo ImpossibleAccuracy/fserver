@@ -1,5 +1,6 @@
 package com.fserver.core.sync.setup
 
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.sync.metadata.PeerSourceMetadata
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.network.dictionary.FileServerMessages
@@ -38,7 +39,7 @@ class SourceSetupExchangeTest {
     private val peers = mockk<PeerConnector>()
 
     private val ownerSession = FakePeerSession(identity = peerIdentity(OwnerId))
-    private val exchange = SourceSetupExchange(storage, peers, clock, peerMetadataExchange(storage, clock))
+    private val exchange = SourceSetupExchange(storage, peers, clock, peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
 
     @Before
     fun setUp() {

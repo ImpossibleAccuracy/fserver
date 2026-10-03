@@ -1,5 +1,6 @@
 package com.fserver.core.sync.runner.action
 
+import com.fserver.core.journal.impl.JournalWriter
 import android.content.ContextWrapper
 import com.fserver.common.model.ContentHash
 import com.fserver.core.files.SourceLocation
@@ -67,7 +68,7 @@ class FileActionRunnerConflictTest {
 
     private val runner = FileActionRunner(
         steps = steps,
-        conflicts = ConflictResolver(storage, steps, ConflictCopier(storage, sourceFiles(storage, node)), ClockSkews()),
+        conflicts = ConflictResolver(storage, steps, ConflictCopier(storage, sourceFiles(storage, node)), ClockSkews(), JournalWriter(storage, clock)),
         localHasher = mockk(relaxed = true),
         peerFiles = peerFiles,
         fileEvictor = FileEvictor(storage, sourceFiles(storage, node), writer),

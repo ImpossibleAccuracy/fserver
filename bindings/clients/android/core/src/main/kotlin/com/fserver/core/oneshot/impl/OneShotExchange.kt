@@ -7,6 +7,7 @@ import com.fserver.core.di.BackgroundScope
 import com.fserver.core.files.SourceLocation
 import com.fserver.core.files.scan.ScannedContent
 import com.fserver.core.files.scan.toFiles
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.FileServerMessages
 import com.fserver.core.network.dictionary.dto.OneShotFileDto
 import com.fserver.core.oneshot.model.OneShotTransfer
@@ -37,6 +38,7 @@ internal class OneShotExchange(
     private val outbox: OneShotOutbox,
     private val timeProvider: TimeProvider,
     private val backgroundScope: BackgroundScope,
+    private val journal: JournalWriter,
 ) {
     private val store get() = storage.oneShotTransfers
 
@@ -188,6 +190,7 @@ internal class OneShotExchange(
         check(store.updateStatus(transferId, OneShotTransfer.Status.Declined, timeProvider.now())) {
             "Transfer $transferId is no longer waiting for an answer"
         }
+        journal.oneShotSettled(transferId)
 
         decide(transfer, accepted = false)
     }
@@ -199,6 +202,7 @@ internal class OneShotExchange(
         check(store.updateStatus(transferId, OneShotTransfer.Status.Cancelled, timeProvider.now())) {
             "Transfer $transferId has already finished"
         }
+        journal.oneShotSettled(transferId)
 
         stopLocally(transfer)
         tell(transfer, FileServerMessages.OneShot.Cancel(transferId, CancelledReason))
@@ -221,7 +225,9 @@ internal class OneShotExchange(
         val transfer = ownOutgoing(peer, message.transferId) ?: return
 
         if (!message.accepted) {
-            store.updateStatus(transfer.id, OneShotTransfer.Status.Declined, timeProvider.now())
+            if (store.updateStatus(transfer.id, OneShotTransfer.Status.Declined, timeProvider.now())) {
+                journal.oneShotSettled(transfer.id)
+            }
             outbox.release(transfer)
             return
         }
@@ -241,7 +247,9 @@ internal class OneShotExchange(
 
         Timber.i("Device ${peer.deviceId} cancelled transfer ${transfer.id}: ${message.reason}")
 
-        store.updateStatus(transfer.id, OneShotTransfer.Status.Cancelled, timeProvider.now())
+        if (store.updateStatus(transfer.id, OneShotTransfer.Status.Cancelled, timeProvider.now())) {
+            journal.oneShotSettled(transfer.id)
+        }
         stopLocally(transfer)
     }
 
