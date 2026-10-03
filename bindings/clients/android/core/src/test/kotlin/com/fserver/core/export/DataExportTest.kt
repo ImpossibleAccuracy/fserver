@@ -138,9 +138,33 @@ class DataExportTest {
         register()
 
         val out = ByteArrayOutputStream()
-        export.export(out, mapOf("app.json" to "{}".toByteArray())).result().getOrThrow()
+        export.export(out, hostEntries = mapOf("app.json" to "{}".toByteArray())).result().getOrThrow()
 
         assertEquals("{}", unzip(out.toByteArray())["host/app.json"])
+    }
+
+    @Test
+    fun `a partial export holds only the chosen sources`() = runTest {
+        register()
+        write("a.txt", "hello")
+        register(id = OtherId, location = temp.newFolder("other-root"))
+        editor.create(OtherId, "b.txt").write { it.write(0, "other".toByteArray()) }
+
+        val out = ByteArrayOutputStream()
+        val report = export.export(out, sourceIds = setOf(OtherId)).result().getOrThrow()
+        val archive = unzip(out.toByteArray())
+
+        assertEquals(1, report.files)
+        assertEquals("other", archive["files/$OtherId/b.txt"])
+        assertFalse(archive.keys.any { it.contains(SourceId) })
+        assertTrue(archive.getValue("manifest.json").contains("\"scope\": \"sources\""))
+    }
+
+    @Test
+    fun `an unknown source fails the export`() = runTest {
+        val result = export.export(ByteArrayOutputStream(), sourceIds = setOf("missing")).result()
+
+        assertTrue(result.isFailure)
     }
 
     private suspend fun run(): Pair<Map<String, String>, ProgressTask<ExportProgress, ExportReport>> {
@@ -159,10 +183,14 @@ class DataExportTest {
         }
     }
 
-    private suspend fun register(encryption: EncryptionPolicy = EncryptionPolicy.Off) {
+    private suspend fun register(
+        encryption: EncryptionPolicy = EncryptionPolicy.Off,
+        id: String = SourceId,
+        location: File = root,
+    ) {
         val entry = sourceEntry(
-            id = SourceId,
-            location = SourceLocation.Directory(root.absolutePath),
+            id = id,
+            location = SourceLocation.Directory(location.absolutePath),
             role = SourceEntry.Role.Initiator,
         )
         storage.sources.upsert(entry.copy(preferences = entry.preferences.copy(encryption = encryption)))
@@ -175,5 +203,6 @@ class DataExportTest {
 
     private companion object {
         const val SourceId = "source-1"
+        const val OtherId = "source-2"
     }
 }

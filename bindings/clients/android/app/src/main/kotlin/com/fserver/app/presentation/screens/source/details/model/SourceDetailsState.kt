@@ -1,10 +1,11 @@
 package com.fserver.app.presentation.screens.source.details.model
 
-import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
+import com.fserver.app.presentation.composable.model.PeerUi
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.shared.export.model.ExportUi
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
@@ -27,7 +28,11 @@ data class SourceDetailsState(
 
     val attention: List<AttentionUi> = emptyList(),
     val history: List<HistoryUi> = emptyList(),
+    val export: ExportUi? = null,
 ) {
+    val canExport: Boolean
+        get() = !isLoading && export == null
+
     @Immutable
     data class SendNowUi(
         val count: Int,

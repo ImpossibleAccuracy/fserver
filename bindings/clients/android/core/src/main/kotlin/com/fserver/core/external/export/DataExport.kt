@@ -43,10 +43,13 @@ class DataExport internal constructor(
      * Writes the archive into [out], leaving it open: the caller closes it, and deletes what was
      * written if the task fails or is canceled.
      *
+     * @param sourceIds the sources to export, or null for all of them. A partial export keeps only
+     *  their peers among the trusted devices.
      * @param hostEntries host-owned files (its own settings, say), stored as `host/<name>`.
      */
     fun export(
         out: OutputStream,
+        sourceIds: Set<String>? = null,
         hostEntries: Map<String, ByteArray> = emptyMap(),
     ): ProgressTask<ExportProgress, ExportReport> {
         require(hostEntries.keys.all { it.isNotBlank() && it.none { c -> c == '/' || c == '\\' } }) {
@@ -54,16 +57,25 @@ class DataExport internal constructor(
         }
 
         return progressTask {
-            write(out, hostEntries)
+            write(out, sourceIds, hostEntries)
         }
     }
 
     private suspend fun ProducerScope<ExportProgress>.write(
         out: OutputStream,
+        sourceIds: Set<String>?,
         hostEntries: Map<String, ByteArray>,
     ): ExportReport = withContext(Dispatchers.IO) {
         val device = storage.identity.localDevice()
-        val sources = storage.sources.all().map { source ->
+        val selected = storage.sources.all().filter { sourceIds == null || it.id in sourceIds }
+        sourceIds?.let { ids ->
+            val missing = ids - selected.mapTo(mutableSetOf()) { it.id }
+            require(missing.isEmpty()) { "Sources $missing are not registered" }
+        }
+        val peers = selected.mapTo(mutableSetOf()) { it.deviceId }
+        val trusted = storage.trust.devices.first().filter { sourceIds == null || it.deviceId in peers }
+
+        val sources = selected.map { source ->
             SourceContent(
                 source = source,
                 local = storage.index.processedFiles(source.id).filterNot { it.isDeleted },
@@ -81,7 +93,7 @@ class DataExport internal constructor(
 
         zip.json("settings/device.json", device.toDto())
         zip.json("settings/auth.json", storage.auth.offeredMethods.value.toDto())
-        zip.json("settings/trusted-devices.json", storage.trust.devices.first().map { it.toDto() })
+        zip.json("settings/trusted-devices.json", trusted.map { it.toDto() })
         zip.json("settings/sources.json", sources.map { it.source.toDto() })
         hostEntries.forEach { (name, bytes) -> zip.entry("host/$name") { it.write(bytes) } }
 
@@ -137,6 +149,7 @@ class DataExport internal constructor(
             "manifest.json",
             ManifestDto(
                 exportedAt = timeProvider.now().toString(),
+                scope = if (sourceIds == null) ManifestDto.Scope.All else ManifestDto.Scope.Sources,
                 device = device.toDto(),
                 sources = sources.map { ManifestDto.SourceRefDto(it.source.id, it.source.label) },
                 files = report.files,

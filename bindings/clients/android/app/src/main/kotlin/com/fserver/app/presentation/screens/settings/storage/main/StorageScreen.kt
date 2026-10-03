@@ -1,16 +1,6 @@
 package com.fserver.app.presentation.screens.settings.storage.main
 
 import androidx.annotation.StringRes
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.ui.platform.LocalResources
-import com.fserver.app.presentation.composable.LocalSnackbarController
-import com.fserver.app.presentation.composable.ObserveEffects
-import com.fserver.app.presentation.designkit.DkIconButton
-import com.fserver.app.presentation.screens.settings.storage.main.composable.ExportProgressCard
-import com.fserver.app.presentation.screens.settings.storage.main.model.StorageUiEffect
-import java.time.LocalDate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +32,7 @@ import com.fserver.app.presentation.composable.model.formatted
 import com.fserver.app.presentation.designkit.DkCaption
 import com.fserver.app.presentation.designkit.DkFadingDivider
 import com.fserver.app.presentation.designkit.DkIcon
+import com.fserver.app.presentation.designkit.DkIconButton
 import com.fserver.app.presentation.designkit.DkListRow
 import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkScaffold
@@ -52,6 +44,9 @@ import com.fserver.app.presentation.screens.settings.storage.main.composable.Fre
 import com.fserver.app.presentation.screens.settings.storage.main.composable.FreeUpSheet
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageIntent
 import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState
+import com.fserver.app.presentation.shared.export.composable.ExportProgressCard
+import com.fserver.app.presentation.shared.export.composable.ObserveExportResults
+import com.fserver.app.presentation.shared.export.composable.rememberExportLauncher
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 import org.koin.androidx.compose.koinViewModel
@@ -64,33 +59,15 @@ fun StorageScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = LocalSnackbarController.current
-    val resources = LocalResources.current
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(ArchiveMimeType),
-    ) { uri -> uri?.let { viewModel.onIntent(StorageIntent.Export(it)) } }
-
-    ObserveEffects(viewModel.uiEffects) { effect ->
-        when (effect) {
-            is StorageUiEffect.ExportFinished -> snackbar.showSnackbar(
-                if (effect.skipped == 0) {
-                    resources.getQuantityString(R.plurals.storage_export_done, effect.files, effect.files)
-                } else {
-                    resources.getString(R.string.storage_export_done_skipped, effect.files, effect.skipped)
-                }
-            )
-
-            StorageUiEffect.ExportFailed -> snackbar.showSnackbar(R.string.storage_export_failed)
-        }
-    }
+    val launchExport = rememberExportLauncher { viewModel.onIntent(StorageIntent.Export(it)) }
+    ObserveExportResults(viewModel.exportResults)
 
     state?.let { state ->
         StorageScreenContent(
             modifier = modifier,
             state = state,
             onIntent = viewModel::onIntent,
-            onExport = { exportLauncher.launch(archiveName()) },
+            onExport = { launchExport(ArchiveName) },
             navigateToSource = navigateToSource,
             navigateUp = navigateUp,
         )
@@ -119,7 +96,7 @@ private fun StorageScreenContent(
                         onClick = onExport,
                         icon = Icons.Outlined.Archive,
                         enabled = !state.isExporting,
-                        contentDescription = stringResource(R.string.storage_export),
+                        contentDescription = stringResource(R.string.export_all),
                     )
                 },
             )
@@ -292,9 +269,7 @@ private fun EmptyCaption(
     )
 }
 
-private fun archiveName(): String = "fserver-export-${LocalDate.now()}.zip"
-
-private const val ArchiveMimeType = "application/zip"
+private const val ArchiveName = "all"
 
 @get:StringRes
 private val StorageState.AppDataKindUi.titleRes: Int

@@ -23,6 +23,7 @@ internal data class ManifestDto(
     val format: String = Format,
     val formatVersion: Int = FormatVersion,
     val exportedAt: String,
+    val scope: Scope,
     val device: DeviceDto,
     val sources: List<SourceRefDto>,
     val files: Int,
@@ -32,6 +33,13 @@ internal data class ManifestDto(
 ) {
     @Serializable
     data class SourceRefDto(val id: String, val label: String)
+
+    /** Whether the archive holds every source, or only those listed in [sources]. */
+    @Serializable
+    enum class Scope {
+        @SerialName("all") All,
+        @SerialName("sources") Sources,
+    }
 
     companion object {
         const val Format = "fserver-export"

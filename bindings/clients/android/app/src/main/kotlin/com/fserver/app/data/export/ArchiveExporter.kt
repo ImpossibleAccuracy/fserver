@@ -18,14 +18,15 @@ class ArchiveExporter(
     private val context: Context,
     private val export: DataExport,
 ) {
-    fun export(uri: Uri): ProgressTask<ExportProgress, ExportReport> = progressTask {
+    /** Every source, or only [sourceIds]. */
+    fun export(uri: Uri, sourceIds: Set<String>? = null): ProgressTask<ExportProgress, ExportReport> = progressTask {
         withContext(Dispatchers.IO) {
             try {
                 val stream = context.contentResolver.openOutputStream(uri, "wt")
                     ?: throw FileNotFoundException("Cannot write $uri")
 
                 stream.buffered().use { out ->
-                    val task = export.export(out)
+                    val task = export.export(out, sourceIds)
                     task.progress.collect { send(it) }
                     task.result().getOrThrow()
                 }

@@ -1,30 +1,32 @@
 package com.fserver.app.presentation.screens.source.details
 
-import com.fserver.app.util.stateInScreen
-import com.fserver.app.presentation.model.UiText
-import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
-import com.fserver.app.presentation.screens.source.shared.model.peerHalfOf
-import com.fserver.app.presentation.screens.source.shared.model.storageLabel
-import com.fserver.app.presentation.shared.sync.SyncTrigger
-import com.fserver.app.presentation.composable.model.fileName
-import com.fserver.app.presentation.composable.model.dateLabel
-import com.fserver.app.presentation.composable.model.peers
-import com.fserver.app.presentation.composable.model.peerOf
-import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fserver.app.data.export.ArchiveExporter
+import com.fserver.app.presentation.composable.model.PeerUi
+import com.fserver.app.presentation.composable.model.dateLabel
+import com.fserver.app.presentation.composable.model.fileName
+import com.fserver.app.presentation.composable.model.peerOf
+import com.fserver.app.presentation.composable.model.peers
 import com.fserver.app.presentation.model.Destination
+import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsIntent
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState
-import com.fserver.app.presentation.screens.source.details.model.SourceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.ConditionUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageKindUi
 import com.fserver.app.presentation.screens.source.details.model.SourceDetailsState.StageUi
+import com.fserver.app.presentation.screens.source.details.model.SourceDetailsUiEffect
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
+import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.peerHalfOf
+import com.fserver.app.presentation.screens.source.shared.model.storageLabel
 import com.fserver.app.presentation.screens.source.shared.model.toUi
 import com.fserver.app.presentation.shared.error.ErrorReporter
+import com.fserver.app.presentation.shared.export.ExportTrigger
+import com.fserver.app.presentation.shared.sync.SyncTrigger
 import com.fserver.app.util.combineMany
+import com.fserver.app.util.stateInScreen
 import com.fserver.core.crypto.EncryptionController
 import com.fserver.core.crypto.EncryptionStatus
 import com.fserver.core.crypto.model.EncryptionPolicy
@@ -67,10 +69,13 @@ class SourceDetailsViewModel(
     devicesRepository: DevicesRepository,
     networkInfoRepository: NetworkInfoRepository,
     encryptionController: EncryptionController,
+    archiveExporter: ArchiveExporter,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
     private val syncTrigger = SyncTrigger(viewModelScope, sourcesController, reporter)
+    private val exportTrigger = ExportTrigger(viewModelScope, archiveExporter)
+    val exportResults = exportTrigger.results
 
     private val effects = Channel<SourceDetailsUiEffect>(Channel.BUFFERED)
     val uiEffects = effects.receiveAsFlow()
@@ -101,7 +106,8 @@ class SourceDetailsViewModel(
         source?.let(encryptionController::status)?.map { it.toCondition() } ?: flowOf(null)
     }
 
-    val state: StateFlow<SourceDetailsState> = combine(combineMany(
+    val state: StateFlow<SourceDetailsState> = combine(
+        combineMany(
         registeredSources.observeById(key.sourceId),
         registeredSources.observeTotals(key.sourceId),
         environment,
@@ -121,15 +127,22 @@ class SourceDetailsViewModel(
             isSyncing = syncing,
             attention = issues.toAttention(source.syncMode) + peerFullness(source, metadata),
         )
-    }, encryption) { state, encryption ->
+    }, encryption
+    ) { state, encryption ->
         state.copy(conditions = state.conditions + listOfNotNull(encryption))
-    }.stateInScreen(viewModelScope, SourceDetailsState())
+    }.combine(exportTrigger.running) { state, export -> state.copy(export = export) }
+        .stateInScreen(viewModelScope, SourceDetailsState())
 
     fun onIntent(intent: SourceDetailsIntent) {
         when (intent) {
             SourceDetailsIntent.RefreshRequested,
-            SourceDetailsIntent.SendNowClicked -> syncTrigger.run("Sync of ${key.sourceId} failed", key.sourceId)
+            SourceDetailsIntent.SendNowClicked -> syncTrigger.run(
+                "Sync of ${key.sourceId} failed",
+                key.sourceId
+            )
+
             SourceDetailsIntent.DeleteConfirmed -> delete()
+            is SourceDetailsIntent.Export -> exportTrigger.run(intent.uri, setOf(key.sourceId))
         }
     }
 
@@ -148,7 +161,9 @@ private fun EncryptionStatus.toCondition(): ConditionUi? = when (this) {
     EncryptionStatus.Off -> null
     is EncryptionStatus.Encrypted -> ConditionUi.Encrypted
     is EncryptionStatus.Migrating ->
-        if (toward is EncryptionPolicy.Required) ConditionUi.Encrypting(remaining) else ConditionUi.Decrypting(remaining)
+        if (toward is EncryptionPolicy.Required) ConditionUi.Encrypting(remaining) else ConditionUi.Decrypting(
+            remaining
+        )
 }
 
 private data class Issues(
@@ -158,7 +173,11 @@ private data class Issues(
 
 private fun Issues.toAttention(mode: SyncMode): List<SourceDetailsState.AttentionUi> = buildList {
     if (conflicts.isNotEmpty()) {
-        add(SourceDetailsState.AttentionUi.Conflicts(conflicts.size, conflicts.map { it.path.fileName() }))
+        add(
+            SourceDetailsState.AttentionUi.Conflicts(
+                conflicts.size,
+                conflicts.map { it.path.fileName() })
+        )
     }
     if (mode is SyncMode.Offload && lost.isNotEmpty()) {
         add(SourceDetailsState.AttentionUi.LostOnPeer(lost.size, lost.map { it.path.fileName() }))
@@ -176,7 +195,13 @@ private fun peerFullness(
     val peer = metadata.peerHalfOf(source) ?: return emptyList()
     val used = peer.usedPercent?.takeIf { it >= PeerAlmostFullPercent } ?: return emptyList()
 
-    return listOf(SourceDetailsState.AttentionUi.PeerAlmostFull(used, peer.usage.files, peer.usage.bytes))
+    return listOf(
+        SourceDetailsState.AttentionUi.PeerAlmostFull(
+            used,
+            peer.usage.files,
+            peer.usage.bytes
+        )
+    )
 }
 
 private data class Environment(

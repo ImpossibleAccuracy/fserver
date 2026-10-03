@@ -1,4 +1,4 @@
-package com.fserver.app.presentation.screens.settings.storage.main.composable
+package com.fserver.app.presentation.shared.export.composable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -16,17 +16,18 @@ import com.fserver.app.presentation.designkit.DkCardKicker
 import com.fserver.app.presentation.designkit.DkMonoCaption
 import com.fserver.app.presentation.designkit.DkProgressBar
 import com.fserver.app.presentation.designkit.DkSpacing
-import com.fserver.app.presentation.screens.settings.storage.main.model.StorageState
+import com.fserver.app.presentation.shared.export.model.ExportUi
 import com.fserver.app.presentation.theme.FServerTheme
 import com.fserver.common.model.FileSize
 
+/** How far a running export got: files, bytes and a bar over the bytes. */
 @Composable
 fun ExportProgressCard(
     modifier: Modifier = Modifier,
-    export: StorageState.ExportUi,
+    export: ExportUi,
 ) {
     DkCard(modifier = modifier.fillMaxWidth()) {
-        DkCardKicker(text = stringResource(R.string.storage_export_running))
+        DkCardKicker(text = stringResource(R.string.export_running))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -34,7 +35,7 @@ fun ExportProgressCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             DkCaption(
-                text = stringResource(R.string.storage_export_files, export.files, export.totalFiles),
+                text = stringResource(R.string.export_files, export.files, export.totalFiles),
             )
             DkMonoCaption(
                 text = "${FileSize(export.writtenBytes).formatted()} / ${FileSize(export.totalBytes).formatted()}",
@@ -48,6 +49,6 @@ fun ExportProgressCard(
 @Composable
 private fun ExportProgressCardPreview() {
     FServerTheme {
-        ExportProgressCard(export = StorageState.SampleExporting.export!!)
+        ExportProgressCard(export = ExportUi.Sample)
     }
 }

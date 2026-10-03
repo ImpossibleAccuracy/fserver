@@ -1,12 +1,13 @@
 package com.fserver.app.presentation.screens.settings.storage.main.model
 
-import com.fserver.app.presentation.shared.browser.model.FileKey
-import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
-import com.fserver.app.presentation.composable.model.LinkDirectionUi
 import com.fserver.app.presentation.composable.model.FileKindUi
+import com.fserver.app.presentation.composable.model.LinkDirectionUi
+import com.fserver.app.presentation.composable.model.PeerUi
 import com.fserver.app.presentation.composable.model.StorageUsageUi
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.FileKey
+import com.fserver.app.presentation.shared.export.model.ExportUi
 import com.fserver.common.model.FileSize
 import com.fserver.core.network.device.model.DeviceKind
 
@@ -40,7 +41,7 @@ data class StorageState(
             if (bytes <= 0) return false
             val usage = usage ?: return true
             return bytes * 100 >= usage.totalBytes * FreeUpMinDiskPercent ||
-                bytes * 100 >= usage.freeBytes * FreeUpMinFreePercent
+                    bytes * 100 >= usage.freeBytes * FreeUpMinFreePercent
         }
 
     val defaultFreeSelection: Set<String>
@@ -55,17 +56,6 @@ data class StorageState(
         val files: Int,
         val bytes: Long,
     )
-
-    @Immutable
-    data class ExportUi(
-        val files: Int = 0,
-        val totalFiles: Int = 0,
-        val writtenBytes: Long = 0,
-        val totalBytes: Long = 0,
-    ) {
-        val fraction: Float?
-            get() = if (totalBytes > 0) (writtenBytes.toFloat() / totalBytes).coerceIn(0f, 1f) else null
-    }
 
     @Immutable
     data class AppDataUi(
@@ -131,7 +121,8 @@ data class StorageState(
         private val SamplePc = PeerUi("home-pc", "Home PC", DeviceKind.Desktop)
         private val SampleLaptop = PeerUi("laptop", "Laptop", DeviceKind.Laptop)
         private val SampleCache = AppDataUi(AppDataKindUi.Cache, 3_100_000_000)
-        private val SampleDownloaded = AppDataUi(AppDataKindUi.Downloaded, 14_000_000_000, files = 86)
+        private val SampleDownloaded =
+            AppDataUi(AppDataKindUi.Downloaded, 14_000_000_000, files = 86)
         private val SampleEvictionPreviews = AppDataUi(AppDataKindUi.EvictionPreviews, 48_000_000)
         private val SampleIncomplete = AppDataUi(AppDataKindUi.Incomplete, 1_200_000_000, files = 3)
 
@@ -139,10 +130,38 @@ data class StorageState(
             isLoading = false,
             usage = StorageUsageUi.Sample.copy(remoteOnlyFiles = 0, remoteOnlyBytes = 0),
             links = listOf(
-                LinkUi("camera", "Camera", SampleServer, LinkDirectionUi.Outgoing, 1342, 41_000_000_000),
-                LinkUi("downloads", "Downloads", SamplePc, LinkDirectionUi.Incoming, 214, 9_400_000_000),
-                LinkUi("whatsapp", "WhatsApp Media", SampleServer, LinkDirectionUi.Outgoing, 2870, 6_200_000_000),
-                LinkUi("documents", "Documents", SampleLaptop, LinkDirectionUi.Mirror, 391, 1_800_000_000),
+                LinkUi(
+                    "camera",
+                    "Camera",
+                    SampleServer,
+                    LinkDirectionUi.Outgoing,
+                    1342,
+                    41_000_000_000
+                ),
+                LinkUi(
+                    "downloads",
+                    "Downloads",
+                    SamplePc,
+                    LinkDirectionUi.Incoming,
+                    214,
+                    9_400_000_000
+                ),
+                LinkUi(
+                    "whatsapp",
+                    "WhatsApp Media",
+                    SampleServer,
+                    LinkDirectionUi.Outgoing,
+                    2870,
+                    6_200_000_000
+                ),
+                LinkUi(
+                    "documents",
+                    "Documents",
+                    SampleLaptop,
+                    LinkDirectionUi.Mirror,
+                    391,
+                    1_800_000_000
+                ),
             ),
             appData = listOf(
                 SampleDownloaded,
@@ -178,7 +197,7 @@ data class StorageState(
         )
 
         val SampleExporting = Sample.copy(
-            export = ExportUi(files = 412, totalFiles = 4817, writtenBytes = 9_800_000_000, totalBytes = 58_400_000_000),
+            export = ExportUi.Sample,
         )
 
         val SampleEmpty = StorageState(
