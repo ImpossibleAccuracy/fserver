@@ -16,7 +16,9 @@ import com.fserver.app.presentation.screens.files.shared.FileFetches
 import com.fserver.app.presentation.screens.files.shared.FilesProviderHandler
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.presentation.shared.browser.model.asPreviewFile
+import com.fserver.app.presentation.shared.browser.model.key
 import com.fserver.app.presentation.shared.browser.model.toTree
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.common.utils.runCatchingCancellable
@@ -81,8 +83,10 @@ class FilesViewModel(
                         FilesState.FilterUi.All -> null
                         FilesState.FilterUi.Local -> FileBrowserUi.File.Location.Local
                         FilesState.FilterUi.Cloud -> FileBrowserUi.File.Location.Remote
+                        FilesState.FilterUi.Pinned -> null
                     },
                     sourceIds = query.sourceId?.let(::setOf),
+                    pinnedOnly = query.filter == FilesState.FilterUi.Pinned,
                 ),
                 filesProviderHandler.fetches,
                 registeredSourcesRepository.sources,
@@ -96,7 +100,7 @@ class FilesViewModel(
                     sourceId = query.sourceId,
                     sort = query.sort,
                     sortAscending = query.sortAscending,
-                    actions = files.associate { it.fileId to it.actions(writable, pinnable) },
+                    actions = files.associate { it.key to it.actions(writable, pinnable) },
                 )
             }
         }
@@ -139,6 +143,7 @@ class FilesViewModel(
             isSyncing = syncing,
             editing = edit.selection.active,
             selected = edit.selection.ids,
+            selectedFolders = edit.folders,
         )
     }.stateInScreen(viewModelScope, FilesState())
 
@@ -150,7 +155,7 @@ class FilesViewModel(
 
             FilesIntent.RefreshRequested -> syncTrigger.run("Sync from the files screen failed")
 
-            is FilesIntent.EntryClicked -> openEntry(intent.entryId)
+            is FilesIntent.EntryClicked -> openEntry(intent.file)
 
             is FilesIntent.FolderOpened -> editable.update { it.copy(openedPath = intent.path) }
 
@@ -169,26 +174,34 @@ class FilesViewModel(
             }
 
             is FilesIntent.EntryLongPressed -> editable.update {
-                it.copy(selection = it.selection.started(intent.entryId))
+                it.selecting(files = it.selection.ids + intent.file)
             }
 
             is FilesIntent.EntryToggled -> editable.update {
-                it.copy(selection = it.selection.toggled(intent.entryId, closeWhenEmpty = true))
+                it.selecting(files = it.selection.ids.toggled(intent.file))
+            }
+
+            is FilesIntent.FolderLongPressed -> editable.update {
+                it.selecting(folders = it.folders + intent.path)
+            }
+
+            is FilesIntent.FolderToggled -> editable.update {
+                it.selecting(folders = it.folders.toggled(intent.path))
             }
 
             FilesIntent.EditClosed -> closeEdit()
 
-            is FilesIntent.RenameConfirmed -> rename(intent.entryId, intent.newName)
+            is FilesIntent.RenameConfirmed -> rename(intent.file, intent.newName)
 
-            is FilesIntent.DeleteConfirmed -> delete(intent.entryIds)
+            is FilesIntent.DeleteConfirmed -> delete(intent.files)
 
-            is FilesIntent.PinRequested -> setPinned(intent.entryIds, intent.pinned)
+            is FilesIntent.PinRequested -> setPinned(intent.files, intent.pinned)
         }
     }
 
-    private fun rename(entryId: String, newName: String) {
+    private fun rename(file: FileKey, newName: String) {
         viewModelScope.launch {
-            val entry = entryOf(entryId) ?: return@launch
+            val entry = entryOf(file) ?: return@launch
 
             runCatchingCancellable { filesController.file(entry.sourceId, entry.fileId)?.rename(newName) }
                 .onFailure { reporter.report(it, "Rename of ${entry.fileId} failed") }
@@ -197,10 +210,10 @@ class FilesViewModel(
         }
     }
 
-    private fun delete(entryIds: Set<String>) {
+    private fun delete(files: Set<FileKey>) {
         viewModelScope.launch {
-            for (entryId in entryIds) {
-                val entry = entryOf(entryId) ?: continue
+            for (file in files) {
+                val entry = entryOf(file) ?: continue
 
                 runCatchingCancellable { filesController.delete(entry.sourceId, entry.fileId) }
                     .onFailure { reporter.report(it, "Delete of ${entry.fileId} failed") }
@@ -210,9 +223,9 @@ class FilesViewModel(
         }
     }
 
-    private fun setPinned(entryIds: Set<String>, pinned: Boolean) {
+    private fun setPinned(files: Set<FileKey>, pinned: Boolean) {
         viewModelScope.launch {
-            val bySource = entryIds.mapNotNull(::entryOf).groupBy({ it.sourceId }, { it.fileId })
+            val bySource = files.groupBy({ it.sourceId }, { it.fileId })
 
             for ((sourceId, fileIds) in bySource) {
                 runCatchingCancellable { filesController.setPinned(sourceId, fileIds.toSet(), pinned) }
@@ -223,14 +236,14 @@ class FilesViewModel(
         }
     }
 
-    private fun closeEdit() = editable.update { it.copy(selection = Selection()) }
+    private fun closeEdit() = editable.update { it.copy(selection = Selection(), folders = emptySet()) }
 
-    private fun entryOf(entryId: String): SyncFileEntry? =
-        filesController.overallContent.value.find { it.fileId == entryId }
+    private fun entryOf(key: FileKey): SyncFileEntry? =
+        filesController.overallContent.value.find { it.fileId == key.fileId && it.sourceId == key.sourceId }
 
-    private fun openEntry(entryId: String) {
+    private fun openEntry(key: FileKey) {
         viewModelScope.launch {
-            val file = entryOf(entryId) ?: return@launch
+            val file = entryOf(key) ?: return@launch
 
             filesProviderHandler.onItemClick(file)
         }
@@ -250,8 +263,14 @@ class FilesViewModel(
         val openedPath: String? = null,
         val sort: FileSortUi = FileSortUi.Name,
         val sortAscending: Boolean = true,
-        val selection: Selection = Selection(),
-    )
+        val selection: Selection<FileKey> = Selection(),
+        val folders: Set<String> = emptySet(),
+    ) {
+        fun selecting(files: Set<FileKey> = selection.ids, folders: Set<String> = this.folders) = copy(
+            selection = Selection(active = files.isNotEmpty() || folders.isNotEmpty(), ids = files),
+            folders = folders,
+        )
+    }
 }
 
 private fun SyncFileEntry.toUi(fetches: FileFetches): FileBrowserUi.File = asPreviewFile().copy(
@@ -277,3 +296,5 @@ private fun SyncFileEntry.actions(
         else -> emptySet()
     }
 }
+
+private fun <T> Set<T>.toggled(id: T): Set<T> = if (id in this) this - id else this + id

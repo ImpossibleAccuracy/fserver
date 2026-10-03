@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.model
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import androidx.navigation3.runtime.NavKey
 import com.fserver.app.presentation.screens.files.model.FilesState
 import com.fserver.app.presentation.screens.source.setup.shared.model.SourceAccessUi
@@ -52,7 +53,7 @@ sealed interface Destination : NavKey {
 
         /** Crop and rotate of one image held here, written back over the same file. */
         @Serializable
-        data class ImageEditor(val sourceId: String, val fileId: String) : Destination
+        data class ImageEditor(val file: FileKey) : Destination
     }
 
     /**

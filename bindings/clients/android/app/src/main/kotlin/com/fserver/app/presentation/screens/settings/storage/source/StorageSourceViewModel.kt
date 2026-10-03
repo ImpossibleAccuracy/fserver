@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.settings.storage.source
 
+import com.fserver.app.presentation.shared.browser.model.key
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.util.stateInScreen
 import com.fserver.app.presentation.shared.selection.Selection
 import com.fserver.app.presentation.screens.source.shared.model.ownHalfOf
@@ -87,7 +89,7 @@ class StorageSourceViewModel(
         val here = entries.filter { it.localState is LocalIndexedFile.State.Present }
         val fileOf = { entry: SyncFileEntry -> entry.toUi(sending) }
         val files = here.map(fileOf).sortedWith(editable.sort.comparator)
-        val ids = files.mapTo(mutableSetOf()) { it.id }
+        val keys = files.mapTo(mutableSetOf()) { it.indexedKey }
         val hasFolders = here.any { '/' in it.path }
         val freeBlock = source.freeBlock()
 
@@ -108,9 +110,9 @@ class StorageSourceViewModel(
                 FileBrowserUi.Tree()
             },
             editing = editable.selection.active && files.isNotEmpty() && freeBlock == null,
-            selected = editable.selection.ids intersect ids,
+            selected = editable.selection.ids intersect keys,
             freeBlock = freeBlock,
-            refusals = here.mapNotNull { entry -> entry.evictRefusal?.let { entry.fileId to it.toUi() } }.toMap(),
+            refusals = here.mapNotNull { entry -> entry.evictRefusal?.let { entry.key to it.toUi() } }.toMap(),
         )
     }.stateInScreen(viewModelScope, null)
 
@@ -120,19 +122,19 @@ class StorageSourceViewModel(
             is StorageSourceIntent.GroupingChanged -> setGrouped(intent.grouped)
             StorageSourceIntent.EditStarted -> startEdit { it.copy(active = true) }
             StorageSourceIntent.EditClosed -> closeEdit()
-            is StorageSourceIntent.FileLongPressed -> startEdit { it.started(intent.id) }
+            is StorageSourceIntent.FileLongPressed -> startEdit { it.started(intent.file) }
 
             is StorageSourceIntent.FileToggled -> editable.update {
-                it.copy(selection = it.selection.toggled(intent.id))
+                it.copy(selection = it.selection.toggled(intent.file))
             }
             StorageSourceIntent.AllToggled -> toggleAll()
             StorageSourceIntent.FreeConfirmed -> state.value?.freeable?.let { free(it) }
-            is StorageSourceIntent.FileClicked -> open(intent.id)
+            is StorageSourceIntent.FileClicked -> open(intent.file)
         }
     }
 
-    private fun open(id: String) {
-        val entry = entries.value.find { it.fileId == id } ?: return
+    private fun open(file: FileKey) {
+        val entry = entries.value.find { it.key == file } ?: return
         viewModelScope.launch { filesProviderHandler.onItemClick(entry) }
     }
 
@@ -140,7 +142,7 @@ class StorageSourceViewModel(
         viewModelScope.launch { appSettings.setStorageGroupedByFolder(key.sourceId, grouped) }
     }
 
-    private fun startEdit(select: (Selection) -> Selection) {
+    private fun startEdit(select: (Selection<FileKey>) -> Selection<FileKey>) {
         if (state.value?.canFree != true) return
         editable.update { it.copy(selection = select(it.selection)) }
     }
@@ -153,13 +155,14 @@ class StorageSourceViewModel(
         val current = state.value ?: return
         val selected =
             if (current.allSelected) emptySet()
-            else current.files.mapTo(mutableSetOf()) { it.id }
+            else current.files.mapTo(mutableSetOf()) { it.indexedKey }
 
         editable.update { it.copy(selection = it.selection.copy(ids = selected)) }
     }
 
-    private fun free(ids: Set<String>) {
+    private fun free(files: Set<FileKey>) {
         closeEdit()
+        val ids = files.filter { it.sourceId == key.sourceId }.mapTo(mutableSetOf()) { it.fileId }
         if (ids.isEmpty()) return
 
         viewModelScope.launch {
@@ -171,7 +174,7 @@ class StorageSourceViewModel(
 
 private data class Editable(
     val sort: SortUi = SortUi.Size,
-    val selection: Selection = Selection(),
+    val selection: Selection<FileKey> = Selection(),
 )
 
 private fun SyncFileEntry.toUi(sending: Map<String, Float?>): FileBrowserUi.File = asPreviewFile().copy(

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,15 +36,20 @@ class FileBrowserNavigation(
 )
 
 /**
- * Files ticked for an action, by [FileBrowserUi.File.id]. While there is one, a tap ticks and a
- * long press opens; without one, a tap opens.
+ * Files ticked for an action, by [FileBrowserUi.File.key], and folders by path. While there is one,
+ * a tap ticks and a long press opens; without one, a tap opens. Folders tick only with
+ * [onToggleDirectory]; otherwise a tap still opens them.
  */
 @Immutable
 class FileBrowserSelection(
-    val selected: Set<String>,
+    val selected: Set<FileKey>,
     val onToggle: (FileBrowserUi.File) -> Unit,
+    val selectedDirectories: Set<String> = emptySet(),
+    val onToggleDirectory: ((FileBrowserUi.Directory) -> Unit)? = null,
 ) {
-    fun isSelected(file: FileBrowserUi.File): Boolean = file.id in selected
+    fun isSelected(file: FileBrowserUi.File): Boolean = file.key in selected
+
+    fun isSelected(directory: FileBrowserUi.Directory): Boolean = directory.path in selectedDirectories
 }
 
 /**
@@ -67,6 +73,8 @@ fun FileBrowser(
     onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
     /** Drawn at the end of each file row while no [selection] runs; tiles have none, a long press is their way in. */
     fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
+    /** The way into a [selection] from a folder row; tree only. */
+    onDirectoryLongClick: ((FileBrowserUi.Directory) -> Unit)? = null,
 ) {
     if (preview.isEmpty) {
         FileBrowserEmpty(modifier = modifier, header = header)
@@ -104,6 +112,7 @@ fun FileBrowser(
             onFileClick = onFileClick,
             onFileLongClick = onFileLongClick,
             fileMenu = fileMenu,
+            onDirectoryLongClick = onDirectoryLongClick,
             header = header,
         )
     }

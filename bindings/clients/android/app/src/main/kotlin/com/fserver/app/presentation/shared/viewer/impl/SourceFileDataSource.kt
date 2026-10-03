@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.viewer.impl
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
@@ -27,8 +28,8 @@ internal class SourceFileDataSource(private val files: FilesController) : BaseDa
 
     override fun open(dataSpec: DataSpec): Long {
         transferInitializing(dataSpec)
-        val (sourceId, fileId) = idsOf(dataSpec.uri)
-        val opened = runBlocking { files.file(sourceId, fileId)?.openReader() }
+        val key = keyOf(dataSpec.uri)
+        val opened = runBlocking { files.file(key.sourceId, key.fileId)?.openReader() }
             ?: throw FileNotFoundException("${dataSpec.uri} is not held here")
         reader = opened
         uri = dataSpec.uri
@@ -78,13 +79,13 @@ internal class SourceFileDataSource(private val files: FilesController) : BaseDa
     companion object {
         private const val Scheme = "fserver-source"
 
-        fun uriOf(sourceId: String, fileId: String): Uri =
-            Uri.Builder().scheme(Scheme).appendPath(sourceId).appendPath(fileId).build()
+        fun uriOf(key: FileKey): Uri =
+            Uri.Builder().scheme(Scheme).appendPath(key.sourceId).appendPath(key.fileId).build()
 
-        private fun idsOf(uri: Uri): Pair<String, String> {
+        private fun keyOf(uri: Uri): FileKey {
             val segments = uri.pathSegments
             require(uri.scheme == Scheme && segments.size == 2) { "Not a source file: $uri" }
-            return segments[0] to segments[1]
+            return FileKey(fileId = segments[1], sourceId = segments[0])
         }
     }
 }

@@ -82,7 +82,7 @@ class ImageEditorViewModel(
             }
                 .onSuccess { loaded -> editable.value = loaded }
                 .onFailure { error ->
-                    reporter.report(error, "Loading ${key.fileId} into the image editor failed")
+                    reporter.report(error, "Loading ${key.file.fileId} into the image editor failed")
                     editable.update { it.copy(status = ImageEditorState.StatusUi.Failed) }
                 }
         }
@@ -99,7 +99,7 @@ class ImageEditorViewModel(
         viewModelScope.launch {
             runCatchingCancellable {
                 val bitmap = crop.createResult(maxSize = null)
-                    ?: throw IllegalStateException("Could not render the edited ${key.fileId}")
+                    ?: throw IllegalStateException("Could not render the edited ${key.file.fileId}")
                 val bytes = withContext(Dispatchers.Default) {
                     format.encode(bitmap.asAndroidBitmap())
                 }
@@ -111,15 +111,15 @@ class ImageEditorViewModel(
             }
                 .onSuccess { effects.send(ImageEditorUiEffect.NavigateBack) }
                 .onFailure { error ->
-                    reporter.report(error, "Saving the edited ${key.fileId} failed")
+                    reporter.report(error, "Saving the edited ${key.file.fileId} failed")
                     editable.update { it.copy(status = ImageEditorState.StatusUi.Ready) }
                 }
         }
     }
 
     private suspend fun requireFile(): SourceFile =
-        filesController.file(key.sourceId, key.fileId)
-            ?: throw FileNotFoundException("File ${key.fileId} of ${key.sourceId} is not held here")
+        filesController.file(key.file.sourceId, key.file.fileId)
+            ?: throw FileNotFoundException("File ${key.file.fileId} of ${key.file.sourceId} is not held here")
 
     private data class Editable(
         val fileName: String = "",

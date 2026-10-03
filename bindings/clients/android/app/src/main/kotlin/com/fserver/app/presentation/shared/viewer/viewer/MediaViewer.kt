@@ -278,14 +278,14 @@ private fun Context.viewerPlayer(file: FileBrowserUi.File, files: FilesControlle
         .apply {
             val item = MediaItem.Builder()
                 .setMediaMetadata(MediaMetadata.Builder().setDisplayTitle(file.name).build())
-            val sourceId = file.sourceId
+            val key = file.key
             val locator = file.locator
 
             when {
                 locator == null -> Unit
-                sourceId != null -> setMediaSource(
+                key != null -> setMediaSource(
                     ProgressiveMediaSource.Factory(SourceFileDataSource.Factory(files))
-                        .createMediaSource(item.setUri(SourceFileDataSource.uriOf(sourceId, file.id)).build()),
+                        .createMediaSource(item.setUri(SourceFileDataSource.uriOf(key)).build()),
                 )
 
                 else -> setMediaItem(item.setUri(locatorUri(locator)).build())

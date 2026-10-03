@@ -106,8 +106,7 @@ fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
     val extension = name.substringAfterLast(".", missingDelimiterValue = "")
 
     return FileBrowserUi.File(
-        id = fileId,
-        sourceId = sourceId,
+        key = key,
         path = path,
         name = name,
         kind = kind,
@@ -115,12 +114,19 @@ fun SyncFileEntry.asPreviewFile(): FileBrowserUi.File {
         size = size,
         modifiedAt = modifiedAt,
         locations = locations,
+        isPinned = isPinned,
         extensionLabel = when {
             kind.isMedia -> null
             else -> extension.ifEmpty { "?" }.uppercase()
         },
     )
 }
+
+val SyncFileEntry.key: FileKey
+    get() = FileKey(fileId = fileId, sourceId = sourceId)
+
+val SyncFileEntry.isPinned: Boolean
+    get() = (localState as? LocalIndexedFile.State.Present)?.pinned == true
 
 /** Sides holding the bytes right now. An evicted copy is known but not held, so it is not listed. */
 val SyncFileEntry.locations: Set<FileBrowserUi.File.Location>

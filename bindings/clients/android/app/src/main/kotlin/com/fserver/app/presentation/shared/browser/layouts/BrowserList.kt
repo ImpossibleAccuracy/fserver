@@ -1,6 +1,9 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,6 +29,7 @@ import com.fserver.app.presentation.designkit.DkThumbnail
 import com.fserver.app.presentation.shared.browser.FileBrowserHeader
 import com.fserver.app.presentation.shared.browser.FileBrowserSelection
 import com.fserver.app.presentation.shared.browser.composable.BrowserFileRow
+import com.fserver.app.presentation.shared.browser.composable.EntryCheckbox
 import com.fserver.app.presentation.shared.browser.composable.EntryThumbnailSize
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
 import com.fserver.app.presentation.theme.FServerTheme
@@ -87,7 +92,9 @@ internal fun BrowserEntryRow(
         is FileBrowserUi.Directory -> BrowserDirectoryRow(
             modifier = modifier,
             directory = entry,
+            selection = actions.selection,
             onOpen = actions.onOpenDirectory,
+            onLongClick = actions.onDirectoryLongClick,
         )
 
         is FileBrowserUi.File -> BrowserFileRow(
@@ -105,8 +112,13 @@ internal fun BrowserEntryRow(
 internal fun BrowserDirectoryRow(
     modifier: Modifier = Modifier,
     directory: FileBrowserUi.Directory,
+    selection: FileBrowserSelection? = null,
     onOpen: ((FileBrowserUi.Directory) -> Unit)?,
+    onLongClick: ((FileBrowserUi.Directory) -> Unit)? = null,
 ) {
+    val toggle = selection?.onToggleDirectory
+    val open = onOpen?.let { { it(directory) } }
+
     DkListRow(
         modifier = modifier,
         title = directory.displayLabel(),
@@ -115,9 +127,30 @@ internal fun BrowserDirectoryRow(
             directory.files,
             directory.size.formatted(),
         ),
-        leading = { DkThumbnail(icon = Icons.Default.FolderOpen, size = EntryThumbnailSize) },
+        leading = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+            ) {
+                EntryCheckbox(
+                    visible = toggle != null,
+                    checked = selection?.isSelected(directory) == true,
+                    onCheckedChange = { toggle?.invoke(directory) },
+                )
+                DkThumbnail(icon = Icons.Default.FolderOpen, size = EntryThumbnailSize)
+            }
+        },
         trailing = { DkIcon(icon = Icons.Default.ChevronRight, size = 16.dp) },
-        onClick = onOpen?.let { { it(directory) } },
+        onClick = if (toggle != null) {
+            { toggle(directory) }
+        } else {
+            open
+        },
+        onLongClick = when {
+            toggle != null -> open
+            selection == null -> onLongClick?.let { { it(directory) } }
+            else -> null
+        },
     )
 }
 
@@ -150,7 +183,7 @@ private fun FileBrowserSelectableListPreview() {
             ),
             onFileClick = {},
             selection = FileBrowserSelection(
-                selected = setOf(SampleImage.id),
+                selected = setOf(SampleImage.indexedKey),
                 onToggle = {},
             ),
         )
@@ -158,7 +191,7 @@ private fun FileBrowserSelectableListPreview() {
 }
 
 private val SampleImage = FileBrowserUi.File(
-    id = "1",
+    key = FileKey(fileId = "1", sourceId = "camera"),
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
     kind = FileKindUi.Image,
@@ -169,7 +202,7 @@ private val SampleImage = FileBrowserUi.File(
 )
 
 private val SampleDocument = FileBrowserUi.File(
-    id = "2",
+    key = FileKey(fileId = "2", sourceId = "camera"),
     path = "primary/Documents/report.pdf",
     name = "report.pdf",
     kind = FileKindUi.Document,

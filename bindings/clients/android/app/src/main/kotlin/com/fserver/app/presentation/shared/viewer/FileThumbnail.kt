@@ -50,8 +50,7 @@ fun FileThumbnail(
 
 /** What Coil loads for [this] - see [FileImageFetcher]. */
 internal fun FileBrowserUi.File.imageModel(acceptCache: Boolean = true): FileImage = FileImage(
-    sourceId = sourceId,
-    fileId = id,
+    file = key,
     locator = locator,
     kind = kind,
     mimeType = mimeTypeOf(name),
@@ -101,7 +100,7 @@ internal fun Modifier.fileViewerContent(
 
 /** The viewer shows this as a placeholder while the full-size image decodes. */
 internal val FileBrowserUi.File.thumbnailCacheKey: String
-    get() = "thumbnail:$sourceId:$id:${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}"
+    get() = "thumbnail:${key?.sourceId}:${key?.fileId ?: locator}:${modifiedAt?.toEpochMilliseconds()}:${size?.bytes}"
 
 private val FileBrowserUi.File.sharedKey: String
     get() = "file:${locator ?: path}"

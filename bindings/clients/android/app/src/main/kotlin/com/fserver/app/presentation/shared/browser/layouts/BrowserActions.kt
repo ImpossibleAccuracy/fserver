@@ -16,4 +16,5 @@ internal class BrowserActions(
     val onFileClick: (FileBrowserUi.File) -> Unit,
     val onFileLongClick: ((FileBrowserUi.File) -> Unit)?,
     val fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
+    val onDirectoryLongClick: ((FileBrowserUi.Directory) -> Unit)? = null,
 )

@@ -13,8 +13,8 @@ fun EntryProviderScope<Destination>.filesEntry(
             navigateToSourcePick = {
                 navigator.navigate(Destination.Source.Setup.Pick())
             },
-            navigateToImageEditor = { sourceId, fileId ->
-                navigator.navigate(Destination.Files.ImageEditor(sourceId, fileId))
+            navigateToImageEditor = { file ->
+                navigator.navigate(Destination.Files.ImageEditor(file))
             },
             navigateUp = { navigator.navigateUp() },
         )

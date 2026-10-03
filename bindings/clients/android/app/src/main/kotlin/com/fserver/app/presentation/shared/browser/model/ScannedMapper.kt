@@ -35,7 +35,6 @@ private fun ScannedContent.File.toPreviewFile(): FileBrowserUi.File {
     val kind = fileKindOf(name)
 
     return FileBrowserUi.File(
-        id = locator,
         path = path,
         name = name,
         kind = kind,

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.viewer.impl
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
@@ -17,8 +18,7 @@ import kotlin.time.Instant
  */
 internal data class FileImage(
     /** Null for a file no source holds yet - a scan - which is read straight from [locator]. */
-    val sourceId: String?,
-    val fileId: String,
+    val file: FileKey?,
     /** Null once the bytes are gone: only the preview kept at eviction is left. */
     val locator: String?,
     val kind: FileKindUi,
@@ -29,7 +29,11 @@ internal data class FileImage(
 ) {
     /** One per file whatever its version, so a new one replaces the old. */
     val cacheKey: String
-        get() = if (sourceId != null) "file:$sourceId/$fileId" else "path:$locator"
+        get() = if (file != null) "file:${file.sourceId}/${file.fileId}" else "path:$locator"
+
+    /** What a log line calls it. */
+    val label: String?
+        get() = file?.fileId ?: locator
 }
 
 /** Same for every view of one file's content: tile, viewer, eviction preview. */

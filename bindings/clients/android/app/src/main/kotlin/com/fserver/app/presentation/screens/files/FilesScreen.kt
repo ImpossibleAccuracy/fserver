@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.files
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import com.fserver.app.presentation.composable.ObserveEffects
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,7 +80,7 @@ fun FilesScreen(
     key: Destination.Files,
     viewModel: FilesViewModel = koinViewModel { parametersOf(key) },
     navigateToSourcePick: () -> Unit,
-    navigateToImageEditor: (sourceId: String, fileId: String) -> Unit,
+    navigateToImageEditor: (FileKey) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -106,28 +108,37 @@ private fun FilesScreenContent(
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
     navigateToSourcePick: () -> Unit,
-    navigateToImageEditor: (sourceId: String, fileId: String) -> Unit,
+    navigateToImageEditor: (FileKey) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val opened = state.openedDirectory
     var showFilters by rememberSaveable { mutableStateOf(false) }
-    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
-    var deleting by remember { mutableStateOf<Set<String>?>(null) }
+    var renaming by rememberSaveable(stateSaver = FileKeySaver) { mutableStateOf<FileKey?>(null) }
+    var deleting by remember { mutableStateOf<Set<FileKey>?>(null) }
 
-    val onFileAction = { action: FilesState.FileActionUi, entryIds: Set<String> ->
+    val onFileAction = { action: FilesState.FileActionUi, files: Set<FileKey> ->
         when (action) {
             FilesState.FileActionUi.Edit -> {
-                val file = state.file(entryIds.single())
-                val sourceId = file?.sourceId
-                if (sourceId != null) {
-                    onIntent(FilesIntent.EditClosed)
-                    navigateToImageEditor(sourceId, file.id)
-                }
+                onIntent(FilesIntent.EditClosed)
+                navigateToImageEditor(files.single())
             }
-            FilesState.FileActionUi.Rename -> renaming = entryIds.single()
-            FilesState.FileActionUi.Pin -> onIntent(FilesIntent.PinRequested(entryIds, pinned = true))
-            FilesState.FileActionUi.Unpin -> onIntent(FilesIntent.PinRequested(entryIds, pinned = false))
-            FilesState.FileActionUi.Delete -> deleting = entryIds
+            FilesState.FileActionUi.Rename -> renaming = files.single()
+            FilesState.FileActionUi.Pin -> onIntent(FilesIntent.PinRequested(files, pinned = true))
+            FilesState.FileActionUi.Unpin -> onIntent(FilesIntent.PinRequested(files, pinned = false))
+            FilesState.FileActionUi.Delete -> deleting = files
+        }
+    }
+
+    val onSelectionAction = { action: FilesState.FileActionUi ->
+        when {
+            action == FilesState.FileActionUi.Pin || action == FilesState.FileActionUi.Unpin -> onIntent(
+                FilesIntent.PinRequested(state.selectionPinTargets, pinned = action == FilesState.FileActionUi.Pin)
+            )
+
+            state.selectedFolders.isEmpty() -> onFileAction(action, state.selected)
+
+            // TODO: rename and delete of folders - FilesController has no folder operations yet.
+            else -> Unit
         }
     }
 
@@ -140,12 +151,12 @@ private fun FilesScreenContent(
             ) { editing ->
                 if (editing) {
                     SelectionTopBar(
-                        title = stringResource(R.string.files_selected, state.selected.size),
+                        title = stringResource(R.string.files_selected, state.selectedCount),
                         onClose = { onIntent(FilesIntent.EditClosed) },
                         actions = {
                             FileActionsMenu(
                                 actions = state.selectionActions,
-                                onAction = { onFileAction(it, state.selected) },
+                                onAction = onSelectionAction,
                             )
                         },
                     )
@@ -194,23 +205,23 @@ private fun FilesScreenContent(
 
     BackHandler(enabled = state.editing) { onIntent(FilesIntent.EditClosed) }
 
-    renaming?.let { entryId ->
+    renaming?.let { file ->
         TextEditorDialog(
             title = stringResource(R.string.files_rename_title),
             label = stringResource(R.string.files_rename_label),
-            initialValue = state.file(entryId)?.name.orEmpty(),
+            initialValue = state.file(file)?.name.orEmpty(),
             onDismiss = { renaming = null },
             onConfirm = {
-                onIntent(FilesIntent.RenameConfirmed(entryId, it))
+                onIntent(FilesIntent.RenameConfirmed(file, it))
                 renaming = null
             },
         )
     }
 
-    deleting?.let { entryIds ->
+    deleting?.let { files ->
         DeleteFilesDialog(
-            count = entryIds.size,
-            onConfirm = { onIntent(FilesIntent.DeleteConfirmed(entryIds)) },
+            count = files.size,
+            onConfirm = { onIntent(FilesIntent.DeleteConfirmed(files)) },
             onDismiss = { deleting = null },
         )
     }
@@ -250,7 +261,7 @@ private fun FilesContent(
     contentPadding: PaddingValues,
     state: FilesState,
     onIntent: (FilesIntent) -> Unit,
-    onFileAction: (FilesState.FileActionUi, Set<String>) -> Unit,
+    onFileAction: (FilesState.FileActionUi, Set<FileKey>) -> Unit,
     navigateToSourcePick: () -> Unit,
 ) {
     val opened = state.openedDirectory
@@ -314,19 +325,23 @@ private fun FilesContent(
                         selection = if (state.editing) {
                             FileBrowserSelection(
                                 selected = state.selected,
-                                onToggle = { onIntent(FilesIntent.EntryToggled(it.id)) },
+                                onToggle = { onIntent(FilesIntent.EntryToggled(it.indexedKey)) },
+                                selectedDirectories = state.selectedFolders,
+                                onToggleDirectory = { onIntent(FilesIntent.FolderToggled(it.path)) },
                             )
                         } else {
                             null
                         },
-                        onFileClick = { onIntent(FilesIntent.EntryClicked(it.id)) },
-                        onFileLongClick = { onIntent(FilesIntent.EntryLongPressed(it.id)) },
+                        onFileClick = { onIntent(FilesIntent.EntryClicked(it.indexedKey)) },
+                        onFileLongClick = { onIntent(FilesIntent.EntryLongPressed(it.indexedKey)) },
+                        onDirectoryLongClick = { onIntent(FilesIntent.FolderLongPressed(it.path)) },
                         fileMenu = { file ->
-                            val actions = state.actionsFor(file.id)
+                            val key = file.indexedKey
+                            val actions = state.actionsFor(key)
                             if (actions.isNotEmpty()) {
                                 FileActionsMenu(
                                     actions = actions,
-                                    onAction = { onFileAction(it, setOf(file.id)) },
+                                    onAction = { onFileAction(it, setOf(key)) },
                                 )
                             }
                         },
@@ -416,8 +431,14 @@ private fun FilesState.filterSummary(): String? = listOfNotNull(
         FilesState.FilterUi.All -> null
         FilesState.FilterUi.Local -> stringResource(R.string.files_filter_local)
         FilesState.FilterUi.Cloud -> stringResource(R.string.files_filter_cloud)
+        FilesState.FilterUi.Pinned -> stringResource(R.string.files_filter_pinned)
     },
 ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+
+private val FileKeySaver = Saver<FileKey?, ArrayList<String>>(
+    save = { key -> key?.let { arrayListOf(it.fileId, it.sourceId) } },
+    restore = { FileKey(fileId = it[0], sourceId = it[1]) },
+)
 
 /** [value], or the last non-null one it had: what an exit animation keeps drawing. */
 @Composable
@@ -437,6 +458,7 @@ private val FilesState.EmptyReasonUi.titleRes: Int
         FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_title
         FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_title
         FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_title
+        FilesState.EmptyReasonUi.NoPinnedFiles -> R.string.files_empty_pinned_title
         FilesState.EmptyReasonUi.NoSourceFiles -> R.string.files_empty_source_title
     }
 
@@ -446,6 +468,7 @@ private val FilesState.EmptyReasonUi.bodyRes: Int
         FilesState.EmptyReasonUi.NoFiles -> R.string.files_empty_no_files_body
         FilesState.EmptyReasonUi.NoLocalFiles -> R.string.files_empty_local_body
         FilesState.EmptyReasonUi.NoCloudFiles -> R.string.files_empty_cloud_body
+        FilesState.EmptyReasonUi.NoPinnedFiles -> R.string.files_empty_pinned_body
         FilesState.EmptyReasonUi.NoSourceFiles -> R.string.files_empty_source_body
     }
 
@@ -460,7 +483,7 @@ private fun FilesScreenPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
-            navigateToImageEditor = { _, _ -> },
+            navigateToImageEditor = {},
             navigateUp = {},
         )
     }
@@ -480,7 +503,7 @@ private fun FilesScreenFolderPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
-            navigateToImageEditor = { _, _ -> },
+            navigateToImageEditor = {},
             navigateUp = {},
         )
     }
@@ -501,7 +524,7 @@ private fun FilesScreenEmptyPreview() {
             ),
             onIntent = {},
             navigateToSourcePick = {},
-            navigateToImageEditor = { _, _ -> },
+            navigateToImageEditor = {},
             navigateUp = {},
         )
     }
@@ -517,11 +540,11 @@ private fun FilesScreenSelectingPreview() {
                 entries = FilesState.SampleEntries,
                 openedPath = "/DCIM",
                 editing = true,
-                selected = setOf(FileBrowserUi.SampleFiles[1].id),
+                selected = setOf(FileBrowserUi.SampleFiles[1].indexedKey),
             ),
             onIntent = {},
             navigateToSourcePick = {},
-            navigateToImageEditor = { _, _ -> },
+            navigateToImageEditor = {},
             navigateUp = {},
         )
     }

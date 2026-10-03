@@ -200,7 +200,7 @@ private fun TransferItem(
 
         transfer.files.forEach { file ->
             BrowserFileRow(
-                file = file.toBrowserFile(transfer.id),
+                file = file.toBrowserFile(),
                 selection = null,
                 onFileClick = { if (file.openLocator != null) opener.open(it) },
                 onFileLongClick = null,
@@ -246,8 +246,7 @@ private fun TransfersState.StatusUi.label(outgoing: Boolean): String = when (thi
 }
 
 // Only a received file carries a locator: the thumbnail and the viewer both read it.
-private fun TransfersState.FileUi.toBrowserFile(transferId: String) = FileBrowserUi.File(
-    id = "$transferId/$index",
+private fun TransfersState.FileUi.toBrowserFile() = FileBrowserUi.File(
     path = name,
     name = name,
     kind = fileKindOf(name),

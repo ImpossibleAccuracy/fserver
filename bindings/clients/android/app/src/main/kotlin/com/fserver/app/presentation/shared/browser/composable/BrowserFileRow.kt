@@ -68,7 +68,7 @@ internal fun BrowserFileRow(
                 if (sync is FileBrowserUi.File.Sync.Receiving) {
                     DkInlineSpinner(progress = sync.progress)
                 } else {
-                    RemoteOnlyBadge(file = file)
+                    FileStateBadge(file = file)
                 }
                 if (selection == null) menu?.invoke(file)
             }

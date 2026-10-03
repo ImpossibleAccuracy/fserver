@@ -22,7 +22,7 @@ import java.io.File
  * by path goes through `FileProvider`, a content URI as is.
  */
 internal fun Context.openInSystemViewer(file: FileBrowserUi.File) {
-    val uri = file.sourceId?.let { DocumentsContract.buildDocumentUri(OwnDocumentsAuthority, DocumentIds.of(it, file.path)) }
+    val uri = file.key?.let { DocumentsContract.buildDocumentUri(OwnDocumentsAuthority, DocumentIds.of(it.sourceId, file.path)) }
         ?: file.locator?.let(::shareableUri)
     if (uri == null) {
         Toast.makeText(this, R.string.file_viewer_open_failed, Toast.LENGTH_SHORT).show()

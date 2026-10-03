@@ -268,6 +268,7 @@
     <string name="files_filter_all">All</string>
     <string name="files_filter_local">Local</string>
     <string name="files_filter_cloud">Cloud</string>
+    <string name="files_filter_pinned">Pinned</string>
     <string name="files_selected">%1$d selected</string>
     <string name="files_file_actions">File actions</string>
     <string name="files_action_rename">Rename</string>
@@ -335,6 +336,8 @@
     <string name="files_empty_local_body">No synced file is stored locally right now. Clear the filter to see what the other devices hold.</string>
     <string name="files_empty_cloud_title">Nothing on other devices</string>
     <string name="files_empty_cloud_body">Every synced file is already on this phone. Clear the filter to see them.</string>
+    <string name="files_empty_pinned_title">Nothing pinned</string>
+    <string name="files_empty_pinned_body">Pinned files stay on this phone and are never offloaded. Pin one from its menu.</string>
     <string name="files_empty_source_title">Nothing in %1$s</string>
     <string name="files_empty_source_body">This source has no synced files yet. Clear the filter to see the rest.</string>
     <string name="files_sort">Sort</string>

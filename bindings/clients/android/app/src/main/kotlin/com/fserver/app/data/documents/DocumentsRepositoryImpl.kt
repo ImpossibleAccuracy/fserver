@@ -1,5 +1,6 @@
 package com.fserver.app.data.documents
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import android.content.Context
 import android.graphics.Bitmap
 import coil3.SingletonImageLoader
@@ -102,8 +103,7 @@ private fun SourceEntry.shows(entry: SyncFileEntry): Boolean =
 
 /** The same Coil model the app's own tiles load, so they share decoders, cache and kept previews. */
 private fun SyncFileEntry.imageModel() = FileImage(
-    sourceId = sourceId,
-    fileId = fileId,
+    file = FileKey(fileId = fileId, sourceId = sourceId),
     locator = locator,
     kind = fileKindOf(path),
     mimeType = mimeTypeOf(path),

@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.files.model
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.presentation.shared.browser.model.FileSortUi
 
 sealed interface FilesIntent {
@@ -8,7 +9,7 @@ sealed interface FilesIntent {
         val sourceId: String?,
         val filter: FilesState.FilterUi,
     ) : FilesIntent
-    data class EntryClicked(val entryId: String) : FilesIntent
+    data class EntryClicked(val file: FileKey) : FilesIntent
     data object RefreshRequested : FilesIntent
 
     data class FolderOpened(val path: String) : FilesIntent
@@ -18,11 +19,13 @@ sealed interface FilesIntent {
     data object FolderClosed : FilesIntent
     data class SortSelected(val sort: FileSortUi) : FilesIntent
 
-    data class EntryLongPressed(val entryId: String) : FilesIntent
-    data class EntryToggled(val entryId: String) : FilesIntent
+    data class EntryLongPressed(val file: FileKey) : FilesIntent
+    data class EntryToggled(val file: FileKey) : FilesIntent
+    data class FolderLongPressed(val path: String) : FilesIntent
+    data class FolderToggled(val path: String) : FilesIntent
     data object EditClosed : FilesIntent
 
-    data class RenameConfirmed(val entryId: String, val newName: String) : FilesIntent
-    data class DeleteConfirmed(val entryIds: Set<String>) : FilesIntent
-    data class PinRequested(val entryIds: Set<String>, val pinned: Boolean) : FilesIntent
+    data class RenameConfirmed(val file: FileKey, val newName: String) : FilesIntent
+    data class DeleteConfirmed(val files: Set<FileKey>) : FilesIntent
+    data class PinRequested(val files: Set<FileKey>, val pinned: Boolean) : FilesIntent
 }

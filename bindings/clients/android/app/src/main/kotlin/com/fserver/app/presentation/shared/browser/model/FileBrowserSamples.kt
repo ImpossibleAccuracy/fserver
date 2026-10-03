@@ -8,7 +8,7 @@ import kotlin.time.Instant
 val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
     get() = listOf(
         FileBrowserUi.File(
-            id = "camera",
+            key = FileKey(fileId = "camera", sourceId = "camera"),
             path = "/DCIM/Camera",
             name = "Camera",
             kind = FileKindUi.Folder,
@@ -17,7 +17,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             extensionLabel = null,
         ),
         FileBrowserUi.File(
-            id = "img-0001",
+            key = FileKey(fileId = "img-0001", sourceId = "camera"),
             path = "/DCIM/Camera/IMG_0001.jpg",
             name = "IMG_0001.jpg",
             kind = FileKindUi.Image,
@@ -25,10 +25,11 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             size = FileSize(4_210_000),
             modifiedAt = Instant.fromEpochMilliseconds(1_757_000_000_000),
             locations = setOf(FileBrowserUi.File.Location.Local, FileBrowserUi.File.Location.Remote),
+            isPinned = true,
             extensionLabel = null,
         ),
         FileBrowserUi.File(
-            id = "report",
+            key = FileKey(fileId = "report", sourceId = "camera"),
             path = "/Documents/report.pdf",
             name = "report.pdf",
             kind = FileKindUi.Document,
@@ -39,7 +40,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             extensionLabel = "PDF",
         ),
         FileBrowserUi.File(
-            id = "backup",
+            key = FileKey(fileId = "backup", sourceId = "camera"),
             path = "/Backups/laptop-2026-08.zip",
             name = "laptop-2026-08.zip",
             kind = FileKindUi.Other,
@@ -50,7 +51,7 @@ val FileBrowserUi.Companion.SampleFiles: List<FileBrowserUi.File>
             extensionLabel = "ZIP",
         ),
         FileBrowserUi.File(
-            id = "talk",
+            key = FileKey(fileId = "talk", sourceId = "camera"),
             path = "/Music/standup.m4a",
             name = "standup.m4a",
             kind = FileKindUi.Audio,

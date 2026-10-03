@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +97,12 @@ fun FilesFilterSheet(
                     selected = draftFilter == FilesState.FilterUi.Cloud,
                     onClick = { draftFilter = FilesState.FilterUi.Cloud },
                     icon = Icons.Default.Cloud,
+                )
+                DkFilterChip(
+                    text = stringResource(R.string.files_filter_pinned),
+                    selected = draftFilter == FilesState.FilterUi.Pinned,
+                    onClick = { draftFilter = FilesState.FilterUi.Pinned },
+                    icon = Icons.Default.PushPin,
                 )
             }
 

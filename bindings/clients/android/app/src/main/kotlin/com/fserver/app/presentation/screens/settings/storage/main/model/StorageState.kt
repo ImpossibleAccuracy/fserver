@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.settings.storage.main.model
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.presentation.composable.model.PeerUi
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.LinkDirectionUi
@@ -148,7 +149,7 @@ data class StorageState(
                     bytes = 36_000_000_000,
                     previews = List(5) { index ->
                         FileBrowserUi.File(
-                            id = "$index",
+                            key = FileKey(fileId = "$index", sourceId = "camera"),
                             path = "Camera/IMG_$index.jpg",
                             name = "IMG_$index.jpg",
                             kind = FileKindUi.Image,

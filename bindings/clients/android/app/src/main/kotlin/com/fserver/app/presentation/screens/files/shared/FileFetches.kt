@@ -1,6 +1,8 @@
 package com.fserver.app.presentation.screens.files.shared
 
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.FileKey
+import com.fserver.app.presentation.shared.browser.model.key
 import com.fserver.core.files.SyncFileEntry
 
 class FileFetches internal constructor(
@@ -10,7 +12,7 @@ class FileFetches internal constructor(
 ) {
     /** [entry]'s fetch, or null when none ran, or it is already here. */
     fun of(entry: SyncFileEntry): FileBrowserUi.File.Sync? {
-        return when (val key = FileKey(entry.sourceId, entry.fileId)) {
+        return when (val key = entry.key) {
             in receiving -> FileBrowserUi.File.Sync.Receiving(receiving[key])
             in asked -> FileBrowserUi.File.Sync.Receiving()
             in failed if entry.isRemote -> FileBrowserUi.File.Sync.Failed

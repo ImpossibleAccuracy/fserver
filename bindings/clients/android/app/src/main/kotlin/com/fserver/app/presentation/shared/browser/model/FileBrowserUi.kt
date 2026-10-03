@@ -81,9 +81,8 @@ sealed interface FileBrowserUi {
 
     @Immutable
     data class File(
-        val id: String,
-        /** The source an indexed file belongs to; null for a scan, which has none yet. */
-        val sourceId: String? = null,
+        /** The indexed file this is; null for a scan or a transfer, which no source holds yet. */
+        val key: FileKey? = null,
         override val path: String,
         override val name: String,
         val kind: FileKindUi,
@@ -98,7 +97,13 @@ sealed interface FileBrowserUi {
         val extensionLabel: String?,
         /** How a transfer of this file is getting on, where the caller tracks it. Null says nothing. */
         val sync: Sync? = null,
+        /** Exempt from eviction: the bytes stay on this device. */
+        val isPinned: Boolean = false,
     ) : PreviewContentEntry {
+        /** [key] of a file known to come from the index; fails on a scan or a transfer. */
+        val indexedKey: FileKey
+            get() = checkNotNull(key) { "$path is not an indexed file" }
+
         val isLocal: Boolean
             get() = Location.Local in locations
 

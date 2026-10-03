@@ -531,7 +531,6 @@ private fun SourceAccessPreviewPreview() {
                 preview = FileBrowserUi.PlainList(
                     files = listOf(
                         FileBrowserUi.File(
-                            id = "1",
                             path = "IMG_0001.jpg",
                             name = "IMG_0001.jpg",
                             kind = FileKindUi.Image,
@@ -540,7 +539,6 @@ private fun SourceAccessPreviewPreview() {
                             extensionLabel = null,
                         ),
                         FileBrowserUi.File(
-                            id = "2",
                             path = "notes.pdf",
                             name = "notes.pdf",
                             kind = FileKindUi.Document,

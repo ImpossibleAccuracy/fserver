@@ -90,19 +90,17 @@ fun BrowserGalleryTile(
             }
         }
 
-        if (file.isRemoteOnly) {
-            RemoteOnlyBadge(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(DkSpacing.xs)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = MaterialTheme.shapes.small,
-                    )
-                    .padding(DkSpacing.xxs),
-                file = file,
-            )
-        }
+        FileStateBadge(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(DkSpacing.xs)
+                .background(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                    shape = MaterialTheme.shapes.small,
+                )
+                .padding(DkSpacing.xxs),
+            file = file,
+        )
 
         // On the tile rather than beside it: a grid has no gutter to put a control in.
         FileCheckbox(

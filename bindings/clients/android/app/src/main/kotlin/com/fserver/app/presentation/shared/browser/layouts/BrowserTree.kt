@@ -47,6 +47,7 @@ fun BrowserTree(
     onFileClick: (FileBrowserUi.File) -> Unit,
     onFileLongClick: ((FileBrowserUi.File) -> Unit)? = null,
     fileMenu: (@Composable (FileBrowserUi.File) -> Unit)? = null,
+    onDirectoryLongClick: ((FileBrowserUi.Directory) -> Unit)? = null,
 ) {
     // A caller that does not show where the walk is still gets one, kept here instead.
     val walk = navigation ?: rememberTreeNavigation(preview)
@@ -73,6 +74,7 @@ fun BrowserTree(
                 onFileClick = onFileClick,
                 onFileLongClick = onFileLongClick,
                 fileMenu = fileMenu,
+                onDirectoryLongClick = onDirectoryLongClick,
             )
 
             if (directory?.isMediaDirectory == true) {
@@ -200,7 +202,6 @@ private val SampleVolumes = listOf(
         isVolume = true,
     ),
     FileBrowserUi.File(
-        id = "1",
         path = "primary/DCIM/Camera/IMG_0001.jpg",
         name = "IMG_0001.jpg",
         kind = FileKindUi.Image,

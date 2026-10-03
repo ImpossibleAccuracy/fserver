@@ -1,5 +1,6 @@
 package com.fserver.app.data.preview
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import android.content.Context
 import coil3.SingletonImageLoader
 import coil3.request.CachePolicy
@@ -54,8 +55,7 @@ class CoilEvictionPreviewer(
 
 /** The same model a thumbnail loads, so the preview is what the tile showed. */
 private fun EvictingFile.imageModel() = FileImage(
-    sourceId = sourceId,
-    fileId = fileId,
+    file = FileKey(fileId = fileId, sourceId = sourceId),
     locator = locator,
     kind = fileKindOf(path),
     mimeType = mimeTypeOf(path),

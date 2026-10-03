@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.screens.settings.storage.source.model
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.presentation.model.UiText
 import androidx.compose.runtime.Immutable
 import com.fserver.app.presentation.composable.model.FileKindUi
@@ -25,9 +26,9 @@ data class StorageSourceState(
     val files: List<FileBrowserUi.File> = emptyList(),
     val tree: FileBrowserUi.Tree = FileBrowserUi.Tree(),
     val editing: Boolean = false,
-    val selected: Set<String> = emptySet(),
+    val selected: Set<FileKey> = emptySet(),
     val freeBlock: FreeBlockUi? = null,
-    val refusals: Map<String, RefusalUi> = emptyMap(),
+    val refusals: Map<FileKey, RefusalUi> = emptyMap(),
 ) {
     val preview: FileBrowserUi = when {
         grouped -> tree
@@ -42,16 +43,16 @@ data class StorageSourceState(
         get() = !isLoading && exists && files.isEmpty()
 
     val selectedBytes: Long
-        get() = files.filter { it.id in selected }.sumOf { it.bytes }
+        get() = files.filter { it.key in selected }.sumOf { it.bytes }
 
     val canFree: Boolean
         get() = freeBlock == null
 
-    val freeable: Set<String>
+    val freeable: Set<FileKey>
         get() = selected - refusals.keys
 
     val freeableBytes: Long
-        get() = files.filter { it.id in freeable }.sumOf { it.bytes }
+        get() = files.filter { it.key in freeable }.sumOf { it.bytes }
 
     val selectedRefusals: Map<RefusalUi, Int>
         get() = selected.mapNotNull { refusals[it] }.groupingBy { it }.eachCount()
@@ -71,7 +72,7 @@ data class StorageSourceState(
             bytes: Long,
             sync: FileBrowserUi.File.Sync? = null,
         ) = FileBrowserUi.File(
-            id = name,
+            key = FileKey(fileId = name, sourceId = "camera"),
             path = "Camera/$name",
             name = name,
             kind = if (name.endsWith(".mp4")) FileKindUi.Video else FileKindUi.Image,
@@ -103,10 +104,10 @@ data class StorageSourceState(
 
         val SampleEditing = Sample.copy(
             editing = true,
-            selected = setOf("VID_20260814_1902.mp4", "VID_20260902_1144.mp4"),
+            selected = setOf(FileKey(fileId = "VID_20260814_1902.mp4", sourceId = "camera"), FileKey(fileId = "VID_20260902_1144.mp4", sourceId = "camera")),
             refusals = mapOf(
-                "VID_20260902_1144.mp4" to RefusalUi.NotOnPeer,
-                "VID_20260920_0915.mp4" to RefusalUi.NotOnPeer,
+                FileKey(fileId = "VID_20260902_1144.mp4", sourceId = "camera") to RefusalUi.NotOnPeer,
+                FileKey(fileId = "VID_20260920_0915.mp4", sourceId = "camera") to RefusalUi.NotOnPeer,
             ),
         )
 

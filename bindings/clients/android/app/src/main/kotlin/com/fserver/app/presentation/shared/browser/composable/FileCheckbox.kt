@@ -22,16 +22,32 @@ fun FileCheckbox(
     file: FileBrowserUi.File,
     selection: FileBrowserSelection?,
 ) {
-    AnimatedVisibility(
+    EntryCheckbox(
         modifier = modifier,
         visible = selection != null,
+        checked = selection?.isSelected(file) == true,
+        onCheckedChange = { selection?.onToggle(file) },
+    )
+}
+
+/** The tick itself, for any entry: slides in while [visible]. */
+@Composable
+internal fun EntryCheckbox(
+    modifier: Modifier = Modifier,
+    visible: Boolean,
+    checked: Boolean,
+    onCheckedChange: () -> Unit,
+) {
+    AnimatedVisibility(
+        modifier = modifier,
+        visible = visible,
         enter = expandHorizontally() + fadeIn(),
         exit = shrinkHorizontally() + fadeOut(),
     ) {
         Checkbox(
             modifier = Modifier.size(24.dp),
-            checked = selection?.isSelected(file) == true,
-            onCheckedChange = { selection?.onToggle(file) },
+            checked = checked,
+            onCheckedChange = { onCheckedChange() },
             colors = CheckboxDefaults.colors(
                 checkedColor = MaterialTheme.colorScheme.primary,
                 uncheckedColor = MaterialTheme.colorScheme.outline,

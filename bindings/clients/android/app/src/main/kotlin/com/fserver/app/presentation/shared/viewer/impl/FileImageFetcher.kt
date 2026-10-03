@@ -47,15 +47,15 @@ internal class FileImageFetcher(
     private val key = data.cacheKey
 
     override suspend fun fetch(): FetchResult {
-        val sourceId = data.sourceId
+        val key = data.file
         val file =
-            if (sourceId != null && data.locator != null) files.file(sourceId, data.fileId)
+            if (key != null && data.locator != null) files.file(key.sourceId, key.fileId)
             else null
 
-        val present = data.locator != null && (sourceId == null || file != null)
+        val present = data.locator != null && (key == null || file != null)
 
         if (!present) return kept()
-            ?: throw FileNotFoundException("No bytes or preview of ${data.fileId}")
+            ?: throw FileNotFoundException("No bytes or preview of ${data.label}")
 
         if (!data.acceptCache) return whole(file)
         return thumbnail(file)
@@ -113,9 +113,9 @@ internal class FileImageFetcher(
                         imageLoader
                     )
                 ) {
-                    "Nothing decodes ${data.fileId}"
+                    "Nothing decodes ${data.label}"
                 }
-                checkNotNull(decoder.decode()) { "Undecodable ${data.fileId}" }.image
+                checkNotNull(decoder.decode()) { "Undecodable ${data.label}" }.image
             }
         }
 
@@ -127,7 +127,7 @@ internal class FileImageFetcher(
     }
 
     private suspend fun byLocator(): FetchResult {
-        val uri = locatorUri(checkNotNull(data.locator) { "No locator for ${data.fileId}" })
+        val uri = locatorUri(checkNotNull(data.locator) { "No locator for ${data.label}" })
         val mapped = imageLoader.components.map(uri, options)
         val (fetcher, _) = checkNotNull(
             imageLoader.components.newFetcher(
@@ -171,7 +171,7 @@ internal class FileImageFetcher(
         } finally {
             retriever.release()
         }
-        checkNotNull(picture) { "No artwork in ${data.fileId}" }
+        checkNotNull(picture) { "No artwork in ${data.label}" }
 
         val sample = sampleSize(picture, maxSide)
         val decoded = BitmapFactory.decodeByteArray(
@@ -180,7 +180,7 @@ internal class FileImageFetcher(
             picture.size,
             BitmapFactory.Options().apply { inSampleSize = sample },
         )
-        checkNotNull(decoded) { "Undecodable artwork in ${data.fileId}" }
+        checkNotNull(decoded) { "Undecodable artwork in ${data.label}" }
 
         return decoded.withoutLetterbox() to (sample > 1)
     }

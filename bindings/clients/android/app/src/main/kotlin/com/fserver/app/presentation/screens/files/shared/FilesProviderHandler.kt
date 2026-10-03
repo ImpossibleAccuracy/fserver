@@ -1,6 +1,9 @@
 package com.fserver.app.presentation.screens.files.shared
 
+import com.fserver.app.presentation.shared.browser.model.key
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import com.fserver.app.presentation.shared.browser.model.FileBrowserUi
+import com.fserver.app.presentation.shared.browser.model.isPinned
 import com.fserver.app.presentation.shared.browser.model.locations
 import com.fserver.app.presentation.screens.source.shared.model.initiatorHalfOf
 import com.fserver.app.presentation.shared.error.ErrorReporter
@@ -38,7 +41,7 @@ class FilesProviderHandler(
     val fetches: Flow<FileFetches> = combine(downloading, failed, progress.transfers) { asked, failed, transfers ->
         val receiving = transfers
             .filter { it.key.direction == FileTransfer.Direction.Incoming && !it.isFinished }
-            .associate { FileKey(it.key.sourceId, it.key.fileId) to it.progress }
+            .associate { FileKey(fileId = it.key.fileId, sourceId = it.key.sourceId) to it.progress }
 
         FileFetches(receiving = receiving, asked = asked, failed = failed)
     }
@@ -51,6 +54,7 @@ class FilesProviderHandler(
     fun loadEntries(
         requiredLocation: FileBrowserUi.File.Location? = null,
         sourceIds: Set<String>? = null,
+        pinnedOnly: Boolean = false,
         rooted: Boolean = true,
     ): Flow<List<SyncFileEntry>> = combine(
         filesController.overallContent.debounce(50.milliseconds),
@@ -72,6 +76,7 @@ class FilesProviderHandler(
         entries
             .filter { sourceIds == null || it.sourceId in sourceIds }
             .filter { requiredLocation == null || requiredLocation in it.locations }
+            .filter { !pinnedOnly || it.isPinned }
             .map {
                 if (!rooted) return@map it
 
@@ -90,7 +95,7 @@ class FilesProviderHandler(
     suspend fun onItemClick(entry: SyncFileEntry) {
         if (!entry.isRemote) return openFile(entry)
 
-        val key = FileKey(entry.sourceId, entry.fileId)
+        val key = entry.key
         // A second tap while the first fetch runs must not start another transfer of the same file.
         if (key in downloading.getAndUpdate { it + key }) return
         failed.update { it - key }

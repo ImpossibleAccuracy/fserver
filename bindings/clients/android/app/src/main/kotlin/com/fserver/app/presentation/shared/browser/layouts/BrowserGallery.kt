@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.shared.browser.layouts
 
+import com.fserver.app.presentation.shared.browser.model.FileKey
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -110,7 +111,7 @@ private fun FileBrowserGalleryPreview() {
 }
 
 private val SampleImage = FileBrowserUi.File(
-    id = "1",
+    key = FileKey(fileId = "1", sourceId = "camera"),
     path = "primary/DCIM/Camera/IMG_0001.jpg",
     name = "IMG_0001.jpg",
     kind = FileKindUi.Image,
@@ -120,7 +121,7 @@ private val SampleImage = FileBrowserUi.File(
 )
 
 private val SampleAudio = FileBrowserUi.File(
-    id = "3",
+    key = FileKey(fileId = "3", sourceId = "camera"),
     path = "primary/Music/track.mp3",
     name = "track.mp3",
     kind = FileKindUi.Audio,
@@ -130,7 +131,7 @@ private val SampleAudio = FileBrowserUi.File(
 )
 
 private val SampleDocument = FileBrowserUi.File(
-    id = "2",
+    key = FileKey(fileId = "2", sourceId = "camera"),
     path = "primary/Documents/report.pdf",
     name = "report.pdf",
     kind = FileKindUi.Document,

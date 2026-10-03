@@ -170,15 +170,15 @@ private fun StorageSourceScreenContent(
                 selection = if (state.editing) {
                     FileBrowserSelection(
                         selected = state.selected,
-                        onToggle = { onIntent(StorageSourceIntent.FileToggled(it.id)) },
+                        onToggle = { onIntent(StorageSourceIntent.FileToggled(it.indexedKey)) },
                     )
                 } else {
                     null
                 },
                 contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
                 header = { SourceHeader(state = state, onIntent = onIntent) },
-                onFileClick = { onIntent(StorageSourceIntent.FileClicked(it.id)) },
-                onFileLongClick = { onIntent(StorageSourceIntent.FileLongPressed(it.id)) },
+                onFileClick = { onIntent(StorageSourceIntent.FileClicked(it.indexedKey)) },
+                onFileLongClick = { onIntent(StorageSourceIntent.FileLongPressed(it.indexedKey)) },
             )
         }
     }
