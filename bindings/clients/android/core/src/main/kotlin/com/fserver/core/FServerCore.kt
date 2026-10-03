@@ -4,6 +4,7 @@ import com.fserver.core.crypto.EncryptionController
 import com.fserver.core.crypto.internal.EncryptionMigrator
 import com.fserver.core.di.coreModule
 import com.fserver.core.disk.DiskUsageRepository
+import com.fserver.core.external.export.DataExport
 import com.fserver.core.files.FilesController
 import com.fserver.core.files.gc.GarbageCollector
 import com.fserver.core.lifecycle.LifecycleController
@@ -19,7 +20,6 @@ import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.SourcesController
 import com.fserver.core.sync.conflict.ConflictsController
 import com.fserver.core.sync.server.PeerRequestServer
-import com.fserver.core.sync.server.handler.upload.UploadStaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -100,6 +100,9 @@ class FServerCore private constructor(
 
     /** Files both sides changed, held for the user to pick a version. */
     val conflicts: ConflictsController by lazy { koin.get() }
+
+    /** Every file, its metadata and the settings, as one archive. */
+    val export: DataExport by lazy { koin.get() }
 
     /** At-rest encryption: available ciphers and per-source status. */
     val encryption: EncryptionController by lazy { koin.get() }

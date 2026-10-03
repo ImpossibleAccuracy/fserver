@@ -17,7 +17,11 @@ data class StorageState(
     val links: List<LinkUi> = emptyList(),
     val appData: List<AppDataUi> = emptyList(),
     val freeable: List<FreeableUi> = emptyList(),
+    val export: ExportUi? = null,
 ) {
+    val isExporting: Boolean
+        get() = export != null
+
     val linksBytes: Long
         get() = links.sumOf { it.bytes }
 
@@ -51,6 +55,17 @@ data class StorageState(
         val files: Int,
         val bytes: Long,
     )
+
+    @Immutable
+    data class ExportUi(
+        val files: Int = 0,
+        val totalFiles: Int = 0,
+        val writtenBytes: Long = 0,
+        val totalBytes: Long = 0,
+    ) {
+        val fraction: Float?
+            get() = if (totalBytes > 0) (writtenBytes.toFloat() / totalBytes).coerceIn(0f, 1f) else null
+    }
 
     @Immutable
     data class AppDataUi(
@@ -160,6 +175,10 @@ data class StorageState(
                     },
                 ),
             ),
+        )
+
+        val SampleExporting = Sample.copy(
+            export = ExportUi(files = 412, totalFiles = 4817, writtenBytes = 9_800_000_000, totalBytes = 58_400_000_000),
         )
 
         val SampleEmpty = StorageState(

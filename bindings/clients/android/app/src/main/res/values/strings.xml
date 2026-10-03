@@ -597,6 +597,15 @@
     <string name="about_title">About</string>
     <string name="storage_title">Phone storage</string>
     <string name="storage_links">Links</string>
+    <string name="storage_export">Export everything to an archive</string>
+    <string name="storage_export_running">Exporting</string>
+    <string name="storage_export_files">%1$d of %2$d files</string>
+    <plurals name="storage_export_done">
+        <item quantity="one">Exported %1$d file</item>
+        <item quantity="other">Exported %1$d files</item>
+    </plurals>
+    <string name="storage_export_done_skipped">Exported %1$d files, %2$d could not be read</string>
+    <string name="storage_export_failed">Export failed</string>
     <string name="storage_links_empty">No links yet. Files a link keeps on this phone will show up here.</string>
     <string name="storage_link_subtitle">%1$s · %2$s</string>
     <plurals name="storage_files">

@@ -1,6 +1,16 @@
 package com.fserver.app.presentation.screens.settings.storage.main
 
 import androidx.annotation.StringRes
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.ui.platform.LocalResources
+import com.fserver.app.presentation.composable.LocalSnackbarController
+import com.fserver.app.presentation.composable.ObserveEffects
+import com.fserver.app.presentation.designkit.DkIconButton
+import com.fserver.app.presentation.screens.settings.storage.main.composable.ExportProgressCard
+import com.fserver.app.presentation.screens.settings.storage.main.model.StorageUiEffect
+import java.time.LocalDate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,12 +64,33 @@ fun StorageScreen(
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbar = LocalSnackbarController.current
+    val resources = LocalResources.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(ArchiveMimeType),
+    ) { uri -> uri?.let { viewModel.onIntent(StorageIntent.Export(it)) } }
+
+    ObserveEffects(viewModel.uiEffects) { effect ->
+        when (effect) {
+            is StorageUiEffect.ExportFinished -> snackbar.showSnackbar(
+                if (effect.skipped == 0) {
+                    resources.getQuantityString(R.plurals.storage_export_done, effect.files, effect.files)
+                } else {
+                    resources.getString(R.string.storage_export_done_skipped, effect.files, effect.skipped)
+                }
+            )
+
+            StorageUiEffect.ExportFailed -> snackbar.showSnackbar(R.string.storage_export_failed)
+        }
+    }
 
     state?.let { state ->
         StorageScreenContent(
             modifier = modifier,
             state = state,
             onIntent = viewModel::onIntent,
+            onExport = { exportLauncher.launch(archiveName()) },
             navigateToSource = navigateToSource,
             navigateUp = navigateUp,
         )
@@ -71,6 +102,7 @@ private fun StorageScreenContent(
     modifier: Modifier = Modifier,
     state: StorageState,
     onIntent: (StorageIntent) -> Unit,
+    onExport: () -> Unit,
     navigateToSource: (String) -> Unit,
     navigateUp: () -> Unit,
 ) {
@@ -82,6 +114,14 @@ private fun StorageScreenContent(
             DkTopBar(
                 title = stringResource(R.string.storage_title),
                 onBack = navigateUp,
+                actions = {
+                    DkIconButton(
+                        onClick = onExport,
+                        icon = Icons.Outlined.Archive,
+                        enabled = !state.isExporting,
+                        contentDescription = stringResource(R.string.storage_export),
+                    )
+                },
             )
         },
     ) { innerPadding ->
@@ -97,6 +137,18 @@ private fun StorageScreenContent(
             }
 
             if (state.isLoading) return@LazyColumn
+
+            state.export?.let { export ->
+                item(key = "export") {
+                    ExportProgressCard(
+                        modifier = Modifier.padding(
+                            horizontal = DkSpacing.screenPadding,
+                            vertical = DkSpacing.lg,
+                        ),
+                        export = export,
+                    )
+                }
+            }
 
             if (state.showsFreeUp) {
                 item(key = "free") {
@@ -240,6 +292,10 @@ private fun EmptyCaption(
     )
 }
 
+private fun archiveName(): String = "fserver-export-${LocalDate.now()}.zip"
+
+private const val ArchiveMimeType = "application/zip"
+
 @get:StringRes
 private val StorageState.AppDataKindUi.titleRes: Int
     get() = when (this) {
@@ -267,6 +323,21 @@ private fun StorageScreenPreview() {
         StorageScreenContent(
             state = StorageState.Sample,
             onIntent = {},
+            onExport = {},
+            navigateToSource = {},
+            navigateUp = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun StorageScreenExportingPreview() {
+    FServerTheme {
+        StorageScreenContent(
+            state = StorageState.SampleExporting,
+            onIntent = {},
+            onExport = {},
             navigateToSource = {},
             navigateUp = {},
         )
@@ -280,6 +351,7 @@ private fun StorageScreenEmptyPreview() {
         StorageScreenContent(
             state = StorageState.SampleEmpty,
             onIntent = {},
+            onExport = {},
             navigateToSource = {},
             navigateUp = {},
         )

@@ -8,6 +8,7 @@ import com.fserver.app.data.AppSettingsStore
 import com.fserver.app.data.AuthManagerImpl
 import com.fserver.app.data.documents.DocumentFetches
 import com.fserver.app.data.documents.DocumentsRepositoryImpl
+import com.fserver.app.data.export.ArchiveExporter
 import com.fserver.app.data.oneshot.OneShotNotifications
 import com.fserver.app.data.oneshot.OneShotNotifier
 import com.fserver.app.data.oneshot.OneShotRepositoryImpl
@@ -39,6 +40,8 @@ internal val dataModule = module {
 
     singleOf(::DocumentsRepositoryImpl) bind DocumentsRepository::class
     singleOf(::DocumentFetches)
+
+    singleOf(::ArchiveExporter)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "fserver_prefs")
