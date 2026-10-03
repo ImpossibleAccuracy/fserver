@@ -10,6 +10,7 @@ fun EntryProviderScope<Destination>.activityEntry(
     entry<Destination.Activity> {
         ActivityScreen(
             navigateToSyncRequests = { navigator.navigate(Destination.Source.Request.List) },
+            navigateToHistory = { navigator.navigate(Destination.Activity.History()) },
         )
     }
 }

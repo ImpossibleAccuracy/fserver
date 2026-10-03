@@ -6,6 +6,7 @@ import com.fserver.app.presentation.model.UiText
 import com.fserver.app.presentation.screens.source.shared.model.SourceEndpointUi
 import com.fserver.app.presentation.screens.source.shared.model.SourceModeUi
 import com.fserver.app.presentation.shared.export.model.ExportUi
+import com.fserver.app.presentation.shared.journal.model.JournalEntryUi
 import com.fserver.core.network.device.model.DeviceKind
 
 @Immutable
@@ -27,7 +28,7 @@ data class SourceDetailsState(
     val sendNow: SendNowUi? = null,
 
     val attention: List<AttentionUi> = emptyList(),
-    val history: List<HistoryUi> = emptyList(),
+    val history: List<JournalEntryUi> = emptyList(),
     val export: ExportUi? = null,
 ) {
     val canExport: Boolean
@@ -88,24 +89,12 @@ data class SourceDetailsState(
             val usedFraction: Float
                 get() = (usedPercent / 100f).coerceIn(0f, 1f)
         }
+
+        data class Issue(val entry: JournalEntryUi) : AttentionUi
     }
 
-    @Immutable
-    data class HistoryUi(
-        val id: String,
-        val dateLabel: String,
-        val detail: String,
-        val timeLabel: String,
-        val warning: Boolean = false,
-    )
-
     companion object {
-        val SampleHistory = listOf(
-            HistoryUi("1", "Today", "Sent 14 · 212 MB", "9:12"),
-            HistoryUi("2", "Yesterday", "Sent 36 · 1.1 GB", "21:40"),
-            HistoryUi("3", "Sep 23", "Skipped 2 — connection dropped", "18:05", warning = true),
-            HistoryUi("4", "Sep 20", "First upload · 3 354 files", "19:02"),
-        )
+        val SampleHistory = JournalEntryUi.Samples
 
         val SampleAutoUpload = SourceDetailsState(
             isLoading = false,
@@ -157,11 +146,9 @@ data class SourceDetailsState(
             ),
             attention = listOf(
                 AttentionUi.Conflicts(2, listOf("Lease.docx", "Budget 2026.xlsx")),
+                AttentionUi.Issue(JournalEntryUi.Samples.first()),
             ),
-            history = listOf(
-                HistoryUi("1", "Today", "↑ 3 · ↓ 5 · 2 conflicts", "9:05", warning = true),
-                HistoryUi("2", "Yesterday", "↑ 12 · ↓ 4", "18:22"),
-            ),
+            history = SampleHistory.drop(1),
         )
 
         val SampleOffload = SourceDetailsState(

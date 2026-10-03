@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.source.details
 
+import com.fserver.app.presentation.shared.journal.journalFeed
+import com.fserver.app.presentation.shared.journal.model.JournalEntryUi
+import com.fserver.app.presentation.shared.journal.model.JournalKindUi
+import com.fserver.core.journal.ActivityJournal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fserver.app.data.export.ArchiveExporter
@@ -70,6 +74,7 @@ class SourceDetailsViewModel(
     networkInfoRepository: NetworkInfoRepository,
     encryptionController: EncryptionController,
     archiveExporter: ArchiveExporter,
+    private val journal: ActivityJournal,
     private val reporter: ErrorReporter,
 ) : ViewModel() {
 
@@ -102,6 +107,9 @@ class SourceDetailsViewModel(
         )
     }
 
+    private val sourceJournal = journal.journalFeed(devicesRepository, registeredSources)
+        .map { entries -> entries.filter { it.sourceId == key.sourceId } }
+
     private val encryption = registeredSources.observeById(key.sourceId).flatMapLatest { source ->
         source?.let(encryptionController::status)?.map { it.toCondition() } ?: flowOf(null)
     }
@@ -131,6 +139,7 @@ class SourceDetailsViewModel(
     ) { state, encryption ->
         state.copy(conditions = state.conditions + listOfNotNull(encryption))
     }.combine(exportTrigger.running) { state, export -> state.copy(export = export) }
+        .combine(sourceJournal) { state, entries -> state.withJournal(entries) }
         .stateInScreen(viewModelScope, SourceDetailsState())
 
     fun onIntent(intent: SourceDetailsIntent) {
@@ -143,6 +152,13 @@ class SourceDetailsViewModel(
 
             SourceDetailsIntent.DeleteConfirmed -> delete()
             is SourceDetailsIntent.Export -> exportTrigger.run(intent.uri, setOf(key.sourceId))
+            is SourceDetailsIntent.IssueDismissed -> dismiss(intent.entryId)
+        }
+    }
+
+    private fun dismiss(entryId: Long) {
+        viewModelScope.launch {
+            journal.solve(entryId).onFailure { reporter.report(it, "Could not dismiss journal entry $entryId") }
         }
     }
 
@@ -164,6 +180,21 @@ private fun EncryptionStatus.toCondition(): ConditionUi? = when (this) {
         if (toward is EncryptionPolicy.Required) ConditionUi.Encrypting(remaining) else ConditionUi.Decrypting(
             remaining
         )
+}
+
+private const val RecentHistory = 5
+
+private fun SourceDetailsState.withJournal(entries: List<JournalEntryUi>): SourceDetailsState {
+    if (isLoading) return this
+
+    val issues = entries
+        .filter { it.isOpenIssue && it.kind != JournalKindUi.Conflict }
+        .map { SourceDetailsState.AttentionUi.Issue(it) }
+
+    return copy(
+        attention = attention + issues,
+        history = entries.filterNot { it.isOpenIssue }.take(RecentHistory),
+    )
 }
 
 private data class Issues(
@@ -259,7 +290,6 @@ private fun SourceEntry.toState(
                 bytes = it.bytes ?: 0
             )
         },
-        history = SourceDetailsState.SampleHistory,
     )
 }
 

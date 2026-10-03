@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.device.details
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.getValue
 import com.fserver.app.presentation.composable.ObserveEffects
 import com.fserver.app.presentation.designkit.DkStatusDot
@@ -48,6 +52,7 @@ fun DeviceDetailsScreen(
     key: Destination.Settings.DeviceDetails,
     viewModel: DeviceDetailsViewModel = koinViewModel { parametersOf(key) },
     navigatePairing: (PeerLocator) -> Unit,
+    navigateToHistory: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -62,6 +67,7 @@ fun DeviceDetailsScreen(
     DeviceDetailsScreen(
         state = state,
         onIntent = viewModel::onIntent,
+        navigateToHistory = navigateToHistory,
         navigateUp = navigateUp,
     )
 }
@@ -76,6 +82,7 @@ fun DeviceDetailsScreen(
 private fun DeviceDetailsScreen(
     state: DeviceDetailsState,
     onIntent: (DeviceDetailsIntent) -> Unit,
+    navigateToHistory: () -> Unit,
     navigateUp: () -> Unit,
 ) {
     DkScaffold(
@@ -84,6 +91,15 @@ private fun DeviceDetailsScreen(
             DkTopBar(
                 title = state.name,
                 onBack = navigateUp,
+                actions = {
+                    IconButton(onClick = navigateToHistory) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = stringResource(R.string.journal_history_title),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
             )
         },
         bottomBar = {
@@ -230,6 +246,7 @@ private fun DeviceDetailsScreenPreview() {
                 isTrusted = true,
             ),
             onIntent = {},
+            navigateToHistory = {},
             navigateUp = {},
         )
     }

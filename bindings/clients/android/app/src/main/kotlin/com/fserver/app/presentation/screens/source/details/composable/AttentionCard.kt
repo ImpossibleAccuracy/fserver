@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.screens.source.details.composable
 
+import com.fserver.app.presentation.designkit.DkGhostButton
+import com.fserver.app.presentation.shared.journal.model.icon
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,7 @@ fun AttentionCard(
     attention: AttentionUi,
     peerName: String,
     onResolveConflicts: () -> Unit,
+    onDismissIssue: (entryId: Long) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
 
@@ -83,6 +86,17 @@ fun AttentionCard(
                 if (attention.fileNames.isNotEmpty()) {
                     DkCaption(text = attention.fileNames.joinToString(", "))
                 }
+            }
+
+            is AttentionUi.Issue -> {
+                Title(icon = attention.entry.kind.icon, text = attention.entry.title.asString())
+                if (attention.entry.details.isNotEmpty()) {
+                    Body(text = attention.entry.details.map { it.asString() }.joinToString(" · "))
+                }
+                DkGhostButton(
+                    text = stringResource(R.string.action_dismiss),
+                    onClick = { onDismissIssue(attention.entry.id) },
+                )
             }
 
             is AttentionUi.PeerAlmostFull -> {
@@ -152,16 +166,19 @@ private fun AttentionCardPreview() {
                 attention = AttentionUi.Conflicts(2, listOf("Lease.docx", "Budget 2026.xlsx")),
                 peerName = "Laptop",
                 onResolveConflicts = {},
+                onDismissIssue = {},
             )
             AttentionCard(
                 attention = AttentionUi.LostOnPeer(1, listOf("IMG_0412.jpg")),
                 peerName = "Server",
                 onResolveConflicts = {},
+                onDismissIssue = {},
             )
             AttentionCard(
                 attention = AttentionUi.PeerAlmostFull(usedPercent = 92f, files = 8940, bytes = 36_000_000_000),
                 peerName = "Server",
                 onResolveConflicts = {},
+                onDismissIssue = {},
             )
         }
     }

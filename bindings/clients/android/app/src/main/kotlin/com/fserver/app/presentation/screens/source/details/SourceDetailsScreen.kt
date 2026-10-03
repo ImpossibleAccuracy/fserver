@@ -78,6 +78,7 @@ fun SourceDetailsScreen(
     key: Destination.Files.SourceDetails,
     viewModel: SourceDetailsViewModel = koinViewModel { parametersOf(key) },
     navigateToActivity: () -> Unit,
+    navigateToHistory: () -> Unit,
     navigateToFiles: (deviceId: String) -> Unit,
     navigateToDevice: (deviceId: String) -> Unit,
     navigateToEdit: () -> Unit,
@@ -99,6 +100,7 @@ fun SourceDetailsScreen(
         onIntent = viewModel::onIntent,
         onExport = { launchExport(state.label) },
         navigateToActivity = navigateToActivity,
+        navigateToHistory = navigateToHistory,
         navigateToFiles = navigateToFiles,
         navigateToDevice = navigateToDevice,
         navigateToEdit = navigateToEdit,
@@ -113,6 +115,7 @@ private fun SourceDetailsScreenContent(
     onIntent: (SourceDetailsIntent) -> Unit,
     onExport: () -> Unit,
     navigateToActivity: () -> Unit,
+    navigateToHistory: () -> Unit,
     navigateToFiles: (deviceId: String) -> Unit,
     navigateToDevice: (deviceId: String) -> Unit,
     navigateToEdit: () -> Unit,
@@ -216,6 +219,7 @@ private fun SourceDetailsScreenContent(
                                 attention = attention,
                                 peerName = state.peer.name,
                                 onResolveConflicts = navigateToActivity,
+                                onDismissIssue = { onIntent(SourceDetailsIntent.IssueDismissed(it)) },
                             )
                         }
                     }
@@ -228,8 +232,8 @@ private fun SourceDetailsScreenContent(
                     )
                     SourceHistory(
                         history = state.history,
-                        onEntryClick = navigateToActivity,
-                        onFullHistoryClick = navigateToActivity,
+                        onEntryClick = navigateToHistory,
+                        onFullHistoryClick = navigateToHistory,
                     )
                 }
 
@@ -408,6 +412,7 @@ private fun SourceDetailsScreenAutoUploadPreview() {
             onIntent = {},
             onExport = {},
             navigateToActivity = {},
+            navigateToHistory = {},
             navigateToFiles = {},
             navigateToDevice = {},
             navigateToEdit = {},
@@ -425,6 +430,7 @@ private fun SourceDetailsScreenSyncPreview() {
             onIntent = {},
             onExport = {},
             navigateToActivity = {},
+            navigateToHistory = {},
             navigateToFiles = {},
             navigateToDevice = {},
             navigateToEdit = {},
@@ -442,6 +448,7 @@ private fun SourceDetailsScreenOffloadPreview() {
             onIntent = {},
             onExport = {},
             navigateToActivity = {},
+            navigateToHistory = {},
             navigateToFiles = {},
             navigateToDevice = {},
             navigateToEdit = {},

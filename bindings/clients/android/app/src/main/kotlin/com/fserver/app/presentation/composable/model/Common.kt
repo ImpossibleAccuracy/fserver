@@ -110,6 +110,14 @@ private val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 /** A plain localized date, "12 Jun 2026". */
 fun Instant.dateLabel(): String = dateFormat.format(toJavaInstant().atZone(ZoneId.systemDefault()))
 
+private val timeFormat = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+
+/** A localized wall-clock time, "14:20". */
+fun Instant.timeLabel(): String = timeFormat.format(toJavaInstant().atZone(ZoneId.systemDefault()))
+
+/** The local calendar day this falls on. */
+fun Instant.localDate(): java.time.LocalDate = toJavaInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+
 /** The last path segment. */
 fun String.fileName(): String = substringAfterLast('/')
 

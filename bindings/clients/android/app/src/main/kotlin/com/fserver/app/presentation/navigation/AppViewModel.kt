@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.navigation
 
+import com.fserver.core.journal.JournalEvent
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -101,6 +102,16 @@ class AppViewModel(
         offer.toRequestUi(destination = override?.takeIf { it.first == offer.id }?.second ?: default)
     }
 
+    private val badgedTabs: Flow<Set<TopLevelDestination>> = combine(
+        fServerCore.conflicts.pending,
+        fServerCore.sources.incomingRequests,
+        fServerCore.journal.openIssues,
+    ) { conflicts, requests, issues ->
+        val needsAttention = conflicts.isNotEmpty() || requests.isNotEmpty() ||
+            issues.any { it.event !is JournalEvent.ConflictHeld }
+        if (needsAttention) setOf(TopLevelDestination.Activity) else emptySet()
+    }
+
     val state: StateFlow<AppRootState?> = combine(
         startDestination,
         pending,
@@ -117,7 +128,8 @@ class AppViewModel(
             incomingTransfer = incomingTransfer,
             viewedFile = viewedFile,
         )
-    }.stateInScreen(viewModelScope, null)
+    }.combine(badgedTabs) { state, tabs -> state?.copy(badgedTabs = tabs) }
+        .stateInScreen(viewModelScope, null)
 
     init {
         viewModelScope.launch {

@@ -36,6 +36,7 @@ import com.fserver.app.presentation.navigation.rememberAppNavigator
 import com.fserver.app.presentation.navigation.rememberResultEventBus
 import com.fserver.app.presentation.navigation.rememberSharedViewModelStoreNavEntryDecorator
 import com.fserver.app.presentation.navigation.scene.BottomSheetSceneStrategy
+import com.fserver.app.presentation.screens.activity.history.activityHistoryEntry
 import com.fserver.app.presentation.screens.activity.activityEntry
 import com.fserver.app.presentation.screens.diagnostics.diagnosticEntry
 import com.fserver.app.presentation.screens.discovery.connect.connectEntry
@@ -136,6 +137,7 @@ private fun AppContent(
 ) {
     AppStyling(
         navigator = navigator,
+        badgedTabs = state.badgedTabs,
     ) {
         ErrorHandler(viewModel.errors)
 
@@ -257,6 +259,7 @@ private fun NavHostGraph(navigator: AppNavigator) {
             manualAddressEntry(navigator)
             pairingEntry(navigator)
             activityEntry(navigator)
+            activityHistoryEntry(navigator)
             settingsEntry(navigator)
             settingsMyDeviceEntry(navigator)
             settingsDevicesEntry(navigator)

@@ -1,5 +1,7 @@
 package com.fserver.app.presentation.designkit
 
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +40,7 @@ fun DkNavigationBar(
     }
 }
 
+/** One tab. [badge] puts a dot on the icon: something behind the tab is waiting on the user. */
 @Composable
 fun RowScope.DkNavigationBarItem(
     label: String,
@@ -45,12 +48,21 @@ fun RowScope.DkNavigationBarItem(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    badge: Boolean = false,
 ) {
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
         modifier = modifier,
-        icon = { Icon(imageVector = icon, contentDescription = null) },
+        icon = {
+            BadgedBox(
+                badge = {
+                    if (badge) Badge(containerColor = MaterialTheme.colorScheme.error)
+                },
+            ) {
+                Icon(imageVector = icon, contentDescription = null)
+            }
+        },
         label = { Text(text = label, style = MaterialTheme.typography.labelSmall) },
         colors = NavigationBarItemDefaults.colors(
             selectedIconColor = MaterialTheme.colorScheme.primary,

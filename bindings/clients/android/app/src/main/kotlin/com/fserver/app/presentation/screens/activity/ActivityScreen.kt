@@ -1,5 +1,9 @@
 package com.fserver.app.presentation.screens.activity
 
+import com.fserver.core.crypto.EncryptionProgress
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +23,6 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fserver.app.R
+import com.fserver.common.model.FileSize
 import com.fserver.app.presentation.composable.model.TransferUi
 import com.fserver.app.presentation.composable.model.etaFormatted
 import com.fserver.app.presentation.composable.model.formatted
@@ -55,9 +59,10 @@ import com.fserver.app.presentation.designkit.DkTopBar
 import com.fserver.app.presentation.designkit.DkType
 import com.fserver.app.presentation.screens.activity.model.ActivityIntent
 import com.fserver.app.presentation.screens.activity.model.ActivityState
-import com.fserver.app.presentation.screens.activity.model.icon
 import com.fserver.app.presentation.screens.source.request.shared.composable.SyncRequestBanner
 import com.fserver.app.presentation.theme.FServerTheme
+import com.fserver.app.presentation.shared.journal.composable.JournalEntryRow
+import com.fserver.app.presentation.shared.journal.model.JournalEntryUi
 import com.fserver.core.sync.progress.FileTransfer
 import org.koin.androidx.compose.koinViewModel
 
@@ -66,6 +71,7 @@ fun ActivityScreen(
     modifier: Modifier = Modifier,
     viewModel: ActivityViewModel = koinViewModel(),
     navigateToSyncRequests: () -> Unit,
+    navigateToHistory: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -74,6 +80,7 @@ fun ActivityScreen(
         state = state,
         onIntent = viewModel::onIntent,
         navigateToSyncRequests = navigateToSyncRequests,
+        navigateToHistory = navigateToHistory,
     )
 }
 
@@ -83,22 +90,12 @@ private fun ActivityScreenContent(
     state: ActivityState,
     onIntent: (ActivityIntent) -> Unit,
     navigateToSyncRequests: () -> Unit,
+    navigateToHistory: () -> Unit,
 ) {
     DkScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            DkTopBar(
-                title = stringResource(R.string.activity_title),
-                actions = {
-                    TextButton(onClick = { onIntent(ActivityIntent.ClearClicked) }) {
-                        Text(
-                            text = stringResource(R.string.action_clear),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
-            )
+            DkTopBar(title = stringResource(R.string.activity_title))
         },
     ) { innerPadding ->
         if (state.isEmpty && !state.hasTotals) {
@@ -146,24 +143,42 @@ private fun ActivityScreenContent(
                 items(state.conflicts, key = { it.id }) { conflict ->
                     ConflictCard(conflict = conflict, onIntent = onIntent)
                 }
+                items(state.issues, key = { "issue-${it.id}" }) { issue ->
+                    IssueCard(
+                        issue = issue,
+                        onDismiss = { onIntent(ActivityIntent.DismissClicked(issue.id)) },
+                    )
+                }
             }
 
-            if (state.running.isNotEmpty()) {
+            if (state.isMoving) {
                 item(key = "now-label") {
                     DkSectionLabel(text = stringResource(R.string.activity_section_now))
+                }
+                state.encryption?.let { encryption ->
+                    item(key = "encryption") {
+                        EncryptionCard(encryption = encryption)
+                    }
                 }
                 items(state.running, key = { it.id }) { transfer ->
                     when (transfer) {
                         is TransferUi.Batch -> BatchCard(transfer)
                         is TransferUi.Running -> RunningCard(transfer)
-                        is TransferUi.Queued -> QueuedCard(transfer)
-                        is TransferUi.Interrupted -> InterruptedCard(
-                            transfer = transfer,
-                            onRetry = { onIntent(ActivityIntent.RetryClicked(transfer.id)) },
-                        )
-
-                        is TransferUi.Completed -> Unit
+                        is TransferUi.Interrupted,
+                        is TransferUi.Completed,
+                            -> Unit
                     }
+                }
+                state.queued?.let { queued ->
+                    item(key = "queued") {
+                        QueuedCard(queued = queued)
+                    }
+                }
+                items(state.interrupted, key = { it.id }) { transfer ->
+                    InterruptedCard(
+                        transfer = transfer,
+                        onRetry = { onIntent(ActivityIntent.RetryClicked(transfer.id)) },
+                    )
                 }
             }
 
@@ -171,10 +186,10 @@ private fun ActivityScreenContent(
                 item(key = "history-label") {
                     DkSectionLabel(text = stringResource(R.string.activity_section_today))
                 }
-                items(state.history, key = { it.id }) { entry ->
+                items(state.history, key = { it.entry.id }) { item ->
                     HistoryRow(
-                        entry = entry,
-                        onUndo = { onIntent(ActivityIntent.UndoClicked(entry.id)) },
+                        item = item,
+                        onUndo = { onIntent(ActivityIntent.UndoClicked(item.entry.id)) },
                     )
                 }
                 item(key = "history-all") {
@@ -183,7 +198,7 @@ private fun ActivityScreenContent(
                             .fillMaxWidth()
                             .padding(vertical = DkSpacing.sm),
                         text = stringResource(R.string.activity_full_history),
-                        onClick = { onIntent(ActivityIntent.FullHistoryClicked) },
+                        onClick = navigateToHistory,
                     )
                 }
             }
@@ -367,9 +382,60 @@ private fun RunningCard(transfer: TransferUi.Running, modifier: Modifier = Modif
 }
 
 @Composable
-private fun QueuedCard(transfer: TransferUi.Queued, modifier: Modifier = Modifier) {
+private fun EncryptionCard(modifier: Modifier = Modifier, encryption: ActivityState.EncryptionUi) {
+    DkCard(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        ) {
+            DkThumbnail(icon = Icons.Default.Lock)
+            Text(
+                modifier = Modifier.weight(1f),
+                text = stringResource(encryption.titleRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.activity_batch_counter, encryption.done, encryption.total),
+                style = DkType.mono,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DkProgressBar(progress = encryption.progress)
+    }
+}
+
+private val ActivityState.EncryptionUi.titleRes: Int
+    get() = when (towards) {
+        setOf(EncryptionProgress.Toward.Encrypted) -> R.string.activity_encryption_encrypting
+        setOf(EncryptionProgress.Toward.Decrypted) -> R.string.activity_encryption_decrypting
+        else -> R.string.activity_encryption_updating
+    }
+
+@Composable
+private fun QueuedCard(modifier: Modifier = Modifier, queued: ActivityState.QueuedUi) {
     DkCard(modifier = modifier.alpha(0.75f)) {
-        TransferHeader(fileName = transfer.fileName, direction = transfer.direction) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(DkSpacing.sm),
+        ) {
+            DkThumbnail(icon = Icons.Default.HourglassEmpty)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = pluralStringResource(R.plurals.activity_queued_files, queued.count, queued.count),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                DkCaption(
+                    text = listOfNotNull(
+                        stringResource(R.string.journal_tally_sent, queued.outgoing).takeIf { queued.outgoing > 0 },
+                        stringResource(R.string.journal_tally_received, queued.incoming).takeIf { queued.incoming > 0 },
+                        FileSize(queued.bytes).formatted().takeIf { queued.bytes > 0 },
+                    ).joinToString(" · "),
+                )
+            }
             DkTag(stringResource(R.string.transfer_queued), style = DkTagStyle.Neutral)
         }
     }
@@ -411,40 +477,36 @@ private fun InterruptedCard(
 }
 
 @Composable
+private fun IssueCard(
+    modifier: Modifier = Modifier,
+    issue: JournalEntryUi,
+    onDismiss: () -> Unit,
+) {
+    DkCard(modifier = modifier, outlined = true) {
+        JournalEntryRow(
+            entry = issue,
+            onDismiss = onDismiss,
+            contentPaddings = PaddingValues(),
+        )
+    }
+}
+
+@Composable
 private fun HistoryRow(
     modifier: Modifier = Modifier,
-    entry: ActivityState.HistoryUi,
+    item: ActivityState.HistoryUi,
     onUndo: () -> Unit,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = DkSpacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(DkSpacing.md),
-    ) {
-        DkThumbnail(icon = entry.kind.icon)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = entry.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+    Column(modifier = modifier.fillMaxWidth()) {
+        JournalEntryRow(
+            entry = item.entry,
+            contentPaddings = PaddingValues(vertical = DkSpacing.xs),
+        )
+        if (item.undoable) {
+            DkGhostButton(
+                text = stringResource(R.string.action_undo),
+                onClick = onUndo,
             )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(DkSpacing.xs),
-            ) {
-                DkCaption(
-                    text = listOf(entry.detail, entry.timeLabel)
-                        .filter { it.isNotEmpty() }
-                        .joinToString(" · "),
-                )
-                if (entry.undoable) {
-                    DkGhostButton(
-                        text = stringResource(R.string.action_undo),
-                        onClick = onUndo,
-                    )
-                }
-            }
         }
     }
 }
@@ -488,10 +550,15 @@ private fun ActivityScreenPreview() {
                 syncRequestsWaiting = 3,
                 conflicts = ActivityState.SampleConflicts,
                 running = ActivityState.SampleRunning,
+                queued = ActivityState.SampleQueued,
+                encryption = ActivityState.SampleEncryption,
+                interrupted = ActivityState.SampleInterrupted,
+                issues = ActivityState.SampleIssues,
                 history = ActivityState.SampleHistory,
             ),
             onIntent = {},
             navigateToSyncRequests = {},
+            navigateToHistory = {},
         )
     }
 }
@@ -504,6 +571,7 @@ private fun ActivityScreenEmptyPreview() {
             state = ActivityState(),
             onIntent = {},
             navigateToSyncRequests = {},
+            navigateToHistory = {},
         )
     }
 }

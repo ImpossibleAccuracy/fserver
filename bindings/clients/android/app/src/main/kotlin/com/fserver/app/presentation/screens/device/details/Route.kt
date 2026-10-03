@@ -11,6 +11,7 @@ fun EntryProviderScope<Destination>.settingsDeviceDetailsEntry(
         DeviceDetailsScreen(
             key = key,
             navigatePairing = { navigator.navigate(Destination.Pairing(it)) },
+            navigateToHistory = { navigator.navigate(Destination.Activity.History(deviceId = key.deviceId)) },
             navigateUp = navigator::navigateUp,
         )
     }

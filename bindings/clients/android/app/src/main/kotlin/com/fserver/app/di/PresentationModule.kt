@@ -7,6 +7,7 @@ import com.fserver.app.presentation.shared.error.ErrorBus
 import com.fserver.app.presentation.shared.error.ErrorReporter
 import com.fserver.app.presentation.navigation.AppViewModel
 import com.fserver.app.presentation.screens.activity.ActivityViewModel
+import com.fserver.app.presentation.screens.activity.history.ActivityHistoryViewModel
 import com.fserver.app.presentation.screens.diagnostics.DiagnosticsViewModel
 import com.fserver.app.presentation.screens.discovery.connect.ConnectViewModel
 import com.fserver.app.presentation.screens.discovery.manual.ManualAddressViewModel
@@ -68,6 +69,7 @@ val presentationModule = module {
     viewModelOf(::SourceEditViewModel)
 
     viewModelOf(::ActivityViewModel)
+    viewModelOf(::ActivityHistoryViewModel)
     viewModelOf(::DiagnosticsViewModel)
 
     // Settings subtree; the root itself is stateless and has no ViewModel.

@@ -36,6 +36,7 @@ import com.fserver.app.presentation.navigation.TopLevelDestination
 @Composable
 fun AppStyling(
     navigator: AppNavigator,
+    badgedTabs: Set<TopLevelDestination> = emptySet(),
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -80,6 +81,7 @@ fun AppStyling(
                             label = stringResource(tab.label),
                             icon = tab.icon,
                             selected = isSelected,
+                            badge = tab in badgedTabs,
                             onClick = {
                                 navigator.navigate(tab.destination)
                             },

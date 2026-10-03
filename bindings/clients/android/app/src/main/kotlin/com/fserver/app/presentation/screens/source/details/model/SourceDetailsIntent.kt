@@ -7,4 +7,5 @@ sealed interface SourceDetailsIntent {
     data object SendNowClicked : SourceDetailsIntent
     data object DeleteConfirmed : SourceDetailsIntent
     data class Export(val uri: Uri) : SourceDetailsIntent
+    data class IssueDismissed(val entryId: Long) : SourceDetailsIntent
 }

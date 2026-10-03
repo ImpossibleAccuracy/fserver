@@ -214,6 +214,10 @@
     <string name="tab_dashboard">Dashboard</string>
     <string name="dashboard_title">Dashboard</string>
     <string name="dashboard_all_files">All files</string>
+    <plurals name="activity_queued_files">
+        <item quantity="one">%1$d file waiting</item>
+        <item quantity="other">%1$d files waiting</item>
+    </plurals>
     <plurals name="dashboard_sync_requests">
         <item quantity="one">%1$d sync request</item>
         <item quantity="other">%1$d sync requests</item>
@@ -397,6 +401,9 @@
     <string name="activity_batch_outgoing">Sending to %1$s</string>
     <string name="activity_batch_incoming">Receiving from %1$s</string>
     <string name="activity_batch_counter">%1$d of %2$d</string>
+    <string name="activity_encryption_encrypting">Encrypting files</string>
+    <string name="activity_encryption_decrypting">Decrypting files</string>
+    <string name="activity_encryption_updating">Updating file encryption</string>
     <string name="activity_interrupted_meta">Stopped at %1$d %% · resumes when the link is back</string>
     <string name="activity_conflict_title">Conflict: %1$s</string>
     <string name="activity_conflict_keep_mine">Keep mine</string>
@@ -414,6 +421,102 @@
     <string name="transfer_direction_outgoing">Sending</string>
     <string name="transfer_direction_incoming">Receiving</string>
     <string name="activity_empty">Nothing is moving right now. Passes, offloads and deletions show up here.</string>
+    <string name="action_dismiss">Dismiss</string>
+
+    <string name="journal_history_title">History</string>
+    <string name="journal_history_empty">Nothing matches these filters yet.</string>
+    <string name="journal_filter_title">Filters</string>
+    <string name="journal_filter_kind">Kind</string>
+    <string name="journal_filter_source">Folder</string>
+    <string name="journal_filter_device">Device</string>
+    <string name="journal_filter_all_devices">All devices</string>
+    <string name="journal_filter_all">All</string>
+    <string name="journal_filter_all_sources">All folders</string>
+    <string name="journal_group_sync">Sync</string>
+    <string name="journal_group_problems">Problems</string>
+    <string name="journal_group_conflicts">Conflicts</string>
+    <string name="journal_group_sources">Folders</string>
+    <string name="journal_group_devices">Devices</string>
+    <string name="journal_group_transfers">Transfers</string>
+    <string name="journal_issue_open">Open</string>
+    <string name="journal_issue_solved">Solved</string>
+    <string name="journal_issue_repeats">×%1$d</string>
+    <string name="journal_unknown_source">a removed folder</string>
+    <string name="journal_size">%1$s</string>
+    <string name="journal_files_count">Files: %1$d</string>
+
+    <string name="journal_pass_synced">%1$s synced</string>
+    <string name="journal_pass_offloaded">%1$s offloaded</string>
+    <string name="journal_tally_sent">↑ %1$d</string>
+    <string name="journal_tally_received">↓ %1$d</string>
+    <string name="journal_tally_deleted_here">Deleted here: %1$d</string>
+    <string name="journal_tally_deleted_on_peer">Deleted on %1$s: %2$d</string>
+    <string name="journal_tally_moved">Moved: %1$d</string>
+    <string name="journal_tally_evicted">Offloaded: %1$d</string>
+    <string name="journal_tally_skipped">Skipped: %1$d</string>
+    <string name="journal_file_fetched">Fetched on demand: %1$s</string>
+    <string name="journal_pass_failed">%1$s did not sync</string>
+    <string name="journal_peer_pass_failed">%1$s could not sync %2$s</string>
+    <string name="journal_sealed_unreadable">Encrypted files in %1$s cannot be opened</string>
+    <string name="journal_sealed_missing_key">They were sealed with a key this device does not have.</string>
+    <string name="journal_sealed_unknown_cipher">They were sealed by a method this version does not know.</string>
+    <string name="journal_sealed_corrupted">Some of them are damaged or were tampered with.</string>
+
+    <string name="journal_conflict_held">Waiting for your choice. Changed here and on %1$s.</string>
+    <string name="journal_conflict_resolved">Conflict resolved: %1$s</string>
+    <string name="journal_conflict_kept_local">Kept this device\'s version</string>
+    <string name="journal_conflict_kept_remote">Kept the version from %1$s</string>
+    <string name="journal_conflict_kept_both">Kept both versions</string>
+    <string name="journal_conflict_newest_wins">Newest change won</string>
+    <string name="journal_conflict_dropped">Your choice on %1$s was not applied</string>
+    <string name="journal_conflict_dropped_changed">The file changed after you chose.</string>
+    <string name="journal_conflict_dropped_unavailable">The version you picked is no longer on the device.</string>
+    <string name="journal_conflict_dropped_settled">The conflict was settled meanwhile.</string>
+
+    <string name="journal_clock_skewed">%1$s\'s clock is off</string>
+    <string name="journal_clock_ahead">Ahead by %1$s</string>
+    <string name="journal_clock_behind">Behind by %1$s</string>
+    <string name="journal_clock_hint">Conflicts wait for your choice until it is fixed</string>
+    <string name="journal_dictionary_incompatible">%1$s runs an incompatible version</string>
+    <string name="journal_dictionary_versions">Protocol %1$d here, %2$d there</string>
+    <string name="journal_connection_refused">Could not connect to %1$s</string>
+    <string name="journal_connection_auth">One of the devices did not accept the other.</string>
+    <string name="journal_connection_identity">Another device answered in its place.</string>
+    <string name="journal_connection_handshake">The secure connection could not be set up.</string>
+    <string name="journal_device_paired">Paired with %1$s</string>
+    <string name="journal_device_forgotten">Forgot %1$s</string>
+
+    <string name="journal_source_added">Folder added: %1$s</string>
+    <string name="journal_source_hosted">Now keeping %1$s for %2$s</string>
+    <string name="journal_source_removed">Folder removed: %1$s</string>
+    <string name="journal_source_requested">%1$s asks to sync %2$s</string>
+    <string name="journal_source_request_rejected">Declined %1$s from %2$s</string>
+    <string name="journal_source_accepted">%1$s accepted %2$s</string>
+    <string name="journal_source_refused">%1$s declined %2$s</string>
+    <string name="journal_source_dropped">%1$s stopped syncing %2$s</string>
+    <string name="journal_source_disabled">The folder is paused here</string>
+
+    <string name="journal_group_encryption">Encryption</string>
+    <string name="journal_source_changed">%1$s settings changed</string>
+    <string name="journal_source_changed_by_peer">%1$s took new settings from %2$s</string>
+    <string name="journal_change_mode">Mode settings</string>
+    <string name="journal_change_constraints">Network and charging</string>
+    <string name="journal_change_limits">File limits</string>
+    <string name="journal_change_encryption">Encryption</string>
+    <string name="journal_encryption_encrypted">Files in %1$s encrypted</string>
+    <string name="journal_encryption_decrypted">Files in %1$s decrypted</string>
+    <string name="journal_encryption_incomplete">Encrypting %1$s did not finish</string>
+    <string name="journal_decryption_incomplete">Decrypting %1$s did not finish</string>
+    <string name="journal_encryption_failed_files">Files left as they were: %1$d</string>
+
+    <string name="journal_oneshot_sent">Sent to %1$s</string>
+    <string name="journal_oneshot_sent_declined">%1$s declined the files</string>
+    <string name="journal_oneshot_sent_cancelled">Sending to %1$s was cancelled</string>
+    <string name="journal_oneshot_sent_failed">Sending to %1$s failed</string>
+    <string name="journal_oneshot_received">Received from %1$s</string>
+    <string name="journal_oneshot_received_declined">Declined files from %1$s</string>
+    <string name="journal_oneshot_received_cancelled">Receiving from %1$s was cancelled</string>
+    <string name="journal_oneshot_received_failed">Receiving from %1$s failed</string>
 
     <string name="value_unknown">—</string>
     <string name="duration_seconds">%1$d s</string>
@@ -1078,7 +1181,7 @@
     <string name="source_details_peer_full_title">%1$s is almost full</string>
     <!-- "92% of the limits Server set for this source is used: 3400 files, 18 GB. …" -->
     <string name="source_details_peer_full_used">%1$d%% of the limits %2$s set for this source is used: %3$s, %4$s. Once they are reached, new files stop going there.</string>
-    <string name="source_details_full_history">Full history in Activity ›</string>
+    <string name="source_details_full_history">Full history ›</string>
 
     <!-- "IMG_2210.jpg · 4.2 MB" — a value and what qualifies it, on one line -->
     <string name="value_with_detail">%1$s · %2$s</string>

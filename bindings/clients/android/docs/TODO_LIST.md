@@ -9,6 +9,15 @@ Documents provider:
 - Write support (`w`/`rw`, create, delete, rename) - read-only for now.
 - Solution unstable for remote-only files, retest over sources and devices.
 
+Activity:
+
+- Totals ("Freed this month", "Quota on the server") are samples: needs statistics - freed bytes
+  per period (`PassTally` counts files, not bytes; the journal is trimmed at 1000) and a server mode
+  to have a quota at all;
+- Undo on history rows is a placeholder: nothing in `:core` can restore a deleted file (no trash);
+- "Now" shows per-file transfers only: `SourcePass.Local` (planned/done) is not turned into the
+  `Batch` card, and `SourcePass.Remote` / one-shot transfers are not shown;
+
 Weak points (re-test after desktop client is in MVP state):
 
 - Document provider works pretty bad for remote-only files.

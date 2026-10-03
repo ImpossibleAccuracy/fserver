@@ -102,13 +102,6 @@ sealed interface TransferUi {
         val bytesPerSecond: Long?,
     ) : TransferUi
 
-    /** Planned by the current pass, nothing sent yet. */
-    data class Queued(
-        override val id: String,
-        override val fileName: String,
-        override val direction: FileTransfer.Direction,
-    ) : TransferUi
-
     /**
      * Stopped short. Not an error state: the next pass re-plans the file from wherever the
      * index got to, and the hash is checked at the end either way.

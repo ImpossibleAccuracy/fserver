@@ -18,6 +18,7 @@ sealed interface UiText {
     /** Already user-facing and not translatable — a device name, a path, a label the user typed. */
     data class Text(val text: String) : UiText
 
+    /** An argument that is itself a [UiText] is resolved first. */
     data class Resource(@param:StringRes val res: Int, val args: List<Any> = emptyList()) : UiText
 
     /** A resource whose one argument is a byte count, formatted the way the platform does it. */
@@ -27,14 +28,14 @@ sealed interface UiText {
     @Composable
     fun asString(): String = when (this) {
         is Text -> text
-        is Resource -> stringResource(res, *args.toTypedArray())
+        is Resource -> stringResource(res, *args.map { if (it is UiText) it.asString() else it }.toTypedArray())
         is Size -> stringResource(res, Formatter.formatShortFileSize(LocalContext.current, bytes))
     }
 
     /** For the callers outside a composition — a snackbar, a notification. */
     fun asString(context: Context): String = when (this) {
         is Text -> text
-        is Resource -> context.getString(res, *args.toTypedArray())
+        is Resource -> context.getString(res, *args.map { if (it is UiText) it.asString(context) else it }.toTypedArray())
         is Size -> context.getString(res, Formatter.formatShortFileSize(context, bytes))
     }
 

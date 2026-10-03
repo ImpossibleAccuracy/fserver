@@ -11,6 +11,7 @@ fun EntryProviderScope<Destination>.filesSourceDetailsEntry(
         SourceDetailsScreen(
             key = key,
             navigateToActivity = { navigator.navigate(Destination.Activity) },
+            navigateToHistory = { navigator.navigate(Destination.Activity.History(key.sourceId)) },
             navigateToFiles = { navigator.navigate(Destination.Files(sourceId = key.sourceId)) },
             navigateToDevice = { navigator.navigate(Destination.Settings.DeviceDetails(it)) },
             navigateToEdit = { navigator.navigate(Destination.Files.SourceEdit(key.sourceId)) },

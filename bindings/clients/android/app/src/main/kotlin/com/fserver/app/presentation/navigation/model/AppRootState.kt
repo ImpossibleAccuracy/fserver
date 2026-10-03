@@ -1,5 +1,6 @@
 package com.fserver.app.presentation.navigation.model
 
+import com.fserver.app.presentation.navigation.TopLevelDestination
 import com.fserver.app.presentation.composable.IncomingConnectionUi
 import com.fserver.app.presentation.composable.IncomingRequestUi
 import com.fserver.app.presentation.composable.PendingConfirmationUi
@@ -12,4 +13,5 @@ data class AppRootState(
     val pendingConfirmation: PendingConfirmationUi?,
     val incomingTransfer: IncomingRequestUi?,
     val viewedFile: FileBrowserUi.File? = null,
+    val badgedTabs: Set<TopLevelDestination> = emptySet(),
 )

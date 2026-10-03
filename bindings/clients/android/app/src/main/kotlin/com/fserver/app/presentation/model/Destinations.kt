@@ -133,7 +133,15 @@ sealed interface Destination : NavKey {
      * their own: a finished upload and an offload pass are the same kind of news.
      */
     @Serializable
-    data object Activity : Destination
+    data object Activity : Destination {
+
+        /** Every journal entry, filtered up front by [sourceId] or [deviceId] when one is given. */
+        @Serializable
+        data class History(
+            val sourceId: String? = null,
+            val deviceId: String? = null,
+        ) : Destination
+    }
 
     /**
      * Settings root. It holds no state of its own — every row leads into one of the screens
