@@ -5,6 +5,8 @@ import com.fserver.core.files.StorageVolumes
 import com.fserver.core.FServerConfig
 import com.fserver.core.lifecycle.sync.AutoSyncCoordinator
 import com.fserver.core.sync.SourcesController
+import com.fserver.core.sync.clock.ClockSkews
+import com.fserver.core.sync.clock.PeerClockProbe
 import com.fserver.core.sync.conflict.ConflictCopier
 import com.fserver.core.sync.conflict.ConflictResolver
 import com.fserver.core.sync.conflict.ConflictsController
@@ -35,6 +37,7 @@ import com.fserver.core.sync.runner.pass.PassCompletion
 import com.fserver.core.sync.runner.pass.SourcePassExecutor
 import com.fserver.core.sync.server.PeerRequestServer
 import com.fserver.core.sync.server.SourceAuthorizer
+import com.fserver.core.sync.server.handler.ClockProbeHandler
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
@@ -56,6 +59,7 @@ import org.koin.dsl.module
 /** The sync engine: the pass this device runs, and the half that answers the peer's. */
 internal val syncModule = module {
     singleOf(::HybridLogicalClock)
+    singleOf(::ClockSkews)
     singleOf(::UploadStrategySelector)
     singleOf(::DeviceConstraintChecker)
     singleOf(::SyncProgressReporter)
@@ -72,6 +76,7 @@ internal val syncModule = module {
     singleOf(::PeerFileOperations)
     singleOf(::IndexPublisher)
     singleOf(::PeerSyncRequester)
+    singleOf(::PeerClockProbe)
     singleOf(::SourceSetupExchange)
     single {
         val context = get<Context>()
@@ -84,6 +89,7 @@ internal val syncModule = module {
     singleOf(::FetchFilesHandler)
     singleOf(::PublishIndexHandler)
     singleOf(::SyncLeaseHandler)
+    singleOf(::ClockProbeHandler)
     singleOf(::SyncRequestHandler)
     singleOf(::FileOperationHandler)
     singleOf(::FileUploadHandler)

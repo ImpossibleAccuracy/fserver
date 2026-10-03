@@ -5,6 +5,8 @@ import com.fserver.common.exception.SyncException
 import com.fserver.common.utils.runCatchingCancellable
 import com.fserver.core.network.DeviceUnreachableException
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.clock.ClockSkews
+import com.fserver.core.sync.clock.PeerClockProbe
 import com.fserver.core.sync.conflict.settledDecisions
 import com.fserver.core.sync.device.DeviceConstraintChecker
 import com.fserver.core.sync.index.IndexedFileKey
@@ -40,6 +42,8 @@ internal class SourcePassExecutor(
     private val progress: SyncProgressReporter,
     private val completion: PassCompletion,
     private val syncRequester: PeerSyncRequester,
+    private val clockProbe: PeerClockProbe,
+    private val clockSkews: ClockSkews,
 ) {
     /**
      * One source, under a lease the peer agreed to. [force] skips the device constraints.
@@ -122,6 +126,9 @@ internal class SourcePassExecutor(
         val errors = mutableListOf<Throwable>()
         val handled = mutableSetOf<FileId>()
         val skipped = mutableSetOf<FileId>()
+
+        // Before any conflict is resolved: a skewed peer holds the source to Ask.
+        reconnecting(lease, errors) { runCatchingCancellable { clockProbe.measure(source) } }.getOrThrow()
 
         // Disk is scanned once: hashing writes to the index only, so later rounds re-read it.
         progress.localPassStage(source.id, SourcePass.Local.Stage.Scanning)
@@ -252,7 +259,7 @@ internal class SourcePassExecutor(
         val stored = storage.conflictDecisions.forSource(source.id)
         if (stored.isEmpty()) return
 
-        for (decision in settledDecisions(source, plan, stored)) {
+        for (decision in settledDecisions(clockSkews.resolution(source), plan, stored)) {
             // TODO: history entry - "your choice on <file> was overtaken" (resolved on the peer, or edited since).
             Timber.i("Dropping decision on ${decision.fileId} in source ${source.id}: no longer conflicts")
             storage.conflictDecisions.remove(

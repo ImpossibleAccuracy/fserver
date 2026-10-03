@@ -1,6 +1,7 @@
 package com.fserver.core.sync.conflict
 
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.clock.ClockSkews
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -17,10 +18,10 @@ internal class ConflictResolver(
     private val storage: FServerStorage,
     private val steps: ActionSteps,
     private val copier: ConflictCopier,
+    private val clockSkews: ClockSkews,
 ) {
     suspend fun resolve(action: FileAction.Conflict, source: SourceEntry) {
-        val resolution = (source.syncMode as? SyncMode.Mirror)?.conflictResolution
-            ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
+        val resolution = clockSkews.resolution(source) ?: SyncMode.Mirror.ConflictResolution.LastWriteWins
 
         when (resolution) {
             SyncMode.Mirror.ConflictResolution.LastWriteWins ->

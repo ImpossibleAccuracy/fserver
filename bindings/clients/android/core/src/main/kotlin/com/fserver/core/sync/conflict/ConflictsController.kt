@@ -3,6 +3,8 @@ package com.fserver.core.sync.conflict
 import com.fserver.common.utils.runBackgroundJob
 import com.fserver.core.di.BackgroundScope
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.clock.ClockSkews
+import com.fserver.core.sync.clock.conflictResolution
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.index.toFileRecord
@@ -19,7 +21,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * Conflicts held for the user, in sources that [ask][SyncMode.Mirror.ConflictResolution.Ask].
+ * Conflicts held for the user, in sources that [ask][SyncMode.Mirror.ConflictResolution.Ask] or whose
+ * peer's clock is off.
  *
  * Nothing records a conflict: it is re-derived by planning over this device's index and the peer's
  * last reported one, so both devices see it without telling each other, and it disappears on its
@@ -30,6 +33,7 @@ class ConflictsController internal constructor(
     private val strategySelector: UploadStrategySelector,
     private val syncRunner: SyncRunner,
     private val timeProvider: TimeProvider,
+    clockSkews: ClockSkews,
     scope: BackgroundScope,
 ) {
     /**
@@ -40,7 +44,8 @@ class ConflictsController internal constructor(
         storage.index.all,
         storage.remoteIndex.all,
         storage.conflictDecisions.all,
-    ) { local, remote, decisions ->
+        clockSkews.skewed,
+    ) { local, remote, decisions, skewed ->
         val decided = decisions.associateBy { it.sourceId to it.fileId }
         val localDevice = storage.identity.localDevice().deviceId
 
@@ -48,7 +53,7 @@ class ConflictsController internal constructor(
         val remoteBySource = remote.groupBy { it.sourceId }
 
         storage.sources.all()
-            .filter { it.asksOnConflict() }
+            .filter { it.asksOnConflict(peerSkewed = it.deviceId in skewed) }
             .flatMap { source ->
                 // TODO: non-optimized solution, rewrite
                 held(
@@ -118,7 +123,7 @@ class ConflictsController internal constructor(
     private fun ConflictDecision.covers(conflict: FileConflict): Boolean =
         local == conflict.local.version?.seen() && remote == conflict.remote.version?.seen()
 
-    private fun SourceEntry.asksOnConflict(): Boolean =
+    private fun SourceEntry.asksOnConflict(peerSkewed: Boolean): Boolean =
         status == SourceEntry.Status.Active &&
-                (syncMode as? SyncMode.Mirror)?.conflictResolution == SyncMode.Mirror.ConflictResolution.Ask
+                conflictResolution(peerSkewed) == SyncMode.Mirror.ConflictResolution.Ask
 }

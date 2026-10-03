@@ -27,6 +27,8 @@ import com.fserver.core.sync.lease.SyncModeReconciler
 import com.fserver.core.sync.progress.impl.SyncProgressReporter
 import com.fserver.core.sync.remote.PeerIndexFetcher
 import com.fserver.core.sync.runner.pass.PassCompletion
+import com.fserver.core.sync.clock.ClockSkews
+import com.fserver.core.sync.server.handler.ClockProbeHandler
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
@@ -256,6 +258,7 @@ class PeerRequestServerTest {
                 PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock, mockk(relaxed = true)),
                 peerMetadataExchange(storage, clock),
             ),
+            clockProbes = ClockProbeHandler(clock, ClockSkews()),
             syncRequests = SyncRequestHandler(authorizer(), mockk(relaxed = true)),
             fileOperations = FileOperationHandler(
                 authorizer = authorizer(),

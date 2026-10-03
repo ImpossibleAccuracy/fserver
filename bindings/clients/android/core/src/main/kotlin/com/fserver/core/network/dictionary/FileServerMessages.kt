@@ -109,6 +109,20 @@ internal sealed interface FileServerMessages {
         ) : AcquireSyncLease, Response
     }
 
+    /** NTP-style probe of the peer's clock, sent before each pass. Times are epoch ms. */
+    @Serializable
+    sealed interface ClockProbe : FileServerMessages {
+        @Serializable
+        data class Request(val sentAt: Long) : ClockProbe
+
+        /** The answerer's clock when [Request] came in, and when it answered. */
+        @Serializable
+        data class Reading(
+            val receivedAt: Long,
+            val repliedAt: Long,
+        ) : ClockProbe, Response
+    }
+
     /**
      * Pairs a source across the two devices that sync it:
      * sender registered it's half and asks the receiver to register the other.

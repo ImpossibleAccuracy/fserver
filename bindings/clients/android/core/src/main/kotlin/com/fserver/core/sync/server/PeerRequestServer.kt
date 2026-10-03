@@ -11,6 +11,7 @@ import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.oneshot.impl.OneShotExchange
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.sync.lease.SyncLeaseRegistry
+import com.fserver.core.sync.server.handler.ClockProbeHandler
 import com.fserver.core.sync.server.handler.FetchFilesHandler
 import com.fserver.core.sync.server.handler.FileOperationHandler
 import com.fserver.core.sync.server.handler.PublishIndexHandler
@@ -53,6 +54,7 @@ internal class PeerRequestServer(
     private val fetchFiles: FetchFilesHandler,
     private val publishedIndexes: PublishIndexHandler,
     private val leases: SyncLeaseHandler,
+    private val clockProbes: ClockProbeHandler,
     private val syncRequests: SyncRequestHandler,
     private val fileOperations: FileOperationHandler,
     private val uploads: FileUploadHandler,
@@ -248,6 +250,9 @@ internal class PeerRequestServer(
 
             is FileServerMessages.AcquireSyncLease.ReleaseLease ->
                 leases.release(message, session.identity)
+
+            is FileServerMessages.ClockProbe.Request ->
+                clockProbes.handle(event, message, session)
 
             is FileServerMessages.ConfigureSource.Request ->
                 sourceSetup.onRequest(session.identity, message)

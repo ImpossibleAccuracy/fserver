@@ -13,6 +13,7 @@ import com.fserver.core.support.sourceEntry
 import com.fserver.core.support.sourceFiles
 import com.fserver.core.sync.conflict.ConflictCopier
 import com.fserver.core.sync.conflict.ConflictDecision
+import com.fserver.core.sync.clock.ClockSkews
 import com.fserver.core.sync.conflict.ConflictResolver
 import com.fserver.core.sync.conflict.seenVersion
 import com.fserver.core.sync.fileops.FileDeleter
@@ -69,7 +70,7 @@ class FileActionRunnerGuardTest {
 
     private val runner = FileActionRunner(
         steps = steps,
-        conflicts = ConflictResolver(storage, steps, ConflictCopier(storage, sourceFiles(storage, node))),
+        conflicts = ConflictResolver(storage, steps, ConflictCopier(storage, sourceFiles(storage, node)), ClockSkews()),
         localHasher = mockk(relaxed = true),
         peerFiles = peerFiles,
         fileEvictor = FileEvictor(storage, sourceFiles(storage, node), writer),

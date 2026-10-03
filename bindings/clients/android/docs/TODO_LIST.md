@@ -35,8 +35,9 @@ Sync (see `../../../docs/HLC.md`):
 - A user edit made while an incoming file is being received is overwritten. Before the rename,
   compare the on-disk hash with the index;
 - A conflict where the winning side is evicted is never resolved, and repeats every pass;
-- Clock skew is only logged: no offset estimate at handshake (NTP-style) and no diagnostics.
-  In host/public mode the physical time does not come from the server;
+- Clock skew is measured before each pass but only logged: write it to the activity journal once
+  there is one, and show it from there. In host/public mode the physical time does not come from
+  the server;
 
 Storage encryption (see `../../../docs/Storage Encryption.md`):
 

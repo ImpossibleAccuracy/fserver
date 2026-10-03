@@ -7,6 +7,7 @@ import com.fserver.core.support.MutableTimeProvider
 import com.fserver.core.support.TestEpoch
 import com.fserver.core.support.indexedFile
 import com.fserver.core.support.sourceEntry
+import com.fserver.core.sync.clock.ClockSkews
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
 import com.fserver.core.sync.model.SyncMode
@@ -31,12 +32,14 @@ class ConflictsControllerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val syncRunner = mockk<SyncRunner>(relaxed = true)
+    private val skews = ClockSkews()
 
     private fun TestScope.controller() = ConflictsController(
         storage = storage,
         strategySelector = UploadStrategySelector(clock),
         syncRunner = syncRunner,
         timeProvider = clock,
+        clockSkews = skews,
         scope = backgroundScope,
     )
 
@@ -57,6 +60,19 @@ class ConflictsControllerTest {
         assertEquals(listOf(AskId to "both"), held.map { it.sourceId to it.fileId })
         assertEquals(ConflictDecision.Choice.entries.toSet(), held.single().choices)
         assertEquals(PeerId, held.single().remote.deviceId)
+    }
+
+    @Test
+    fun `a peer with a skewed clock holds conflicts of a last-write-wins source until it is back`() = runTest {
+        storage.sources.upsert(sourceEntry(id = LwwId, deviceId = PeerId, syncMode = Lww))
+        bothSides(LwwId, "both", localHash = "a", remoteHash = "b", remoteVector = mapOf(PeerId to 1L))
+        val controller = controller()
+
+        skews.record(PeerId, offsetMs = 5 * 60_000)
+        assertEquals(listOf("both"), controller.pending.first { it.isNotEmpty() }.map { it.fileId })
+
+        skews.record(PeerId, offsetMs = 1_000)
+        controller.pending.first { it.isEmpty() }
     }
 
     @Test

@@ -25,17 +25,16 @@ class SettledDecisionsTest {
             )
         )
 
-        val settled = settledDecisions(asking, plan, listOf(decision("held"), decision("hashing"), decision("moved"), decision("gone")))
+        val settled = settledDecisions(SyncMode.Mirror.ConflictResolution.Ask, plan, listOf(decision("held"), decision("hashing"), decision("moved"), decision("gone")))
 
         assertEquals(listOf("moved", "gone"), settled.map { it.fileId })
     }
 
     @Test
     fun `a source that stopped asking settles every decision it had`() {
-        val lww = asking.copy(syncMode = SyncMode.Mirror(SyncMode.Mirror.ConflictResolution.LastWriteWins))
         val plan = UploadDecisions(listOf(FileAction.Conflict(record("held"), record("held"), "edited on both sides")))
 
-        assertEquals(listOf("held"), settledDecisions(lww, plan, listOf(decision("held"))).map { it.fileId })
+        assertEquals(listOf("held"), settledDecisions(SyncMode.Mirror.ConflictResolution.LastWriteWins, plan, listOf(decision("held"))).map { it.fileId })
     }
 
     private fun record(id: String) = FileRecord(

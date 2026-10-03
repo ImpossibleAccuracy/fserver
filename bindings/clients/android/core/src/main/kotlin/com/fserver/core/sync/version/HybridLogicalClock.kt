@@ -35,7 +35,7 @@ internal class HybridLogicalClock(
         val received = Hlc.receive(loaded(), remote, physicalMs())
 
         if (received.skewed) {
-            // TODO: surface in diagnostics once there is a place for clock warnings.
+            // Guards this clock only; the warning comes from ClockSkews, measured before each pass.
             Timber.w("Peer clock is ahead by more than ${Hlc.MaxDriftMs} ms: $remote")
         }
 
