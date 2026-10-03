@@ -45,7 +45,7 @@ class JournalWriterTest {
         writer.passSucceeded(source, PassTally(received = 2), conflicts = emptySet())
 
         assertEquals(
-            listOf(JournalEvent.PassCompleted("s", "d", PassTally(received = 2))),
+            listOf(JournalEvent.PassCompleted("s", "d", source.label, source.syncMode.type, PassTally(received = 2))),
             storage.journal.all.map { it.event },
         )
     }

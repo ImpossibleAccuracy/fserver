@@ -20,6 +20,7 @@ internal object JournalRecords {
     // Kind discriminators.
     private const val PassCompleted = "PassCompleted"
     private const val PassFailed = "PassFailed"
+    private const val FileFetched = "FileFetched"
     private const val PeerPassFailed = "PeerPassFailed"
     private const val SealedFilesUnreadable = "SealedFilesUnreadable"
     private const val ConflictHeld = "ConflictHeld"
@@ -37,11 +38,16 @@ internal object JournalRecords {
     private const val SourceAcceptedByPeer = "SourceAcceptedByPeer"
     private const val SourceDisabledByPeer = "SourceDisabledByPeer"
     private const val OneShotFinished = "OneShotFinished"
+    private const val SourceChanged = "SourceChanged"
+    private const val EncryptionMigrated = "EncryptionMigrated"
+    private const val EncryptionIncomplete = "EncryptionIncomplete"
 
     // Field names.
     private const val Sent = "sent"
     private const val Received = "received"
-    private const val Deleted = "deleted"
+    private const val DeletedHere = "deletedHere"
+    private const val DeletedOnPeer = "deletedOnPeer"
+    private const val Bytes = "bytes"
     private const val Moved = "moved"
     private const val Evicted = "evicted"
     private const val Skipped = "skipped"
@@ -63,10 +69,15 @@ internal object JournalRecords {
     private const val PeerName = "peerName"
     private const val Direction = "direction"
     private const val Files = "files"
+    private const val Changes = "changes"
+    private const val By = "by"
+    private const val Target = "target"
+    private const val Failed = "failed"
 
     fun kindOf(event: JournalEvent): String = when (event) {
         is JournalEvent.PassCompleted -> PassCompleted
         is JournalEvent.PassFailed -> PassFailed
+        is JournalEvent.FileFetched -> FileFetched
         is JournalEvent.PeerPassFailed -> PeerPassFailed
         is JournalEvent.SealedFilesUnreadable -> SealedFilesUnreadable
         is JournalEvent.ConflictHeld -> ConflictHeld
@@ -84,6 +95,9 @@ internal object JournalRecords {
         is JournalEvent.SourceAcceptedByPeer -> SourceAcceptedByPeer
         is JournalEvent.SourceDisabledByPeer -> SourceDisabledByPeer
         is JournalEvent.OneShotFinished -> OneShotFinished
+        is JournalEvent.SourceChanged -> SourceChanged
+        is JournalEvent.EncryptionMigrated -> EncryptionMigrated
+        is JournalEvent.EncryptionIncomplete -> EncryptionIncomplete
     }
 
     // ---------------- writing ----------------
@@ -94,15 +108,24 @@ internal object JournalRecords {
 
         when (event) {
             is JournalEvent.PassCompleted -> with(event.tally) {
+                put(Label, event.label)
+                put(Mode, event.mode)
                 put(Sent, sent)
                 put(Received, received)
-                put(Deleted, deleted)
+                put(DeletedHere, deletedHere)
+                put(DeletedOnPeer, deletedOnPeer)
                 put(Moved, moved)
                 put(Evicted, evicted)
                 put(Skipped, skipped)
             }
 
             is JournalEvent.PassFailed -> put(Reason, event.reason)
+
+            is JournalEvent.FileFetched -> {
+                put(Path, event.path)
+                put(Bytes, event.bytes)
+            }
+
             is JournalEvent.PeerPassFailed -> put(Reason, event.reason)
             is JournalEvent.SealedFilesUnreadable -> put(Problem, event.problem)
 
@@ -159,6 +182,22 @@ internal object JournalRecords {
                 put(Reason, event.reason)
             }
 
+            is JournalEvent.SourceChanged -> {
+                put(Label, event.label)
+                put(Changes, event.changes.joinToString(",") { it.name })
+                put(By, event.by)
+            }
+
+            is JournalEvent.EncryptionMigrated -> {
+                put(Target, event.target)
+                put(Files, event.files)
+            }
+
+            is JournalEvent.EncryptionIncomplete -> {
+                put(Target, event.target)
+                put(Failed, event.failed)
+            }
+
             is JournalEvent.OneShotFinished -> {
                 put(TransferId, event.transferId)
                 put(PeerName, event.peerName)
@@ -187,16 +226,20 @@ internal object JournalRecords {
                 PassCompleted -> JournalEvent.PassCompleted(
                     sourceId = source,
                     deviceId = device,
+                    label = string(Label),
+                    mode = enum(Mode),
                     tally = PassTally(
                         sent = int(Sent),
                         received = int(Received),
-                        deleted = int(Deleted),
+                        deletedHere = int(DeletedHere),
+                        deletedOnPeer = int(DeletedOnPeer),
                         moved = int(Moved),
                         evicted = int(Evicted),
                         skipped = int(Skipped),
                     ),
                 )
 
+                FileFetched -> JournalEvent.FileFetched(source, device, string(Path), long(Bytes))
                 PassFailed -> JournalEvent.PassFailed(source, device, enum<SyncFailure.Reason>(Reason))
                 PeerPassFailed -> JournalEvent.PeerPassFailed(source, device, enum<SyncFailureReason>(Reason))
                 SealedFilesUnreadable -> JournalEvent.SealedFilesUnreadable(source, enum(Problem))
@@ -235,6 +278,17 @@ internal object JournalRecords {
                     files = int(Files),
                 )
 
+                SourceChanged -> JournalEvent.SourceChanged(
+                    sourceId = source,
+                    deviceId = device,
+                    label = string(Label),
+                    changes = enums(Changes),
+                    by = enum(By),
+                )
+
+                EncryptionMigrated -> JournalEvent.EncryptionMigrated(source, enum(Target), int(Files))
+                EncryptionIncomplete -> JournalEvent.EncryptionIncomplete(source, enum(Target), int(Failed))
+
                 else -> error("kind '$kind' is not one this build knows")
             }
         }
@@ -251,8 +305,13 @@ internal object JournalRecords {
         fun long(field: String): Long =
             attributes.long(Event, field) ?: error("no readable '$field'")
 
-        inline fun <reified T : Enum<T>> enum(field: String): T = string(field).let { value ->
+        inline fun <reified T : Enum<T>> enum(field: String): T = enumOf(field, string(field))
+
+        /** A set stored as comma-separated names; empty when the set was. */
+        inline fun <reified T : Enum<T>> enums(field: String): Set<T> =
+            string(field).split(',').filter { it.isNotEmpty() }.mapTo(mutableSetOf()) { enumOf<T>(field, it) }
+
+        inline fun <reified T : Enum<T>> enumOf(field: String, value: String): T =
             enumValues<T>().firstOrNull { it.name == value } ?: error("'$field' '$value' is not one this build knows")
-        }
     }
 }

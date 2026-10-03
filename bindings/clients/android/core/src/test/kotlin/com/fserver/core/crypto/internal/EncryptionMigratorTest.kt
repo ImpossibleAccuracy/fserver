@@ -1,5 +1,11 @@
 package com.fserver.core.crypto.internal
 
+import org.junit.Assert.assertNull
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.launch
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.crypto.EncryptionProgress
+import com.fserver.core.journal.impl.JournalWriter
 import android.content.ContextWrapper
 import com.fserver.common.model.FileSize
 import com.fserver.common.utils.SourcePaths
@@ -48,7 +54,7 @@ class EncryptionMigratorTest {
         root = temp.newFolder("source-root")
         index = LocalIndex(storage, node, clock)
         val sourceFiles = SourceFileSystems(node, storage, sealedFiles)
-        migrator = EncryptionMigrator(storage, sourceFiles, sealedFiles, index.writer, index.indexer, TestScope())
+        migrator = EncryptionMigrator(storage, sourceFiles, sealedFiles, index.writer, index.indexer, TestScope(), JournalWriter(storage, MutableTimeProvider()))
     }
 
     @Test
@@ -84,6 +90,32 @@ class EncryptionMigratorTest {
 
         assertArrayEquals(Content, File(root, "a.txt").readBytes())
         assertEquals(AtRest.Plain, row("a.txt").atRest)
+    }
+
+    @Test
+    fun `a run reports its progress while it lasts and journals what it migrated`() = runTest {
+        register(EncryptionPolicy.Off)
+        File(root, "a.txt").writeBytes(Content)
+        File(root, "b.txt").writeBytes(Content)
+        index.indexer.refresh(source(EncryptionPolicy.Off))
+
+        val seen = mutableListOf<EncryptionProgress?>()
+        val watcher = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            migrator.progress.collect { seen += it }
+        }
+
+        register(EncryptionPolicy.Required())
+        migrator.migrate()
+        watcher.cancel()
+
+        assertEquals(EncryptionProgress(0, 2, setOf(EncryptionProgress.Toward.Encrypted)), seen[1])
+        assertEquals(2, seen.filterNotNull().last().done)
+        assertNull(migrator.progress.value)
+        assertTrue(
+            storage.journal.all.any {
+                it.event == JournalEvent.EncryptionMigrated(SourceId, JournalEvent.EncryptionTarget.Encrypted, files = 2)
+            }
+        )
     }
 
     @Test

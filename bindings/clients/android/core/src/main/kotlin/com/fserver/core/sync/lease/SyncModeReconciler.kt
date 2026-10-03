@@ -1,5 +1,7 @@
 package com.fserver.core.sync.lease
 
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.store.FServerStorage
 import com.fserver.core.sync.model.SourceEntry
 import com.fserver.core.sync.model.SyncMode
@@ -12,6 +14,7 @@ import timber.log.Timber
  */
 internal class SyncModeReconciler(
     private val storage: FServerStorage,
+    private val journal: JournalWriter,
 ) {
     sealed interface Verdict {
         data object Agreed : Verdict
@@ -43,6 +46,15 @@ internal class SyncModeReconciler(
         Timber.i("Source ${source.id}: adopting ${source.deviceId}'s mode $mode")
         val updated = source.copy(syncMode = mode)
         storage.sources.upsert(updated)
+        journal.record(
+            JournalEvent.SourceChanged(
+                sourceId = source.id,
+                deviceId = source.deviceId,
+                label = source.label,
+                changes = setOf(JournalEvent.SourceChanged.Change.ModeSettings),
+                by = JournalEvent.SourceChanged.ChangedBy.Peer,
+            )
+        )
         return updated
     }
 }

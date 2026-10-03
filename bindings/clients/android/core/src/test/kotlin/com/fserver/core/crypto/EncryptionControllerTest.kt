@@ -1,5 +1,6 @@
 package com.fserver.core.crypto
 
+import io.mockk.mockk
 import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.crypto.model.EncryptionPolicy
@@ -18,7 +19,7 @@ import kotlin.time.Instant
 /** Status counts only files held here, against what the source's policy wants of them. */
 class EncryptionControllerTest {
     private val storage = FakeStorage()
-    private val controller = EncryptionController(storage, SealedFiles(emptyList(), storage.storageKeys))
+    private val controller = EncryptionController(storage, SealedFiles(emptyList(), storage.storageKeys), mockk(relaxed = true))
     private val sealed = AtRest.Sealed(EncryptionPolicy.BuiltInCipherId, "key-1")
 
     @Test

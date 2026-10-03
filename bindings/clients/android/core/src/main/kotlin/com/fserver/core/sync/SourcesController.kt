@@ -233,6 +233,19 @@ class SourcesController internal constructor(
         val updated = existing.copy(syncMode = syncMode, preferences = preferences)
         storage.sources.upsert(updated)
 
+        val changes = existing.changesTo(updated)
+        if (changes.isNotEmpty()) {
+            journal.record(
+                JournalEvent.SourceChanged(
+                    sourceId = id,
+                    deviceId = existing.deviceId,
+                    label = existing.label,
+                    changes = changes,
+                    by = JournalEvent.SourceChanged.ChangedBy.User,
+                )
+            )
+        }
+
         Timber.i("Updated source $id: $syncMode, $preferences")
         updated
     }.onSuccess {
@@ -299,3 +312,10 @@ private fun SourceEntry.added() = JournalEvent.SourceAdded(
     mode = syncMode.type,
     role = role
 )
+
+private fun SourceEntry.changesTo(other: SourceEntry): Set<JournalEvent.SourceChanged.Change> = buildSet {
+    if (syncMode != other.syncMode) add(JournalEvent.SourceChanged.Change.ModeSettings)
+    if (preferences.deviceConstraints != other.preferences.deviceConstraints) add(JournalEvent.SourceChanged.Change.DeviceConstraints)
+    if (preferences.fileLimits != other.preferences.fileLimits) add(JournalEvent.SourceChanged.Change.FileLimits)
+    if (preferences.encryption != other.preferences.encryption) add(JournalEvent.SourceChanged.Change.Encryption)
+}

@@ -36,7 +36,11 @@ class JournalStoreImplTest {
     @Test
     fun `every kind survives a round trip`() = runTest {
         val events = listOf(
-            JournalEvent.PassCompleted("s", "d", PassTally(sent = 1, received = 2, deleted = 3, moved = 4, evicted = 5, skipped = 6)),
+            JournalEvent.PassCompleted(
+                "s", "d", "Photos", SyncMode.Type.Mirror,
+                PassTally(sent = 1, received = 2, deletedHere = 3, deletedOnPeer = 7, moved = 4, evicted = 5, skipped = 6),
+            ),
+            JournalEvent.FileFetched("s", "d", "DCIM/IMG_2210.jpg", bytes = 4_800_000),
             JournalEvent.PeerPassFailed("s", "d", SyncFailureReason.TransferFailed),
             JournalEvent.ConflictResolved(
                 "s", "d", "a/b.txt",
@@ -52,6 +56,13 @@ class JournalStoreImplTest {
             JournalEvent.SourceRequestRejected("s", "d", "Photos"),
             JournalEvent.SourceAcceptedByPeer("s", "d", "Photos"),
             JournalEvent.SourceDisabledByPeer("s", "d", "Photos", JournalEvent.SourceDisabledByPeer.Reason.Removed),
+            JournalEvent.SourceChanged(
+                "s", "d", "Photos",
+                setOf(JournalEvent.SourceChanged.Change.Encryption, JournalEvent.SourceChanged.Change.FileLimits),
+                JournalEvent.SourceChanged.ChangedBy.User,
+            ),
+            JournalEvent.SourceChanged("s", "d", "Photos", emptySet(), JournalEvent.SourceChanged.ChangedBy.Peer),
+            JournalEvent.EncryptionMigrated("s", JournalEvent.EncryptionTarget.Encrypted, files = 12),
             JournalEvent.OneShotFinished(
                 "t", "d", "Phone",
                 JournalEvent.OneShotFinished.Direction.Incoming,
@@ -66,6 +77,7 @@ class JournalStoreImplTest {
             JournalEvent.ClockSkewed("d", offsetMs = -120_000),
             JournalEvent.IncompatibleDictionary("d", localVersion = 1, remoteVersion = 2),
             JournalEvent.ConnectionRefused("d", JournalEvent.ConnectionRefused.Reason.IdentityMismatch),
+            JournalEvent.EncryptionIncomplete("s", JournalEvent.EncryptionTarget.Decrypted, failed = 2),
         )
 
         events.forEachIndexed { i, event -> store.append(event, at(i)) }

@@ -27,11 +27,24 @@ sealed interface JournalEvent {
 
     // ---------------- sync ----------------
 
-    /** A pass this device drove got through and moved something. Passes with nothing to do are not kept. */
+    /**
+     * A pass this device drove got through and moved something. Passes with nothing to do are not
+     * kept. [label] and [mode] are a snapshot, so the entry still reads once the source is gone.
+     */
     data class PassCompleted(
         override val sourceId: String,
         override val deviceId: String,
+        val label: String,
+        val mode: SyncMode.Type,
         val tally: PassTally,
+    ) : JournalEvent
+
+    /** A file this device did not hold was fetched from the peer because the user opened it. */
+    data class FileFetched(
+        override val sourceId: String,
+        override val deviceId: String,
+        val path: String,
+        val bytes: Long,
     ) : JournalEvent
 
     /** A pass this device drove gave up. Solved by the next pass over the source that gets through. */
@@ -240,6 +253,43 @@ sealed interface JournalEvent {
         }
     }
 
+    /** Settings of a source changed: by this device's user, or taken over from the peer. */
+    data class SourceChanged(
+        override val sourceId: String,
+        override val deviceId: String,
+        val label: String,
+        val changes: Set<Change>,
+        val by: ChangedBy,
+    ) : JournalEvent {
+        enum class Change { ModeSettings, DeviceConstraints, FileLimits, Encryption }
+
+        enum class ChangedBy { User, Peer }
+    }
+
+    // ---------------- encryption ----------------
+
+    /** Files of a source were brought in line with its encryption policy. */
+    data class EncryptionMigrated(
+        override val sourceId: String,
+        val target: EncryptionTarget,
+        val files: Int,
+    ) : JournalEvent
+
+    /** Some files could not be brought in line. Solved by a later migration that leaves none behind. */
+    data class EncryptionIncomplete(
+        override val sourceId: String,
+        val target: EncryptionTarget,
+        val failed: Int,
+    ) : Issue {
+        override val key: String get() = keyOf(sourceId)
+
+        companion object {
+            internal fun keyOf(sourceId: String) = "encryption:$sourceId"
+        }
+    }
+
+    enum class EncryptionTarget { Encrypted, Decrypted }
+
     // ---------------- one-shot ----------------
 
     data class OneShotFinished(
@@ -260,7 +310,10 @@ sealed interface JournalEvent {
 data class PassTally(
     val sent: Int = 0,
     val received: Int = 0,
-    val deleted: Int = 0,
+    /** Deleted on this device, following the peer. */
+    val deletedHere: Int = 0,
+    /** Deleted on the peer, following this device. */
+    val deletedOnPeer: Int = 0,
     val moved: Int = 0,
     val evicted: Int = 0,
     /** New files left out for a file limit. */

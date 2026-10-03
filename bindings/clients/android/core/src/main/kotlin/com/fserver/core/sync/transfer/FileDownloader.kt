@@ -1,5 +1,7 @@
 package com.fserver.core.sync.transfer
 
+import com.fserver.core.journal.JournalEvent
+import com.fserver.core.journal.impl.JournalWriter
 import com.fserver.core.network.dictionary.RemoteOperation
 import com.fserver.core.network.dictionary.dto.VersionDto
 import com.fserver.core.network.utils.runRemoteOperation
@@ -18,6 +20,7 @@ import kotlin.time.Duration.Companion.seconds
 internal class FileDownloader(
     private val connector: PeerConnector,
     private val requestedDownloads: RequestedDownloads,
+    private val journal: JournalWriter,
 ) {
     /** [version] is what the file is recorded as here; null takes the peer's own. */
     suspend fun download(
@@ -34,6 +37,12 @@ internal class FileDownloader(
                 timeout = downloadTimeout(sizeBytes),
             )
         }
+    }
+
+    /** [download] the user asked for by opening [path], rather than one a pass planned. */
+    suspend fun fetch(source: SourceEntry, key: IndexedFileKey, path: String, sizeBytes: Long) {
+        download(source, key, sizeBytes)
+        journal.record(JournalEvent.FileFetched(source.id, source.deviceId, path, sizeBytes))
     }
 
     /**

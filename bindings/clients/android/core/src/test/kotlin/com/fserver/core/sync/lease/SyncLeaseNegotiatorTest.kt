@@ -44,7 +44,7 @@ class SyncLeaseNegotiatorTest {
     private val peers = mockk<PeerConnector>()
 
     private val source = sourceEntry(id = SourceId, deviceId = PeerId)
-    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
+    private val negotiator = SyncLeaseNegotiator(storage, registry, peers, SyncModeReconciler(storage, JournalWriter(storage, clock)), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
 
     @Before
     fun setUp() = runBlocking {

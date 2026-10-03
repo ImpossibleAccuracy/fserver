@@ -1,5 +1,7 @@
 package com.fserver.core.crypto
 
+import com.fserver.core.crypto.internal.EncryptionMigrator
+import kotlinx.coroutines.flow.StateFlow
 import com.fserver.core.crypto.internal.SealedFiles
 import com.fserver.core.crypto.model.AtRest
 import com.fserver.core.crypto.model.EncryptionPolicy
@@ -16,7 +18,11 @@ import kotlinx.coroutines.flow.map
 class EncryptionController internal constructor(
     private val storage: FServerStorage,
     private val sealedFiles: SealedFiles,
+    private val migrator: EncryptionMigrator,
 ) {
+    /** The migration running over every source, null when none runs. */
+    val progress: StateFlow<EncryptionProgress?> get() = migrator.progress
+
     /** What `EncryptionPolicy.Required` may name here: the built-in cipher first, then the host's. */
     val cipherIds: List<String> get() = sealedFiles.cipherIds
 

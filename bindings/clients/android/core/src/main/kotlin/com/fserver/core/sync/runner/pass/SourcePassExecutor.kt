@@ -312,7 +312,8 @@ private fun Throwable.isLinkLoss(): Boolean = generateSequence(this) { it.cause 
 private fun PassTally.counting(action: FileAction): PassTally = when (action) {
     is FileAction.Upload -> copy(sent = sent + 1)
     is FileAction.Download -> copy(received = received + 1)
-    is FileAction.DeleteLocal, is FileAction.DeleteRemote -> copy(deleted = deleted + 1)
+    is FileAction.DeleteLocal -> copy(deletedHere = deletedHere + 1)
+    is FileAction.DeleteRemote -> copy(deletedOnPeer = deletedOnPeer + 1)
     is FileAction.MoveLocal, is FileAction.MoveRemote -> copy(moved = moved + 1)
     is FileAction.EvictLocal -> copy(evicted = evicted + 1)
     else -> this

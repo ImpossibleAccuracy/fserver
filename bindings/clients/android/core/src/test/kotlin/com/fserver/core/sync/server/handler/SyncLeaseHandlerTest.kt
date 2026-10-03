@@ -40,7 +40,7 @@ class SyncLeaseHandlerTest {
     private val clock = MutableTimeProvider()
     private val storage = FakeStorage(localDeviceId = LocalId, clock = clock)
     private val registry = SyncLeaseRegistry(clock, SyncProgressReporter(clock))
-    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage), mockk(relaxed = true), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
+    private val handler = SyncLeaseHandler(SourceAuthorizer(storage), storage, registry, SyncModeReconciler(storage, JournalWriter(storage, clock)), mockk(relaxed = true), peerMetadataExchange(storage, clock), JournalWriter(storage, clock))
 
     @Before
     fun setUp() = runBlocking {

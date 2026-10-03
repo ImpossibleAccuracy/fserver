@@ -14,11 +14,11 @@ import com.fserver.core.files.scan.toCore
 import com.fserver.core.files.scan.toFiles
 import com.fserver.core.requirement.RequirementsChecker
 import com.fserver.core.store.FServerStorage
+import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.index.IndexedFileKey
 import com.fserver.core.sync.index.LocalIndexWriter
 import com.fserver.core.sync.index.LocalIndexedFile
 import com.fserver.core.sync.index.RemoteIndexedFile
-import com.fserver.core.sync.fileops.FileEvictor
 import com.fserver.core.sync.model.evictsByHand
 import com.fserver.core.sync.model.evictsLocally
 import com.fserver.core.sync.model.fetches
@@ -117,7 +117,12 @@ class FilesController internal constructor(
 
         requirementsChecker.ensureSourceReachable(source.location)
 
-        fileDownloader.download(source = source, key = key, sizeBytes = entry.size.bytes)
+        fileDownloader.fetch(
+            source = source,
+            key = key,
+            path = entry.path,
+            sizeBytes = entry.size.bytes
+        )
 
         if (source.evictsLocally) markFetched(key)
 
@@ -149,23 +154,25 @@ class FilesController internal constructor(
      *
      * @return the ids actually evicted.
      */
-    suspend fun evict(sourceId: String, fileIds: Set<String>): Result<Set<String>> = runBackgroundJob {
-        val source = storage.sources.findById(sourceId)
-            ?: throw IllegalArgumentException("Source $sourceId is not registered")
+    suspend fun evict(sourceId: String, fileIds: Set<String>): Result<Set<String>> =
+        runBackgroundJob {
+            val source = storage.sources.findById(sourceId)
+                ?: throw IllegalArgumentException("Source $sourceId is not registered")
 
-        if (!source.evictsByHand) {
-            throw SyncException.ModeForbiddenException(
-                "Source ${source.id} is not evicted by hand under ${source.syncMode.type} as ${source.role}"
-            )
-        }
+            if (!source.evictsByHand) {
+                throw SyncException.ModeForbiddenException(
+                    "Source ${source.id} is not evicted by hand under ${source.syncMode.type} as ${source.role}"
+                )
+            }
 
-        syncRunner.runSourceThen(source) { agreed ->
-            fileIds.filterTo(mutableSetOf()) { fileId ->
-                val row = storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = sourceId))
-                row != null && evictor.evict(agreed, fileId, expected = row.hash)
+            syncRunner.runSourceThen(source) { agreed ->
+                fileIds.filterTo(mutableSetOf()) { fileId ->
+                    val row =
+                        storage.index.findFile(IndexedFileKey(fileId = fileId, sourceId = sourceId))
+                    row != null && evictor.evict(agreed, fileId, expected = row.hash)
+                }
             }
         }
-    }
 
     /** Pins or unpins [fileIds] of [sourceId], where [pinsFiles] allows it. Files not present here are skipped. */
     suspend fun setPinned(sourceId: String, fileIds: Set<String>, pinned: Boolean) {
@@ -179,7 +186,11 @@ class FilesController internal constructor(
         }
 
         for (fileId in fileIds) {
-            indexWriter.recordPinned(source, IndexedFileKey(fileId = fileId, sourceId = sourceId), pinned)
+            indexWriter.recordPinned(
+                source,
+                IndexedFileKey(fileId = fileId, sourceId = sourceId),
+                pinned
+            )
         }
     }
 

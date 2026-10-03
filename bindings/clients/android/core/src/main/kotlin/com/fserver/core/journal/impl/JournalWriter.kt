@@ -38,17 +38,29 @@ internal class JournalWriter(
     suspend fun solve(key: String) = write { store.solve(key, timeProvider.now()) }
 
     /** The source is gone: nothing about it can be fixed any more. */
-    suspend fun solveForSource(sourceId: String) = write { store.solveForSource(sourceId, timeProvider.now()) }
+    suspend fun solveForSource(sourceId: String) =
+        write { store.solveForSource(sourceId, timeProvider.now()) }
 
     /** The device is forgotten: nothing about it can be fixed any more. */
-    suspend fun solveForDevice(deviceId: String) = write { store.solveForDevice(deviceId, timeProvider.now()) }
+    suspend fun solveForDevice(deviceId: String) =
+        write { store.solveForDevice(deviceId, timeProvider.now()) }
 
     /**
      * A pass over [source] got through. [conflicts] are the files it still planned as conflicts:
      * a held conflict outside them was settled some other way.
      */
     suspend fun passSucceeded(source: SourceEntry, tally: PassTally, conflicts: Set<String>) {
-        if (!tally.isEmpty) record(JournalEvent.PassCompleted(source.id, source.deviceId, tally))
+        if (!tally.isEmpty) {
+            record(
+                JournalEvent.PassCompleted(
+                    sourceId = source.id,
+                    deviceId = source.deviceId,
+                    label = source.label,
+                    mode = source.syncMode.type,
+                    tally = tally
+                )
+            )
+        }
 
         solve(JournalEvent.PassFailed.keyOf(source.id))
         solve(JournalEvent.SealedFilesUnreadable.keyOf(source.id))
@@ -77,7 +89,13 @@ internal class JournalWriter(
         val causes = generateSequence(failure) { it.cause }
 
         causes.firstNotNullOfOrNull { it as? DictionaryMismatchException }?.let {
-            raise(JournalEvent.IncompatibleDictionary(deviceId, FileServerDictionary.Version, it.remote.version))
+            raise(
+                JournalEvent.IncompatibleDictionary(
+                    deviceId = deviceId,
+                    localVersion = FileServerDictionary.Version,
+                    remoteVersion = it.remote.version
+                )
+            )
             return
         }
 
@@ -130,7 +148,12 @@ internal class JournalWriter(
     }
 
     private suspend inline fun write(block: () -> Unit) {
-        runCatchingCancellable(block).onFailure { Timber.w(it, "Could not write to the activity journal") }
+        runCatchingCancellable(block).onFailure {
+            Timber.w(
+                it,
+                "Could not write to the activity journal"
+            )
+        }
     }
 
     private companion object {
@@ -145,5 +168,6 @@ private fun Throwable.sealedProblem(): JournalEvent.SealedFilesUnreadable.Proble
         is FileSystemException.MissingKey -> JournalEvent.SealedFilesUnreadable.Problem.MissingKey
         is FileSystemException.UnknownCipher -> JournalEvent.SealedFilesUnreadable.Problem.UnknownCipher
         is FileSystemException.Corrupted -> JournalEvent.SealedFilesUnreadable.Problem.Corrupted
-        else -> suppressedExceptions.firstNotNullOfOrNull { it.sealedProblem() } ?: cause?.sealedProblem()
+        else -> suppressedExceptions.firstNotNullOfOrNull { it.sealedProblem() }
+            ?: cause?.sealedProblem()
     }

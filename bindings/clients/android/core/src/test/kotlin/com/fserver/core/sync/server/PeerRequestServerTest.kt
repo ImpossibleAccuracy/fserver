@@ -255,7 +255,7 @@ class PeerRequestServerTest {
                 authorizer(),
                 storage,
                 registry,
-                SyncModeReconciler(storage),
+                SyncModeReconciler(storage, JournalWriter(storage, clock)),
                 PassCompletion(storage, mockk(relaxed = true), garbageCollector, background, clock, mockk(relaxed = true)),
                 peerMetadataExchange(storage, clock),
                 JournalWriter(storage, clock),
