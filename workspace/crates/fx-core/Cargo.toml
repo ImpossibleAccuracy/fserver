@@ -1,0 +1,20 @@
+[package]
+name = "fx-core"
+description = "FServer engine: sources, sync, offload, local index."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+fx-files = { workspace = true }
+fx-net = { workspace = true }
+fx-proto = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[dev-dependencies]
+fx-testkit = { workspace = true }
+
+[lints]
+workspace = true

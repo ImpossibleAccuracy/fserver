@@ -73,3 +73,7 @@ transfers, conflicts, eviction) → services.
 - Platform specifics appear only as seams ("a platform keystore", "an OS-granted folder handle").
 - Open design decisions (none can be implemented before they are settled) are marked as such in the
   section that needs them.
+- **Implementation docs live with the implementation.** A platform part (the Rust workspace, a
+  client, a server) may keep its own documentation in its own folder - module layout, build,
+  dependency rules - for example [`workspace/docs/`](../workspace/docs/crates.md). Such docs describe
+  how that implementation follows these documents; they never restate or override them.

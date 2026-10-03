@@ -9,8 +9,8 @@ Android client. Kotlin + Jetpack Compose.
 :core   Local core adapter - platform logic, wrappers, etc.
 ```
 
-Shared logic comes from [`workspace/core`](../../../workspace/core/README.md) through
-[`workspace/UniFFI`](../../../workspace/UniFFI/README.md). No sync/protocol logic here.
+Shared logic comes from the Rust engine through the `fx-ffi` bindings
+([`workspace/docs/crates.md`](../../../workspace/docs/crates.md)). No sync/protocol logic here.
 
 ## Build
 

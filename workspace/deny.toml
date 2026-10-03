@@ -1,0 +1,38 @@
+# cargo-deny configuration: `cargo deny check` from `workspace/`.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# Permissive licenses only until the project license is chosen (ToR §4.5).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# Workspace crates are `publish = false` and carry no license yet (ToR §4.5).
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Internal path dependencies of unpublished crates are not wildcards.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

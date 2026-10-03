@@ -1,0 +1,39 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "uniffi-bindgen", "xtask"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+fx-proto = { path = "crates/fx-proto" }
+fx-net = { path = "crates/fx-net" }
+fx-files = { path = "crates/fx-files" }
+fx-core = { path = "crates/fx-core" }
+fx-testkit = { path = "crates/fx-testkit" }
+
+# External crates (versions checked on crates.io 2026-10-03)
+async-trait = "0.1.92"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", default-features = false }
+uniffi = "0.32.2"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

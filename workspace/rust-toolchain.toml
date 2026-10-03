@@ -1,0 +1,7 @@
+# Targets are not listed on purpose: rustup would install them on first use.
+# Android/iOS targets are added explicitly, see `cargo xtask android|ios`.
+# Minimum version is `rust-version` in Cargo.toml.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

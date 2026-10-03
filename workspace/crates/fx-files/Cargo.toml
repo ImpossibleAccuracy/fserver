@@ -1,0 +1,13 @@
+[package]
+name = "fx-files"
+description = "FServer file access: one file-system API over every kind of location."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+fx-proto = { workspace = true }
+
+[lints]
+workspace = true

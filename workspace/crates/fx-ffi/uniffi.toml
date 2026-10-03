@@ -1,0 +1,8 @@
+[bindings.kotlin]
+package_name = "com.fserver.core.ffi"
+cdylib_name = "fx_ffi"
+
+[bindings.swift]
+module_name = "FxCore"
+ffi_module_name = "FxCoreFFI"
+ffi_module_filename = "FxCoreFFI"

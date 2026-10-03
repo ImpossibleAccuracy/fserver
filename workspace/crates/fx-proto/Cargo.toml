@@ -1,0 +1,12 @@
+[package]
+name = "fx-proto"
+description = "Shared types and wire format of the FServer protocol. No I/O."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
