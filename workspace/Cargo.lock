@@ -229,6 +229,7 @@ name = "fx-files"
 version = "0.1.0"
 dependencies = [
  "fx-proto",
+ "thiserror",
 ]
 
 [[package]]
@@ -236,6 +237,7 @@ name = "fx-net"
 version = "0.1.0"
 dependencies = [
  "fx-proto",
+ "thiserror",
 ]
 
 [[package]]

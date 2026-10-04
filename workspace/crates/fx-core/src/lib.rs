@@ -2,6 +2,9 @@
 //! (ToR §2, §3.4, §4.3, `docs/architecture/overview.md`).
 //! The only crate that knows what a source, a version or a conflict is.
 
+mod error;
+
+pub use error::{CoreError, DetectionError, SyncError, TransferError};
 use tokio::runtime::Runtime;
 
 /// Engine configuration supplied by the host (`docs/architecture/overview.md` §2.1).
@@ -9,14 +12,6 @@ use tokio::runtime::Runtime;
 pub struct EngineConfig {
     /// Directory for the engine's private state (index, keys, staging).
     pub data_dir: String,
-}
-
-/// Engine error.
-#[derive(Debug, thiserror::Error)]
-pub enum CoreError {
-    /// The async runtime could not be started.
-    #[error("runtime: {0}")]
-    Runtime(#[from] std::io::Error),
 }
 
 /// Entry point of the core. Owns its async runtime; the runtime is never exposed.
