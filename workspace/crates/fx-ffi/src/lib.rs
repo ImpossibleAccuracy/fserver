@@ -1,6 +1,6 @@
 //! UniFFI adapter: the only crate that depends on `uniffi`. Translates `fx-core`
 //! types and errors for Kotlin/Swift and exposes platform seams as foreign traits.
-//! Thin layer: no business logic (ToR §1.2, §4.4).
+//! Thin layer: no business logic.
 
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-//! Big-endian primitives everything on the wire is built from (`connection-protocol.md` §5):
+//! Big-endian primitives everything on the wire is built from:
 //! `bytes` = `i32 length` + raw, `string` = UTF-8 as `bytes`.
 
 use crate::NetError;
@@ -25,6 +25,18 @@ impl ByteWriter {
     /// One unsigned byte.
     pub fn u8(&mut self, value: u8) -> &mut Self {
         self.buf.push(value);
+        self
+    }
+
+    /// Two unsigned bytes.
+    pub fn u16(&mut self, value: u16) -> &mut Self {
+        self.buf.extend_from_slice(&value.to_be_bytes());
+        self
+    }
+
+    /// Four unsigned bytes.
+    pub fn u32(&mut self, value: u32) -> &mut Self {
+        self.buf.extend_from_slice(&value.to_be_bytes());
         self
     }
 
@@ -97,6 +109,16 @@ impl<'a> ByteReader<'a> {
     /// One unsigned byte.
     pub fn u8(&mut self) -> Result<u8, NetError> {
         self.array::<1>().map(|[b]| b)
+    }
+
+    /// Two unsigned bytes.
+    pub fn u16(&mut self) -> Result<u16, NetError> {
+        self.array().map(u16::from_be_bytes)
+    }
+
+    /// Four unsigned bytes.
+    pub fn u32(&mut self) -> Result<u32, NetError> {
+        self.array().map(u32::from_be_bytes)
     }
 
     /// Big-endian `i32`.

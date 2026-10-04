@@ -1,5 +1,5 @@
 //! File access: the platform `FileSystem` seam, scanning, hashing, atomic placement,
-//! at-rest crypto, placeholders, media, export (ToR §3.4, §3.6, §3.9, `docs/files/`).
+//! at-rest crypto, placeholders, media, export.
 //! Never depends on `fx-net`.
 
 mod error;

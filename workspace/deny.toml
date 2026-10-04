@@ -9,7 +9,7 @@ yanked = "deny"
 
 [licenses]
 version = 2
-# Permissive licenses only until the project license is chosen (ToR §4.5).
+# Permissive licenses only until the project license is chosen.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -24,7 +24,7 @@ allow = [
 confidence-threshold = 0.9
 
 [licenses.private]
-# Workspace crates are `publish = false` and carry no license yet (ToR §4.5).
+# Workspace crates are `publish = false` and carry no license yet.
 ignore = true
 
 [bans]

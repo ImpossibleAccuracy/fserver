@@ -1,5 +1,4 @@
-//! The engine: sources, sync, conflicts, host and offload modes, the SQLite index
-//! (ToR §2, §3.4, §4.3, `docs/architecture/overview.md`).
+//! The engine: sources, sync, conflicts, host and offload modes, the SQLite index.
 //! The only crate that knows what a source, a version or a conflict is.
 
 mod error;
@@ -7,7 +6,7 @@ mod error;
 pub use error::{CoreError, DetectionError, SyncError, TransferError};
 use tokio::runtime::Runtime;
 
-/// Engine configuration supplied by the host (`docs/architecture/overview.md` §2.1).
+/// Engine configuration supplied by the host
 #[derive(Debug, Clone, Default)]
 pub struct EngineConfig {
     /// Directory for the engine's private state (index, keys, staging).
@@ -21,7 +20,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Wires the engine (`docs/architecture/overview.md` §2.2). Nothing network-facing
+    /// Wires the engine. Nothing network-facing
     /// starts by itself.
     pub fn new(config: EngineConfig) -> Result<Self, CoreError> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
